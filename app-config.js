@@ -7,7 +7,7 @@
  */
 
 const SUPABASE_URL = "https://douygxbizmkcbonmewbw.supabase.co"; // ป้อน Supabase Project URL ที่นี่ เช่น "https://xxxx.supabase.co"
-const SUPABASE_ANON_KEY = "sb_publishable_0xFDmwYwu5XQo1uOQ8F73A_yolkhpYh"; // ป้อน Supabase Anon API Key ที่นี่
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRvdXlneGJpem1rY2Jvbm1ld2J3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQwOTkzODQsImV4cCI6MjA5OTY3NTM4NH0.5NPXupEdzw8M3f5hKY12utnP32WpFOTs7vsJAZdkFuI"; // ป้อน Supabase Anon API Key ที่นี่
 
 // API Key สำหรับ Google AI Studio (สำหรับใช้งานระบบออกแบบรอยสักและที่ปรึกษา AI)
 const GEMINI_API_KEY = "AQ.Ab8RN6KLH8JSN25mtsnRlAP4izlQ2A1QaLkEVaVNM7gWLmcqKQ"; 
