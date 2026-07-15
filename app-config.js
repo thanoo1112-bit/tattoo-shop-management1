@@ -10,7 +10,7 @@ const SUPABASE_URL = "https://douygxbizmkcbonmewbw.supabase.co"; // ป้อน
 const SUPABASE_ANON_KEY = "sb_publishable_0xFDmwYwu5XQo1uOQ8F73A_yolkhpYh"; // ป้อน Supabase Anon API Key ที่นี่
 
 // API Key สำหรับ Google AI Studio (สำหรับใช้งานระบบออกแบบรอยสักและที่ปรึกษา AI)
-const GEMINI_API_KEY = "AQ.Ab8RN6Le1-aXd6uw2m6IPIEqD_BKid1UjKXCB7OdMLaxnifujg"; 
+const GEMINI_API_KEY = "AQ.Ab8RN6KLH8JSN25mtsnRlAP4izlQ2A1QaLkEVaVNM7gWLmcqKQ"; 
 
 
 // เริ่มต้นใช้งาน Supabase Client (หากกำหนดค่าไว้ครบถ้วน)
