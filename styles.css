@@ -7,8 +7,8 @@
   --bg-tertiary: #121212;
   
   --text-primary: #ffffff;
-  --text-secondary: #d1d1d6;
-  --text-muted: #8e8e93;
+  --text-secondary: #a0a0a5;
+  --text-muted: #636366;
   
   --accent-gold: #e53e3e; /* Tattoo Red */
   --accent-gold-hover: #c53030;
@@ -179,14 +179,13 @@ header {
 
 .btn-secondary {
   background-color: transparent;
-  color: var(--text-primary);
-  border: 1px solid #48484a;
+  color: var(--text-secondary);
+  border: 1px solid var(--border-color);
 }
 
 .btn-secondary:hover {
   color: var(--text-primary);
-  background-color: rgba(255, 255, 255, 0.08);
-  border-color: #8e8e93;
+  background-color: var(--border-color);
 }
 
 .btn-outline {
