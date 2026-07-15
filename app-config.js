@@ -6,8 +6,8 @@
  * 2. หากยังไม่มีระบบจะบันทึกข้อมูลและดึงข้อมูลผ่าน LocalStorage โดยอัตโนมัติ (ช่วยให้ทดสอบหน้าร้านได้ทันที!)
  */
 
-const SUPABASE_URL = "sb_publishable_0xFDmwYwu5XQo1uOQ8F73A_yolkhpYh"; // ป้อน Supabase Project URL ที่นี่ เช่น "https://xxxx.supabase.co"
-const SUPABASE_ANON_KEY = "sb_secret_cZmZOSV5OjeY46191OGOVw_guWjMJCN"; // ป้อน Supabase Anon API Key ที่นี่
+const SUPABASE_URL = "https://douygxbizmkcbonmewbw.supabase.co"; // ป้อน Supabase Project URL ที่นี่ เช่น "https://xxxx.supabase.co"
+const SUPABASE_ANON_KEY = "sb_publishable_0xFDmwYwu5XQo1uOQ8F73A_yolkhpYh"; // ป้อน Supabase Anon API Key ที่นี่
 
 // API Key สำหรับ Google AI Studio (สำหรับใช้งานระบบออกแบบรอยสักและที่ปรึกษา AI)
 const GEMINI_API_KEY = "AQ.Ab8RN6KLH8JSN25mtsnRlAP4izlQ2A1QaLkEVaVNM7gWLmcqKQ"; 
