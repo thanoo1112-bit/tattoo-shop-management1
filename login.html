@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>157 TATTOO - พนักงานเข้าสู่ระบบ</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+
+  <!-- Header -->
+  <header>
+    <div class="nav-container">
+      <div class="logo">
+        <i class="fa-solid fa-paint-brush"></i> 157 <span>TATTOO</span>
+      </div>
+      <ul class="nav-menu">
+        <li><a href="index.html" class="nav-link"><i class="fa-solid fa-arrow-left"></i> กลับหน้าหลักร้าน</a></li>
+      </ul>
+    </div>
+  </header>
+
+  <!-- Login Main Content -->
+  <div class="login-wrapper">
+    <div class="login-card">
+      <div class="logo" style="justify-content: center; font-size: 2.2rem; margin-bottom: 0.75rem;">
+        <i class="fa-solid fa-paint-brush" style="color:var(--accent-gold);"></i> 157 <span>TATTOO</span>
+      </div>
+      <h2>ระบบผู้ดูแลระบบและช่างสัก</h2>
+      <p>ลงชื่อเข้าใช้งานระบบหลังร้านและการจัดการลูกค้า</p>
+
+      <!-- Alert -->
+      <div id="errorAlert" style="background-color: var(--danger-light); color: var(--danger); border: 1px solid var(--border-color); padding: 0.75rem; border-radius: var(--radius-sm); margin-bottom: 1.5rem; display: none; text-align: left; font-size: 0.9rem;">
+        <i class="fa-solid fa-triangle-exclamation"></i> อีเมลหรือรหัสผ่านไม่ถูกต้อง!
+      </div>
+
+      <form id="loginForm">
+        <!-- Email -->
+        <div class="form-group">
+          <label for="email"><i class="fa-regular fa-envelope"></i> อีเมล / ชื่อผู้ใช้</label>
+          <input type="text" id="email" class="form-control" placeholder="admin@157tattoo.com" required>
+        </div>
+        <!-- Password -->
+        <div class="form-group">
+          <label for="password"><i class="fa-solid fa-key"></i> รหัสผ่าน</label>
+          <input type="password" id="password" class="form-control" placeholder="••••••••" required>
+        </div>
+
+        <button type="submit" class="btn btn-primary" style="margin-top: 1rem; width: 100%;"><i class="fa-solid fa-right-to-bracket"></i> เข้าสู่ระบบ</button>
+      </form>
+
+      <div style="margin-top: 1.5rem; font-size: 0.85rem; color: var(--text-muted);">
+        <p>บัญชีทดสอบระดับ Admin: <strong>admin</strong> | รหัสผ่าน: <strong>123456</strong></p>
+      </div>
+    </div>
+  </div>
+
+  <script src="app-config.js"></script>
+  <script>
+    document.getElementById('loginForm').addEventListener('submit', async function(e) {
+      e.preventDefault();
+      
+      const email = document.getElementById('email').value.trim();
+      const password = document.getElementById('password').value;
+      const errorAlert = document.getElementById('errorAlert');
+
+      // 1. Try Supabase Auth first
+      let authSuccess = false;
+      if (window.supabaseClient) {
+        try {
+          const { data, error } = await window.supabaseClient.auth.signInWithPassword({
+            email: email,
+            password: password,
+          });
+          if (!error && data.user) {
+            authSuccess = true;
+          }
+        } catch (err) {
+          console.error("Supabase Auth error:", err);
+        }
+      }
+
+      // 2. Check mock admin account (fallback)
+      if (email === 'admin' && password === '123456' || email === 'admin@157tattoo.com' && password === '123456') {
+        authSuccess = true;
+      }
+
+      if (authSuccess) {
+        localStorage.setItem('157tattoo_logged_in', 'true');
+        window.location.href = 'dashboard.html';
+      } else {
+        errorAlert.style.display = 'block';
+        setTimeout(() => { errorAlert.style.display = 'none'; }, 4000);
+      }
+    });
+  </script>
+</body>
+</html>

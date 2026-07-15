@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>157 TATTOO - ร้านสักระดับพรีเมียมและระบบจองคิวออนไลน์</title>
+  <meta name="description" content="ระบบบริหารจัดการและจองคิวสักออนไลน์ 157 TATTOO ดูแลคุณโดยช่างสักมืออาชีพ">
+  <!-- CSS -->
+  <link rel="stylesheet" href="styles.css">
+  <!-- FontAwesome for Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <!-- Supabase JS CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+
+  <!-- Header -->
+  <header>
+    <div class="nav-container">
+      <div class="logo">
+        <i class="fa-solid fa-paint-brush"></i> 157 <span>TATTOO</span>
+      </div>
+      <ul class="nav-menu">
+        <li><a href="#home" class="nav-link">หน้าแรก</a></li>
+        <li><a href="#gallery" class="nav-link">ผลงานของเรา</a></li>
+        <li><a href="#booking" class="nav-link">จองคิวสัก</a></li>
+        <li><a href="login.html" class="btn btn-outline"><i class="fa-solid fa-user-lock"></i> พนักงานเข้าสู่ระบบ</a></li>
+      </ul>
+    </div>
+  </header>
+
+  <!-- Hero Section -->
+  <section class="section hero" id="home">
+    <div class="hero-content">
+      <h1 class="text-gold">ศิลปะบนผิวหนัง<br>สะท้อนตัวตนของคุณ</h1>
+      <p>157 TATTOO บริการออกแบบและสักลายโดยช่างผู้เชี่ยวชาญ สะอาด ปลอดภัย ได้มาตรฐานสากล พร้อมระบบดูแลและติดตามหลังการสักเพื่อสิ่งที่ดีที่สุดสำหรับผิวคุณ</p>
+      <div style="display: flex; gap: 1rem;">
+        <a href="#booking" class="btn btn-primary"><i class="fa-regular fa-calendar-check"></i> จองคิวออนไลน์</a>
+        <a href="#gallery" class="btn btn-secondary">ชมผลงาน</a>
+      </div>
+    </div>
+    <div class="hero-image-container">
+      <div class="hero-image-placeholder">
+        <i class="fa-solid fa-crown"></i>
+        <h3>157 TATTOO STUDIO</h3>
+        <p>Premium Luxury & Artistry</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Gallery Section -->
+  <section class="section" id="gallery">
+    <div class="section-title">
+      <h2>ผลงานล่าสุดของเรา</h2>
+      <p>คัดสรรลายสักพรีเมียมจากหลากหลายสไตล์โดยช่างผู้ชำนาญของร้าน</p>
+    </div>
+    <div class="gallery-grid">
+      <!-- Item 1 -->
+      <div class="gallery-item">
+        <div class="gallery-img" style="display:flex; align-items:center; justify-content:center; background-color: var(--bg-tertiary);">
+          <i class="fa-solid fa-dragon" style="font-size:3rem; color:var(--accent-gold);"></i>
+        </div>
+        <div class="gallery-info">
+          <h4>สไตล์ Japanese Traditional</h4>
+          <p>ช่างที - งานสีสดละเอียด คมชัด</p>
+        </div>
+      </div>
+      <!-- Item 2 -->
+      <div class="gallery-item">
+        <div class="gallery-img" style="display:flex; align-items:center; justify-content:center; background-color: var(--bg-tertiary);">
+          <i class="fa-solid fa-feather-pointed" style="font-size:3rem; color:var(--accent-gold);"></i>
+        </div>
+        <div class="gallery-info">
+          <h4>สไตล์ Minimal & Fine Line</h4>
+          <p>ช่างพลอย - ลายเส้นบางคม ละมุนตา</p>
+        </div>
+      </div>
+      <!-- Item 3 -->
+      <div class="gallery-item">
+        <div class="gallery-img" style="display:flex; align-items:center; justify-content:center; background-color: var(--bg-tertiary);">
+          <i class="fa-solid fa-skull" style="font-size:3rem; color:var(--accent-gold);"></i>
+        </div>
+        <div class="gallery-info">
+          <h4>สไตล์ Black & Grey Realism</h4>
+          <p>ช่างบอม - มิติเงาสมจริงระดับพรีเมียม</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Booking Section -->
+  <section class="section" id="booking">
+    <div class="section-title">
+      <h2>จองคิวสักออนไลน์</h2>
+      <p>กรอกข้อมูลรายละเอียดเพื่อจองวันเวลาที่สะดวก ช่างจะตรวจสอบและยืนยันคิวกลับไป</p>
+    </div>
+
+    <div class="booking-card">
+      <form id="bookingForm">
+        <div class="form-grid">
+          <!-- Name -->
+          <div class="form-group">
+            <label for="customerName"><i class="fa-regular fa-user"></i> ชื่อ-นามสกุล ของคุณ</label>
+            <input type="text" id="customerName" class="form-control" placeholder="เช่น นายสมชาย รักดี" required>
+          </div>
+          <!-- Tel -->
+          <div class="form-group">
+            <label for="customerPhone"><i class="fa-solid fa-phone"></i> เบอร์โทรศัพท์</label>
+            <input type="tel" id="customerPhone" class="form-control" placeholder="เช่น 0891234567" required>
+          </div>
+          <!-- Date -->
+          <div class="form-group">
+            <label for="bookingDate"><i class="fa-regular fa-calendar"></i> เลือกวันที่รับบริการ</label>
+            <input type="date" id="bookingDate" class="form-control" required>
+          </div>
+          <!-- Time -->
+          <div class="form-group">
+            <label for="bookingTime"><i class="fa-regular fa-clock"></i> ช่วงเวลา</label>
+            <select id="bookingTime" class="form-control" required>
+              <option value="">เลือกเวลา...</option>
+              <option value="10:00">10:00 น.</option>
+              <option value="13:00">13:00 น.</option>
+              <option value="16:00">16:00 น.</option>
+              <option value="19:00">19:00 น.</option>
+            </select>
+          </div>
+          <!-- Artist -->
+          <div class="form-group">
+            <label for="artistName"><i class="fa-solid fa-user-tie"></i> เลือกช่างสัก</label>
+            <select id="artistName" class="form-control" required>
+              <option value="">เลือกช่างสัก...</option>
+              <option value="ช่างที (Japanese Traditional)">ช่างที (Japanese Traditional)</option>
+              <option value="ช่างพลอย (Minimal & Fine Line)">ช่างพลอย (Minimal & Fine Line)</option>
+              <option value="ช่างบอม (Realism Black & Grey)">ช่างบอม (Realism Black & Grey)</option>
+            </select>
+          </div>
+          <!-- Tattoo Style -->
+          <div class="form-group">
+            <label for="tattooStyle"><i class="fa-solid fa-palette"></i> ขนาดหรือสไตล์ลายสัก (ระบุคร่าวๆ)</label>
+            <input type="text" id="tattooStyle" class="form-control" placeholder="เช่น ลายเส้นขาวดำ ขนาด 5x5 ซม. ที่ข้อมือ">
+          </div>
+          <!-- Image Link -->
+          <div class="form-group form-group-full">
+            <label for="referenceImage"><i class="fa-solid fa-image"></i> ลิงก์รูปภาพลายอ้างอิง (ถ้ามี)</label>
+            <input type="url" id="referenceImage" class="form-control" placeholder="วางลิงก์รูปภาพ เช่น จาก Pinterest หรือเว็บฝากรูป">
+          </div>
+          <!-- Notes -->
+          <div class="form-group form-group-full">
+            <label for="bookingNotes"><i class="fa-regular fa-comment-dots"></i> รายละเอียดเพิ่มเติมหรือโรคประจำตัว (ถ้ามี)</label>
+            <textarea id="bookingNotes" class="form-control" rows="3" placeholder="ระบุสิ่งที่ช่างควรทราบก่อนลงเข็ม..."></textarea>
+          </div>
+        </div>
+
+        <div style="text-align: center; margin-top: 2rem;">
+          <button type="submit" class="btn btn-primary" style="padding: 1rem 3rem;"><i class="fa-solid fa-paper-plane"></i> ส่งคำขอจองคิวสัก</button>
+        </div>
+      </form>
+    </div>
+  </section>
+
+  <!-- Notification Banner / Toast -->
+  <div id="toast" style="position:fixed; bottom:20px; right:20px; background-color:var(--success); color:white; padding:1rem 2rem; border-radius:var(--radius-md); box-shadow:var(--shadow-lg); display:none; z-index:9999; font-weight:600;">
+    <i class="fa-regular fa-circle-check"></i> บันทึกข้อมูลการจองเรียบร้อย! เจ้าหน้าที่จะติดต่อกลับเร็วๆ นี้
+  </div>
+
+  <footer style="background-color: var(--bg-tertiary); padding: 3rem 2rem; text-align: center; border-top: 1px solid var(--border-color); margin-top: 5rem;">
+    <p style="font-weight: 600; color: var(--text-primary);">© 2026 157 TATTOO - All Rights Reserved.</p>
+    <p style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 0.5rem;">ร้านสักพรีเมียมและระบบจองออนไลน์ภาษาไทย</p>
+  </footer>
+
+  <!-- App Script to handle LocalStorage fallback + Supabase -->
+  <script src="app-config.js"></script>
+  <script>
+    // Booking Form Submission
+    document.getElementById('bookingForm').addEventListener('submit', async function(e) {
+      e.preventDefault();
+
+      const bookingData = {
+        id: 'BK-' + Date.now().toString().slice(-6),
+        customer_name: document.getElementById('customerName').value,
+        customer_phone: document.getElementById('customerPhone').value,
+        booking_date: document.getElementById('bookingDate').value,
+        booking_time: document.getElementById('bookingTime').value,
+        artist_name: document.getElementById('artistName').value,
+        tattoo_style: document.getElementById('tattooStyle').value,
+        reference_image: document.getElementById('referenceImage').value || '',
+        notes: document.getElementById('bookingNotes').value || '',
+        status: 'รอยืนยัน', // Pending
+        created_at: new Date().toISOString()
+      };
+
+      // 1. Insert to Supabase if configured
+      let success = false;
+      if (window.supabaseClient) {
+        try {
+          const { data, error } = await window.supabaseClient
+            .from('bookings')
+            .insert([bookingData]);
+          if (!error) success = true;
+        } catch (err) {
+          console.error("Supabase error:", err);
+        }
+      }
+
+      // 2. Fallback to LocalStorage so app is instantly interactive and fully operational
+      const bookings = JSON.parse(localStorage.getItem('157tattoo_bookings') || '[]');
+      bookings.push(bookingData);
+      localStorage.setItem('157tattoo_bookings', JSON.stringify(bookings));
+      success = true;
+
+      if (success) {
+        // Show Toast
+        const toast = document.getElementById('toast');
+        toast.style.display = 'block';
+        setTimeout(() => { toast.style.display = 'none'; }, 4000);
+
+        // Reset form
+        document.getElementById('bookingForm').reset();
+      }
+    });
+  </script>
+</body>
+</html>

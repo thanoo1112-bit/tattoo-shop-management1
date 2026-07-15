@@ -1,0 +1,691 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>157 TATTOO - ระบบบริหารจัดการหลังร้าน</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+
+  <!-- Auth Protection Guard -->
+  <script>
+    if (localStorage.getItem('157tattoo_logged_in') !== 'true') {
+      window.location.href = 'login.html';
+    }
+  </script>
+
+  <div class="dashboard-layout">
+    <!-- Sidebar Navigation -->
+    <aside class="sidebar">
+      <div class="logo">
+        <i class="fa-solid fa-paint-brush"></i> 157 <span>TATTOO</span>
+      </div>
+      <ul class="sidebar-menu">
+        <li class="sidebar-item active" id="menu-bookings">
+          <a href="#" onclick="switchTab('bookings')"><i class="fa-regular fa-calendar-check"></i> จัดการคิวจอง</a>
+        </li>
+        <li class="sidebar-item" id="menu-customers">
+          <a href="#" onclick="switchTab('customers')"><i class="fa-solid fa-users"></i> ทะเบียนลูกค้า</a>
+        </li>
+        <li class="sidebar-item" id="menu-receipts">
+          <a href="#" onclick="switchTab('receipts')"><i class="fa-solid fa-file-invoice-dollar"></i> ระบบออกใบเสร็จ</a>
+        </li>
+        <li class="sidebar-item" style="margin-top: auto;">
+          <a href="#" onclick="logout()" style="color: var(--danger);"><i class="fa-solid fa-right-from-bracket"></i> ออกจากระบบ</a>
+        </li>
+      </ul>
+    </aside>
+
+    <!-- Main Dashboard Section -->
+    <main class="dashboard-main">
+      <!-- Header -->
+      <div class="dashboard-header">
+        <div>
+          <h1 id="page-title">ระบบบริหารจัดการหลังร้าน 157 TATTOO</h1>
+          <p id="page-desc" style="color: var(--text-secondary);">ติดตามคิวจอง อัปเดตสถานะงาน และออกใบเสร็จสำหรับลูกค้า</p>
+        </div>
+        <div>
+          <button class="btn btn-primary" onclick="openNewBookingModal()"><i class="fa-solid fa-plus"></i> เพิ่มคิวหน้าร้าน</button>
+        </div>
+      </div>
+
+      <!-- Bookings Dashboard View -->
+      <div id="tab-bookings-content">
+        <!-- Stats summary panel -->
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-card-title">คิวรอการตรวจสอบ</div>
+            <div class="stat-card-value text-gold" id="stat-pending">0</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-card-title">คิวที่อนุมัติแล้ว</div>
+            <div class="stat-card-value" style="color:var(--info);" id="stat-approved">0</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-card-title">เสร็จสิ้นวันนี้</div>
+            <div class="stat-card-value" style="color:var(--success);" id="stat-completed">0</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-card-title">รายได้รวมคิวเสร็จสิ้น (บาท)</div>
+            <div class="stat-card-value" style="color:var(--accent-gold-hover);" id="stat-revenue">฿0</div>
+          </div>
+        </div>
+
+        <!-- Table controls and filter bar -->
+        <div class="data-table-container">
+          <div class="table-header-bar">
+            <h3>รายการจองคิวบริการสักลาย</h3>
+            <div>
+              <input type="text" id="searchBox" class="form-control" placeholder="ค้นหาชื่อลูกค้าหรือเบอร์โทร..." oninput="renderBookings()" style="width: 250px;">
+            </div>
+          </div>
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>รหัสคิว</th>
+                <th>ลูกค้า</th>
+                <th>เบอร์โทร</th>
+                <th>วันที่ / เวลา</th>
+                <th>ช่างสัก</th>
+                <th>รูปภาพ / ลายสัก</th>
+                <th>สถานะ</th>
+                <th style="text-align: right;">การจัดการ</th>
+              </tr>
+            </thead>
+            <tbody id="bookings-table-body">
+              <!-- Rendered via JS -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Customers Directory View -->
+      <div id="tab-customers-content" style="display: none;">
+        <div class="data-table-container">
+          <div class="table-header-bar">
+            <h3>ประวัติและทะเบียนรายชื่อลูกค้า</h3>
+            <div>
+              <input type="text" id="searchCustomerBox" class="form-control" placeholder="ค้นหาชื่อลูกค้า..." oninput="renderCustomers()" style="width: 250px;">
+            </div>
+          </div>
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>ชื่อ-นามสกุล</th>
+                <th>เบอร์โทรศัพท์</th>
+                <th>จำนวนครั้งที่ใช้บริการ</th>
+                <th>สไตล์ลายสักล่าสุด</th>
+                <th>หมายเหตุ / โรคประจำตัว</th>
+                <th style="text-align: right;">การจัดการ</th>
+              </tr>
+            </thead>
+            <tbody id="customers-table-body">
+              <!-- Rendered via JS -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Receipts View -->
+      <div id="tab-receipts-content" style="display: none;">
+        <div style="display: grid; grid-template-columns: 1fr 1.5fr; gap: 2rem; align-items: start;">
+          <!-- Left: Receipt form editor -->
+          <div class="booking-card" style="margin: 0;">
+            <h3 style="margin-bottom: 1.5rem;"><i class="fa-solid fa-file-signature"></i> ป้อนข้อมูลเพื่อพิมพ์ใบเสร็จ</h3>
+            <form id="receiptGeneratorForm" onsubmit="generateReceiptPreview(event)">
+              <div class="form-group" style="margin-bottom: 1rem;">
+                <label for="receiptCustomer">เลือกลูกค้าในระบบ</label>
+                <select id="receiptCustomer" class="form-control" required onchange="autofillReceiptData()">
+                  <!-- Dynamically populated -->
+                </select>
+              </div>
+              <div class="form-group" style="margin-bottom: 1rem;">
+                <label for="receiptPhone">เบอร์โทรศัพท์</label>
+                <input type="text" id="receiptPhone" class="form-control" required>
+              </div>
+              <div class="form-group" style="margin-bottom: 1rem;">
+                <label for="receiptArtist">ช่างผู้ลงเข็ม</label>
+                <input type="text" id="receiptArtist" class="form-control" required>
+              </div>
+              <div class="form-group" style="margin-bottom: 1rem;">
+                <label for="receiptService">รายละเอียดบริการสักลาย</label>
+                <textarea id="receiptService" class="form-control" rows="2" placeholder="เช่น สักสไตล์ Japanese มังกรสีเต็มหลัง" required></textarea>
+              </div>
+              <div class="form-grid">
+                <div class="form-group">
+                  <label for="receiptTotal">ราคารวมบริการ (บาท)</label>
+                  <input type="number" id="receiptTotal" class="form-control" required oninput="calculateBalance()">
+                </div>
+                <div class="form-group">
+                  <label for="receiptDeposit">มัดจำจ่ายแล้ว (บาท)</label>
+                  <input type="number" id="receiptDeposit" class="form-control" value="0" required oninput="calculateBalance()">
+                </div>
+              </div>
+              <div class="form-group" style="margin-bottom: 1.5rem;">
+                <label>ยอดคงเหลือชำระหน้าร้าน</label>
+                <h3 id="receiptBalanceText" class="text-gold">฿0</h3>
+              </div>
+              <button type="submit" class="btn btn-primary" style="width: 100%;"><i class="fa-solid fa-rotate"></i> อัปเดตและแสดงพรีวิวใบเสร็จ</button>
+            </form>
+          </div>
+
+          <!-- Right: Interactive Receipt visual preview -->
+          <div>
+            <div style="display: flex; justify-content: flex-end; margin-bottom: 1rem; gap: 1rem;" class="no-print">
+              <button class="btn btn-outline" onclick="printReceipt()"><i class="fa-solid fa-print"></i> สั่งพิมพ์ใบเสร็จ (Print/PDF)</button>
+            </div>
+            
+            <div class="receipt-box" id="print-area">
+              <div class="receipt-header">
+                <div class="receipt-logo">157 TATTOO STUDIO</div>
+                <p style="font-size: 0.85rem;">เลขที่ 157 ถนนสุขุมวิท กรุงเทพมหานคร 10110</p>
+                <p style="font-size: 0.85rem;">โทร: 089-157-8888 | อีเมล: support@157tattoo.com</p>
+                <h2 style="margin-top: 1rem; letter-spacing: 0.05em; font-weight: 800;">ใบเสร็จรับเงิน / Receipt</h2>
+              </div>
+
+              <div class="receipt-grid">
+                <div>
+                  <p><strong>ชื่อลูกค้า:</strong> <span id="r-cust-name">-</span></p>
+                  <p><strong>เบอร์โทร:</strong> <span id="r-cust-phone">-</span></p>
+                </div>
+                <div style="text-align: right;">
+                  <p><strong>เลขที่เอกสาร:</strong> <span id="r-doc-no">-</span></p>
+                  <p><strong>วันที่ออก:</strong> <span id="r-date">-</span></p>
+                </div>
+              </div>
+
+              <table class="receipt-table">
+                <thead>
+                  <tr>
+                    <th>รายละเอียดบริการสัก</th>
+                    <th style="text-align: right;">ช่างสัก</th>
+                    <th style="text-align: right;">จำนวนเงิน</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td><span id="r-service-desc">-</span></td>
+                    <td style="text-align: right;"><span id="r-artist-name">-</span></td>
+                    <td style="text-align: right;">฿<span id="r-total-price">0.00</span></td>
+                  </tr>
+                </tbody>
+              </table>
+
+              <div style="margin-left: auto; width: 300px; font-size: 0.95rem;">
+                <div style="display:flex; justify-content:space-between; margin-bottom: 0.5rem;">
+                  <span>ราคารวมทั้งสิ้น (Total):</span>
+                  <strong>฿<span id="r-total-main">0.00</span></strong>
+                </div>
+                <div style="display:flex; justify-content:space-between; margin-bottom: 0.5rem; color: var(--text-secondary);">
+                  <span>มัดจำชำระแล้ว (Deposit):</span>
+                  <span>-฿<span id="r-deposit-main">0.00</span></span>
+                </div>
+                <div style="display:flex; justify-content:space-between; border-top: 1px solid #000; padding-top:0.5rem; font-size: 1.1rem;">
+                  <strong>ยอดชำระสุทธิ (Balance Due):</strong>
+                  <strong class="text-gold">฿<span id="r-balance-main">0.00</span></strong>
+                </div>
+              </div>
+
+              <div style="text-align: center; margin-top: 4rem; font-size: 0.8rem; border-top: 1px dashed var(--border-color); padding-top: 1.5rem;">
+                <p>ขอขอบคุณที่ใช้บริการ 157 TATTOO. กรุณารักษาความสะอาดลายสักตามคำแนะนำของช่างสักอย่างเคร่งครัด</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- Booking Details & Manage Status Modal -->
+  <div class="modal-overlay" id="statusModal">
+    <div class="modal-container">
+      <div class="modal-header">
+        <h3>อัปเดตสถานะและข้อมูลการจอง</h3>
+        <button class="modal-close" onclick="closeStatusModal()">&times;</button>
+      </div>
+      <div class="modal-body" id="modal-details-body">
+        <!-- Filled by JS -->
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeStatusModal()">ยกเลิก</button>
+        <button class="btn btn-primary" onclick="saveBookingStatus()">บันทึกข้อมูล</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Create Manual Booking Modal -->
+  <div class="modal-overlay" id="createBookingModal">
+    <div class="modal-container">
+      <div class="modal-header">
+        <h3>เพิ่มคิวหน้าร้าน / Walk-in</h3>
+        <button class="modal-close" onclick="closeNewBookingModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <form id="newBookingForm">
+          <div class="form-grid">
+            <div class="form-group">
+              <label>ชื่อลูกค้า</label>
+              <input type="text" id="newCustName" class="form-control" required>
+            </div>
+            <div class="form-group">
+              <label>เบอร์โทร</label>
+              <input type="tel" id="newCustPhone" class="form-control" required>
+            </div>
+            <div class="form-group">
+              <label>วันที่รับบริการ</label>
+              <input type="date" id="newBookingDate" class="form-control" required>
+            </div>
+            <div class="form-group">
+              <label>เวลา</label>
+              <select id="newBookingTime" class="form-control" required>
+                <option value="10:00">10:00</option>
+                <option value="13:00">13:00</option>
+                <option value="16:00">16:00</option>
+                <option value="19:00">19:00</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>ช่างสัก</label>
+              <select id="newArtistName" class="form-control" required>
+                <option value="ช่างที (Japanese Traditional)">ช่างที (Japanese Traditional)</option>
+                <option value="ช่างพลอย (Minimal & Fine Line)">ช่างพลอย (Minimal & Fine Line)</option>
+                <option value="ช่างบอม (Realism Black & Grey)">ช่างบอม (Realism Black & Grey)</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>สไตล์ / ขนาด</label>
+              <input type="text" id="newTattooStyle" class="form-control" placeholder="เช่น มังกร แขนซ้าย">
+            </div>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeNewBookingModal()">ยกเลิก</button>
+        <button class="btn btn-primary" onclick="submitNewManualBooking()">เพิ่มคิวบริการ</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Booking Data Handler App Script -->
+  <script src="app-config.js"></script>
+  <script>
+    let allBookings = [];
+    let currentEditingBookingId = null;
+
+    // Load initial data
+    function loadData() {
+      // 1. Initial Sample Seed if storage is empty
+      if (!localStorage.getItem('157tattoo_bookings')) {
+        const seedBookings = [
+          {
+            id: 'BK-9912',
+            customer_name: 'คุณภานุเดช ใจมั่น',
+            customer_phone: '0894561234',
+            booking_date: '2026-07-16',
+            booking_time: '13:00',
+            artist_name: 'ช่างที (Japanese Traditional)',
+            tattoo_style: 'มังกรลงสีเต็มท่อนแขนบน',
+            reference_image: 'https://images.unsplash.com/photo-1598371839696-5c5bb00bdc28?w=200&q=80',
+            notes: 'ต้องการสีแดงดำสดเป็นพิเศษ',
+            status: 'รอยืนยัน',
+            created_at: new Date().toISOString()
+          },
+          {
+            id: 'BK-9913',
+            customer_name: 'คุณเกศรินทร์ สมบูรณ์',
+            customer_phone: '0867891234',
+            booking_date: '2026-07-16',
+            booking_time: '10:00',
+            artist_name: 'ช่างพลอย (Minimal & Fine Line)',
+            tattoo_style: 'ดอกกุหลาบมินิมอลสีพาสเทลหลังหู',
+            reference_image: 'https://images.unsplash.com/photo-1560707303-4e980c876ad2?w=200&q=80',
+            notes: 'ผิวแพ้ง่ายมาก',
+            status: 'ยืนยันแล้ว',
+            created_at: new Date().toISOString()
+          },
+          {
+            id: 'BK-9914',
+            customer_name: 'คุณณัฐชนนท์ วงศ์ดี',
+            customer_phone: '0951112222',
+            booking_date: '2026-07-15',
+            booking_time: '16:00',
+            artist_name: 'ช่างบอม (Realism Black & Grey)',
+            tattoo_style: 'สิงโตเสมือนจริง 3D เต็มอก',
+            reference_image: '',
+            notes: 'ต้องการราคาประเมินและมัดจำไว้แล้ว',
+            status: 'เสร็จสิ้น',
+            price: 15000,
+            deposit: 3000,
+            created_at: new Date().toISOString()
+          }
+        ];
+        localStorage.setItem('157tattoo_bookings', JSON.stringify(seedBookings));
+      }
+      
+      allBookings = JSON.parse(localStorage.getItem('157tattoo_bookings') || '[]');
+      updateStats();
+      renderBookings();
+    }
+
+    // Switch sidebar navigation tabs
+    function switchTab(tabName) {
+      document.querySelectorAll('.sidebar-item').forEach(el => el.classList.remove('active'));
+      document.getElementById('menu-' + tabName).classList.add('active');
+
+      document.getElementById('tab-bookings-content').style.display = tabName === 'bookings' ? 'block' : 'none';
+      document.getElementById('tab-customers-content').style.display = tabName === 'customers' ? 'block' : 'none';
+      document.getElementById('tab-receipts-content').style.display = tabName === 'receipts' ? 'block' : 'none';
+
+      if (tabName === 'bookings') {
+        document.getElementById('page-title').innerText = "ระบบบริหารจัดการหลังร้าน 157 TATTOO";
+        document.getElementById('page-desc').innerText = "ติดตามคิวจอง อัปเดตสถานะงาน และออกใบเสร็จสำหรับลูกค้า";
+        renderBookings();
+      } else if (tabName === 'customers') {
+        document.getElementById('page-title').innerText = "ทะเบียนรายชื่อและประวัติลูกค้า";
+        document.getElementById('page-desc').innerText = "ดูแลฐานข้อมูลลูกค้าและประวัติการรับบริการสักลาย";
+        renderCustomers();
+      } else if (tabName === 'receipts') {
+        document.getElementById('page-title').innerText = "ศูนย์ออกใบเสร็จรับเงิน";
+        document.getElementById('page-desc').innerText = "สร้างใบเสร็จรับเงินสำหรับคิดเงินลูกหน้าร้านและให้ลูกค้าใช้เคลมประกันค่างานสัก";
+        populateReceiptFormDropdowns();
+      }
+    }
+
+    // Render bookings list
+    function renderBookings() {
+      const tbody = document.getElementById('bookings-table-body');
+      tbody.innerHTML = '';
+
+      const query = document.getElementById('searchBox').value.toLowerCase();
+      const filtered = allBookings.filter(b => 
+        b.customer_name.toLowerCase().includes(query) || 
+        b.customer_phone.includes(query)
+      );
+
+      filtered.forEach(b => {
+        let badgeClass = 'badge-pending';
+        if (b.status === 'ยืนยันแล้ว') badgeClass = 'badge-approved';
+        if (b.status === 'เสร็จสิ้น') badgeClass = 'badge-completed';
+        if (b.status === 'ยกเลิก') badgeClass = 'badge-cancelled';
+
+        const imgTag = b.reference_image 
+          ? `<img class="thumbnail-preview" src="${b.reference_image}" onclick="window.open('${b.reference_image}')" title="คลิกเพื่อดูรูปใหญ่">` 
+          : `<span style="color:var(--text-muted); font-size: 0.8rem;">ไม่มีภาพอ้างอิง</span>`;
+
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td><strong>${b.id}</strong></td>
+          <td>${b.customer_name}</td>
+          <td>${b.customer_phone}</td>
+          <td>${b.booking_date} / ${b.booking_time} น.</td>
+          <td>${b.artist_name}</td>
+          <td>${imgTag}</td>
+          <td><span class="badge ${badgeClass}">${b.status}</span></td>
+          <td style="text-align: right;">
+            <button class="btn btn-secondary" style="padding:0.4rem 0.8rem; font-size:0.8rem;" onclick="openStatusModal('${b.id}')"><i class="fa-solid fa-pen-to-square"></i> จัดการคิว</button>
+            <button class="btn btn-outline" style="padding:0.4rem 0.8rem; font-size:0.8rem; border-width: 1px;" onclick="goToReceipt('${b.id}')"><i class="fa-solid fa-receipt"></i> ออกใบเสร็จ</button>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    // Render customers history
+    function renderCustomers() {
+      const tbody = document.getElementById('customers-table-body');
+      tbody.innerHTML = '';
+
+      const query = document.getElementById('searchCustomerBox').value.toLowerCase();
+      
+      // Group bookings by phone or name to define uniquely returning customers
+      const customerMap = {};
+      allBookings.forEach(b => {
+        const key = b.customer_phone;
+        if (!customerMap[key]) {
+          customerMap[key] = {
+            name: b.customer_name,
+            phone: b.customer_phone,
+            count: 0,
+            latest_style: b.tattoo_style || 'ไม่มีข้อมูลรายละเอียด',
+            notes: b.notes || 'ไม่มีหมายเหตุพิเศษ'
+          };
+        }
+        customerMap[key].count += 1;
+      });
+
+      const customers = Object.values(customerMap).filter(c => 
+        c.name.toLowerCase().includes(query) || c.phone.includes(query)
+      );
+
+      customers.forEach(c => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td><strong>${c.name}</strong></td>
+          <td>${c.phone}</td>
+          <td>${c.count} ครั้ง</td>
+          <td>${c.latest_style}</td>
+          <td>${c.notes}</td>
+          <td style="text-align: right;">
+            <button class="btn btn-secondary" style="padding:0.4rem 0.8rem; font-size:0.8rem;" onclick="alert('ข้อมูลประวัติลูกค้าโดยละเอียดของ ${c.name}')"><i class="fa-solid fa-address-book"></i> รายละเอียดประวัติ</button>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    // Stats calculations
+    function updateStats() {
+      let pending = 0;
+      let approved = 0;
+      let completed = 0;
+      let revenue = 0;
+
+      allBookings.forEach(b => {
+        if (b.status === 'รอยืนยัน') pending++;
+        if (b.status === 'ยืนยันแล้ว') approved++;
+        if (b.status === 'เสร็จสิ้น') {
+          completed++;
+          revenue += (parseFloat(b.price) || 0);
+        }
+      });
+
+      document.getElementById('stat-pending').innerText = pending;
+      document.getElementById('stat-approved').innerText = approved;
+      document.getElementById('stat-completed').innerText = completed;
+      document.getElementById('stat-revenue').innerText = '฿' + revenue.toLocaleString();
+    }
+
+    // Modal Control: Status Update
+    function openStatusModal(bookingId) {
+      currentEditingBookingId = bookingId;
+      const b = allBookings.find(x => x.id === bookingId);
+      
+      const body = document.getElementById('modal-details-body');
+      body.innerHTML = `
+        <div style="display:flex; flex-direction:column; gap:1.25rem;">
+          <p><strong>ชื่อลูกค้า:</strong> ${b.customer_name}</p>
+          <p><strong>รายละเอียดลายสัก:</strong> ${b.tattoo_style || '-'}</p>
+          
+          <div class="form-group">
+            <label for="updateStatus">ปรับเปลี่ยนสถานะการจอง</label>
+            <select id="updateStatus" class="form-control">
+              <option value="รอยืนยัน" ${b.status === 'รอยืนยัน' ? 'selected' : ''}>รอยืนยัน</option>
+              <option value="ยืนยันแล้ว" ${b.status === 'ยืนยันแล้ว' ? 'selected' : ''}>ยืนยันแล้ว</option>
+              <option value="เสร็จสิ้น" ${b.status === 'เสร็จสิ้น' ? 'selected' : ''}>เสร็จสิ้น</option>
+              <option value="ยกเลิก" ${b.status === 'ยกเลิก' ? 'selected' : ''}>ยกเลิก</option>
+            </select>
+          </div>
+
+          <div class="form-grid">
+            <div class="form-group">
+              <label for="updatePrice">ราคาบริการ (บาท)</label>
+              <input type="number" id="updatePrice" class="form-control" value="${b.price || ''}" placeholder="ระบุราคาค่างานสัก">
+            </div>
+            <div class="form-group">
+              <label for="updateDeposit">มัดจำชำระแล้ว (บาท)</label>
+              <input type="number" id="updateDeposit" class="form-control" value="${b.deposit || ''}" placeholder="ระบุมัดจำ">
+            </div>
+          </div>
+        </div>
+      `;
+
+      document.getElementById('statusModal').classList.add('active');
+    }
+
+    function closeStatusModal() {
+      document.getElementById('statusModal').classList.remove('active');
+    }
+
+    function saveBookingStatus() {
+      const bIndex = allBookings.findIndex(x => x.id === currentEditingBookingId);
+      if (bIndex !== -1) {
+        allBookings[bIndex].status = document.getElementById('updateStatus').value;
+        allBookings[bIndex].price = parseFloat(document.getElementById('updatePrice').value) || 0;
+        allBookings[bIndex].deposit = parseFloat(document.getElementById('updateDeposit').value) || 0;
+
+        localStorage.setItem('157tattoo_bookings', JSON.stringify(allBookings));
+        
+        // Sync to Supabase if config is set
+        syncBookingToSupabase(allBookings[bIndex]);
+
+        updateStats();
+        renderBookings();
+        closeStatusModal();
+      }
+    }
+
+    // Modal Control: Create Manual Booking
+    function openNewBookingModal() {
+      document.getElementById('createBookingModal').classList.add('active');
+      document.getElementById('newBookingDate').value = new Date().toISOString().split('T')[0];
+    }
+
+    function closeNewBookingModal() {
+      document.getElementById('createBookingModal').classList.remove('active');
+    }
+
+    function submitNewManualBooking() {
+      const newB = {
+        id: 'BK-' + Date.now().toString().slice(-4),
+        customer_name: document.getElementById('newCustName').value,
+        customer_phone: document.getElementById('newCustPhone').value,
+        booking_date: document.getElementById('newBookingDate').value,
+        booking_time: document.getElementById('newBookingTime').value,
+        artist_name: document.getElementById('newArtistName').value,
+        tattoo_style: document.getElementById('newTattooStyle').value || 'หน้าร้าน (Walk-in)',
+        reference_image: '',
+        notes: 'จองคิวหน้าหน้าร้าน',
+        status: 'ยืนยันแล้ว',
+        created_at: new Date().toISOString()
+      };
+
+      allBookings.push(newB);
+      localStorage.setItem('157tattoo_bookings', JSON.stringify(allBookings));
+      
+      // Sync to Supabase
+      syncBookingToSupabase(newB);
+
+      updateStats();
+      renderBookings();
+      closeNewBookingModal();
+      document.getElementById('newBookingForm').reset();
+    }
+
+    // Receipt Tab logic
+    function populateReceiptFormDropdowns() {
+      const select = document.getElementById('receiptCustomer');
+      select.innerHTML = '<option value="">เลือกลูกค้าในระบบ...</option>';
+      
+      allBookings.forEach(b => {
+        const option = document.createElement('option');
+        option.value = b.id;
+        option.innerText = `${b.customer_name} (คิว ${b.id})`;
+        select.appendChild(option);
+      });
+    }
+
+    function autofillReceiptData() {
+      const bId = document.getElementById('receiptCustomer').value;
+      if (!bId) return;
+
+      const b = allBookings.find(x => x.id === bId);
+      if (b) {
+        document.getElementById('receiptPhone').value = b.customer_phone;
+        document.getElementById('receiptArtist').value = b.artist_name;
+        document.getElementById('receiptService').value = b.tattoo_style || 'บริการสักลาย';
+        document.getElementById('receiptTotal').value = b.price || 0;
+        document.getElementById('receiptDeposit').value = b.deposit || 0;
+        calculateBalance();
+      }
+    }
+
+    function calculateBalance() {
+      const total = parseFloat(document.getElementById('receiptTotal').value) || 0;
+      const deposit = parseFloat(document.getElementById('receiptDeposit').value) || 0;
+      const balance = total - deposit;
+      document.getElementById('receiptBalanceText').innerText = '฿' + balance.toLocaleString();
+    }
+
+    function generateReceiptPreview(event) {
+      if (event) event.preventDefault();
+
+      const custName = document.getElementById('receiptCustomer').options[document.getElementById('receiptCustomer').selectedIndex]?.text.split(' (')[0] || '-';
+      const custPhone = document.getElementById('receiptPhone').value;
+      const artist = document.getElementById('receiptArtist').value;
+      const service = document.getElementById('receiptService').value;
+      const total = parseFloat(document.getElementById('receiptTotal').value) || 0;
+      const deposit = parseFloat(document.getElementById('receiptDeposit').value) || 0;
+      const balance = total - deposit;
+
+      // Update interactive HTML visual preview
+      document.getElementById('r-cust-name').innerText = custName;
+      document.getElementById('r-cust-phone').innerText = custPhone;
+      document.getElementById('r-doc-no').innerText = 'INV-' + Date.now().toString().slice(-6);
+      document.getElementById('r-date').innerText = new Date().toLocaleDateString('th-TH', { year: 'numeric', month: 'long', day: 'numeric' });
+      document.getElementById('r-service-desc').innerText = service;
+      document.getElementById('r-artist-name').innerText = artist;
+      document.getElementById('r-total-price').innerText = total.toLocaleString(undefined, {minimumFractionDigits: 2});
+      
+      document.getElementById('r-total-main').innerText = total.toLocaleString(undefined, {minimumFractionDigits: 2});
+      document.getElementById('r-deposit-main').innerText = deposit.toLocaleString(undefined, {minimumFractionDigits: 2});
+      document.getElementById('r-balance-main').innerText = balance.toLocaleString(undefined, {minimumFractionDigits: 2});
+    }
+
+    function goToReceipt(bookingId) {
+      switchTab('receipts');
+      document.getElementById('receiptCustomer').value = bookingId;
+      autofillReceiptData();
+      generateReceiptPreview();
+    }
+
+    function printReceipt() {
+      window.print();
+    }
+
+    function logout() {
+      localStorage.removeItem('157tattoo_logged_in');
+      window.location.href = 'login.html';
+    }
+
+    // Sync to Supabase Dynamic Client helper (Fail-safe)
+    async function syncBookingToSupabase(booking) {
+      if (window.supabaseClient) {
+        try {
+          const { data, error } = await window.supabaseClient
+            .from('bookings')
+            .upsert([booking]);
+          if (error) console.error("Error syncing with Supabase database:", error);
+        } catch (e) {
+          console.error(e);
+        }
+      }
+    }
+
+    // Startup initializer
+    window.onload = loadData;
+  </script>
+</body>
+</html>
