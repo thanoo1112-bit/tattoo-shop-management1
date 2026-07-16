@@ -10,7 +10,7 @@ const SUPABASE_URL = "https://douygxbizmkcbonmewbw.supabase.co"; // ป้อน
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRvdXlneGJpem1rY2Jvbm1ld2J3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQwOTkzODQsImV4cCI6MjA5OTY3NTM4NH0.5NPXupEdzw8M3f5hKY12utnP32WpFOTs7vsJAZdkFuI"; // ป้อน Supabase Anon API Key ที่นี่
 
 // API Key สำหรับ Google AI Studio (สำหรับใช้งานระบบออกแบบรอยสักและที่ปรึกษา AI)
-const GEMINI_API_KEY = "gen-lang-client-0212647290"; 
+const GEMINI_API_KEY = "AQ.Ab8RN6L1kcgozYDLD7Aga7P9pcA7ShKjhwKM9P1NfPon2sswfQ"; 
 
 
 // เริ่มต้นใช้งาน Supabase Client (หากกำหนดค่าไว้ครบถ้วน)
