@@ -34,11 +34,12 @@
           <a href="#" onclick="switchTab('receipts')"><i class="fa-solid fa-file-invoice-dollar"></i> ระบบออกใบเสร็จ</a>
         </li>
         <li class="sidebar-item" id="menu-analytics">
-          <a href="#" onclick="switchTab('analytics')"><i class="fa-solid fa-chart-line"></i> วิเคราะห์รายได้</a>
+          <a href="#" onclick="switchTab('analytics')"><i class="fa-solid fa-chart-line"></i> สถิติและรายงาน</a>
         </li>
         <li class="sidebar-item" style="margin-top: auto;">
           <a href="#" onclick="logout()" style="color: var(--danger);"><i class="fa-solid fa-right-from-bracket"></i> ออกจากระบบ</a>
         </li>
+
       </ul>
     </aside>
 
@@ -82,16 +83,16 @@
           <div class="table-header-bar">
             <h3>รายการจองคิวบริการสักลาย</h3>
             <div style="display: flex; gap: 1rem;">
-              <select id="filterArtist" class="form-control" onchange="renderBookings()" style="width: 200px;">
-                <option value="">ช่างสักทุกคน...</option>
-                <option value="ช่างที (Japanese Traditional)">ช่างที</option>
-                <option value="ช่างพลอย (Minimal & Fine Line)">ช่างพลอย</option>
-                <option value="ช่างบอม (Realism Black & Grey)">ช่างบอม</option>
+              <select id="artistFilter" class="form-control" onchange="renderBookings()" style="width: 200px;">
+                <option value="">ช่างสักทุกคน</option>
+                <option value="ช่างที">ช่างที (Japanese Traditional)</option>
+                <option value="ช่างพลอย">ช่างพลอย (Minimal & Fine Line)</option>
+                <option value="ช่างบอม">ช่างบอม (Realism Black & Grey)</option>
               </select>
               <input type="text" id="searchBox" class="form-control" placeholder="ค้นหาชื่อลูกค้าหรือเบอร์โทร..." oninput="renderBookings()" style="width: 250px;">
             </div>
-          </div>
 
+          </div>
           <table class="data-table">
             <thead>
               <tr>
@@ -138,6 +139,47 @@
           </table>
         </div>
       </div>
+
+      <!-- Analytics & Reports View -->
+      <div id="tab-analytics-content" style="display: none;">
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-bottom: 2rem;">
+          <!-- Card 1: Revenue by Artist -->
+          <div class="booking-card" style="margin: 0;">
+            <h3 style="margin-bottom: 1.5rem;"><i class="fa-solid fa-users-gear"></i> ส่วนแบ่งรายได้รายช่างสัก</h3>
+            <div id="analytics-artist-revenue" style="display:flex; flex-direction:column; gap: 1.25rem;">
+              <!-- Dynamic bars filled by JS -->
+            </div>
+          </div>
+          
+          <!-- Card 2: Workload/Completed Tattoos by Artist -->
+          <div class="booking-card" style="margin: 0;">
+            <h3 style="margin-bottom: 1.5rem;"><i class="fa-solid fa-paintbrush"></i> จำนวนคิวงานที่ทำเสร็จแยกตามช่างสัก</h3>
+            <div id="analytics-artist-workload" style="display:flex; flex-direction:column; gap: 1.25rem;">
+              <!-- Dynamic bars filled by JS -->
+            </div>
+          </div>
+        </div>
+
+        <!-- Card 3: Popular Tattoo Styles stats -->
+        <div class="data-table-container">
+          <div class="table-header-bar">
+            <h3>สถิติสไตล์งานสักที่ได้รับความนิยมของร้าน</h3>
+          </div>
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>สไตล์ / ลายสัก</th>
+                <th>จำนวนครั้งที่ใช้บริการ</th>
+                <th>สัดส่วนความนิยม</th>
+              </tr>
+            </thead>
+            <tbody id="analytics-styles-body">
+              <!-- Dynamic table rows -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
 
       <!-- Receipts View -->
       <div id="tab-receipts-content" style="display: none;">
@@ -246,50 +288,8 @@
           </div>
         </div>
       </div>
-
-      <!-- Analytics Section -->
-      <div id="tab-analytics-content" style="display: none;">
-        <!-- Analytics Summary Cards -->
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-bottom: 2.5rem;">
-          <!-- Artist Revenue Breakdown -->
-          <div class="booking-card" style="margin: 0; max-width: 100%;">
-            <h3 style="margin-bottom: 1.5rem;"><i class="fa-solid fa-users-gear text-gold"></i> รายได้แยกตามช่างสัก</h3>
-            <div id="artist-analytics-list" style="display: flex; flex-direction: column; gap: 1.25rem;">
-              <!-- JS generated rows with progress bars -->
-            </div>
-          </div>
-
-          <!-- Top Tattoo Style Breakdown -->
-          <div class="booking-card" style="margin: 0; max-width: 100%;">
-            <h3 style="margin-bottom: 1.5rem;"><i class="fa-solid fa-fire text-gold"></i> สไตล์รอยสักยอดนิยม</h3>
-            <div id="style-analytics-list" style="display: flex; flex-direction: column; gap: 1.25rem;">
-              <!-- JS generated list -->
-            </div>
-          </div>
-        </div>
-
-        <!-- Monthly/Weekly stats table -->
-        <div class="data-table-container">
-          <div class="table-header-bar">
-            <h3>สรุปยอดรายได้สะสมรายวัน</h3>
-          </div>
-          <table class="data-table">
-            <thead>
-              <tr>
-                <th>วันที่ให้บริการ</th>
-                <th>จำนวนเคสงานที่เสร็จสิ้น</th>
-                <th>ยอดรวมรายได้สะสม (บาท)</th>
-              </tr>
-            </thead>
-            <tbody id="revenue-dates-table-body">
-              <!-- Rendered via JS -->
-            </tbody>
-          </table>
-        </div>
-      </div>
     </main>
   </div>
-
 
   <!-- Booking Details & Manage Status Modal -->
   <div class="modal-overlay" id="statusModal">
@@ -442,11 +442,11 @@
         renderCustomers();
       } else if (tabName === 'receipts') {
         document.getElementById('page-title').innerText = "ศูนย์ออกใบเสร็จรับเงิน";
-        document.getElementById('page-desc').innerText = "สร้างใบเสร็จรับเงินสำหรับคิดเงินลูกหน้าน้านและให้ลูกค้าใช้เคลมประกันค่างานสัก";
+        document.getElementById('page-desc').innerText = "สร้างใบเสร็จรับเงินสำหรับคิดเงินลูกหน้าร้านและให้ลูกค้าใช้เคลมประกันค่างานสัก";
         populateReceiptFormDropdowns();
       } else if (tabName === 'analytics') {
-        document.getElementById('page-title').innerText = "สถิติรายได้และวิเคราะห์หลังร้าน";
-        document.getElementById('page-desc').innerText = "วิเคราะห์รายได้ตามผลงานช่าง สไตล์การสัก และสรุปบัญชีรายวัน";
+        document.getElementById('page-title').innerText = "สถิติและรายงานวิเคราะห์รายได้";
+        document.getElementById('page-desc').innerText = "สรุปผลงาน ยอดรายได้แยกตามรายชื่อช่างสัก และความนิยมของสไตล์ลายสัก";
         renderAnalytics();
       }
     }
@@ -457,11 +457,11 @@
       tbody.innerHTML = '';
 
       const query = document.getElementById('searchBox').value.toLowerCase();
-      const artistFilter = document.getElementById('filterArtist').value;
+      const artistFilter = document.getElementById('artistFilter').value;
       
       const filtered = allBookings.filter(b => {
         const matchesQuery = b.customer_name.toLowerCase().includes(query) || b.customer_phone.includes(query);
-        const matchesArtist = artistFilter === "" || b.artist_name === artistFilter;
+        const matchesArtist = !artistFilter || b.artist_name.includes(artistFilter);
         return matchesQuery && matchesArtist;
       });
 
@@ -490,6 +490,118 @@
           </td>
         `;
         tbody.appendChild(tr);
+      });
+    }
+
+    // Render Analytics Dashboard (Revenue and workload stats)
+    function renderAnalytics() {
+      const revenueDiv = document.getElementById('analytics-artist-revenue');
+      const workloadDiv = document.getElementById('analytics-artist-workload');
+      const stylesBody = document.getElementById('analytics-styles-body');
+
+      // Initialize stats maps
+      const artists = [
+        "ช่างที (Japanese Traditional)",
+        "ช่างพลอย (Minimal & Fine Line)",
+        "ช่างบอม (Realism Black & Grey)"
+      ];
+
+      const artistRevenue = {};
+      const artistWorkload = {};
+      const stylesMap = {};
+      let totalCompleted = 0;
+
+      artists.forEach(a => {
+        artistRevenue[a] = 0;
+        artistWorkload[a] = 0;
+      });
+
+      allBookings.forEach(b => {
+        if (b.status === 'เสร็จสิ้น') {
+          totalCompleted++;
+          // Revenue
+          if (artistRevenue[b.artist_name] !== undefined) {
+            artistRevenue[b.artist_name] += (parseFloat(b.price) || 0);
+          } else {
+            artistRevenue[b.artist_name] = (parseFloat(b.price) || 0);
+          }
+
+          // Workload
+          if (artistWorkload[b.artist_name] !== undefined) {
+            artistWorkload[b.artist_name] += 1;
+          } else {
+            artistWorkload[b.artist_name] = 1;
+          }
+
+          // Styles popularity
+          const styleKey = b.tattoo_style || 'สักลายทั่วไป / อื่นๆ';
+          stylesMap[styleKey] = (stylesMap[styleKey] || 0) + 1;
+        }
+      });
+
+      // 1. Render Revenue Progress Bars
+      revenueDiv.innerHTML = '';
+      const maxRevenue = Math.max(...Object.values(artistRevenue), 1);
+      Object.entries(artistRevenue).forEach(([name, val]) => {
+        const pct = (val / maxRevenue) * 100;
+        const displayName = name.split(' (')[0];
+        const item = document.createElement('div');
+        item.innerHTML = `
+          <div style="display:flex; justify-content:space-between; font-size:0.9rem; font-weight:600; margin-bottom:0.25rem;">
+            <span>${displayName}</span>
+            <span class="text-gold">฿${val.toLocaleString()}</span>
+          </div>
+          <div style="background-color:var(--bg-tertiary); height:12px; border-radius:50px; overflow:hidden; border:1px solid var(--border-color);">
+            <div style="background-color:var(--accent-gold); width:${pct}%; height:100%; border-radius:50px; transition: var(--transition);"></div>
+          </div>
+        `;
+        revenueDiv.appendChild(item);
+      });
+
+      // 2. Render Workload Progress Bars
+      workloadDiv.innerHTML = '';
+      const maxWorkload = Math.max(...Object.values(artistWorkload), 1);
+      Object.entries(artistWorkload).forEach(([name, val]) => {
+        const pct = (val / maxWorkload) * 100;
+        const displayName = name.split(' (')[0];
+        const item = document.createElement('div');
+        item.innerHTML = `
+          <div style="display:flex; justify-content:space-between; font-size:0.9rem; font-weight:600; margin-bottom:0.25rem;">
+            <span>${displayName}</span>
+            <span>${val} งาน</span>
+          </div>
+          <div style="background-color:var(--bg-tertiary); height:12px; border-radius:50px; overflow:hidden; border:1px solid var(--border-color);">
+            <div style="background-color:#3b82f6; width:${pct}%; height:100%; border-radius:50px; transition: var(--transition);"></div>
+          </div>
+        `;
+        workloadDiv.appendChild(item);
+      });
+
+      // 3. Render Popular Styles list
+      stylesBody.innerHTML = '';
+      const sortedStyles = Object.entries(stylesMap).sort((a, b) => b[1] - a[1]);
+      
+      if (sortedStyles.length === 0) {
+        stylesBody.innerHTML = '<tr><td colspan="3" style="text-align:center; color:var(--text-muted);">ยังไม่มีข้อมูลคิวงานสักที่เสร็จสิ้นคัดกรองในสถิติ</td></tr>';
+        return;
+      }
+
+      sortedStyles.forEach(([style, count]) => {
+        const pct = totalCompleted > 0 ? Math.round((count / totalCompleted) * 100) : 0;
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td><strong>${style}</strong></td>
+          <td>${count} ครั้ง</td>
+          <td>
+            <div style="display:flex; align-items:center; gap:1rem;">
+              <div style="background-color:var(--bg-tertiary); height:8px; width:150px; border-radius:50px; overflow:hidden; border:1px solid var(--border-color);">
+                <div style="background-color:var(--accent-gold); width:${pct}%; height:100%;"></div>
+              </div>
+              <span>${pct}%</span>
+            </div>
+          </td>
+        `;
+        stylesBody.appendChild(tr);
       });
     }
 
@@ -536,116 +648,6 @@
         tbody.appendChild(tr);
       });
     }
-
-    // Render Analytics
-    function renderAnalytics() {
-      // 1. Artist revenue calculations
-      const artistRevenue = {
-        'ช่างที (Japanese Traditional)': 0,
-        'ช่างพลอย (Minimal & Fine Line)': 0,
-        'ช่างบอม (Realism Black & Grey)': 0
-      };
-
-      allBookings.forEach(b => {
-        if (b.status === 'เสร็จสิ้น') {
-          const artist = b.artist_name;
-          if (artistRevenue[artist] !== undefined) {
-            artistRevenue[artist] += (parseFloat(b.price) || 0);
-          } else {
-            artistRevenue[artist] = (parseFloat(b.price) || 0);
-          }
-        }
-      });
-
-      const artistList = document.getElementById('artist-analytics-list');
-      artistList.innerHTML = '';
-      
-      // Calculate max revenue for progress bar percentage
-      const maxRev = Math.max(...Object.values(artistRevenue), 1);
-
-      Object.entries(artistRevenue).forEach(([artist, revenue]) => {
-        const percentage = Math.round((revenue / maxRev) * 100);
-        const artistNameClean = artist.split(' (')[0];
-        
-        const row = document.createElement('div');
-        row.innerHTML = `
-          <div style="display:flex; justify-content:space-between; margin-bottom:0.25rem; font-size:0.9rem;">
-            <span><strong>${artistNameClean}</strong></span>
-            <span>฿${revenue.toLocaleString()}</span>
-          </div>
-          <div style="background-color: var(--bg-tertiary); height: 8px; border-radius: 4px; overflow:hidden;">
-            <div style="background-color: var(--accent-gold); width: ${percentage}%; height: 100%; border-radius: 4px; transition: var(--transition);"></div>
-          </div>
-        `;
-        artistList.appendChild(row);
-      });
-
-      // 2. Popular Style calculations (Tattoo styles)
-      const styleCount = {};
-      allBookings.forEach(b => {
-        const style = b.tattoo_style || 'ไม่ระบุ';
-        if (style && style.trim() !== '') {
-          // Normalize styles to simple keywords to group them
-          let matched = 'สไตล์อื่นๆ';
-          if (style.toLowerCase().includes('minimal') || style.includes('มินิมอล')) matched = 'Minimal Line Art';
-          else if (style.toLowerCase().includes('japan') || style.includes('ญี่ปุ่น') || style.includes('มังกร')) matched = 'Japanese Traditional';
-          else if (style.toLowerCase().includes('realism') || style.includes('เหมือนจริง') || style.includes('3d')) matched = 'Realism Black & Grey';
-          
-          styleCount[matched] = (styleCount[matched] || 0) + 1;
-        }
-      });
-
-      const styleList = document.getElementById('style-analytics-list');
-      styleList.innerHTML = '';
-      
-      const maxStyle = Math.max(...Object.values(styleCount), 1);
-
-      Object.entries(styleCount).sort((a,b) => b[1] - a[1]).forEach(([style, count]) => {
-        const percentage = Math.round((count / maxStyle) * 100);
-        const row = document.createElement('div');
-        row.innerHTML = `
-          <div style="display:flex; justify-content:space-between; margin-bottom:0.25rem; font-size:0.9rem;">
-            <span><strong>${style}</strong></span>
-            <span>${count} เคส</span>
-          </div>
-          <div style="background-color: var(--bg-tertiary); height: 8px; border-radius: 4px; overflow:hidden;">
-            <div style="background-color: var(--info); width: ${percentage}%; height: 100%; border-radius: 4px; transition: var(--transition);"></div>
-          </div>
-        `;
-        styleList.appendChild(row);
-      });
-
-      // 3. Daily Revenue accumulation
-      const dailyRevenue = {};
-      allBookings.forEach(b => {
-        if (b.status === 'เสร็จสิ้น') {
-          const date = b.booking_date;
-          if (!dailyRevenue[date]) {
-            dailyRevenue[date] = { count: 0, total: 0 };
-          }
-          dailyRevenue[date].count += 1;
-          dailyRevenue[date].total += (parseFloat(b.price) || 0);
-        }
-      });
-
-      const dateBody = document.getElementById('revenue-dates-table-body');
-      dateBody.innerHTML = '';
-
-      Object.entries(dailyRevenue).sort((a,b) => b[0].localeCompare(a[0])).forEach(([date, data]) => {
-        const tr = document.createElement('tr');
-        const formattedDate = new Date(date).toLocaleDateString('th-TH', { year: 'numeric', month: 'long', day: 'numeric' });
-        tr.innerHTML = `
-          <td><strong>${formattedDate}</strong></td>
-          <td>${data.count} เคสสำเร็จ</td>
-          <td class="text-gold">฿${data.total.toLocaleString()}</td>
-        `;
-        dateBody.appendChild(tr);
-      });
-      if (Object.keys(dailyRevenue).length === 0) {
-        dateBody.innerHTML = '<tr><td colspan="3" style="text-align:center; color:var(--text-secondary);">ยังไม่มีรายได้คิวเสร็จสิ้นเข้าระบบ</td></tr>';
-      }
-    }
-
 
     // Stats calculations
     function updateStats() {
