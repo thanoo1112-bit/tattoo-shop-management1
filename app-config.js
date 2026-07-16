@@ -10,7 +10,7 @@ const SUPABASE_URL = ""; // ป้อน Supabase Project URL ที่นี่
 const SUPABASE_ANON_KEY = ""; // ป้อน Supabase Anon API Key ที่นี่
 
 // API Key สำหรับ Google AI Studio เพื่อใช้งานผู้ช่วยสักลายอัจฉริยะ (Gemini AI)
-const GEMINI_API_KEY = ""; // ป้อน Google AI Studio API Key ที่นี่ เช่น "AIzaSy..."
+const GEMINI_API_KEY = "AQ.Ab8RN6L1kcgozYDLD7Aga7P9pcA7ShKjhwKM9P1NfPon2sswfQ"; // ป้อน Google AI Studio API Key ที่นี่ เช่น "AIzaSy..."
 
 
 // เริ่มต้นใช้งาน Supabase Client (หากกำหนดค่าไว้ครบถ้วน)
