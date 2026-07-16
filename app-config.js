@@ -8,7 +8,6 @@
 
 const SUPABASE_URL = ""; // ป้อน Supabase Project URL ที่นี่ เช่น "https://xxxx.supabase.co"
 const SUPABASE_ANON_KEY = ""; // ป้อน Supabase Anon API Key ที่นี่
-const GEMINI_API_KEY = ""; // ป้อน Google AI Studio API Key ที่นี่ เช่น "AIzaSy..."
 
 
 // เริ่มต้นใช้งาน Supabase Client (หากกำหนดค่าไว้ครบถ้วน)
