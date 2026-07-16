@@ -33,6 +33,9 @@
         <li class="sidebar-item" id="menu-receipts">
           <a href="#" onclick="switchTab('receipts')"><i class="fa-solid fa-file-invoice-dollar"></i> ระบบออกใบเสร็จ</a>
         </li>
+        <li class="sidebar-item" id="menu-analytics">
+          <a href="#" onclick="switchTab('analytics')"><i class="fa-solid fa-chart-line"></i> วิเคราะห์รายได้</a>
+        </li>
         <li class="sidebar-item" style="margin-top: auto;">
           <a href="#" onclick="logout()" style="color: var(--danger);"><i class="fa-solid fa-right-from-bracket"></i> ออกจากระบบ</a>
         </li>
@@ -78,10 +81,17 @@
         <div class="data-table-container">
           <div class="table-header-bar">
             <h3>รายการจองคิวบริการสักลาย</h3>
-            <div>
+            <div style="display: flex; gap: 1rem;">
+              <select id="filterArtist" class="form-control" onchange="renderBookings()" style="width: 200px;">
+                <option value="">ช่างสักทุกคน...</option>
+                <option value="ช่างที (Japanese Traditional)">ช่างที</option>
+                <option value="ช่างพลอย (Minimal & Fine Line)">ช่างพลอย</option>
+                <option value="ช่างบอม (Realism Black & Grey)">ช่างบอม</option>
+              </select>
               <input type="text" id="searchBox" class="form-control" placeholder="ค้นหาชื่อลูกค้าหรือเบอร์โทร..." oninput="renderBookings()" style="width: 250px;">
             </div>
           </div>
+
           <table class="data-table">
             <thead>
               <tr>
@@ -236,8 +246,50 @@
           </div>
         </div>
       </div>
+
+      <!-- Analytics Section -->
+      <div id="tab-analytics-content" style="display: none;">
+        <!-- Analytics Summary Cards -->
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-bottom: 2.5rem;">
+          <!-- Artist Revenue Breakdown -->
+          <div class="booking-card" style="margin: 0; max-width: 100%;">
+            <h3 style="margin-bottom: 1.5rem;"><i class="fa-solid fa-users-gear text-gold"></i> รายได้แยกตามช่างสัก</h3>
+            <div id="artist-analytics-list" style="display: flex; flex-direction: column; gap: 1.25rem;">
+              <!-- JS generated rows with progress bars -->
+            </div>
+          </div>
+
+          <!-- Top Tattoo Style Breakdown -->
+          <div class="booking-card" style="margin: 0; max-width: 100%;">
+            <h3 style="margin-bottom: 1.5rem;"><i class="fa-solid fa-fire text-gold"></i> สไตล์รอยสักยอดนิยม</h3>
+            <div id="style-analytics-list" style="display: flex; flex-direction: column; gap: 1.25rem;">
+              <!-- JS generated list -->
+            </div>
+          </div>
+        </div>
+
+        <!-- Monthly/Weekly stats table -->
+        <div class="data-table-container">
+          <div class="table-header-bar">
+            <h3>สรุปยอดรายได้สะสมรายวัน</h3>
+          </div>
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>วันที่ให้บริการ</th>
+                <th>จำนวนเคสงานที่เสร็จสิ้น</th>
+                <th>ยอดรวมรายได้สะสม (บาท)</th>
+              </tr>
+            </thead>
+            <tbody id="revenue-dates-table-body">
+              <!-- Rendered via JS -->
+            </tbody>
+          </table>
+        </div>
+      </div>
     </main>
   </div>
+
 
   <!-- Booking Details & Manage Status Modal -->
   <div class="modal-overlay" id="statusModal">
@@ -378,6 +430,7 @@
       document.getElementById('tab-bookings-content').style.display = tabName === 'bookings' ? 'block' : 'none';
       document.getElementById('tab-customers-content').style.display = tabName === 'customers' ? 'block' : 'none';
       document.getElementById('tab-receipts-content').style.display = tabName === 'receipts' ? 'block' : 'none';
+      document.getElementById('tab-analytics-content').style.display = tabName === 'analytics' ? 'block' : 'none';
 
       if (tabName === 'bookings') {
         document.getElementById('page-title').innerText = "ระบบบริหารจัดการหลังร้าน 157 TATTOO";
@@ -389,8 +442,12 @@
         renderCustomers();
       } else if (tabName === 'receipts') {
         document.getElementById('page-title').innerText = "ศูนย์ออกใบเสร็จรับเงิน";
-        document.getElementById('page-desc').innerText = "สร้างใบเสร็จรับเงินสำหรับคิดเงินลูกหน้าร้านและให้ลูกค้าใช้เคลมประกันค่างานสัก";
+        document.getElementById('page-desc').innerText = "สร้างใบเสร็จรับเงินสำหรับคิดเงินลูกหน้าน้านและให้ลูกค้าใช้เคลมประกันค่างานสัก";
         populateReceiptFormDropdowns();
+      } else if (tabName === 'analytics') {
+        document.getElementById('page-title').innerText = "สถิติรายได้และวิเคราะห์หลังร้าน";
+        document.getElementById('page-desc').innerText = "วิเคราะห์รายได้ตามผลงานช่าง สไตล์การสัก และสรุปบัญชีรายวัน";
+        renderAnalytics();
       }
     }
 
@@ -400,10 +457,13 @@
       tbody.innerHTML = '';
 
       const query = document.getElementById('searchBox').value.toLowerCase();
-      const filtered = allBookings.filter(b => 
-        b.customer_name.toLowerCase().includes(query) || 
-        b.customer_phone.includes(query)
-      );
+      const artistFilter = document.getElementById('filterArtist').value;
+      
+      const filtered = allBookings.filter(b => {
+        const matchesQuery = b.customer_name.toLowerCase().includes(query) || b.customer_phone.includes(query);
+        const matchesArtist = artistFilter === "" || b.artist_name === artistFilter;
+        return matchesQuery && matchesArtist;
+      });
 
       filtered.forEach(b => {
         let badgeClass = 'badge-pending';
@@ -432,6 +492,7 @@
         tbody.appendChild(tr);
       });
     }
+
 
     // Render customers history
     function renderCustomers() {
@@ -475,6 +536,116 @@
         tbody.appendChild(tr);
       });
     }
+
+    // Render Analytics
+    function renderAnalytics() {
+      // 1. Artist revenue calculations
+      const artistRevenue = {
+        'ช่างที (Japanese Traditional)': 0,
+        'ช่างพลอย (Minimal & Fine Line)': 0,
+        'ช่างบอม (Realism Black & Grey)': 0
+      };
+
+      allBookings.forEach(b => {
+        if (b.status === 'เสร็จสิ้น') {
+          const artist = b.artist_name;
+          if (artistRevenue[artist] !== undefined) {
+            artistRevenue[artist] += (parseFloat(b.price) || 0);
+          } else {
+            artistRevenue[artist] = (parseFloat(b.price) || 0);
+          }
+        }
+      });
+
+      const artistList = document.getElementById('artist-analytics-list');
+      artistList.innerHTML = '';
+      
+      // Calculate max revenue for progress bar percentage
+      const maxRev = Math.max(...Object.values(artistRevenue), 1);
+
+      Object.entries(artistRevenue).forEach(([artist, revenue]) => {
+        const percentage = Math.round((revenue / maxRev) * 100);
+        const artistNameClean = artist.split(' (')[0];
+        
+        const row = document.createElement('div');
+        row.innerHTML = `
+          <div style="display:flex; justify-content:space-between; margin-bottom:0.25rem; font-size:0.9rem;">
+            <span><strong>${artistNameClean}</strong></span>
+            <span>฿${revenue.toLocaleString()}</span>
+          </div>
+          <div style="background-color: var(--bg-tertiary); height: 8px; border-radius: 4px; overflow:hidden;">
+            <div style="background-color: var(--accent-gold); width: ${percentage}%; height: 100%; border-radius: 4px; transition: var(--transition);"></div>
+          </div>
+        `;
+        artistList.appendChild(row);
+      });
+
+      // 2. Popular Style calculations (Tattoo styles)
+      const styleCount = {};
+      allBookings.forEach(b => {
+        const style = b.tattoo_style || 'ไม่ระบุ';
+        if (style && style.trim() !== '') {
+          // Normalize styles to simple keywords to group them
+          let matched = 'สไตล์อื่นๆ';
+          if (style.toLowerCase().includes('minimal') || style.includes('มินิมอล')) matched = 'Minimal Line Art';
+          else if (style.toLowerCase().includes('japan') || style.includes('ญี่ปุ่น') || style.includes('มังกร')) matched = 'Japanese Traditional';
+          else if (style.toLowerCase().includes('realism') || style.includes('เหมือนจริง') || style.includes('3d')) matched = 'Realism Black & Grey';
+          
+          styleCount[matched] = (styleCount[matched] || 0) + 1;
+        }
+      });
+
+      const styleList = document.getElementById('style-analytics-list');
+      styleList.innerHTML = '';
+      
+      const maxStyle = Math.max(...Object.values(styleCount), 1);
+
+      Object.entries(styleCount).sort((a,b) => b[1] - a[1]).forEach(([style, count]) => {
+        const percentage = Math.round((count / maxStyle) * 100);
+        const row = document.createElement('div');
+        row.innerHTML = `
+          <div style="display:flex; justify-content:space-between; margin-bottom:0.25rem; font-size:0.9rem;">
+            <span><strong>${style}</strong></span>
+            <span>${count} เคส</span>
+          </div>
+          <div style="background-color: var(--bg-tertiary); height: 8px; border-radius: 4px; overflow:hidden;">
+            <div style="background-color: var(--info); width: ${percentage}%; height: 100%; border-radius: 4px; transition: var(--transition);"></div>
+          </div>
+        `;
+        styleList.appendChild(row);
+      });
+
+      // 3. Daily Revenue accumulation
+      const dailyRevenue = {};
+      allBookings.forEach(b => {
+        if (b.status === 'เสร็จสิ้น') {
+          const date = b.booking_date;
+          if (!dailyRevenue[date]) {
+            dailyRevenue[date] = { count: 0, total: 0 };
+          }
+          dailyRevenue[date].count += 1;
+          dailyRevenue[date].total += (parseFloat(b.price) || 0);
+        }
+      });
+
+      const dateBody = document.getElementById('revenue-dates-table-body');
+      dateBody.innerHTML = '';
+
+      Object.entries(dailyRevenue).sort((a,b) => b[0].localeCompare(a[0])).forEach(([date, data]) => {
+        const tr = document.createElement('tr');
+        const formattedDate = new Date(date).toLocaleDateString('th-TH', { year: 'numeric', month: 'long', day: 'numeric' });
+        tr.innerHTML = `
+          <td><strong>${formattedDate}</strong></td>
+          <td>${data.count} เคสสำเร็จ</td>
+          <td class="text-gold">฿${data.total.toLocaleString()}</td>
+        `;
+        dateBody.appendChild(tr);
+      });
+      if (Object.keys(dailyRevenue).length === 0) {
+        dateBody.innerHTML = '<tr><td colspan="3" style="text-align:center; color:var(--text-secondary);">ยังไม่มีรายได้คิวเสร็จสิ้นเข้าระบบ</td></tr>';
+      }
+    }
+
 
     // Stats calculations
     function updateStats() {
