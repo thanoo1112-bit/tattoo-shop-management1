@@ -6,17 +6,17 @@
  * 2. หากยังไม่มีระบบจะบันทึกข้อมูลและดึงข้อมูลผ่าน LocalStorage โดยอัตโนมัติ (ช่วยให้ทดสอบหน้าร้านได้ทันที!)
  */
 
-const SUPABASE_URL = "https://douygxbizmkcbonmewbw.supabase.co"; // ป้อน Supabase Project URL ที่นี่ เช่น "https://xxxx.supabase.co"
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRvdXlneGJpem1rY2Jvbm1ld2J3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQwOTkzODQsImV4cCI6MjA5OTY3NTM4NH0.5NPXupEdzw8M3f5hKY12utnP32WpFOTs7vsJAZdkFuI"; // ป้อน Supabase Anon API Key ที่นี่
+const SUPABASE_URL = ""; // ป้อน Supabase Project URL ที่นี่ เช่น "https://xxxx.supabase.co"
+const SUPABASE_ANON_KEY = ""; // ป้อน Supabase Anon API Key ที่นี่
 
-// API Key สำหรับ Google AI Studio (สำหรับใช้งานระบบออกแบบรอยสักและที่ปรึกษา AI)
-const GEMINI_API_KEY = "AQ.Ab8RN6L1kcgozYDLD7Aga7P9pcA7ShKjhwKM9P1NfPon2sswfQ"; 
+// API Key สำหรับ Google AI Studio เพื่อใช้งานผู้ช่วยสักลายอัจฉริยะ (Gemini AI)
+const GEMINI_API_KEY = ""; // ป้อน Google AI Studio API Key ที่นี่ เช่น "AIzaSy..."
 
 
 // เริ่มต้นใช้งาน Supabase Client (หากกำหนดค่าไว้ครบถ้วน)
 if (SUPABASE_URL && SUPABASE_ANON_KEY) {
   try {
-    window.supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    window.supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
     console.log("Supabase Client initialized successfully!");
   } catch (error) {
     console.error("Failed to initialize Supabase:", error);
