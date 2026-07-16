@@ -16,7 +16,7 @@ const GEMINI_API_KEY = "AQ.Ab8RN6L1kcgozYDLD7Aga7P9pcA7ShKjhwKM9P1NfPon2sswfQ";
 // เริ่มต้นใช้งาน Supabase Client (หากกำหนดค่าไว้ครบถ้วน)
 if (SUPABASE_URL && SUPABASE_ANON_KEY) {
   try {
-    window.supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    window.supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
     console.log("Supabase Client initialized successfully!");
   } catch (error) {
     console.error("Failed to initialize Supabase:", error);
