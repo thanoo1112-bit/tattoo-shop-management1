@@ -296,60 +296,39 @@
         return;
       }
 
-      // Check if API Key is set in app-config.js
-      if (typeof GEMINI_API_KEY === 'undefined' || !GEMINI_API_KEY) {
-        responseBox.style.display = 'block';
-        responseText.innerHTML = `<span style="color: var(--danger); font-weight: 600;"><i class="fa-solid fa-circle-exclamation"></i> ระบบไม่สามารถใช้งานได้:</span><br>เนื่องจากยังไม่ได้ป้อน API Key ของ Google AI Studio<br><br>กรุณาเปิดไฟล์ <strong>app-config.js</strong> บนคอมพิวเตอร์ของคุณ แล้วใส่ API Key ในบรรทัดที่ 11 ตัวแปร <code>GEMINI_API_KEY</code> จากนั้นกดรีเฟรชหน้าเพื่อเริ่มใช้งานครับ`;
-        return;
-      }
-
       // Show Loading state
       responseBox.style.display = 'block';
-      responseText.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> กำลังวิเคราะห์ข้อมูลด้วยปัญญาประดิษฐ์อัจฉริยะ โปรดรอสักครู่...`;
+      responseText.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> กำลังส่งข้อมูลไปยังเซิร์ฟเวอร์หลังบ้านเพื่อวิเคราะห์ด้วย Gemini AI...`;
       submitBtn.disabled = true;
 
-      // Define System Prompt base on current mode
-      let systemPrompt = '';
-      if (currentAiMode === 'design') {
-        systemPrompt = "คุณเป็น AI ผู้เชี่ยวชาญด้านการออกแบบและให้คำแนะนำรอยสักสำหรับร้าน 157 TATTOO จงแนะนำไอเดียรอยสัก สไตล์สัก ขนาดที่เหมาะสม ตำแหน่งที่แนะนำ และข้อเสนอแนะในการทำรอยสักจากความต้องการนี้ โดยตอบกลับมาเป็นภาษาไทยที่สุภาพ มีสไตล์และอ่านเข้าใจง่าย แยกเป็นหัวข้อให้ชัดเจนน่าอ่าน";
-      } else {
-        systemPrompt = "คุณเป็น AI ผู้เชี่ยวชาญการดูแลแผลรอยสักและแนะนำการฟื้นฟูผิวหลังสักของร้าน 157 TATTOO จงแนะนำการดูแลแผลหลังสักอย่างเป็นขั้นตอน วิธีแก้ปัญหาเบื้องต้นจากข้อมูลปัญหานี้ โดยตอบเป็นภาษาไทยที่เข้าใจง่าย กระชับ และถูกต้องตามหลักอนามัย (หากมีอาการอักเสบรุนแรงให้แนะนำให้ไปพบแพทย์เพื่อความปลอดภัย)";
-      }
-
       try {
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
-        const response = await fetch(url, {
+        // เรียกใช้งาน API Route หลังบ้านอย่างปลอดภัย ไร้รอยรั่วไหลของ API Key
+        const response = await fetch('/api/chat', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
           },
           body: JSON.stringify({
-            contents: [
-              {
-                parts: [
-                  {
-                    text: `${systemPrompt}\n\nโจทย์/ความต้องการของผู้ใช้: "${promptValue}"`
-                  }
-                ]
-              }
-            ]
+            message: promptValue,
+            mode: currentAiMode
           })
         });
 
         const result = await response.json();
         
-        if (result.candidates && result.candidates[0].content.parts[0].text) {
-          let aiText = result.candidates[0].content.parts[0].text;
-          // Simple markdown convert for rendering
+        if (response.ok && result.reply) {
+          let aiText = result.reply;
+          // แปลงฟอร์แมตตัวหนาแบบมาร์กดาวน์เพื่อแสดงผลบนหน้าจอ
           aiText = aiText.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
           aiText = aiText.replace(/\*(.*?)\*/g, '<em>$1</em>');
           responseText.innerHTML = aiText;
         } else {
-          responseText.innerHTML = `<span style="color: var(--danger);"><i class="fa-solid fa-circle-exclamation"></i> ไม่สามารถดึงข้อมูลได้ โปรดลองอีกครั้ง</span>`;
+          const errMsg = result.error || 'เกิดข้อผิดพลาดในการประมวลผลข้อมูล';
+          responseText.innerHTML = `<span style="color: var(--danger); font-weight: 600;"><i class="fa-solid fa-circle-exclamation"></i> ข้อผิดพลาดจากเซิร์ฟเวอร์:</span><br>${errMsg}`;
         }
       } catch (err) {
-        console.error("AI Error:", err);
-        responseText.innerHTML = `<span style="color: var(--danger);"><i class="fa-solid fa-circle-exclamation"></i> เกิดข้อผิดพลาดในการเชื่อมต่อกับเซิร์ฟเวอร์ AI: ${err.message}</span>`;
+        console.error("AI Fetch Error:", err);
+        responseText.innerHTML = `<span style="color: var(--danger); font-weight: 600;"><i class="fa-solid fa-circle-exclamation"></i> ไม่สามารถเชื่อมต่อกับหลังบ้านได้:</span><br>${err.message}`;
       } finally {
         submitBtn.disabled = false;
       }
