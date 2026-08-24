@@ -55,11 +55,13 @@ export default async function SettingsPage() {
           <h2 className="text-lg font-medium text-[#F5F5F5]">ข้อมูลผู้ดูแลระบบ</h2>
         </div>
         
-        <OwnerProfileForm 
-          initialFullName={profile?.full_name || ''} 
-          initialPhone={profile?.phone || ''}
-          email={profile?.email || user.email || ''}
-        />
+        <div className="p-6">
+          <OwnerProfileForm 
+            initialFullName={profile?.full_name || ''} 
+            initialPhone={profile?.phone || ''}
+            email={user.email || ''}
+          />
+        </div>
       </div>
     </div>
   )
