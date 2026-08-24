@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import { ExternalLink, Copy, Check } from 'lucide-react'
+import { ExternalLink, Copy, Check, Lock } from 'lucide-react'
 
 type PublicStorefrontLinkProps = {
   shopSlug: string
@@ -47,8 +47,13 @@ export function PublicStorefrontLink({ shopSlug }: PublicStorefrontLinkProps) {
       </div>
       <div className="p-6">
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-          <div className="flex-1 bg-[#0A0A0A] border border-[#2A2A2A] rounded-md px-3 py-2.5 text-xs font-mono text-[#C8CDD3] truncate select-all">
-            {mounted ? getPublicLink() : 'กำลังโหลด...'}
+          <div className="flex-1 relative">
+            <div className="w-full bg-[#0A0A0A] border border-[#2A2A2A] rounded-md pl-3 pr-10 py-2.5 text-xs font-mono text-[#C8CDD3] truncate select-all">
+              {mounted ? getPublicLink() : 'กำลังโหลด...'}
+            </div>
+            <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+              <Lock className="h-3.5 w-3.5 text-[#7A7A7A]" />
+            </div>
           </div>
           <div className="flex items-center gap-2">
             <a

@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { updateOwnerProfile } from './actions';
+import { Lock } from 'lucide-react';
 
 interface OwnerProfileFormProps {
   initialFullName: string;
@@ -77,16 +78,24 @@ export function OwnerProfileForm({ initialFullName, initialPhone, email }: Owner
       </div>
 
       <div>
-        <label htmlFor="email" className="block text-xs font-medium text-[#9EA4AA] uppercase tracking-wider mb-2">
-          อีเมล
+        <label htmlFor="email" className="block text-xs font-medium text-[#9EA4AA] uppercase tracking-wider mb-2 flex items-center gap-1.5">
+          อีเมล <Lock className="h-3 w-3 text-[#7A7A7A]" />
         </label>
-        <input
-          type="email"
-          id="email"
-          value={email}
-          readOnly
-          className="w-full bg-[#1A1A1A] border border-[#2A2A2A] text-[#7A7A7A] px-4 py-3 rounded-md cursor-not-allowed"
-        />
+        <div className="relative">
+          <input
+            type="email"
+            id="email"
+            value={email}
+            readOnly
+            className="w-full bg-[#141414] border border-[#2A2A2A] text-[#7A7A7A] px-4 py-3 rounded-md cursor-not-allowed pr-10 focus:outline-none"
+          />
+          <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+            <Lock className="h-4 w-4 text-[#7A7A7A]" />
+          </div>
+        </div>
+        <p className="text-[10px] text-[#7A7A7A] mt-2">
+          อีเมลสำหรับเข้าสู่ระบบ ไม่สามารถแก้ไขได้จากหน้านี้
+        </p>
       </div>
 
       <div className="pt-2">
