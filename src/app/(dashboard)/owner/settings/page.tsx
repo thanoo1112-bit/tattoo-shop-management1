@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { OwnerProfileForm } from './OwnerProfileForm'
 import { OwnerPaymentSettingsForm } from './OwnerPaymentSettingsForm'
 import { OwnerShopSettingsForm } from './OwnerShopSettingsForm'
+import { PublicStorefrontLink } from '@/components/owner/dashboard/PublicStorefrontLink'
 
 export default async function SettingsPage() {
   const { membership, user } = await requireOwner()
@@ -37,6 +38,8 @@ export default async function SettingsPage() {
           />
         </div>
       </div>
+
+      <PublicStorefrontLink shopSlug={shop?.slug || '157-tattoo'} />
 
       <div className="bg-[#141414] border border-[#2A2A2A] rounded-xl overflow-hidden">
         <div className="px-6 py-4 border-b border-[#2A2A2A] bg-[#181818]">

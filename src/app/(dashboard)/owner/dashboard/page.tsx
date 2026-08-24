@@ -3,7 +3,6 @@ import { createClient } from '@/lib/supabase/server'
 import { DashboardStatCard } from '@/components/owner/dashboard-stat-card'
 import { EmptyState } from '@/components/owner/empty-state'
 import { ArtistTeamList } from '@/components/owner/dashboard/ArtistTeamList'
-import { PublicStorefrontLink } from '@/components/owner/dashboard/PublicStorefrontLink'
 import { CalendarDays, Inbox, Users, Wallet, ArrowRight, BarChart3, User } from 'lucide-react'
 import Link from 'next/link'
 import Image from 'next/image'
@@ -152,9 +151,6 @@ export default async function OwnerDashboardPage() {
           </p>
         </div>
       </div>
-
-      {/* Public Storefront Link Section */}
-      <PublicStorefrontLink shopSlug={shop?.slug || '157-tattoo'} />
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-5">
         <DashboardStatCard 

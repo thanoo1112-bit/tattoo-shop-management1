@@ -16,11 +16,17 @@ export function PublicStorefrontLink({ shopSlug }: PublicStorefrontLinkProps) {
   }, [])
 
   const getPublicLink = () => {
+    // 1. Try NEXT_PUBLIC_APP_URL
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL
+    if (appUrl) {
+      return `${appUrl.replace(/\/$/, '')}/shop/${shopSlug}`
+    }
+    // 2. Fallback to browser origin
     if (typeof window !== 'undefined') {
       return `${window.location.origin}/shop/${shopSlug}`
     }
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://tattoo-157.vercel.app'
-    return `${appUrl}/shop/${shopSlug}`
+    // 3. Fallback during server render
+    return `https://tattoo-157.vercel.app/shop/${shopSlug}`
   }
 
   const handleCopy = async () => {
@@ -34,41 +40,43 @@ export function PublicStorefrontLink({ shopSlug }: PublicStorefrontLinkProps) {
   }
 
   return (
-    <div className="bg-[#171717] border border-[#262626] rounded-xl p-6 shadow-md">
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-sm font-medium text-[#F3F3F3]">หน้าร้านสาธารณะ (Public Storefront)</h3>
-        <span className="text-xs text-[#9CA3AB]">สำหรับให้ลูกค้าทั่วไปเข้าชม</span>
+    <div className="bg-[#141414] border border-[#2A2A2A] rounded-xl overflow-hidden">
+      <div className="px-6 py-4 border-b border-[#2A2A2A] bg-[#181818]">
+        <h2 className="text-lg font-medium text-[#F5F5F5]">หน้าร้านสาธารณะ</h2>
+        <p className="text-sm text-[#9EA4AA] mt-1">ข้อมูลลิงก์สำหรับให้ลูกค้าเข้าชมหน้าร้านสาธารณะ</p>
       </div>
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-        <div className="flex-1 bg-[#0A0A0A] border border-[#262626] rounded-md px-3 py-2.5 text-xs font-mono text-[#C8CDD3] truncate select-all">
-          {mounted ? getPublicLink() : 'กำลังโหลด...'}
-        </div>
-        <div className="flex items-center gap-2">
-          <a
-            href={`/shop/${shopSlug}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-4 py-2.5 bg-[#262626] hover:bg-[#333333] border border-[#262626] text-[#F3F3F3] hover:text-[#FFFFFF] rounded-md text-xs font-medium transition-colors"
-          >
-            <ExternalLink className="h-3.5 w-3.5" />
-            เปิดหน้าร้าน
-          </a>
-          <button
-            onClick={handleCopy}
-            className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-4 py-2.5 bg-[#FFFFFF] hover:bg-[#E5E5E5] text-black rounded-md text-xs font-medium transition-colors min-w-[95px]"
-          >
-            {copied ? (
-              <>
-                <Check className="h-3.5 w-3.5 text-green-500" />
-                คัดลอกแล้ว
-              </>
-            ) : (
-              <>
-                <Copy className="h-3.5 w-3.5" />
-                คัดลอกลิงก์
-              </>
-            )}
-          </button>
+      <div className="p-6">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+          <div className="flex-1 bg-[#0A0A0A] border border-[#2A2A2A] rounded-md px-3 py-2.5 text-xs font-mono text-[#C8CDD3] truncate select-all">
+            {mounted ? getPublicLink() : 'กำลังโหลด...'}
+          </div>
+          <div className="flex items-center gap-2">
+            <a
+              href={`/shop/${shopSlug}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-4 py-2.5 bg-[#2A2A2A] hover:bg-[#333333] border border-[#2A2A2A] text-[#F3F3F3] hover:text-[#FFFFFF] rounded-md text-xs font-medium transition-colors"
+            >
+              <ExternalLink className="h-3.5 w-3.5" />
+              เปิดหน้าร้าน
+            </a>
+            <button
+              onClick={handleCopy}
+              className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-4 py-2.5 bg-[#FFFFFF] hover:bg-[#E5E5E5] text-black rounded-md text-xs font-medium transition-colors min-w-[95px]"
+            >
+              {copied ? (
+                <>
+                  <Check className="h-3.5 w-3.5 text-green-500" />
+                  คัดลอกแล้ว
+                </>
+              ) : (
+                <>
+                  <Copy className="h-3.5 w-3.5" />
+                  คัดลอกลิงก์
+                </>
+              )}
+            </button>
+          </div>
         </div>
       </div>
     </div>
