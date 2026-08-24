@@ -25,8 +25,11 @@ export function CreateInviteModal() {
 
       if (result.data && result.data.length > 0) {
         const token = result.data[0].token
-        const baseUrl = process.env.NEXT_PUBLIC_APP_URL || window.location.origin
-        setInviteUrl(`${baseUrl}/invite/${token}`)
+        let baseUrl = process.env.NEXT_PUBLIC_APP_URL
+        if (!baseUrl || baseUrl.includes('supabase.co')) {
+          baseUrl = typeof window !== 'undefined' ? window.location.origin : 'https://tattoo-157.vercel.app'
+        }
+        setInviteUrl(`${baseUrl.replace(/\/$/, '')}/invite/${token}`)
       }
     })
   }

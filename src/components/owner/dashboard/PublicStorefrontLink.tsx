@@ -18,7 +18,7 @@ export function PublicStorefrontLink({ shopSlug }: PublicStorefrontLinkProps) {
   const getPublicLink = () => {
     // 1. Try NEXT_PUBLIC_APP_URL
     const appUrl = process.env.NEXT_PUBLIC_APP_URL
-    if (appUrl) {
+    if (appUrl && !appUrl.includes('supabase.co')) {
       return `${appUrl.replace(/\/$/, '')}/shop/${shopSlug}`
     }
     // 2. Fallback to browser origin

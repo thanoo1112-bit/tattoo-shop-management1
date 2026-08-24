@@ -20,8 +20,11 @@ export function PendingInvitesTable({ invites }: { invites: PendingInvite[] }) {
   const [isPending, startTransition] = useTransition()
 
   const handleCopy = (id: string, token: string) => {
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || window.location.origin
-    navigator.clipboard.writeText(`${baseUrl}/invite/${token}`)
+    let baseUrl = process.env.NEXT_PUBLIC_APP_URL
+    if (!baseUrl || baseUrl.includes('supabase.co')) {
+      baseUrl = typeof window !== 'undefined' ? window.location.origin : 'https://tattoo-157.vercel.app'
+    }
+    navigator.clipboard.writeText(`${baseUrl.replace(/\/$/, '')}/invite/${token}`)
     setCopiedId(id)
     setTimeout(() => setCopiedId(null), 2000)
   }
