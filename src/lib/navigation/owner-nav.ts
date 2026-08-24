@@ -8,8 +8,7 @@ import {
   Wallet, 
   BarChart3, 
   Settings,
-  Image,
-  ExternalLink
+  Image
 } from 'lucide-react'
 
 export const ownerNavigation = [
@@ -23,5 +22,4 @@ export const ownerNavigation = [
   { name: 'การเงิน', href: '/owner/finance', icon: Wallet },
   { name: 'รายงาน', href: '/owner/reports', icon: BarChart3 },
   { name: 'ตั้งค่าร้าน', href: '/owner/settings', icon: Settings },
-  { name: 'หน้าร้านสาธารณะ', href: '/shop/157-tattoo', icon: ExternalLink },
 ]
