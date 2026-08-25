@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { BrandLogo } from '@/components/brand-logo'
-import { LayoutDashboard, Inbox, CalendarDays, PenTool, Users, DollarSign, User, LogOut } from 'lucide-react'
+import { LayoutDashboard, Inbox, CalendarDays, PenTool, Users, DollarSign, User, LogOut, Shield } from 'lucide-react'
 import { logout } from '@/app/(auth)/login/actions'
 
 const MENU_ITEMS = [
@@ -18,7 +18,7 @@ const MENU_ITEMS = [
 
 import Image from 'next/image'
 
-export function ArtistSidebar({ artistName, avatarUrl }: { artistName: string, avatarUrl?: string | null }) {
+export function ArtistSidebar({ artistName, avatarUrl, isOwner }: { artistName: string, avatarUrl?: string | null, isOwner?: boolean }) {
   const pathname = usePathname()
 
   return (
@@ -61,6 +61,18 @@ export function ArtistSidebar({ artistName, avatarUrl }: { artistName: string, a
               </Link>
             )
           })}
+          
+          {isOwner && (
+            <div className="pt-4 border-t border-[#262626] mt-4">
+              <Link
+                href="/owner/dashboard"
+                className="group flex items-center px-3 py-2.5 text-sm font-medium rounded-md text-[#9CA3AB] hover:bg-[#262626] hover:text-[#F3F3F3] transition-all duration-200"
+              >
+                <Shield className="flex-shrink-0 mr-3 h-5 w-5 text-[#747C85] group-hover:text-[#B9C0C8] transition-colors" />
+                <span className="truncate">กลับมุมมองเจ้าของร้าน</span>
+              </Link>
+            </div>
+          )}
         </nav>
       </div>
 

@@ -35,7 +35,7 @@ export default async function OwnerPortfolioPage() {
       )
     `)
     .eq('shop_id', shopId)
-    .eq('role', 'artist')
+    .in('role', ['artist', 'owner'])
     .eq('status', 'active')
 
   // 3. Fetch styles of the shop

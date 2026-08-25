@@ -4,7 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { BrandLogo } from '@/components/brand-logo'
-import { LayoutDashboard, Inbox, CalendarDays, PenTool, Users, DollarSign, User, LogOut, Menu, X, Bell } from 'lucide-react'
+import { LayoutDashboard, Inbox, CalendarDays, PenTool, Users, DollarSign, User, LogOut, Menu, X, Bell, Shield } from 'lucide-react'
 import { logout } from '@/app/(auth)/login/actions'
 
 const MENU_ITEMS = [
@@ -19,7 +19,7 @@ const MENU_ITEMS = [
 
 import Image from 'next/image'
 
-export function ArtistMobileNav({ artistName, avatarUrl }: { artistName: string, avatarUrl?: string | null }) {
+export function ArtistMobileNav({ artistName, avatarUrl, isOwner }: { artistName: string, avatarUrl?: string | null, isOwner?: boolean }) {
   const [isOpen, setIsOpen] = useState(false)
   const pathname = usePathname()
 
@@ -98,6 +98,19 @@ export function ArtistMobileNav({ artistName, avatarUrl }: { artistName: string,
               </Link>
             )
           })}
+          
+          {isOwner && (
+            <div className="pt-4 border-t border-[#262626] mt-4">
+              <Link
+                href="/owner/dashboard"
+                onClick={() => setIsOpen(false)}
+                className="flex items-center px-4 py-3 text-base font-medium rounded-md text-[#9CA3AB] hover:bg-[#262626] hover:text-[#F3F3F3] transition-colors"
+              >
+                <Shield className="mr-4 h-6 w-6 text-[#747C85]" />
+                กลับมุมมองเจ้าของร้าน
+              </Link>
+            </div>
+          )}
         </nav>
 
         <div className="flex-shrink-0 border-t border-[#262626] p-4 bg-[#121212]">

@@ -69,7 +69,7 @@ export async function requireArtist() {
     redirect('/login?error=no_active_shop')
   }
 
-  if (membership.role !== 'artist') {
+  if (membership.role !== 'artist' && membership.role !== 'owner') {
     redirect('/owner/dashboard')
   }
 

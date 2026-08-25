@@ -15,7 +15,7 @@ export default async function CalendarPage() {
     `)
     .eq('shop_id', membership.shop_id)
     .eq('status', 'active')
-    .eq('role', 'artist');
+    .in('role', ['artist', 'owner']);
 
   const artists = (artistsData || []).map((m: any) => ({
     id: m.user_id,

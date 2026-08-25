@@ -35,7 +35,7 @@ export default async function OwnerDashboardPage() {
       )
     `)
     .eq('shop_id', membership.shop_id)
-    .eq('role', 'artist')
+    .in('role', ['artist', 'owner'])
     .eq('status', 'active')
     .order('joined_at', { ascending: false })
     .limit(5)

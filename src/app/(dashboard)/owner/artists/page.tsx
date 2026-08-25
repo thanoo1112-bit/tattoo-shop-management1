@@ -29,7 +29,7 @@ export default async function ArtistsPage() {
       )
     `)
     .eq('shop_id', shopId)
-    .eq('role', 'artist')
+    .in('role', ['artist', 'owner'])
     .order('joined_at', { ascending: false })
 
   // Fetch pending invites

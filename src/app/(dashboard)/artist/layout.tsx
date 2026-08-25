@@ -26,8 +26,8 @@ export default async function ArtistLayout({ children }: { children: React.React
     <ArtistRouteGuard isComplete={isComplete}>
       <div className="min-h-screen bg-[#0A0A0A] text-[#F3F3F3] flex flex-col md:flex-row font-sans relative">
         <ArtistPresenceTracker userId={user.id} shopId={membership.shop_id} />
-        <ArtistSidebar artistName={artistName} avatarUrl={avatarUrl} />
-        <ArtistMobileNav artistName={artistName} avatarUrl={avatarUrl} />
+        <ArtistSidebar artistName={artistName} avatarUrl={avatarUrl} isOwner={membership.role === 'owner'} />
+        <ArtistMobileNav artistName={artistName} avatarUrl={avatarUrl} isOwner={membership.role === 'owner'} />
         
         <div className="flex-1 md:pl-64 flex flex-col min-h-screen selection:bg-[#8E232B] selection:text-white relative z-10">
           <ArtistTopbar />
