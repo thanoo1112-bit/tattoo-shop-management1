@@ -190,58 +190,58 @@ export function OwnerAppointmentsClient({ appointments }: Props) {
       </div>
 
       {/* Filters Panel */}
-      <div className="flex flex-col lg:flex-row gap-4 justify-between lg:items-center">
-        <div className="flex flex-col sm:flex-row gap-4 flex-1">
-          {/* Search */}
-          <div className="relative flex-1 max-w-md">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#737373]" />
-            <input
-              type="text"
-              placeholder="ค้นหาชื่อลูกค้า, ช่าง, หรือเบอร์โทร..."
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-              className="w-full bg-[#171717] border border-[#262626] rounded-lg pl-9 pr-4 py-2.5 text-sm text-[#F5F5F5] placeholder-[#525252] focus:outline-none focus:border-[#737373]"
-            />
-          </div>
+      <div className="grid grid-cols-1 min-[360px]:grid-cols-2 lg:flex lg:flex-row gap-3 lg:gap-4 justify-between lg:items-center">
+        {/* Search */}
+        <div className="relative col-span-1 min-[360px]:col-span-2 lg:max-w-md lg:flex-1">
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#737373]" />
+          <input
+            type="text"
+            placeholder="ค้นหาชื่อลูกค้า, ช่าง, หรือเบอร์โทร..."
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+            className="w-full bg-[#171717] border border-[#262626] rounded-lg pl-10 pr-4 h-11 lg:h-10 text-sm text-[#F5F5F5] placeholder-[#525252] focus:outline-none focus:border-[#737373]"
+          />
+        </div>
 
-          {/* Artist Filter */}
-          <div className="flex items-center gap-2">
-            <Users className="w-4 h-4 text-[#737373]" />
-            <select
-              value={filterArtist}
-              onChange={e => setFilterArtist(e.target.value)}
-              className="bg-[#171717] border border-[#262626] rounded-lg px-3 py-2 text-sm text-[#F5F5F5] focus:outline-none focus:border-[#737373]"
-            >
-              <option value="all">ช่างสักทั้งหมด</option>
-              {artistsList.map(art => (
-                <option key={art.id} value={art.id}>{art.name}</option>
-              ))}
-            </select>
-          </div>
+        {/* Artist Filter */}
+        <div className="relative col-span-1 lg:w-auto">
+          <Users className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#737373] pointer-events-none" />
+          <select
+            value={filterArtist}
+            onChange={e => setFilterArtist(e.target.value)}
+            className="w-full lg:w-auto appearance-none bg-[#171717] border border-[#262626] rounded-lg pl-10 pr-8 h-11 lg:h-10 text-sm text-[#F5F5F5] focus:outline-none focus:border-[#737373]"
+          >
+            <option value="all">ช่างสักทั้งหมด</option>
+            {artistsList.map(art => (
+              <option key={art.id} value={art.id}>{art.name}</option>
+            ))}
+          </select>
+          <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#737373] pointer-events-none" />
+        </div>
 
-          {/* Date Filter */}
-          <div className="flex items-center gap-2">
-            <Calendar className="w-4 h-4 text-[#737373]" />
-            <select
-              value={filterDate}
-              onChange={e => setFilterDate(e.target.value)}
-              className="bg-[#171717] border border-[#262626] rounded-lg px-3 py-2 text-sm text-[#F5F5F5] focus:outline-none focus:border-[#737373]"
-            >
-              <option value="all">ทุกช่วงเวลา</option>
-              <option value="today">วันนี้</option>
-              <option value="upcoming">นัดหมายถัดไป</option>
-              <option value="past">ที่ผ่านมา</option>
-            </select>
-          </div>
+        {/* Date Filter */}
+        <div className="relative col-span-1 lg:w-auto">
+          <Calendar className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#737373] pointer-events-none" />
+          <select
+            value={filterDate}
+            onChange={e => setFilterDate(e.target.value)}
+            className="w-full lg:w-auto appearance-none bg-[#171717] border border-[#262626] rounded-lg pl-10 pr-8 h-11 lg:h-10 text-sm text-[#F5F5F5] focus:outline-none focus:border-[#737373]"
+          >
+            <option value="all">ทุกช่วงเวลา</option>
+            <option value="today">วันนี้</option>
+            <option value="upcoming">นัดหมายถัดไป</option>
+            <option value="past">ที่ผ่านมา</option>
+          </select>
+          <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#737373] pointer-events-none" />
         </div>
 
         {/* Status Dropdown */}
-        <div className="flex items-center gap-2">
-          <FilterIcon className="w-4 h-4 text-[#737373]" />
+        <div className="relative col-span-1 min-[360px]:col-span-2 lg:col-span-1 lg:w-auto">
+          <FilterIcon className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#737373] pointer-events-none" />
           <select
             value={filterStatus}
             onChange={e => setFilterStatus(e.target.value)}
-            className="bg-[#171717] border border-[#262626] rounded-lg px-3 py-2 text-sm text-[#F5F5F5] focus:outline-none focus:border-[#737373]"
+            className="w-full lg:w-auto appearance-none bg-[#171717] border border-[#262626] rounded-lg pl-10 pr-8 h-11 lg:h-10 text-sm text-[#F5F5F5] focus:outline-none focus:border-[#737373]"
           >
             <option value="all">สถานะทั้งหมด</option>
             <option value="scheduled">นัดหมาย</option>
@@ -250,6 +250,7 @@ export function OwnerAppointmentsClient({ appointments }: Props) {
             <option value="cancelled">ยกเลิก</option>
             <option value="no_show">ไม่มาตามนัด</option>
           </select>
+          <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#737373] pointer-events-none" />
         </div>
       </div>
 

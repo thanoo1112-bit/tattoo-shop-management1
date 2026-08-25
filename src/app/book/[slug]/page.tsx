@@ -144,7 +144,7 @@ export default async function PublicBookingPage({ params, searchParams }: PagePr
   
   if (selectedArtist) {
     const [{ data: colorData }, { data: workData }] = await Promise.all([
-      supabase.rpc('get_public_artist_color_modes', { 
+      supabase.rpc('get_public_artist_color_options', { 
         p_shop_slug: slug, 
         p_artist_id: selectedArtist.artist_id 
       }),
