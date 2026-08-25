@@ -254,37 +254,66 @@ export default async function OwnerDashboardPage() {
                   <div>วันที่ต้องการ</div>
                   <div>สถานะ</div>
                 </div>
-                <div className="md:border-x md:border-b border-[#262626] rounded-b-xl bg-[#171717] shadow-md divide-y divide-[#262626]">
+                <div className="border border-[#262626] rounded-xl md:rounded-t-none md:rounded-b-xl md:border-t-0 bg-[#171717] shadow-md divide-y divide-[#262626]">
                   {latestBookingRequests.map((req: any) => (
-                    <div key={req.id} className="grid grid-cols-1 md:grid-cols-4 gap-4 p-4 md:px-6 hover:bg-[#1E1E1E] transition-colors items-center">
-                      <div>
-                        <span className="md:hidden text-xs text-[#9CA3AB] uppercase mb-1 block">ลูกค้า</span>
-                        <p className="text-sm font-medium text-[#F3F3F3]">
-                          {req.submitted_full_name || 'ไม่ทราบชื่อลูกค้า'}
-                        </p>
+                    <div key={req.id}>
+                      {/* Mobile Compact Layout */}
+                      <div className="md:hidden p-4 hover:bg-[#1E1E1E] transition-colors flex flex-col gap-1.5">
+                        {/* ROW 1: Customer Name + Status Badge */}
+                        <div className="flex items-center justify-between gap-3 min-w-0 w-full">
+                          <p className="text-sm font-semibold text-[#F3F3F3] truncate flex-1 min-w-0">
+                            {req.submitted_full_name || 'ไม่ทราบชื่อลูกค้า'}
+                          </p>
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-[#262626] text-[#C8CDD3] border border-[#333333] flex-shrink-0 whitespace-nowrap">
+                            {bookingStatusMap[req.status] || req.status}
+                          </span>
+                        </div>
+
+                        {/* ROW 2: Tattoo Style */}
                         {req.project?.tattoo_style && (
-                          <p className="text-xs text-[#9CA3AB] mt-0.5 md:hidden lg:block truncate">
+                          <p className="text-xs text-[#9CA3AB]">
                             {req.project.tattoo_style}
                           </p>
                         )}
+
+                        {/* ROW 3: Artist Name + Requested Date */}
+                        <div className="flex items-center justify-between text-xs text-[#9CA3AB] mt-0.5 pt-1.5 border-t border-[#262626]/40">
+                          <span className="truncate flex-1 min-w-0 pr-2">
+                            ช่าง: {req.artist?.full_name || req.artist?.email || 'ไม่ระบุ'}
+                          </span>
+                          <span className="flex-shrink-0 whitespace-nowrap">
+                            {formatDate(req.requested_start_at)}
+                          </span>
+                        </div>
                       </div>
-                      <div>
-                        <span className="md:hidden text-xs text-[#9CA3AB] uppercase mb-1 block">ช่างสัก</span>
-                        <p className="text-sm text-[#C8CDD3]">
-                          {req.artist?.full_name || req.artist?.email || 'ไม่ระบุ'}
-                        </p>
-                      </div>
-                      <div>
-                        <span className="md:hidden text-xs text-[#9CA3AB] uppercase mb-1 block">วันที่ต้องการ</span>
-                        <p className="text-sm text-[#C8CDD3]">
-                          {formatDate(req.requested_start_at)}
-                        </p>
-                      </div>
-                      <div>
-                        <span className="md:hidden text-xs text-[#9CA3AB] uppercase mb-1 block">สถานะ</span>
-                        <span className="inline-flex items-center px-2 py-1 rounded-full text-[10px] font-medium bg-[#262626] text-[#C8CDD3] border border-[#333333]">
-                          {bookingStatusMap[req.status] || req.status}
-                        </span>
+
+                      {/* Desktop Grid Layout */}
+                      <div className="hidden md:grid md:grid-cols-4 gap-4 p-4 md:px-6 hover:bg-[#1E1E1E] transition-colors items-center">
+                        <div>
+                          <p className="text-sm font-medium text-[#F3F3F3]">
+                            {req.submitted_full_name || 'ไม่ทราบชื่อลูกค้า'}
+                          </p>
+                          {req.project?.tattoo_style && (
+                            <p className="text-xs text-[#9CA3AB] mt-0.5 truncate">
+                              {req.project.tattoo_style}
+                            </p>
+                          )}
+                        </div>
+                        <div>
+                          <p className="text-sm text-[#C8CDD3]">
+                            {req.artist?.full_name || req.artist?.email || 'ไม่ระบุ'}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-sm text-[#C8CDD3]">
+                            {formatDate(req.requested_start_at)}
+                          </p>
+                        </div>
+                        <div>
+                          <span className="inline-flex items-center px-2 py-1 rounded-full text-[10px] font-medium bg-[#262626] text-[#C8CDD3] border border-[#333333]">
+                            {bookingStatusMap[req.status] || req.status}
+                          </span>
+                        </div>
                       </div>
                     </div>
                   ))}

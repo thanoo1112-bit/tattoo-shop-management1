@@ -82,8 +82,9 @@ export function ArtistTeamList({ artists, shopId }: ArtistTeamListProps) {
         </Link>
       </div>
       {artists.length > 0 ? (
-        <div className="bg-[#171717] border border-[#262626] rounded-xl overflow-hidden shadow-md divide-y divide-[#262626]">
-          {artists.map((artist) => {
+        <div className="bg-[#171717] border border-[#262626] rounded-xl overflow-hidden shadow-md">
+          <div className="overflow-y-auto overflow-x-hidden max-h-[220px] md:max-h-[292px] divide-y divide-[#262626] pr-1">
+            {artists.map((artist) => {
             // Presence variables kept to avoid unused warnings
             const isOnline = onlineUserIds.has(artist.user_id);
             const _statusColor = isOnline ? "bg-[#22C55E]" : "bg-[#EF4444]";
@@ -122,6 +123,7 @@ export function ArtistTeamList({ artists, shopId }: ArtistTeamListProps) {
               </div>
             );
           })}
+          </div>
         </div>
       ) : (
         <div className="border border-[#262626] rounded-xl bg-[#171717] shadow-md">

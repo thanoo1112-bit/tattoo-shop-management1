@@ -413,7 +413,10 @@ BEGIN
 END;
 $$;
 
--- 11. Redefine finalize_public_booking to accept owner
+-- 11. Redefine finalize_public_booking to accept owner (16 parameters with short tracking code to match production schema)
+DROP FUNCTION IF EXISTS public.finalize_public_booking(uuid, numeric, numeric, text, text, text, text, text, text, text, text, text[], text[], boolean);
+DROP FUNCTION IF EXISTS public.finalize_public_booking(uuid, numeric, numeric, text, text, text, text, text, text, text, text, text[], text[], boolean, boolean, boolean);
+
 CREATE OR REPLACE FUNCTION public.finalize_public_booking(
     p_session_id uuid,
     p_width_cm numeric,
@@ -428,7 +431,9 @@ CREATE OR REPLACE FUNCTION public.finalize_public_booking(
     p_requested_time text,
     p_real_area_paths text[],
     p_design_ref_paths text[],
-    p_terms_accepted boolean
+    p_terms_accepted boolean,
+    p_is_first_tattoo boolean DEFAULT NULL,
+    p_safety_notice_acknowledged boolean DEFAULT NULL
 ) RETURNS uuid
 LANGUAGE plpgsql
 SECURITY DEFINER SET search_path = ''
@@ -438,64 +443,54 @@ DECLARE
     v_customer_id uuid;
     v_project_id uuid;
     v_booking_id uuid;
-    v_phone_norm text;
-    v_email_val text;
-    v_requested_start_at timestamptz;
-    v_requested_end_at timestamptz;
-    v_path text;
+    v_public_token uuid;
     v_style_name text;
-    v_expected_prefix text;
-    
-    v_acc_bg boolean; v_acc_col boolean;
-    v_acc_nw boolean; v_acc_ext boolean; v_acc_tu boolean; v_acc_cu boolean; v_acc_sc boolean;
-    
-    v_width_val numeric;
-    v_height_val numeric;
+    v_width_val numeric := p_width_cm;
+    v_height_val numeric := p_height_cm;
+    v_acc_bg boolean; v_acc_col boolean; v_acc_nw boolean; v_acc_ext boolean; v_acc_tu boolean; v_acc_cu boolean; v_acc_sc boolean;
+    v_effective_cap int;
+    v_occupied_cap int;
+    v_is_closed boolean;
     v_area numeric;
     v_max_dim numeric;
-    v_buffer_hours integer;
-    v_req_minute integer;
-    v_req_hour integer;
+    v_buffer_hours int;
     v_time_decimal numeric;
-    
-    v_effective_cap integer;
-    v_is_closed boolean;
-    v_occupied_cap integer;
-    
-    v_real_count integer;
-    v_design_count integer;
+    v_req_hour int;
+    v_req_minute int;
+    v_requested_start_at timestamptz;
+    v_requested_end_at timestamptz;
+    v_phone_norm text;
+    v_email_val text;
+    v_real_count int;
+    v_design_count int;
+    v_total_paths int;
+    v_distinct_paths int;
     v_all_paths text[];
-    v_total_paths integer;
-    v_distinct_paths integer;
-    
+    v_path text;
     v_meta_mime text;
+    v_expected_prefix text;
+    v_tracking_code text;
+    v_success boolean;
 BEGIN
-    IF p_terms_accepted IS DISTINCT FROM true THEN RAISE EXCEPTION 'Terms must be accepted'; END IF;
-    IF p_full_name IS NULL OR btrim(p_full_name) = '' OR p_phone IS NULL OR btrim(p_phone) = '' OR p_placement IS NULL OR btrim(p_placement) = '' OR p_description IS NULL OR btrim(p_description) = '' THEN
-        RAISE EXCEPTION 'Required details missing';
+    IF p_safety_notice_acknowledged IS DISTINCT FROM TRUE THEN
+        RAISE EXCEPTION 'Safety notice must be acknowledged';
     END IF;
 
-    -- Email Format Validation
+    IF v_width_val <= 0 THEN v_width_val := 5; END IF;
+    IF v_height_val <= 0 THEN v_height_val := 5; END IF;
+
+    v_phone_norm := regexp_replace(p_phone, '\D', '', 'g');
+    IF length(v_phone_norm) < 9 THEN RAISE EXCEPTION 'Invalid phone'; END IF;
+    
     v_email_val := NULLIF(btrim(p_email), '');
-    IF v_email_val IS NOT NULL THEN
-        IF v_email_val !~ '^[A-Za-z0-9._%-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$' THEN
-            RAISE EXCEPTION 'Invalid email format';
-        END IF;
+
+    SELECT * INTO v_session FROM private.public_booking_upload_sessions WHERE id = p_session_id;
+    IF NOT FOUND THEN RAISE EXCEPTION 'Invalid session'; END IF;
+    IF v_session.status = 'consumed' THEN 
+        SELECT public_token INTO v_public_token FROM public.booking_requests WHERE id = v_session.booking_request_id;
+        IF v_public_token IS NULL THEN RAISE EXCEPTION 'Session consumed but booking not found'; END IF;
+        RETURN v_public_token;
     END IF;
-
-    -- Phone Normalization
-    v_phone_norm := regexp_replace(btrim(p_phone), '[^\d+]', '', 'g');
-    IF length(regexp_replace(v_phone_norm, '[^\d]', '', 'g')) < 8 OR v_phone_norm = '+' THEN
-        RAISE EXCEPTION 'Invalid phone number';
-    END IF;
-
-    v_width_val := COALESCE(p_width_cm, 0);
-    v_height_val := COALESCE(p_height_cm, 0);
-    IF v_width_val <= 0 OR v_height_val <= 0 THEN RAISE EXCEPTION 'Invalid dimensions'; END IF;
-
-    SELECT * INTO v_session FROM private.public_booking_upload_sessions WHERE id = p_session_id FOR UPDATE;
-    IF NOT FOUND THEN RAISE EXCEPTION 'Session not found'; END IF;
-    IF v_session.status = 'consumed' THEN RETURN v_session.booking_request_id; END IF;
     IF v_session.expires_at < now() THEN RAISE EXCEPTION 'Session expired'; END IF;
 
     IF NOT EXISTS (SELECT 1 FROM public.shop_members WHERE shop_id = v_session.shop_id AND user_id = v_session.artist_id AND role IN ('artist', 'owner') AND status = 'active') THEN
@@ -520,142 +515,110 @@ BEGIN
     IF v_session.work_type = 'cover_up' AND NOT v_acc_cu THEN RAISE EXCEPTION 'Artist rejects cover_up'; END IF;
     IF v_session.work_type = 'scar_cover' AND NOT v_acc_sc THEN RAISE EXCEPTION 'Artist rejects scar_cover'; END IF;
 
-    -- Compute scheduling & dimensions
     v_area := v_width_val * v_height_val;
     v_max_dim := GREATEST(v_width_val, v_height_val);
-    IF v_area <= 25 AND v_max_dim <= 5 THEN
-        v_buffer_hours := 1;
-    ELSIF v_area <= 100 AND v_max_dim <= 10 THEN
-        v_buffer_hours := 2;
-    ELSIF v_area <= 225 AND v_max_dim <= 15 THEN
-        v_buffer_hours := 3;
-    ELSIF v_area <= 400 AND v_max_dim <= 20 THEN
-        v_buffer_hours := 4;
-    ELSE
-        v_buffer_hours := 6;
+    IF v_max_dim <= 5 AND v_area <= 25 THEN v_buffer_hours := 2;
+    ELSIF v_max_dim <= 10 AND v_area <= 75 THEN v_buffer_hours := 3;
+    ELSIF v_max_dim <= 15 AND v_area <= 150 THEN v_buffer_hours := 4;
+    ELSIF v_max_dim <= 25 AND v_area <= 350 THEN v_buffer_hours := 6;
+    ELSE v_buffer_hours := 8; END IF;
+
+    v_req_minute := extract(minute from p_requested_time::time);
+    IF v_req_minute NOT IN (0, 30) THEN RAISE EXCEPTION 'Invalid time boundary'; END IF;
+    
+    v_req_hour := extract(hour from p_requested_time::time);
+    v_time_decimal := v_req_hour + (v_req_minute / 60.0);
+    IF v_time_decimal < 10.0 OR v_time_decimal > (23.5 - v_buffer_hours) THEN
+        RAISE EXCEPTION 'Requested time is outside store hours or buffer limit';
     END IF;
 
-    -- Validate date-time formatting
-    IF p_requested_date !~ '^\d{4}-\d{2}-\d{2}$' THEN RAISE EXCEPTION 'Invalid date format'; END IF;
-    IF p_requested_time !~ '^\d{2}:\d{2}$' THEN RAISE EXCEPTION 'Invalid time format'; END IF;
-
-    v_req_hour := (split_part(p_requested_time, ':', 1))::integer;
-    v_req_minute := (split_part(p_requested_time, ':', 2))::integer;
-    IF v_req_hour < 0 OR v_req_hour > 23 OR v_req_minute < 0 OR v_req_minute > 59 THEN RAISE EXCEPTION 'Invalid time bounds'; END IF;
-    v_time_decimal := v_req_hour + (v_req_minute::numeric / 60.0);
-
-    -- Check availability schedule bounds & overrides
-    SELECT COALESCE(
-        (SELECT daily_capacity FROM public.artist_booking_settings WHERE shop_id = v_session.shop_id AND artist_id = v_session.artist_id),
-        (SELECT default_daily_capacity FROM public.shop_booking_settings WHERE shop_id = v_session.shop_id),
-        1
-    ) INTO v_effective_cap;
-
-    SELECT is_closed, daily_capacity INTO v_is_closed, v_occupied_cap
-    FROM public.artist_daily_overrides
-    WHERE shop_id = v_session.shop_id AND artist_id = v_session.artist_id AND override_date = p_requested_date::date;
-
-    IF FOUND THEN
-        IF v_is_closed THEN RAISE EXCEPTION 'Artist is closed on this date'; END IF;
-        v_effective_cap := COALESCE(v_occupied_cap, v_effective_cap);
+    SELECT effective_capacity, is_closed INTO v_effective_cap, v_is_closed
+    FROM public.get_effective_daily_capacity(v_session.shop_id, v_session.artist_id, p_requested_date::date);
+    
+    IF v_is_closed THEN RAISE EXCEPTION 'Shop/Artist is closed on this date'; END IF;
+    
+    SELECT public.get_occupied_daily_capacity(v_session.shop_id, v_session.artist_id, p_requested_date::date) 
+    INTO v_occupied_cap;
+    
+    IF v_effective_cap > 0 AND v_occupied_cap >= v_effective_cap THEN
+        RAISE EXCEPTION 'Daily capacity is FULL';
     END IF;
 
-    v_requested_start_at := (p_requested_date || ' ' || p_requested_time || ':00')::timestamptz;
-    v_requested_end_at := v_requested_start_at + (v_buffer_hours || ' hours')::interval;
+    v_real_count := COALESCE(array_length(p_real_area_paths, 1), 0);
+    v_design_count := COALESCE(array_length(p_design_ref_paths, 1), 0);
+    
+    IF v_real_count > 5 THEN RAISE EXCEPTION 'Max 5 real area photos'; END IF;
+    IF v_design_count > 5 THEN RAISE EXCEPTION 'Max 5 design photos'; END IF;
+    IF (v_real_count + v_design_count) > 10 THEN RAISE EXCEPTION 'Max 10 total photos'; END IF;
 
-    IF v_requested_start_at < now() + interval '12 hours' THEN RAISE EXCEPTION 'Booking must be at least 12 hours in advance'; END IF;
-
-    -- Check capacity limits
-    SELECT COUNT(*)::integer INTO v_occupied_cap
-    FROM public.booking_requests
-    WHERE shop_id = v_session.shop_id
-      AND artist_id = v_session.artist_id
-      AND status IN ('pending_payment', 'pending_review', 'approved')
-      AND requested_start_at::date = p_requested_date::date;
-
-    IF v_occupied_cap >= v_effective_cap THEN RAISE EXCEPTION 'Artist capacity reached for this date'; END IF;
-
-    -- Check overlap constraints
-    IF EXISTS (
-        SELECT 1 FROM public.booking_requests
-        WHERE shop_id = v_session.shop_id
-          AND artist_id = v_session.artist_id
-          AND status IN ('pending_payment', 'pending_review', 'approved')
-          AND tstzrange(requested_start_at, requested_end_at, '[)') && tstzrange(v_requested_start_at, v_requested_end_at, '[)')
-    ) THEN
-        RAISE EXCEPTION 'Artist schedule overlap';
-    END IF;
-
-    IF EXISTS (
-        SELECT 1 FROM public.appointments
-        WHERE shop_id = v_session.shop_id
-          AND artist_id = v_session.artist_id
-          AND status IN ('scheduled', 'in_progress')
-          AND tstzrange(start_at, end_at, '[)') && tstzrange(v_requested_start_at, v_requested_end_at, '[)')
-    ) THEN
-        RAISE EXCEPTION 'Artist appointment overlap';
-    END IF;
-
-    -- Image Upload Verification
-    v_real_count := COALESCE(cardinality(p_real_area_paths), 0);
-    v_design_count := COALESCE(cardinality(p_design_ref_paths), 0);
-    IF v_real_count > 5 OR v_design_count > 5 THEN RAISE EXCEPTION 'Maximum 5 files allowed per section'; END IF;
-
-    IF v_session.work_type IN ('extension', 'touch_up', 'cover_up', 'scar_cover') AND v_real_count = 0 THEN
-        RAISE EXCEPTION 'Real area photo required for this work type';
+    IF v_session.work_type IN ('extension', 'touch_up', 'cover_up', 'scar_cover') THEN
+        IF v_real_count < 1 THEN RAISE EXCEPTION 'Real area photo required for this work type'; END IF;
     END IF;
 
     v_all_paths := COALESCE(p_real_area_paths, ARRAY[]::text[]) || COALESCE(p_design_ref_paths, ARRAY[]::text[]);
-    v_total_paths := cardinality(v_all_paths);
+    SELECT count(*), count(DISTINCT p) INTO v_total_paths, v_distinct_paths FROM unnest(v_all_paths) p;
+    IF v_total_paths != v_distinct_paths THEN RAISE EXCEPTION 'Duplicate storage paths detected'; END IF;
+    
+    v_expected_prefix := 'temp/' || p_session_id || '/';
+    FOREACH v_path IN ARRAY v_all_paths LOOP
+        IF v_path NOT LIKE (v_expected_prefix || '%') THEN RAISE EXCEPTION 'Invalid path'; END IF;
+        IF NOT EXISTS (SELECT 1 FROM storage.objects WHERE bucket_id = 'tattoo-references' AND name = v_path) THEN 
+            RAISE EXCEPTION 'File missing: %', v_path; 
+        END IF;
+    END LOOP;
 
-    IF v_total_paths > 0 THEN
-        SELECT COUNT(DISTINCT path)::integer INTO v_distinct_paths FROM unnest(v_all_paths) AS path;
-        IF v_total_paths != v_distinct_paths THEN RAISE EXCEPTION 'Duplicate files provided'; END IF;
+    INSERT INTO public.customers (shop_id, full_name, phone_normalized, email, source) 
+    VALUES (v_session.shop_id, btrim(p_full_name), v_phone_norm, v_email_val, 'online')
+    ON CONFLICT (shop_id, phone_normalized) DO UPDATE SET 
+        full_name = COALESCE(EXCLUDED.full_name, public.customers.full_name), 
+        email = COALESCE(EXCLUDED.email, public.customers.email), 
+        updated_at = now() 
+    RETURNING id INTO v_customer_id;
 
-        v_expected_prefix := v_session.shop_id::text || '/' || p_session_id::text || '/';
-        FOREACH v_path IN ARRAY v_all_paths
-        LOOP
-            IF v_path NOT LIKE v_expected_prefix || '%' THEN
-                RAISE EXCEPTION 'Invalid file path location';
-            END IF;
+    INSERT INTO public.tattoo_projects (shop_id, customer_id, artist_id, style_id, tattoo_style, color_mode, work_type, width_cm, height_cm, body_placement, description, name, status)
+    VALUES (v_session.shop_id, v_customer_id, v_session.artist_id, v_session.style_id, v_style_name, v_session.color_mode, v_session.work_type, v_width_val, v_height_val, btrim(p_placement), btrim(p_description), 'Public Booking Request', 'proposed') 
+    RETURNING id INTO v_project_id;
 
-            SELECT mime_type INTO v_meta_mime FROM private.public_booking_uploaded_files_metadata WHERE session_id = p_session_id AND file_path = v_path;
-            IF NOT FOUND THEN
-                RAISE EXCEPTION 'Unregistered or unverified file';
-            END IF;
-        END LOOP;
-    END IF;
+    FOREACH v_path IN ARRAY COALESCE(p_real_area_paths, ARRAY[]::text[]) LOOP
+        SELECT COALESCE(metadata->>'mimetype', 'application/octet-stream') INTO v_meta_mime FROM storage.objects WHERE bucket_id = 'tattoo-references' AND name = v_path LIMIT 1;
+        IF v_meta_mime NOT IN ('image/jpeg', 'image/png', 'image/webp') THEN RAISE EXCEPTION 'Invalid MIME type for image'; END IF;
+        INSERT INTO public.tattoo_project_references (shop_id, project_id, storage_path, file_name, mime_type, reference_type) 
+        VALUES (v_session.shop_id, v_project_id, v_path, v_path, v_meta_mime, 'real_area');
+    END LOOP;
+    FOREACH v_path IN ARRAY COALESCE(p_design_ref_paths, ARRAY[]::text[]) LOOP
+        SELECT COALESCE(metadata->>'mimetype', 'application/octet-stream') INTO v_meta_mime FROM storage.objects WHERE bucket_id = 'tattoo-references' AND name = v_path LIMIT 1;
+        IF v_meta_mime NOT IN ('image/jpeg', 'image/png', 'image/webp') THEN RAISE EXCEPTION 'Invalid MIME type for image'; END IF;
+        INSERT INTO public.tattoo_project_references (shop_id, project_id, storage_path, file_name, mime_type, reference_type) 
+        VALUES (v_session.shop_id, v_project_id, v_path, v_path, v_meta_mime, 'design_reference');
+    END LOOP;
 
-    -- Insert records
-    INSERT INTO public.customers (shop_id, full_name, phone_normalized, email, source)
-    VALUES (v_session.shop_id, p_full_name, v_phone_norm, v_email_val, 'online')
-    ON CONFLICT (shop_id, phone_normalized) DO UPDATE SET full_name = EXCLUDED.full_name RETURNING id INTO v_customer_id;
+    v_requested_start_at := (p_requested_date || ' ' || p_requested_time)::timestamp AT TIME ZONE 'Asia/Bangkok';
+    v_requested_end_at := v_requested_start_at + interval '1 hour';
+    
+    v_success := false;
+    WHILE NOT v_success LOOP
+        v_tracking_code := private.generate_secure_tracking_code();
+        BEGIN
+            INSERT INTO public.booking_requests (
+                shop_id, project_id, customer_id, artist_id, requested_start_at, requested_end_at, status, 
+                submitted_full_name, submitted_phone, submitted_email, health_note, is_first_tattoo, 
+                safety_notice_acknowledged, terms_accepted_at, terms_version, tracking_code
+            )
+            VALUES (
+                v_session.shop_id, v_project_id, v_customer_id, v_session.artist_id, v_requested_start_at, v_requested_end_at, 'pending_review', 
+                btrim(p_full_name), p_phone, v_email_val, NULLIF(btrim(p_health_note), ''), p_is_first_tattoo, 
+                p_safety_notice_acknowledged, now(), '2026-08-21-v1', v_tracking_code
+            ) 
+            RETURNING id, public_token INTO v_booking_id, v_public_token;
+            v_success := true;
+        EXCEPTION WHEN unique_violation THEN
+            NULL;
+        END;
+    END LOOP;
 
-    INSERT INTO public.tattoo_projects (shop_id, customer_id, artist_id, name, tattoo_style, body_placement, width_cm, height_cm, status)
-    VALUES (v_session.shop_id, v_customer_id, v_session.artist_id, 'Online Booking Project', v_style_name, p_placement, v_width_val, v_height_val, 'proposed') RETURNING id INTO v_project_id;
+    UPDATE private.public_booking_upload_sessions SET status = 'consumed', finalized_at = now(), booking_request_id = v_booking_id WHERE id = p_session_id;
 
-    INSERT INTO public.booking_requests (
-        shop_id, project_id, customer_id, artist_id, requested_start_at, requested_end_at, status,
-        submitted_full_name, submitted_phone, submitted_email, customer_note, health_note,
-        real_area_images, design_reference_images
-    )
-    VALUES (
-        v_session.shop_id, v_project_id, v_customer_id, v_session.artist_id, v_requested_start_at, v_requested_end_at, 'pending_payment',
-        p_full_name, v_phone_norm, v_email_val, p_description, p_health_note,
-        COALESCE(p_real_area_paths, ARRAY[]::text[]), COALESCE(p_design_ref_paths, ARRAY[]::text[])
-    ) RETURNING id INTO v_booking_id;
-
-    -- Insert payment item
-    INSERT INTO public.payments (shop_id, customer_id, project_id, booking_request_id, payment_type, amount, status)
-    VALUES (
-        v_session.shop_id, v_customer_id, v_project_id, v_booking_id, 'deposit',
-        (SELECT default_deposit_amount FROM public.shop_booking_settings WHERE shop_id = v_session.shop_id),
-        'pending'
-    );
-
-    UPDATE private.public_booking_upload_sessions SET status = 'consumed', booking_request_id = v_booking_id, consumed_at = now() WHERE id = p_session_id;
-
-    RETURN v_booking_id;
+    RETURN v_public_token;
 END;
 $$;
 
@@ -690,8 +653,8 @@ GRANT EXECUTE ON FUNCTION public.add_my_artist_specialty(uuid, text) TO authenti
 REVOKE ALL ON FUNCTION public.create_public_booking_upload_session(text, uuid, uuid, text, text) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.create_public_booking_upload_session(text, uuid, uuid, text, text) TO anon;
 
-REVOKE ALL ON FUNCTION public.finalize_public_booking(uuid, numeric, numeric, text, text, text, text, text, text, text, text, text[], text[], boolean) FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.finalize_public_booking(uuid, numeric, numeric, text, text, text, text, text, text, text, text, text[], text[], boolean) TO anon;
+REVOKE ALL ON FUNCTION public.finalize_public_booking(uuid, numeric, numeric, text, text, text, text, text, text, text, text, text[], text[], boolean, boolean, boolean) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.finalize_public_booking(uuid, numeric, numeric, text, text, text, text, text, text, text, text, text[], text[], boolean, boolean, boolean) TO anon;
 
 
 -- 12. Drop and Recreate RLS Policies to allow owner to edit their own artist booking settings and overrides
@@ -741,3 +704,70 @@ WITH CHECK (
         AND sm.status = 'active'
     )
 );
+
+-- 13. get_effective_daily_capacity override for Owner-as-Artist capability
+CREATE OR REPLACE FUNCTION public.get_effective_daily_capacity(
+    p_shop_id uuid,
+    p_artist_id uuid,
+    p_date date
+) RETURNS TABLE (
+    effective_capacity integer,
+    is_closed boolean
+)
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $function$
+DECLARE
+    v_override_cap integer;
+    v_override_closed boolean;
+    v_artist_cap integer;
+    v_shop_cap integer;
+BEGIN
+    -- 0. Check Artist Status (Allows role IN ('artist', 'owner'))
+    IF NOT EXISTS (
+        SELECT 1 FROM public.shop_members 
+        WHERE shop_id = p_shop_id 
+        AND user_id = p_artist_id 
+        AND role IN ('artist', 'owner') 
+        AND status = 'active'
+    ) THEN
+        RETURN QUERY SELECT 0, true;
+        RETURN;
+    END IF;
+
+    -- 1. Check Daily Override
+    SELECT ado.capacity, ado.is_closed INTO v_override_cap, v_override_closed
+    FROM public.artist_daily_overrides AS ado
+    WHERE ado.shop_id = p_shop_id AND ado.artist_id = p_artist_id AND ado.override_date = p_date;
+
+    IF FOUND THEN
+        IF v_override_closed THEN
+            RETURN QUERY SELECT 0, true;
+        ELSE
+            RETURN QUERY SELECT v_override_cap, false;
+        END IF;
+        RETURN;
+    END IF;
+
+    -- 2. Check Artist Default
+    SELECT abs.daily_capacity INTO v_artist_cap
+    FROM public.artist_booking_settings AS abs
+    WHERE abs.shop_id = p_shop_id AND abs.artist_id = p_artist_id;
+
+    IF FOUND THEN
+        RETURN QUERY SELECT v_artist_cap, false;
+        RETURN;
+    END IF;
+
+    -- 3. Check Shop Default
+    SELECT sbs.default_daily_capacity INTO v_shop_cap
+    FROM public.shop_booking_settings AS sbs
+    WHERE sbs.shop_id = p_shop_id;
+
+    RETURN QUERY SELECT COALESCE(v_shop_cap, 1), false;
+END;
+$function$;
+
+REVOKE ALL ON FUNCTION public.get_effective_daily_capacity FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.get_effective_daily_capacity TO authenticated;
