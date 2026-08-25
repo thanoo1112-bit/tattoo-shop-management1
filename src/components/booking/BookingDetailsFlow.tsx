@@ -160,7 +160,7 @@ export default function BookingDetailsFlow({ shopSlug }: BookingDetailsFlowProps
                   <label htmlFor="widthCm" className="block text-[13px] font-medium text-[#A3A3A3] mb-3">
                     ความกว้าง <span className="text-red-500">*</span>
                   </label>
-                  <div className="flex items-center gap-3">
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-3">
                     <input 
                       type="range" 
                       name="widthCm"
@@ -170,9 +170,9 @@ export default function BookingDetailsFlow({ shopSlug }: BookingDetailsFlowProps
                       value={Number(formData.widthCm) || 1}
                       onChange={handleChange}
                       aria-label="ความกว้างของลายสัก"
-                      className="flex-1 min-w-[80px] h-1.5 bg-[#262626] rounded-lg cursor-pointer accent-[#F5F5F5]"
+                      className="w-full sm:flex-1 h-1.5 bg-[#262626] rounded-lg cursor-pointer accent-[#F5F5F5]"
                     />
-                    <div className="flex items-center gap-2 shrink-0">
+                    <div className="flex items-center gap-2 self-end sm:self-auto shrink-0">
                       <input
                         type="number"
                         id="widthCm"
@@ -198,7 +198,7 @@ export default function BookingDetailsFlow({ shopSlug }: BookingDetailsFlowProps
                   <label htmlFor="heightCm" className="block text-[13px] font-medium text-[#A3A3A3] mb-3">
                     ความสูง <span className="text-red-500">*</span>
                   </label>
-                  <div className="flex items-center gap-3">
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-3">
                     <input 
                       type="range" 
                       name="heightCm"
@@ -208,9 +208,9 @@ export default function BookingDetailsFlow({ shopSlug }: BookingDetailsFlowProps
                       value={Number(formData.heightCm) || 1}
                       onChange={handleChange}
                       aria-label="ความสูงของลายสัก"
-                      className="flex-1 min-w-[80px] h-1.5 bg-[#262626] rounded-lg cursor-pointer accent-[#F5F5F5]"
+                      className="w-full sm:flex-1 h-1.5 bg-[#262626] rounded-lg cursor-pointer accent-[#F5F5F5]"
                     />
-                    <div className="flex items-center gap-2 shrink-0">
+                    <div className="flex items-center gap-2 self-end sm:self-auto shrink-0">
                       <input
                         type="number"
                         id="heightCm"
