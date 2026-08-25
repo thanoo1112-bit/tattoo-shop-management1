@@ -34,7 +34,9 @@ export async function proxy(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser()
 
-  const isProtectedPath = request.nextUrl.pathname.startsWith('/owner') || request.nextUrl.pathname.startsWith('/artist')
+  const isProtectedPath = 
+    request.nextUrl.pathname.startsWith('/owner') || 
+    (request.nextUrl.pathname.startsWith('/artist') && !request.nextUrl.pathname.startsWith('/artist/register'))
   
   if (isProtectedPath && !user) {
     // no user, potentially respond by redirecting the user to the login page
