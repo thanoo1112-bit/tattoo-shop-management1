@@ -33,7 +33,7 @@ export async function login(formData: FormData) {
   const membership = await getCurrentMembership()
   
   if (!membership) {
-    return { error: 'บัญชีนี้ยังไม่ได้เชื่อมกับร้าน' }
+    return { error: 'บัญชีนี้ไม่ได้เป็นสมาชิกของร้าน' }
   }
   
   if (membership.role === 'owner') {

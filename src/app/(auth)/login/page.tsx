@@ -92,7 +92,7 @@ function LoginForm() {
         </form>
         
         <div className="mt-8 text-center text-sm text-[#747C85] relative z-20">
-          ยังไม่มีบัญชีร้าน? <Link href="/register" className="text-[#C8CDD3] hover:text-[#F3F3F3] transition-colors">ลงทะเบียนที่นี่</Link>
+          ยังไม่มีบัญชีช่าง? <Link href="/artist/register" className="text-[#C8CDD3] hover:text-[#F3F3F3] transition-colors font-medium">สมัครเป็นช่าง</Link>
         </div>
       </div>
     </div>

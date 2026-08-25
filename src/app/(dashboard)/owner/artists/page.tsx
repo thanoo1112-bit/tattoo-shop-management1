@@ -62,7 +62,7 @@ export default async function ArtistsPage() {
           <h1 className="text-2xl font-light text-[#FFFFFF] mb-1">ช่างสัก</h1>
           <p className="text-sm text-[#A3A3A3]">จัดการทีมช่างสักภายในร้าน</p>
         </div>
-        <CreateInviteModal />
+        {/* Invite link generation is hidden in favor of direct artist registration */}
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-5">
