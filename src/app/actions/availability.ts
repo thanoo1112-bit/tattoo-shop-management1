@@ -37,7 +37,7 @@ export async function createAvailabilitySlot(
         .eq('user_id', artistId)
         .single();
         
-      if (artistError || !artistMembership || artistMembership.status !== 'active' || artistMembership.role !== 'artist') {
+      if (artistError || !artistMembership || artistMembership.status !== 'active' || (artistMembership.role !== 'artist' && artistMembership.role !== 'owner')) {
         return { success: false, error: 'ช่างสักไม่ถูกต้องหรือไม่มีสิทธิ์' };
       }
     } else {
