@@ -116,11 +116,13 @@ export default function BookingDetailsFlow({ shopSlug }: BookingDetailsFlowProps
   // Form validity check for button disabling
   const isFormValid = 
     (formData.placement || '').trim() !== '' &&
-    (formData.widthCm || '').trim() !== '' &&
-    (formData.heightCm || '').trim() !== '' &&
-    (formData.description || '').trim() !== '' &&
-    Number(formData.widthCm) > 0 &&
-    Number(formData.heightCm) > 0;
+    (formData.flashId ? true : (
+      (formData.widthCm || '').trim() !== '' &&
+      (formData.heightCm || '').trim() !== '' &&
+      Number(formData.widthCm) > 0 &&
+      Number(formData.heightCm) > 0
+    )) &&
+    (formData.flashId ? true : (formData.description || '').trim() !== '');
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -139,11 +141,24 @@ export default function BookingDetailsFlow({ shopSlug }: BookingDetailsFlowProps
 
   const inputClassName = "w-full bg-[#0B0B0B] border border-[#2A2A2A] rounded-md px-4 py-3 text-[#F5F5F5] placeholder:text-[#737373] focus:outline-none focus:border-[#737373] transition-colors min-h-[46px]";
 
-  const { area: estimatedArea, sizeCategory } = calculateTattooEstimate(formData.widthCm || '0', formData.heightCm || '0');
-  const estimatedDuration = sizeCategory ? getSizeBasedBookingBuffer(sizeCategory) : null;
+  const { area: estimatedArea, sizeCategory } = formData.flashId
+    ? { area: 0, sizeCategory: '' }
+    : calculateTattooEstimate(formData.widthCm || '0', formData.heightCm || '0');
+  const estimatedDuration = (sizeCategory && !formData.flashId) ? getSizeBasedBookingBuffer(sizeCategory) : null;
 
   return (
     <div className="max-w-4xl mx-auto w-full pt-4">
+      {formData.flashId && (
+        <div className="mb-6 bg-[#FFFFFF]/5 border border-[#FFFFFF]/10 rounded-2xl p-4 md:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div>
+            <h4 className="text-sm font-semibold text-[#F5F5F5]">คุณกำลังจองลาย Flash: {formData.flashCode}</h4>
+            <p className="text-xs text-[#A3A3A3] mt-1">ขนาดลายสัก ({formData.flashSize}) และราคาถูกกำหนดไว้แล้วตามแบบพร้อมสัก</p>
+          </div>
+          <div className="shrink-0 text-sm font-bold text-[#F5F5F5] border border-[#262626] bg-[#0A0A0A] px-3.5 py-1.5 rounded-xl">
+            ราคา ฿{Number(formData.flashPrice || 0).toLocaleString()}
+          </div>
+        </div>
+      )}
       <form onSubmit={handleSubmit} className="flex flex-col gap-6">
         
         {/* รายละเอียดงานสัก */}
@@ -169,8 +184,9 @@ export default function BookingDetailsFlow({ shopSlug }: BookingDetailsFlowProps
                       step="0.1"
                       value={Number(formData.widthCm) || 1}
                       onChange={handleChange}
+                      disabled={!!formData.flashId}
                       aria-label="ความกว้างของลายสัก"
-                      className="w-full sm:flex-1 h-1.5 bg-[#262626] rounded-lg cursor-pointer accent-[#F5F5F5]"
+                      className="w-full sm:flex-1 h-1.5 bg-[#262626] rounded-lg cursor-pointer accent-[#F5F5F5] disabled:opacity-40"
                     />
                     <div className="flex items-center gap-2 self-end sm:self-auto shrink-0">
                       <input
@@ -181,7 +197,8 @@ export default function BookingDetailsFlow({ shopSlug }: BookingDetailsFlowProps
                         step="0.1"
                         value={formData.widthCm}
                         onChange={handleChange}
-                        className={`${inputClassName} w-[76px] !min-h-[40px] !py-2 text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none`}
+                        disabled={!!formData.flashId}
+                        className={`${inputClassName} w-[76px] !min-h-[40px] !py-2 text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none disabled:opacity-50 disabled:cursor-not-allowed`}
                       />
                       <span className="text-[#A3A3A3] text-[13px] w-6">ซม.</span>
                     </div>
@@ -207,8 +224,9 @@ export default function BookingDetailsFlow({ shopSlug }: BookingDetailsFlowProps
                       step="0.1"
                       value={Number(formData.heightCm) || 1}
                       onChange={handleChange}
+                      disabled={!!formData.flashId}
                       aria-label="ความสูงของลายสัก"
-                      className="w-full sm:flex-1 h-1.5 bg-[#262626] rounded-lg cursor-pointer accent-[#F5F5F5]"
+                      className="w-full sm:flex-1 h-1.5 bg-[#262626] rounded-lg cursor-pointer accent-[#F5F5F5] disabled:opacity-40"
                     />
                     <div className="flex items-center gap-2 self-end sm:self-auto shrink-0">
                       <input
@@ -219,7 +237,8 @@ export default function BookingDetailsFlow({ shopSlug }: BookingDetailsFlowProps
                         step="0.1"
                         value={formData.heightCm}
                         onChange={handleChange}
-                        className={`${inputClassName} w-[76px] !min-h-[40px] !py-2 text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none`}
+                        disabled={!!formData.flashId}
+                        className={`${inputClassName} w-[76px] !min-h-[40px] !py-2 text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none disabled:opacity-50 disabled:cursor-not-allowed`}
                       />
                       <span className="text-[#A3A3A3] text-[13px] w-6">ซม.</span>
                     </div>
@@ -228,24 +247,35 @@ export default function BookingDetailsFlow({ shopSlug }: BookingDetailsFlowProps
               </div>
               
               <div className="mt-5 pt-4 border-t border-[#262626] flex flex-col md:flex-row md:items-center justify-between gap-3">
-                <div className="flex items-center justify-between md:justify-start gap-2 shrink-0">
-                  <span className="text-[#A3A3A3] text-[13px]">พื้นที่โดยประมาณ:</span>
-                  <span className="text-[#F5F5F5] font-medium text-[13px]">
-                    {estimatedArea > 0 ? `${estimatedArea.toLocaleString('en-US', { maximumFractionDigits: 2 })} ตร.ซม.` : '—'}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between md:justify-start gap-2 shrink-0">
-                  <span className="text-[#A3A3A3] text-[13px]">ขนาดงาน:</span>
-                  <span className="text-[#F5F5F5] font-medium text-[13px]">
-                    {sizeCategory ? `ขนาด${sizeCategory}` : '—'}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between md:justify-start gap-2 shrink-0">
-                  <span className="text-[#A3A3A3] text-[13px]">เวลาที่ใช้โดยประมาณ:</span>
-                  <span className="text-[#F5F5F5] font-medium text-[13px]">
-                    {estimatedDuration ? `${estimatedDuration} ชั่วโมง` : '—'}
-                  </span>
-                </div>
+                {formData.flashId ? (
+                  <div className="flex items-center justify-between md:justify-start gap-2 shrink-0">
+                    <span className="text-[#A3A3A3] text-[13px]">ขนาดงานพร้อมสัก:</span>
+                    <span className="text-white font-medium text-[13px]">
+                      {formData.flashSize}
+                    </span>
+                  </div>
+                ) : (
+                  <>
+                    <div className="flex items-center justify-between md:justify-start gap-2 shrink-0">
+                      <span className="text-[#A3A3A3] text-[13px]">พื้นที่โดยประมาณ:</span>
+                      <span className="text-[#F5F5F5] font-medium text-[13px]">
+                        {estimatedArea > 0 ? `${estimatedArea.toLocaleString('en-US', { maximumFractionDigits: 2 })} ตร.ซม.` : '—'}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between md:justify-start gap-2 shrink-0">
+                      <span className="text-[#A3A3A3] text-[13px]">ขนาดงาน:</span>
+                      <span className="text-[#F5F5F5] font-medium text-[13px]">
+                        {sizeCategory ? `ขนาด${sizeCategory}` : '—'}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between md:justify-start gap-2 shrink-0">
+                      <span className="text-[#A3A3A3] text-[13px]">เวลาที่ใช้โดยประมาณ:</span>
+                      <span className="text-[#F5F5F5] font-medium text-[13px]">
+                        {estimatedDuration ? `${estimatedDuration} ชั่วโมง` : '—'}
+                      </span>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
 
@@ -267,7 +297,7 @@ export default function BookingDetailsFlow({ shopSlug }: BookingDetailsFlowProps
 
             <div>
               <label htmlFor="description" className="block text-xs font-medium text-[#A3A3A3] mb-1">
-                Story / Concept <span className="text-red-500">*</span>
+                Story / Concept {formData.flashId ? '(ไม่บังคับ)' : <span className="text-red-500">*</span>}
               </label>
               <p className="text-[#737373] text-xs mb-2">บอกไอเดีย ความหมาย อารมณ์ หรือรายละเอียดที่ต้องการ เพื่อช่วยให้ช่างเข้าใจงานของคุณมากขึ้น</p>
               <textarea
@@ -284,10 +314,11 @@ export default function BookingDetailsFlow({ shopSlug }: BookingDetailsFlowProps
         </div>
 
         {/* รูปประกอบงาน */}
-        <div className="bg-[#0A0A0A] p-6 rounded-2xl border border-[#262626] flex flex-col gap-5">
-          <div>
-            <h2 className="text-xl font-medium text-[#F5F5F5]">รูปประกอบงาน</h2>
-          </div>
+        {(!formData.flashId || requiresRealPhoto) && (
+          <div className="bg-[#0A0A0A] p-6 rounded-2xl border border-[#262626] flex flex-col gap-5">
+            <div>
+              <h2 className="text-xl font-medium text-[#F5F5F5]">รูปประกอบงาน</h2>
+            </div>
           
           <div className={`grid gap-4 md:gap-5 grid-cols-1 ${requiresRealPhoto ? 'md:grid-cols-2' : ''}`}>
             {/* รูปพื้นที่จริง */}
@@ -425,6 +456,7 @@ export default function BookingDetailsFlow({ shopSlug }: BookingDetailsFlowProps
             </p>
           </div>
         </div>
+      )}
 
         {/* Action Buttons */}
         <div className="flex flex-col-reverse sm:flex-row gap-4 pt-4">

@@ -27,10 +27,25 @@ export default async function PublicBookingPage({ params, searchParams }: PagePr
   // Await params and searchParams for Next.js App Router conventions
   const { slug } = await params;
   const resolvedSearchParams = await searchParams;
+
+  const flashIdParam = resolvedSearchParams.flash_id as string;
+  const holdIdParam = resolvedSearchParams.hold_id as string;
+
+  let flashDesign = null;
+  if (flashIdParam) {
+    const { data: flashData } = await supabase
+      .from('flash_designs')
+      .select('*')
+      .eq('id', flashIdParam)
+      .maybeSingle();
+    if (flashData) {
+      flashDesign = flashData;
+    }
+  }
   
   const stepParam = resolvedSearchParams.step as string;
-  const artistParam = resolvedSearchParams.artist as string;
-  const styleParam = resolvedSearchParams.style as string;
+  const artistParam = (flashDesign ? flashDesign.artist_id : resolvedSearchParams.artist) as string;
+  const styleParam = (flashDesign ? flashDesign.style_id : resolvedSearchParams.style) as string;
   const timeParam = resolvedSearchParams.time as string;
   const slotParam = resolvedSearchParams.slot as string;
 

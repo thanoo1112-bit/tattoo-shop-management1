@@ -24,6 +24,11 @@ export default function StorefrontHome() {
   const [portfolio, setPortfolio] = useState<any[]>([])
   const [loading, setLoading] = useState<boolean>(true)
   const [portfolioError, setPortfolioError] = useState<boolean>(false)
+  const [flashDesigns, setFlashDesigns] = useState<any[]>([])
+  const [flashLoading, setFlashLoading] = useState<boolean>(true)
+  const [flashHoldError, setFlashHoldError] = useState<string | null>(null)
+  const [holdingFlashId, setHoldingFlashId] = useState<string | null>(null)
+  const [selectedFlash, setSelectedFlash] = useState<any | null>(null)
 
   // Fetch real shop and artist data
   useEffect(() => {
@@ -82,15 +87,73 @@ export default function StorefrontHome() {
         } else {
           setPortfolio(portfolioData || [])
         }
+
+        // Fetch public Flash designs
+        try {
+          const { data: flashData } = await supabase
+            .from('flash_designs')
+            .select(`
+              id, flash_code, artist_id, style_id, image_path, size, price, status, style_name,
+              profiles ( full_name )
+            `)
+            .eq('status', 'open')
+            .order('created_at', { ascending: false })
+          setFlashDesigns(
+            (flashData || []).map((f: any) => ({
+              ...f,
+              artist_name: f.profiles?.full_name || 'ช่างนิรนาม',
+              style_name: f.style_name || '',
+            }))
+          )
+        } catch {
+          // non-fatal: flash section just stays empty
+        } finally {
+          setFlashLoading(false)
+        }
       } catch (err) {
         console.error('Error fetching storefront database data:', err)
         setPortfolioError(true)
+        setFlashLoading(false)
       } finally {
         setLoading(false)
       }
     }
     initData()
   }, [slug])
+
+  const getFlashImageUrl = (path: string) => {
+    const { data } = supabase.storage.from('flash-images').getPublicUrl(path)
+    return data.publicUrl
+  }
+
+  const handleBookFlash = async (flash: any) => {
+    setHoldingFlashId(flash.id)
+    setFlashHoldError(null)
+    try {
+      const holdId = crypto.randomUUID()
+      const { data: held, error: holdErr } = await supabase.rpc('hold_public_flash', {
+        p_flash_id: flash.id,
+        p_session_id: holdId
+      })
+      if (holdErr || !held) {
+        setFlashHoldError('ขออภัย ลายนี้มีผู้จองแล้ว')
+        setFlashDesigns(prev => prev.filter(f => f.id !== flash.id))
+        return
+      }
+      // Remove from visible list immediately
+      setFlashDesigns(prev => prev.filter(f => f.id !== flash.id))
+      // Navigate to book page with flash params
+      const params = new URLSearchParams({
+        flash_id: flash.id,
+        hold_id: holdId,
+      })
+      window.location.href = `/book/${slug}?${params.toString()}`
+    } catch {
+      setFlashHoldError('เกิดข้อผิดพลาด กรุณาลองใหม่')
+    } finally {
+      setHoldingFlashId(null)
+    }
+  }
 
   // Resolve active artists and styles (falls back to mock if empty)
   const displayArtists = artists.length > 0 ? artists : mockArtists
@@ -573,6 +636,131 @@ export default function StorefrontHome() {
           </section>
         </div>
 
+
+        {/* FLASH DESIGNS SECTION */}
+        {(flashDesigns.length > 0 || flashLoading) && (
+          <section id="flash" className="space-y-6 mt-16 md:mt-24 scroll-mt-20">
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <span className="text-[10px] uppercase tracking-wider text-[#737373] font-semibold">Ready to Ink</span>
+                <h2 className="text-lg md:text-xl font-bold text-[#F5F5F5]">FLASH DESIGNS</h2>
+                <p className="text-xs text-[#737373]">แบบพร้อมสัก — จองได้เพียงครั้งเดียว</p>
+              </div>
+            </div>
+
+            {flashHoldError && (
+              <div className="px-4 py-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
+                {flashHoldError}
+              </div>
+            )}
+
+            {flashLoading ? (
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+                {[1, 2, 3, 4].map(i => (
+                  <div key={i} className="bg-[#171717] border border-[#262626] rounded-xl overflow-hidden animate-pulse">
+                    <div className="aspect-square bg-[#262626]" />
+                    <div className="p-4 space-y-2">
+                      <div className="h-3 bg-[#262626] rounded w-16" />
+                      <div className="h-3 bg-[#262626] rounded w-24" />
+                      <div className="h-8 bg-[#262626] rounded-xl mt-3" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+                {flashDesigns.map(flash => (
+                  <div
+                    key={flash.id}
+                    className="bg-[#171717] border border-[#262626] rounded-xl overflow-hidden flex flex-col group hover:border-[#404040] transition-colors cursor-pointer"
+                    onClick={() => setSelectedFlash(flash)}
+                  >
+                    <div className="relative aspect-square bg-[#121212] overflow-hidden">
+                      <img
+                        src={getFlashImageUrl(flash.image_path)}
+                        alt={flash.flash_code}
+                        className="w-full h-full object-cover grayscale group-hover:scale-[1.03] transition-transform duration-300"
+                      />
+                      <div className="absolute top-2 left-2">
+                        <span className="bg-[#000]/70 backdrop-blur-sm text-[#F5F5F5] font-mono text-[10px] px-1.5 py-0.5 rounded-md font-semibold tracking-widest">
+                          {flash.flash_code}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="p-3 md:p-4 flex-1 flex flex-col gap-2.5">
+                      <div>
+                        <p className="text-xs font-medium text-[#F5F5F5] truncate">{flash.artist_name}</p>
+                        <p className="text-[10px] text-[#737373] truncate">{flash.style_name}</p>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-semibold text-[#A3A3A3] border border-[#262626] px-2 py-0.5 rounded-md">
+                          ขนาด {flash.size}
+                        </span>
+                        <span className="text-sm font-bold text-[#F5F5F5]">฿{Number(flash.price).toLocaleString()}</span>
+                      </div>
+                      <button
+                        onClick={e => { e.stopPropagation(); handleBookFlash(flash) }}
+                        disabled={holdingFlashId === flash.id}
+                        className="w-full py-2 rounded-xl text-xs font-semibold bg-[#F5F5F5] text-[#0A0A0A] hover:bg-white transition-colors active:scale-95 disabled:opacity-60 mt-auto"
+                      >
+                        {holdingFlashId === flash.id ? '...' : 'จองลายนี้'}
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+        )}
+
+        {/* FLASH DETAIL MODAL */}
+        {selectedFlash && (
+          <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
+            <div className="absolute inset-0 bg-[#000]/80 backdrop-blur-sm" onClick={() => setSelectedFlash(null)} />
+            <div className="relative z-10 w-full sm:max-w-md bg-[#121212] border border-[#1F1F1F] rounded-t-2xl sm:rounded-2xl overflow-hidden flex flex-col max-h-[90vh]">
+              <div className="relative aspect-square bg-[#0A0A0A]">
+                <img
+                  src={getFlashImageUrl(selectedFlash.image_path)}
+                  alt={selectedFlash.flash_code}
+                  className="w-full h-full object-cover"
+                />
+                <button
+                  onClick={() => setSelectedFlash(null)}
+                  className="absolute top-3 right-3 bg-[#000]/60 backdrop-blur-sm p-2 rounded-full text-[#F5F5F5] hover:bg-[#000]/80 transition-colors"
+                >
+                  <X size={16} />
+                </button>
+                <div className="absolute top-3 left-3">
+                  <span className="bg-[#000]/70 backdrop-blur-sm text-[#F5F5F5] font-mono text-xs px-2 py-1 rounded-lg font-semibold tracking-widest">
+                    {selectedFlash.flash_code}
+                  </span>
+                </div>
+              </div>
+              <div className="p-5 space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-semibold text-[#F5F5F5]">{selectedFlash.artist_name}</p>
+                    <p className="text-xs text-[#737373]">{selectedFlash.style_name}</p>
+                  </div>
+                  <span className="text-xs font-semibold border border-[#262626] px-2.5 py-1 rounded-lg text-[#A3A3A3]">ขนาด {selectedFlash.size}</span>
+                </div>
+                <div className="flex items-center justify-between border-t border-[#1F1F1F] pt-4">
+                  <span className="text-xl font-bold text-[#F5F5F5]">฿{Number(selectedFlash.price).toLocaleString()}</span>
+                  <button
+                    onClick={() => handleBookFlash(selectedFlash)}
+                    disabled={holdingFlashId === selectedFlash.id}
+                    className="px-6 py-3 rounded-xl text-sm font-semibold bg-[#F5F5F5] text-[#0A0A0A] hover:bg-white transition-colors active:scale-95 disabled:opacity-60"
+                  >
+                    {holdingFlashId === selectedFlash.id ? 'กำลังจอง...' : 'จองลายนี้'}
+                  </button>
+                </div>
+                {flashHoldError && (
+                  <p className="text-xs text-red-400 text-center">{flashHoldError}</p>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* 5. TATTOO ARTISTS */}
         <section id="artists" className="space-y-6 mt-16 md:mt-28 scroll-mt-20">

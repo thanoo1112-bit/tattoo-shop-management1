@@ -8,7 +8,8 @@ import {
   Wallet, 
   BarChart3, 
   Settings,
-  Image
+  Image,
+  Zap
 } from 'lucide-react'
 
 export const ownerNavigation = [
@@ -19,6 +20,7 @@ export const ownerNavigation = [
   { name: 'ช่างสัก', href: '/owner/artists', icon: Users },
   { name: 'ลูกค้า', href: '/owner/customers', icon: UserSquare },
   { name: 'ผลงาน', href: '/owner/portfolio', icon: Image },
+  { name: 'Flash', href: '/owner/flash', icon: Zap },
   { name: 'การเงิน', href: '/owner/finance', icon: Wallet },
   { name: 'รายงาน', href: '/owner/reports', icon: BarChart3 },
   { name: 'ตั้งค่าร้าน', href: '/owner/settings', icon: Settings },

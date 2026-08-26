@@ -15,6 +15,12 @@ export interface BookingFormData {
   preferredTime: string;
   __artistId?: string;
   __styleId?: string;
+  flashId?: string;
+  holdId?: string;
+  flashCode?: string;
+  flashPrice?: string;
+  flashSize?: string;
+  flashStyle?: string;
 }
 
 interface ImageObject {
@@ -58,7 +64,13 @@ export function BookingStateProvider({ children }: { children: ReactNode }) {
     description: '',
     colorMode: '',
     selectedDate: '',
-    preferredTime: ''
+    preferredTime: '',
+    flashId: '',
+    holdId: '',
+    flashCode: '',
+    flashPrice: '',
+    flashSize: '',
+    flashStyle: ''
   });
   const [isFirstTattoo, setIsFirstTattoo] = useState<boolean>(false);
   const [safetyNoticeAcknowledged, setSafetyNoticeAcknowledged] = useState<boolean>(false);
@@ -91,7 +103,13 @@ export function BookingStateProvider({ children }: { children: ReactNode }) {
           preferredTime: parsed.preferredTime || '',
           // Also persist artist/style metadata to validate if artist changed
           __artistId: parsed.__artistId || '',
-          __styleId: parsed.__styleId || ''
+          __styleId: parsed.__styleId || '',
+          flashId: parsed.flashId || '',
+          holdId: parsed.holdId || '',
+          flashCode: parsed.flashCode || '',
+          flashPrice: parsed.flashPrice || '',
+          flashSize: parsed.flashSize || '',
+          flashStyle: parsed.flashStyle || ''
         }));
       }
     } catch (e) {
@@ -121,7 +139,13 @@ export function BookingStateProvider({ children }: { children: ReactNode }) {
       description: '',
       colorMode: '',
       selectedDate: '',
-      preferredTime: ''
+      preferredTime: '',
+      flashId: '',
+      holdId: '',
+      flashCode: '',
+      flashPrice: '',
+      flashSize: '',
+      flashStyle: ''
     });
     setIsFirstTattoo(false);
     setSafetyNoticeAcknowledged(false);

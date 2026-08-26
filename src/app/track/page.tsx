@@ -88,14 +88,14 @@ export default function TrackStatusPage() {
       
       {/* Header */}
       <header className="h-14 border-b border-[#262626] bg-[#0A0A0A] px-4 md:px-8 flex items-center justify-between sticky top-0 z-50">
-        <Link href="/design-lab/customer-home-v2" className="flex items-center gap-2 group">
+        <Link href="/shop/157-tattoo" className="flex items-center gap-2 group">
           <img src="/logo.png" alt="157 TATTOO Logo" className="h-6 w-6 object-contain grayscale" />
           <span className="text-sm font-bold tracking-[0.2em] text-[#F5F5F5] group-hover:text-white transition-colors">
             157 TATTOO
           </span>
         </Link>
         <Link 
-          href="/design-lab/customer-home-v2" 
+          href="/shop/157-tattoo" 
           className="text-xs font-semibold text-[#A3A3A3] hover:text-[#F5F5F5] transition-colors flex items-center gap-1.5"
         >
           <ArrowLeft size={14} />
@@ -164,7 +164,7 @@ export default function TrackStatusPage() {
           {/* Secondary Action */}
           <div className="text-center pt-2">
             <Link 
-              href="/design-lab/customer-home-v2" 
+              href="/shop/157-tattoo" 
               className="text-xs font-semibold text-[#737373] hover:text-[#A3A3A3] transition-colors"
             >
               กลับหน้าหลัก

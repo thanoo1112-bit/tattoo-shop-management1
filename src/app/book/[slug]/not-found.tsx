@@ -9,7 +9,7 @@ export default function ShopNotFound() {
         หรือร้านอาจปิดรับการจองชั่วคราว
       </p>
       <Link 
-        href="/"
+        href="/shop/157-tattoo"
         className="px-6 py-3 rounded-xl bg-[#121212] border border-[#262626] hover:bg-[#262626] text-[#F5F5F5] text-sm font-medium transition-colors active:scale-95"
       >
         กลับหน้าหลัก

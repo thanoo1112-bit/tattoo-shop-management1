@@ -32,12 +32,16 @@ export default function BookingSummaryFlow({ artist, shopSlug, artistStyles, sel
   };
 
   const inputClassName = "w-full bg-[#0B0B0B] border border-[#2A2A2A] rounded-md px-4 py-3 text-[#F5F5F5] placeholder:text-[#737373] focus:outline-none focus:border-[#737373] transition-colors min-h-[46px]";
-  const selectedStyleName = artistStyles.find((s: any) => s.style_id === selectedStyleId)?.name || 'ไม่ระบุ';
+  const selectedStyleName = formData.flashId
+    ? (formData.flashStyle || 'ไม่ระบุ')
+    : (artistStyles.find((s: any) => s.style_id === selectedStyleId)?.name || 'ไม่ระบุ');
 
   const {
     area,
     sizeCategory
-  } = calculateTattooEstimate(formData.widthCm, formData.heightCm);
+  } = formData.flashId
+    ? { area: 0, sizeCategory: '' }
+    : calculateTattooEstimate(formData.widthCm, formData.heightCm);
 
   const workTypeLabels: Record<string, string> = {
     new_work: 'งานใหม่',
@@ -48,7 +52,7 @@ export default function BookingSummaryFlow({ artist, shopSlug, artistStyles, sel
   };
   const workTypeLabel = workTypeLabels[formData.workType] || formData.workType;
 
-  const estimatedDuration = sizeCategory ? getSizeBasedBookingBuffer(sizeCategory) : null;
+  const estimatedDuration = (sizeCategory && !formData.flashId) ? getSizeBasedBookingBuffer(sizeCategory) : null;
   const colorStr = formData.colorMode === 'black_grey' ? 'Black & Grey' : formData.colorMode === 'color' ? 'Color' : '';
   const combinedWorkStyle = [selectedStyleName, colorStr, workTypeLabel].filter(Boolean).join(' • ');
 
@@ -89,7 +93,9 @@ export default function BookingSummaryFlow({ artist, shopSlug, artistStyles, sel
         p_artist_id: artist.artist_id,
         p_style_id: selectedStyleId || null,
         p_color_mode: formData.colorMode,
-        p_work_type: formData.workType
+        p_work_type: formData.workType,
+        p_flash_design_id: formData.flashId || null,
+        p_hold_session_id: formData.holdId || null
       });
 
       if (sessionError || !sessionData || sessionData.length === 0) {
@@ -100,8 +106,8 @@ export default function BookingSummaryFlow({ artist, shopSlug, artistStyles, sel
           hint: sessionError?.hint
         });
         throw new Error(
-          sessionError?.message?.includes('rejects') || sessionError?.message?.includes('not active') || sessionError?.message?.includes('Style not supported')
-            ? 'ข้อมูลที่เลือกมีการเปลี่ยนแปลง กรุณาตรวจสอบรายละเอียดอีกครั้ง'
+          sessionError?.message?.includes('rejects') || sessionError?.message?.includes('not active') || sessionError?.message?.includes('Style not supported') || sessionError?.message?.includes('Flash')
+            ? sessionError.message
             : 'ไม่สามารถเตรียมคำขอจองได้ กรุณาลองใหม่อีกครั้ง'
         );
       }
@@ -139,8 +145,8 @@ export default function BookingSummaryFlow({ artist, shopSlug, artistStyles, sel
       // 3. Finalize booking
       const { data: publicToken, error: finalError } = await supabase.rpc('finalize_public_booking', {
         p_session_id: session_id,
-        p_width_cm: parseFloat(formData.widthCm) || 0,
-        p_height_cm: parseFloat(formData.heightCm) || 0,
+        p_width_cm: formData.flashId ? null : (parseFloat(formData.widthCm) || 0),
+        p_height_cm: formData.flashId ? null : (parseFloat(formData.heightCm) || 0),
         p_placement: formData.placement,
         p_description: formData.description,
         p_full_name: formData.fullName,
@@ -153,7 +159,9 @@ export default function BookingSummaryFlow({ artist, shopSlug, artistStyles, sel
         p_design_ref_paths: designReferencePaths,
         p_terms_accepted: true,
         p_is_first_tattoo: isFirstTattoo,
-        p_safety_notice_acknowledged: safetyNoticeAcknowledged
+        p_safety_notice_acknowledged: safetyNoticeAcknowledged,
+        p_flash_design_id: formData.flashId || null,
+        p_hold_session_id: formData.holdId || null
       });
 
       if (finalError) {
@@ -331,18 +339,27 @@ export default function BookingSummaryFlow({ artist, shopSlug, artistStyles, sel
                 <span className="text-[#A3A3A3] text-sm shrink-0">ตำแหน่ง</span>
                 <span className="text-[#F5F5F5] text-sm font-medium text-right min-w-0">{formData.placement}</span>
             </div>
-            <div className="flex flex-row justify-between items-start gap-4">
-                <span className="text-[#A3A3A3] text-sm shrink-0">ความกว้าง</span>
-                <span className="text-[#F5F5F5] text-sm font-medium text-right min-w-0">{formData.widthCm} ซม.</span>
-            </div>
-            <div className="flex flex-row justify-between items-start gap-4">
-                <span className="text-[#A3A3A3] text-sm shrink-0">ความยาว</span>
-                <span className="text-[#F5F5F5] text-sm font-medium text-right min-w-0">{formData.heightCm} ซม.</span>
-            </div>
-            <div className="flex flex-row justify-between items-start gap-4">
-                <span className="text-[#A3A3A3] text-sm shrink-0">ระยะเวลาเข้ารับบริการโดยประมาณ</span>
-                <span className="text-[#F5F5F5] text-sm font-medium text-right min-w-0">{estimatedDuration ? `${estimatedDuration} ชั่วโมง` : '-'}</span>
-            </div>
+            {formData.flashId ? (
+              <div className="flex flex-row justify-between items-start gap-4">
+                  <span className="text-[#A3A3A3] text-sm shrink-0">ขนาดงาน</span>
+                  <span className="text-[#F5F5F5] text-sm font-medium text-right min-w-0">{formData.flashSize}</span>
+              </div>
+            ) : (
+              <>
+                <div className="flex flex-row justify-between items-start gap-4">
+                    <span className="text-[#A3A3A3] text-sm shrink-0">ความกว้าง</span>
+                    <span className="text-[#F5F5F5] text-sm font-medium text-right min-w-0">{formData.widthCm} ซม.</span>
+                </div>
+                <div className="flex flex-row justify-between items-start gap-4">
+                    <span className="text-[#A3A3A3] text-sm shrink-0">ความยาว</span>
+                    <span className="text-[#F5F5F5] text-sm font-medium text-right min-w-0">{formData.heightCm} ซม.</span>
+                </div>
+                <div className="flex flex-row justify-between items-start gap-4">
+                    <span className="text-[#A3A3A3] text-sm shrink-0">ระยะเวลาเข้ารับบริการโดยประมาณ</span>
+                    <span className="text-[#F5F5F5] text-sm font-medium text-right min-w-0">{estimatedDuration ? `${estimatedDuration} ชั่วโมง` : '-'}</span>
+                </div>
+              </>
+            )}
         </div>
 
         <div className="my-4 sm:my-5 border-t border-[#262626]"></div>
@@ -390,12 +407,26 @@ export default function BookingSummaryFlow({ artist, shopSlug, artistStyles, sel
 
         {/* Deposit/Price Message */}
         <div className="mt-4 sm:mt-5 bg-transparent border-t border-[#262626] pt-4 sm:pt-5 text-left">
-          <p className="text-[15px] sm:text-[14px] font-medium text-[#F5F5F5]">
-            ราคางานและยอดมัดจำ
-          </p>
-          <p className="text-[13px] sm:text-[13px] text-[#A3A3A3] mt-1">
-            ช่างจะแจ้งหลังตรวจสอบรายละเอียดคำขอ
-          </p>
+          {formData.flashId ? (
+            <>
+              <p className="text-[15px] sm:text-[14px] font-medium text-[#F5F5F5] flex justify-between">
+                <span>ราคา Flash (ราคาเน็ต)</span>
+                <span className="text-white font-bold">฿{Number(formData.flashPrice || 0).toLocaleString()}</span>
+              </p>
+              <p className="text-[13px] sm:text-[13px] text-[#A3A3A3] mt-1">
+                ราคาเป็นราคาสุดท้ายของแบบสักชิ้นนี้ (ไม่รวมค่ามัดจำซึ่งช่างจะแจ้งหลังตรวจสอบรายละเอียดคำขอ)
+              </p>
+            </>
+          ) : (
+            <>
+              <p className="text-[15px] sm:text-[14px] font-medium text-[#F5F5F5]">
+                ราคางานและยอดมัดจำ
+              </p>
+              <p className="text-[13px] sm:text-[13px] text-[#A3A3A3] mt-1">
+                ช่างจะแจ้งหลังตรวจสอบรายละเอียดคำขอ
+              </p>
+            </>
+          )}
         </div>
       </div>
 

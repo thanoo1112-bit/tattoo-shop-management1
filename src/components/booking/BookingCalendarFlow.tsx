@@ -69,12 +69,14 @@ export default function BookingCalendarFlow({ artist, shopSlug, availability }: 
   const selectedData = formData.selectedDate ? availabilityMap.get(formData.selectedDate) : null;
   const isDateValid = selectedData && selectedData.can_request;
 
-  const { sizeCategory } = calculateTattooEstimate(formData.widthCm, formData.heightCm);
+  const { sizeCategory } = formData.flashId
+    ? { sizeCategory: '' }
+    : calculateTattooEstimate(formData.widthCm, formData.heightCm);
 
   const STORE_CLOSING_HOURS = 23;
   const STORE_CLOSING_MINUTES = 30;
   const closingTimeDecimal = STORE_CLOSING_HOURS + (STORE_CLOSING_MINUTES / 60);
-  const latestStartTimeDecimal = getLatestPreferredStartTime(sizeCategory, closingTimeDecimal);
+  const latestStartTimeDecimal = getLatestPreferredStartTime(sizeCategory || '', closingTimeDecimal);
 
   const timeOptions = useMemo(() => {
     const options: string[] = [];

@@ -130,13 +130,48 @@ export default function ArtistSelectionList({ artists, shopSlug, initialArtistId
   };
 
   const handleContinue = () => {
-    if (selectedArtistId && selectedStyleId && formData.colorMode && formData.workType) {
-      router.push(`/book/${shopSlug}?step=2&artist=${selectedArtistId}&style=${selectedStyleId}`);
+    if (selectedArtistId && (formData.flashId || selectedStyleId) && formData.colorMode && formData.workType) {
+      const styleParamVal = selectedStyleId || '';
+      router.push(`/book/${shopSlug}?step=2&artist=${selectedArtistId}&style=${styleParamVal}`);
     }
   };
 
   return (
     <div className="space-y-6 md:space-y-8 max-w-[1024px] mx-auto w-full">
+      {formData.flashId && (
+        <div className="bg-[#FFFFFF]/5 border border-[#FFFFFF]/10 rounded-2xl p-5 md:p-6 space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#FFFFFF]/10 pb-4">
+            <div>
+              <span className="text-[10px] font-bold tracking-[0.2em] text-[#A3A3A3] uppercase block mb-1">SELECTED DESIGN</span>
+              <h4 className="text-base font-bold text-[#F5F5F5] font-mono tracking-wider">รหัสลาย Flash: {formData.flashCode}</h4>
+            </div>
+            <div className="shrink-0 text-sm font-bold text-white bg-[#262626] px-4 py-2 rounded-xl border border-[#333]">
+              ราคา ฿{Number(formData.flashPrice || 0).toLocaleString()}
+            </div>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-1">
+            <div className="bg-[#0A0A0A] border border-[#1F1F1F] p-3 rounded-xl">
+              <span className="text-[10px] text-[#737373] block">ช่างสัก</span>
+              <span className="text-sm font-semibold text-[#F5F5F5] mt-1 block">
+                {artists.find(a => a.artist_id === selectedArtistId)?.display_name || 'ช่างสักประจำแบบ'}
+              </span>
+            </div>
+            <div className="bg-[#0A0A0A] border border-[#1F1F1F] p-3 rounded-xl">
+              <span className="text-[10px] text-[#737373] block">สไตล์งาน</span>
+              <span className="text-sm font-semibold text-[#F5F5F5] mt-1 block">
+                {formData.flashStyle || '-'}
+              </span>
+            </div>
+            <div className="bg-[#0A0A0A] border border-[#1F1F1F] p-3 rounded-xl">
+              <span className="text-[10px] text-[#737373] block">ขนาด</span>
+              <span className="text-sm font-semibold text-[#F5F5F5] mt-1 block">
+                {formData.flashSize || '-'}
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className={`space-y-2 ${selectedArtistId ? 'hidden md:block' : ''}`}>
         <h2 className="text-2xl md:text-[28px] font-semibold text-[#F5F5F5]">เลือกช่างสัก</h2>
         <p className="text-sm md:text-base text-[#A3A3A3]">เลือกช่างที่คุณต้องการจองคิว</p>
@@ -288,41 +323,43 @@ export default function ArtistSelectionList({ artists, shopSlug, initialArtistId
               
               <div className="space-y-6 md:space-y-8">
                 {/* Styles Section */}
-                <div>
-                  <h4 className="text-[13px] font-medium text-[#A3A3A3] mb-3">สไตล์</h4>
-                  {styles.length > 0 ? (
-                    <div className="flex flex-wrap gap-2">
-                      {styles.map(s => {
-                        const isSelected = selectedStyleId === s.style_id;
-                        return (
-                          <button
-                            key={s.style_id}
-                            type="button"
-                            onClick={() => setSelectedStyleId(s.style_id)}
-                            className={`flex items-center px-3.5 py-2 text-[13px] rounded-full border transition-all ${
-                              isSelected 
-                                ? 'bg-[#F5F5F5] text-[#0A0A0A] border-[#F5F5F5] font-medium' 
-                                : 'bg-[#171717] text-[#A3A3A3] border-[#2A2A2A] hover:border-[#404040] hover:text-[#F5F5F5]'
-                            }`}
-                          >
-                            {isSelected && (
-                              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="mr-1.5 flex-shrink-0">
-                                <polyline points="20 6 9 17 4 12"></polyline>
-                              </svg>
-                            )}
-                            {s.name}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  ) : (
-                    <p className="text-[#737373] text-[13px]">ไม่มีตัวเลือกที่เปิดรับในหมวดนี้</p>
-                  )}
-                </div>
+                {!formData.flashId && (
+                  <div>
+                    <h4 className="text-[13px] font-medium text-[#A3A3A3] mb-3">สไตล์</h4>
+                    {styles.length > 0 ? (
+                      <div className="flex flex-wrap gap-2">
+                        {styles.map(s => {
+                          const isSelected = selectedStyleId === s.style_id;
+                          return (
+                            <button
+                              key={s.style_id}
+                              type="button"
+                              onClick={() => setSelectedStyleId(s.style_id)}
+                              className={`flex items-center px-3.5 py-2 text-[13px] rounded-full border transition-all ${
+                                isSelected 
+                                  ? 'bg-[#F5F5F5] text-[#0A0A0A] border-[#F5F5F5] font-medium' 
+                                  : 'bg-[#171717] text-[#A3A3A3] border-[#2A2A2A] hover:border-[#404040] hover:text-[#F5F5F5]'
+                              }`}
+                            >
+                              {isSelected && (
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="mr-1.5 flex-shrink-0">
+                                  <polyline points="20 6 9 17 4 12"></polyline>
+                                </svg>
+                              )}
+                              {s.name}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <p className="text-[#737373] text-[13px]">ไม่มีตัวเลือกที่เปิดรับในหมวดนี้</p>
+                    )}
+                  </div>
+                )}
 
                 <div className="flex flex-col lg:flex-row gap-6 md:gap-8 lg:gap-12 pt-6 md:pt-8 border-t border-[#262626]">
                   {/* Colors Section */}
-                  <div className="w-full lg:w-[40%]">
+                  <div className={`w-full ${formData.flashId ? 'lg:w-full' : 'lg:w-[40%]'}`}>
                     <h4 className="text-[13px] font-medium text-[#A3A3A3] mb-3">โทนสี <span className="text-red-500">*</span></h4>
                     {isFetchingColors ? (
                       <p className="text-[#737373] text-[13px] animate-pulse">กำลังโหลด...</p>
@@ -359,56 +396,58 @@ export default function ArtistSelectionList({ artists, shopSlug, initialArtistId
                   </div>
 
                   {/* Work Types Section */}
-                  <div className="w-full lg:w-[60%]">
-                    <h4 className="text-[13px] font-medium text-[#A3A3A3] mb-3">ประเภทงาน <span className="text-red-500">*</span></h4>
-                    {isFetchingWorkTypes ? (
-                      <p className="text-[#737373] text-[13px] animate-pulse">กำลังโหลด...</p>
-                    ) : workTypeFetchError ? (
-                      <p className="text-red-400 text-[13px]">ไม่สามารถโหลดข้อมูลได้</p>
-                    ) : workTypes.length === 0 ? (
-                      <p className="text-[#737373] text-[13px]">ไม่มีตัวเลือกที่เปิดรับในหมวดนี้</p>
-                    ) : (
-                      <div className="flex flex-wrap gap-2">
-                        {workTypes.map(opt => {
-                          const isSelectedType = formData.workType === opt.value;
-                          const mappedLabel = 
-                            opt.value === 'new_work' ? 'งานใหม่' :
-                            opt.value === 'extension' ? 'ต่อเติมลายเดิม' :
-                            opt.value === 'touch_up' ? 'เก็บงาน/เติมสี' :
-                            opt.value === 'cover_up' ? 'แก้/ทับลายเดิม' :
-                            opt.value === 'scar_cover' ? 'สักทับรอยแผลเป็น' :
-                            opt.label;
+                  {!formData.flashId && (
+                    <div className="w-full lg:w-[60%]">
+                      <h4 className="text-[13px] font-medium text-[#A3A3A3] mb-3">ประเภทงาน <span className="text-red-500">*</span></h4>
+                      {isFetchingWorkTypes ? (
+                        <p className="text-[#737373] text-[13px] animate-pulse">กำลังโหลด...</p>
+                      ) : workTypeFetchError ? (
+                        <p className="text-red-400 text-[13px]">ไม่สามารถโหลดข้อมูลได้</p>
+                      ) : workTypes.length === 0 ? (
+                        <p className="text-[#737373] text-[13px]">ไม่มีตัวเลือกที่เปิดรับในหมวดนี้</p>
+                      ) : (
+                        <div className="flex flex-wrap gap-2">
+                          {workTypes.map(opt => {
+                            const isSelectedType = formData.workType === opt.value;
+                            const mappedLabel = 
+                              opt.value === 'new_work' ? 'งานใหม่' :
+                              opt.value === 'extension' ? 'ต่อเติมลายเดิม' :
+                              opt.value === 'touch_up' ? 'เก็บงาน/เติมสี' :
+                              opt.value === 'cover_up' ? 'แก้/ทับลายเดิม' :
+                              opt.value === 'scar_cover' ? 'สักทับรอยแผลเป็น' :
+                              opt.label;
 
-                          return (
-                            <button
-                              key={opt.value}
-                              type="button"
-                              onClick={() => setFormData(prev => ({ ...prev, workType: opt.value }))}
-                              className={`flex items-center px-3.5 py-2 text-[13px] rounded-full border transition-all ${
-                                isSelectedType 
-                                  ? 'bg-[#F5F5F5] text-[#0A0A0A] border-[#F5F5F5] font-medium' 
-                                  : 'bg-[#171717] text-[#A3A3A3] border-[#2A2A2A] hover:border-[#404040] hover:text-[#F5F5F5]'
-                              }`}
-                            >
-                              {isSelectedType && (
-                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="mr-1.5 flex-shrink-0">
-                                  <polyline points="20 6 9 17 4 12"></polyline>
-                                </svg>
-                              )}
-                              {mappedLabel}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>
+                            return (
+                              <button
+                                key={opt.value}
+                                type="button"
+                                onClick={() => setFormData(prev => ({ ...prev, workType: opt.value }))}
+                                className={`flex items-center px-3.5 py-2 text-[13px] rounded-full border transition-all ${
+                                  isSelectedType 
+                                    ? 'bg-[#F5F5F5] text-[#0A0A0A] border-[#F5F5F5] font-medium' 
+                                    : 'bg-[#171717] text-[#A3A3A3] border-[#2A2A2A] hover:border-[#404040] hover:text-[#F5F5F5]'
+                                }`}
+                              >
+                                {isSelectedType && (
+                                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="mr-1.5 flex-shrink-0">
+                                    <polyline points="20 6 9 17 4 12"></polyline>
+                                  </svg>
+                                )}
+                                {mappedLabel}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
 
             <div className="mt-8 pt-8 border-t border-[#262626] flex flex-col-reverse sm:flex-row gap-4">
               <button
-                disabled={!selectedStyleId || !formData.colorMode || !formData.workType}
+                disabled={(!formData.flashId && !selectedStyleId) || !formData.colorMode || !formData.workType}
                 onClick={handleContinue}
                 className="flex-1 py-4 text-center rounded-xl font-medium transition-all flex items-center justify-center disabled:bg-[#1A1A1A] disabled:text-[#404040] disabled:cursor-not-allowed bg-[#F5F5F5] text-black hover:bg-[#E5E5E5] active:scale-[0.98]"
               >

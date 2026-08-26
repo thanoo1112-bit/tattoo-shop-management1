@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useBookingState } from './BookingStateProvider';
 import { calculateTattooEstimate, getLatestPreferredStartTime } from '@/lib/bookingCalculations';
 import { Loader2 } from 'lucide-react';
+import { createClient } from '@/lib/supabase/client';
 
 interface BookingStepGuardProps {
   children: React.ReactNode;
@@ -49,12 +50,71 @@ export default function BookingStepGuard({
     let newFormData = { ...formData };
     let shouldUpdateFormData = false;
 
-    let currentArtistId = artistId;
-    let currentStyleId = styleId;
+    // Detect Flash booking parameters from URL
+    const urlParams = new URLSearchParams(window.location.search);
+    const urlFlashId = urlParams.get('flash_id');
+    const urlHoldId = urlParams.get('hold_id');
+
+    if (urlFlashId && formData.flashId !== urlFlashId) {
+      setIsReady(false);
+      const supabaseClient = createClient();
+      
+      const executeHoldAndLoad = async () => {
+        let holdId = urlHoldId;
+        if (!holdId) {
+          const generatedId = window.crypto?.randomUUID ? window.crypto.randomUUID() : (Math.random().toString(36).substring(2) + Date.now().toString(36));
+          const { data: held, error: holdErr } = await supabaseClient.rpc('hold_public_flash', {
+            p_flash_id: urlFlashId,
+            p_session_id: generatedId
+          });
+          if (holdErr || !held) {
+            alert('ขออภัย ลายสักนี้หมดอายุการจองหรือถูกผู้อื่นเลือกไปแล้ว');
+            router.replace(`/shop/${shopSlug}`);
+            return;
+          }
+          holdId = generatedId;
+          // Update URL params
+          const url = new URL(window.location.href);
+          url.searchParams.set('hold_id', holdId);
+          window.history.replaceState({}, '', url.toString());
+        }
+
+        const { data: flash } = await supabaseClient
+          .from('flash_designs')
+          .select('*')
+          .eq('id', urlFlashId)
+          .maybeSingle();
+
+        if (flash) {
+          setFormData(prev => ({
+            ...prev,
+            flashId: urlFlashId,
+            holdId: holdId || '',
+            flashCode: flash.flash_code,
+            flashSize: flash.size,
+            flashPrice: flash.price.toString(),
+            flashStyle: flash.style_name,
+            widthCm: '',
+            heightCm: '',
+            workType: 'new_work',
+            colorMode: prev.colorMode || 'black_grey',
+            __artistId: flash.artist_id,
+            __styleId: flash.style_id
+          }));
+        }
+        setIsReady(true);
+      };
+
+      executeHoldAndLoad();
+      return;
+    }
+
+    let currentArtistId = artistId || formData.__artistId;
+    let currentStyleId = styleId || formData.__styleId;
 
     // 1. Revalidate artist and style if they exist in URL
-    if (artistId && formData.__artistId && artistId !== formData.__artistId) {
-      // Artist changed! Reset draft related to artist
+    if (artistId && formData.__artistId && artistId !== formData.__artistId && !newFormData.flashId) {
+      // Artist changed! Reset draft related to artist (only if not a locked Flash flow)
       newFormData = {
         ...newFormData,
         workType: '',
@@ -116,14 +176,18 @@ export default function BookingStepGuard({
     const requiresRealPhoto = ['extension', 'touch_up', 'cover_up', 'scar_cover'].includes(newFormData.workType);
     const isPhotoValid = requiresRealPhoto ? realAreaPhotos.length >= 1 : true;
 
+    const isDimensionsValid = newFormData.flashId ? true : (
+      (newFormData.widthCm || '').trim() !== '' &&
+      (newFormData.heightCm || '').trim() !== '' &&
+      Number(newFormData.widthCm) > 0 &&
+      Number(newFormData.heightCm) > 0
+    );
+
     const isStep2Complete = 
       isStep1Complete &&
       (newFormData.placement || '').trim() !== '' &&
-      (newFormData.widthCm || '').trim() !== '' &&
-      (newFormData.heightCm || '').trim() !== '' &&
+      isDimensionsValid &&
       (newFormData.description || '').trim() !== '' &&
-      Number(newFormData.widthCm) > 0 &&
-      Number(newFormData.heightCm) > 0 &&
       isPhotoValid;
 
     // Step 3 check (Date and Time)
@@ -132,8 +196,10 @@ export default function BookingStepGuard({
     
     if (isStep2Complete && (newFormData.selectedDate || '').trim() !== '' && (newFormData.preferredTime || '').trim() !== '') {
       // Revalidate preferredTime against size category logic
-      const { sizeCategory } = calculateTattooEstimate(newFormData.widthCm, newFormData.heightCm);
-      const latestStartDecimal = getLatestPreferredStartTime(sizeCategory, 23.5);
+      const { sizeCategory } = newFormData.flashId 
+        ? { sizeCategory: '' }
+        : calculateTattooEstimate(newFormData.widthCm, newFormData.heightCm);
+      const latestStartDecimal = getLatestPreferredStartTime(sizeCategory || '', 23.5);
       
       const [hours, minutes] = newFormData.preferredTime.split(':').map(Number);
       const timeDecimal = hours + (minutes / 60);
@@ -174,14 +240,20 @@ export default function BookingStepGuard({
     
     if (targetStep !== currentStep || (urlNeedsParams && currentStep !== 5)) {
       let redirectUrl = `/book/${shopSlug}`;
-      if (targetStep > 1) {
-        const queryParams = new URLSearchParams();
-        queryParams.set('step', targetStep.toString());
-        if (currentArtistId) queryParams.set('artist', currentArtistId);
-        if (currentStyleId) queryParams.set('style', currentStyleId);
-        
-        redirectUrl += `?${queryParams.toString()}`;
+      const queryParams = new URLSearchParams();
+      queryParams.set('step', targetStep.toString());
+      if (currentArtistId) queryParams.set('artist', currentArtistId);
+      if (currentStyleId) queryParams.set('style', currentStyleId);
+      
+      if (newFormData.flashId) {
+        queryParams.set('flash_id', newFormData.flashId);
+        if (newFormData.holdId) queryParams.set('hold_id', newFormData.holdId);
+        if (newFormData.flashCode) queryParams.set('flash_code', newFormData.flashCode);
+        if (newFormData.flashSize) queryParams.set('size', newFormData.flashSize);
+        if (newFormData.flashPrice) queryParams.set('price', newFormData.flashPrice);
       }
+      
+      redirectUrl += `?${queryParams.toString()}`;
       router.replace(redirectUrl);
     } else {
       setIsReady(true);
