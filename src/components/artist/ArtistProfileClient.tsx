@@ -4,6 +4,12 @@ import { useState, useRef } from 'react';
 import { User, Plus, X, Image as ImageIcon, Check, Loader2 } from 'lucide-react';
 import { EmptyState } from '@/components/owner/empty-state';
 import { updateArtistProfile, addArtistSpecialty, removeArtistSpecialty, updateArtistAvatar } from '@/app/(dashboard)/artist/profile/actions';
+import { 
+  ownerUpdateArtistProfile, 
+  ownerAddArtistSpecialty, 
+  ownerRemoveArtistSpecialty, 
+  ownerUpdateArtistAvatar 
+} from '@/app/(dashboard)/owner/artists/actions';
 import { createClient } from '@/lib/supabase/client';
 import { optimizeImage } from '@/lib/images/optimize-image';
 
@@ -31,9 +37,19 @@ interface ArtistProfileClientProps {
   initialData: ProfileData;
   initialSpecialties: Specialty[];
   catalog: Specialty[];
+  mode?: 'self' | 'owner';
+  artistId?: string;
+  shopId?: string;
 }
 
-export function ArtistProfileClient({ initialData, initialSpecialties, catalog }: ArtistProfileClientProps) {
+export function ArtistProfileClient({ 
+  initialData, 
+  initialSpecialties, 
+  catalog,
+  mode = 'self',
+  artistId,
+  shopId
+}: ArtistProfileClientProps) {
   const [formData, setFormData] = useState(initialData);
   const [customStyle, setCustomStyle] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -76,7 +92,8 @@ export function ArtistProfileClient({ initialData, initialSpecialties, catalog }
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
-      const fileName = `${user.id}/avatar`;
+      const targetUserId = mode === 'owner' && artistId ? artistId : user.id;
+      const fileName = `${targetUserId}/avatar`;
 
       // Upload/overwrite file
       const { error: uploadError } = await supabase.storage
@@ -97,7 +114,9 @@ export function ArtistProfileClient({ initialData, initialSpecialties, catalog }
       setFormData(prev => ({ ...prev, avatarUrl: avatarUrlWithCacheBust }));
 
       // Update backend via Server Action
-      const result = await updateArtistAvatar(avatarUrlWithCacheBust);
+      const result = mode === 'owner' && artistId && shopId
+        ? await ownerUpdateArtistAvatar(artistId, shopId, avatarUrlWithCacheBust)
+        : await updateArtistAvatar(avatarUrlWithCacheBust);
       if (result.error) throw new Error(result.error);
 
       setToastMessage('อัปเดตรูปโปรไฟล์เรียบร้อยแล้ว');
@@ -128,7 +147,9 @@ export function ArtistProfileClient({ initialData, initialSpecialties, catalog }
     setIsStylePending(true);
     setErrors(prev => ({ ...prev, styles: '' }));
     
-    const result = await addArtistSpecialty(name);
+    const result = mode === 'owner' && artistId && shopId
+      ? await ownerAddArtistSpecialty(artistId, shopId, name)
+      : await addArtistSpecialty(name);
     
     if (result.error) {
       setErrors(prev => ({ ...prev, styles: result.error as string }));
@@ -148,7 +169,9 @@ export function ArtistProfileClient({ initialData, initialSpecialties, catalog }
     setIsStylePending(true);
     setErrors(prev => ({ ...prev, styles: '' }));
     
-    const result = await removeArtistSpecialty(styleId);
+    const result = mode === 'owner' && artistId && shopId
+      ? await ownerRemoveArtistSpecialty(artistId, shopId, styleId)
+      : await removeArtistSpecialty(styleId);
     
     if (result.error) {
       setErrors(prev => ({ ...prev, styles: result.error as string }));
@@ -183,7 +206,9 @@ export function ArtistProfileClient({ initialData, initialSpecialties, catalog }
 
     setIsPending(true);
     const form = new FormData(e.currentTarget);
-    const result = await updateArtistProfile(form);
+    const result = mode === 'owner' && artistId && shopId
+      ? await ownerUpdateArtistProfile(artistId, shopId, form)
+      : await updateArtistProfile(form);
 
     if (result.error) {
       setErrors({ form: result.error });
@@ -264,13 +289,14 @@ export function ArtistProfileClient({ initialData, initialSpecialties, catalog }
               </div>
               
               <div>
-                <label className="block text-sm text-[#9CA3AB] mb-2">เบอร์โทรศัพท์ *</label>
+                <label className="block text-sm text-[#9CA3AB] mb-2">เบอร์โทรศัพท์ {mode === 'owner' ? '' : '*'}</label>
                 <input
                   type="tel"
                   name="phone"
                   value={formData.phone}
                   onChange={handleInputChange}
-                  className={inputClassName}
+                  readOnly={mode === 'owner'}
+                  className={`${inputClassName} ${mode === 'owner' ? 'bg-[#121212] text-[#737373] cursor-not-allowed border-[#262626]/80' : ''}`}
                 />
                 {errors.phone && <p className="text-red-400 text-xs mt-1.5">{errors.phone}</p>}
               </div>

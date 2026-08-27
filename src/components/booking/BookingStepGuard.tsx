@@ -55,6 +55,21 @@ export default function BookingStepGuard({
     const urlFlashId = urlParams.get('flash_id');
     const urlHoldId = urlParams.get('hold_id');
 
+    if (!urlFlashId && formData.flashId) {
+      setFormData(prev => ({
+        ...prev,
+        flashId: '',
+        holdId: '',
+        flashCode: '',
+        flashPrice: '',
+        flashSize: '',
+        flashStyle: '',
+        workType: '',
+        colorMode: '',
+      }));
+      return;
+    }
+
     if (urlFlashId && formData.flashId !== urlFlashId) {
       setIsReady(false);
       const supabaseClient = createClient();
@@ -101,8 +116,11 @@ export default function BookingStepGuard({
             __artistId: flash.artist_id,
             __styleId: flash.style_id
           }));
+          setIsReady(true);
+        } else {
+          alert('ขออภัย ไม่พบลายสักที่เลือกหรือลายสักนี้ถูกลบแล้ว');
+          router.replace(`/book/${shopSlug}?step=1`);
         }
-        setIsReady(true);
       };
 
       executeHoldAndLoad();

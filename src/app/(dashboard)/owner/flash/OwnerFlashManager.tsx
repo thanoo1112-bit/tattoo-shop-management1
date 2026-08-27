@@ -235,11 +235,19 @@ export default function OwnerFlashManager({ shopId, initialItems, artists }: Pro
   const handleDelete = async () => {
     if (!deletingItem) return
     if (deletingItem.booking_request_id) {
-      setError('ไม่สามารถลบ Flash ที่มีคำขอจองได้')
-      setDeletingItem(null)
+      setError('ไม่สามารถลบได้ เนื่องจาก Flash นี้มีคำขอจองที่เกี่ยวข้อง')
+      return
+    }
+    if (deletingItem.status === 'held') {
+      setError('ไม่สามารถลบ Flash ที่กำลังถูกจองได้')
+      return
+    }
+    if (deletingItem.status === 'reserved') {
+      setError('ไม่สามารถลบ Flash ที่ถูกจองแล้วได้')
       return
     }
     setLoading(true)
+    setError(null)
     try {
       const { error: delErr } = await supabase
         .from('flash_designs')
@@ -257,14 +265,14 @@ export default function OwnerFlashManager({ shopId, initialItems, artists }: Pro
     }
   }
 
-  const FormFields = ({ isEdit = false }: { isEdit?: boolean }) => (
-    <div className="space-y-5">
+  const renderFormFields = (isEdit = false) => (
+    <div className="space-y-4 sm:space-y-5">
       {/* Image */}
       <div>
-        <label className="block text-sm font-medium text-[#A3A3A3] mb-2">รูป Flash *</label>
-        <div className="flex flex-col sm:flex-row gap-4 items-start">
+        <label className="block text-xs sm:text-sm font-medium text-[#A3A3A3] mb-1.5 sm:mb-2">รูป Flash *</label>
+        <div className="flex gap-3 items-center">
           {(imagePreview || (isEdit && editingItem?.image_path)) && (
-            <div className="relative w-28 h-28 flex-shrink-0 rounded-xl overflow-hidden border border-[#262626] bg-[#121212]">
+            <div className="relative w-20 h-24 sm:w-28 sm:h-28 flex-shrink-0 rounded-xl overflow-hidden border border-[#262626] bg-[#121212]">
               <img
                 src={imagePreview || getImageUrl(editingItem!.image_path)}
                 alt="preview"
@@ -273,10 +281,10 @@ export default function OwnerFlashManager({ shopId, initialItems, artists }: Pro
             </div>
           )}
           <div className="flex-1">
-            <label className="cursor-pointer flex flex-col items-center justify-center gap-2 border-2 border-dashed border-[#333] rounded-xl p-4 hover:border-[#555] transition-colors bg-[#0A0A0A] min-h-[80px]">
-              <ImageIcon className="h-6 w-6 text-[#555]" />
-              <span className="text-xs text-[#555]">
-                {imageFile ? imageFile.name : (isEdit ? 'เลือกรูปใหม่ (ถ้าต้องการเปลี่ยน)' : 'อัปโหลดรูป Flash')}
+            <label className="cursor-pointer flex flex-col items-center justify-center gap-1 sm:gap-2 border-2 border-dashed border-[#333] rounded-xl p-2.5 sm:p-4 hover:border-[#555] transition-colors bg-[#0A0A0A] h-24 sm:h-28 text-center w-full">
+              <ImageIcon className="h-5 w-5 sm:h-6 sm:w-6 text-[#555]" />
+              <span className="text-[10px] sm:text-xs text-[#555] line-clamp-2">
+                {imageFile ? imageFile.name : (isEdit ? 'เลือกรูปใหม่' : 'อัปโหลดรูป Flash')}
               </span>
               <input type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" onChange={handleImageChange} />
             </label>
@@ -287,21 +295,21 @@ export default function OwnerFlashManager({ shopId, initialItems, artists }: Pro
       {/* Flash Code (display only on edit) */}
       {isEdit && editingItem && (
         <div>
-          <label className="block text-sm font-medium text-[#A3A3A3] mb-2">รหัสงาน</label>
-          <div className="px-4 py-3 rounded-xl bg-[#0A0A0A] border border-[#1F1F1F] text-[#F5F5F5] font-mono text-sm tracking-widest">
+          <label className="block text-xs sm:text-sm font-medium text-[#A3A3A3] mb-1.5 sm:mb-2">รหัสงาน</label>
+          <div className="h-11 sm:h-12 flex items-center px-3 sm:px-4 rounded-xl bg-[#0A0A0A] border border-[#1F1F1F] text-[#F5F5F5] font-mono text-xs sm:text-sm tracking-widest">
             {editingItem.flash_code}
           </div>
-          <p className="text-xs text-[#555] mt-1">รหัสงานถูกสร้างโดยระบบ และไม่สามารถเปลี่ยนแปลงได้</p>
+          <p className="text-[10px] sm:text-xs text-[#555] mt-1">รหัสงานถูกสร้างโดยระบบ และไม่สามารถเปลี่ยนแปลงได้</p>
         </div>
       )}
 
       {/* Artist */}
       <div>
-        <label className="block text-sm font-medium text-[#A3A3A3] mb-2">ช่างสัก *</label>
+        <label className="block text-xs sm:text-sm font-medium text-[#A3A3A3] mb-1.5 sm:mb-2">ช่างสัก *</label>
         <select
           value={form.artistId}
           onChange={e => setForm(f => ({ ...f, artistId: e.target.value }))}
-          className="w-full px-4 py-3 rounded-xl bg-[#0A0A0A] border border-[#262626] text-[#F5F5F5] text-sm focus:outline-none focus:border-[#555] appearance-none"
+          className="w-full h-11 sm:h-12 px-3 sm:px-4 rounded-xl bg-[#0A0A0A] border border-[#262626] text-[#F5F5F5] text-xs sm:text-sm focus:outline-none focus:border-[#555] appearance-none"
         >
           <option value="">เลือกช่างสัก</option>
           {artists.map(a => (
@@ -312,33 +320,33 @@ export default function OwnerFlashManager({ shopId, initialItems, artists }: Pro
 
       {/* Style */}
       <div>
-        <label className="block text-sm font-medium text-[#A3A3A3] mb-2">สไตล์งาน *</label>
+        <label className="block text-xs sm:text-sm font-medium text-[#A3A3A3] mb-1.5 sm:mb-2">สไตล์งาน *</label>
         <input
           type="text"
           value={form.styleName}
           onChange={e => setForm(f => ({ ...f, styleName: e.target.value }))}
           placeholder="เช่น Japanese, Fine Line, Dark Art"
-          className="w-full px-4 py-3 rounded-xl bg-[#0A0A0A] border border-[#262626] text-[#F5F5F5] text-sm focus:outline-none focus:border-[#555]"
+          className="w-full h-11 sm:h-12 px-3 sm:px-4 rounded-xl bg-[#0A0A0A] border border-[#262626] text-[#F5F5F5] text-xs sm:text-sm focus:outline-none focus:border-[#555]"
         />
       </div>
 
       {/* Size */}
       <div>
-        <label className="block text-sm font-medium text-[#A3A3A3] mb-2">ขนาดงาน *</label>
+        <label className="block text-xs sm:text-sm font-medium text-[#A3A3A3] mb-1.5 sm:mb-2">ขนาดงาน *</label>
         <input
           type="text"
           value={form.size}
           onChange={e => setForm(f => ({ ...f, size: e.target.value }))}
           placeholder="เช่น 8 × 12 ซม."
-          className="w-full px-4 py-3 rounded-xl bg-[#0A0A0A] border border-[#262626] text-[#F5F5F5] text-sm focus:outline-none focus:border-[#555]"
+          className="w-full h-11 sm:h-12 px-3 sm:px-4 rounded-xl bg-[#0A0A0A] border border-[#262626] text-[#F5F5F5] text-xs sm:text-sm focus:outline-none focus:border-[#555]"
         />
       </div>
 
       {/* Price */}
       <div>
-        <label className="block text-sm font-medium text-[#A3A3A3] mb-2">ราคา *</label>
+        <label className="block text-xs sm:text-sm font-medium text-[#A3A3A3] mb-1.5 sm:mb-2">ราคา *</label>
         <div className="relative">
-          <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[#A3A3A3] text-sm">฿</span>
+          <span className="absolute left-3 sm:left-4 top-1/2 -translate-y-1/2 text-[#A3A3A3] text-xs sm:text-sm">฿</span>
           <input
             type="number"
             min="1"
@@ -346,21 +354,21 @@ export default function OwnerFlashManager({ shopId, initialItems, artists }: Pro
             value={form.price}
             onChange={e => setForm(f => ({ ...f, price: e.target.value }))}
             placeholder="เช่น 2500"
-            className="w-full pl-8 pr-4 py-3 rounded-xl bg-[#0A0A0A] border border-[#262626] text-[#F5F5F5] text-sm focus:outline-none focus:border-[#555]"
+            className="w-full h-11 sm:h-12 pl-7 sm:pl-8 pr-3 sm:pr-4 rounded-xl bg-[#0A0A0A] border border-[#262626] text-[#F5F5F5] text-xs sm:text-sm focus:outline-none focus:border-[#555]"
           />
         </div>
       </div>
 
       {/* Status */}
       <div>
-        <label className="block text-sm font-medium text-[#A3A3A3] mb-2">สถานะ</label>
+        <label className="block text-xs sm:text-sm font-medium text-[#A3A3A3] mb-1.5 sm:mb-2">สถานะ</label>
         <div className="flex gap-2">
           {(['open', 'closed'] as const).map(s => (
             <button
               key={s}
               type="button"
               onClick={() => setForm(f => ({ ...f, status: s }))}
-              className={`flex-1 py-2.5 rounded-xl text-sm font-medium border transition-all ${
+              className={`flex-1 h-11 sm:h-12 rounded-xl text-xs sm:text-sm font-medium border transition-all ${
                 form.status === s
                   ? 'bg-[#F5F5F5] text-[#0A0A0A] border-[#F5F5F5]'
                   : 'bg-[#0A0A0A] text-[#A3A3A3] border-[#262626] hover:border-[#555]'
@@ -411,79 +419,78 @@ export default function OwnerFlashManager({ shopId, initialItems, artists }: Pro
           <p className="text-[#444] text-xs mt-1">กด "+ เพิ่ม Flash" เพื่อเริ่มต้น</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-2 md:flex md:flex-wrap justify-start gap-2 md:gap-6">
           {items.map(item => {
             const st = statusLabel(item.status)
             const isLocked = item.status === 'reserved'
             return (
-              <div key={item.id} className="bg-[#121212] border border-[#1F1F1F] rounded-2xl overflow-hidden flex flex-col">
+              <div key={item.id} className="bg-[#121212] border border-[#1F1F1F] rounded-xl sm:rounded-2xl overflow-hidden flex flex-col w-full md:w-[360px] md:max-w-[360px] group hover:border-[#404040] transition-colors">
                 {/* Image */}
-                <div className="relative aspect-square bg-[#0A0A0A]">
+                <div className="relative aspect-[4/5] max-h-[220px] sm:max-h-[300px] md:max-h-[360px] bg-[#0A0A0A] w-full overflow-hidden">
                   <img
                     src={getImageUrl(item.image_path)}
                     alt={item.flash_code}
-                    className="w-full h-full object-cover"
+                    className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-300"
                   />
                   <div className="absolute top-2 left-2">
-                    <span className="bg-[#000]/70 backdrop-blur-sm text-[#F5F5F5] font-mono text-xs px-2 py-1 rounded-lg font-semibold tracking-widest">
+                    <span className="bg-[#000]/70 backdrop-blur-sm text-[#F5F5F5] font-mono text-[10px] sm:text-xs px-1.5 py-0.5 sm:px-2 sm:py-1 rounded-md sm:rounded-lg font-semibold tracking-widest">
                       {item.flash_code}
                     </span>
                   </div>
                 </div>
 
                 {/* Info */}
-                <div className="p-4 flex-1 flex flex-col gap-3">
-                  <div className="flex items-start justify-between gap-2">
+                <div className="p-2.5 sm:p-4 md:p-[18px] flex-1 flex flex-col gap-2.5 sm:gap-3">
+                  <div className="flex items-start justify-between gap-1.5 sm:gap-2">
                     <div className="min-w-0">
-                      <p className="text-xs text-[#737373] truncate">{item.artist_name}</p>
-                      <p className="text-xs text-[#555] truncate">{item.style_name}</p>
+                      <p className="text-[10px] sm:text-xs text-[#737373] truncate">{item.artist_name}</p>
+                      <p className="text-[10px] sm:text-xs text-[#555] truncate">{item.style_name}</p>
                     </div>
-                    <span className={`text-[10px] font-semibold px-2 py-1 rounded-lg flex-shrink-0 ${st.cls}`}>
+                    <span className={`text-[8px] sm:text-[10px] font-semibold px-1.5 py-0.5 sm:px-2 sm:py-1 rounded-md sm:rounded-lg flex-shrink-0 ${st.cls}`}>
                       {st.label}
                     </span>
                   </div>
 
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-semibold text-[#A3A3A3] border border-[#262626] px-2.5 py-1 rounded-lg">
+                    <span className="text-[10px] sm:text-xs font-semibold text-[#A3A3A3] border border-[#262626] px-1.5 py-0.5 sm:px-2.5 sm:py-1 rounded-md sm:rounded-lg">
                       ขนาด {item.size}
                     </span>
-                    <span className="text-base font-bold text-[#F5F5F5]">
+                    <span className="text-xs sm:text-base font-bold text-[#F5F5F5]">
                       ฿{Number(item.price).toLocaleString()}
                     </span>
                   </div>
 
                   {/* Actions */}
                   {isLocked ? (
-                    <div className="pt-1 text-center text-xs text-[#555] bg-[#0A0A0A] rounded-xl py-2.5 border border-[#1F1F1F]">
+                    <div className="pt-0.5 sm:pt-1 text-center text-[9px] sm:text-xs text-[#555] bg-[#0A0A0A] rounded-lg sm:rounded-xl py-2 sm:py-2.5 border border-[#1F1F1F]">
                       ถูกจองแล้ว — ไม่สามารถแก้ไขได้
                     </div>
                   ) : (
-                    <div className="flex gap-2 pt-1">
+                    <div className="flex gap-1.5 sm:gap-2 pt-0.5 sm:pt-1">
                       <button
                         onClick={() => handleToggleStatus(item)}
                         disabled={item.status === 'held'}
                         title={item.status === 'open' ? 'ปิดรับจอง' : 'เปิดรับจอง'}
-                        className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-medium border border-[#262626] text-[#A3A3A3] hover:border-[#555] hover:text-[#F5F5F5] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="flex-1 flex items-center justify-center gap-1 sm:gap-1.5 py-1.5 sm:py-2 rounded-lg sm:rounded-xl text-[10px] sm:text-xs font-medium border border-[#262626] text-[#A3A3A3] hover:border-[#555] hover:text-[#F5F5F5] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         {item.status === 'open'
-                          ? <><ToggleRight className="w-3.5 h-3.5 text-emerald-400" />เปิดอยู่</>
-                          : <><ToggleLeft className="w-3.5 h-3.5" />ปิดอยู่</>
+                          ? <><ToggleRight className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-emerald-400" />เปิดอยู่</>
+                          : <><ToggleLeft className="w-3 h-3 sm:w-3.5 sm:h-3.5" />ปิดอยู่</>
                         }
                       </button>
                       <button
                         onClick={() => openEdit(item)}
-                        className="px-3 py-2 rounded-xl text-xs border border-[#262626] text-[#A3A3A3] hover:border-[#555] hover:text-[#F5F5F5] transition-colors"
+                        className="px-2 py-1.5 sm:px-3 sm:py-2 rounded-lg sm:rounded-xl text-[10px] sm:text-xs border border-[#262626] text-[#A3A3A3] hover:border-[#555] hover:text-[#F5F5F5] transition-colors"
                         title="แก้ไข"
                       >
-                        <Pencil className="w-3.5 h-3.5" />
+                        <Pencil className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
                       </button>
                       <button
-                        onClick={() => setDeletingItem(item)}
-                        disabled={!!item.booking_request_id}
-                        title={item.booking_request_id ? 'ไม่สามารถลบได้ เนื่องจากมีคำขอจอง' : 'ลบ'}
-                        className="px-3 py-2 rounded-xl text-xs border border-[#262626] text-[#737373] hover:border-red-500/40 hover:text-red-400 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                        onClick={() => { setError(null); setSuccess(null); setDeletingItem(item); }}
+                        title="ลบ"
+                        className="px-2 py-1.5 sm:px-3 sm:py-2 rounded-lg sm:rounded-xl text-[10px] sm:text-xs border border-[#262626] text-[#737373] hover:border-red-500/40 hover:text-red-400 transition-colors"
                       >
-                        <Trash2 className="w-3.5 h-3.5" />
+                        <Trash2 className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
                       </button>
                     </div>
                   )}
@@ -496,24 +503,24 @@ export default function OwnerFlashManager({ shopId, initialItems, artists }: Pro
 
       {/* CREATE MODAL */}
       {isCreateOpen && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 pt-8 sm:p-4">
           <div className="absolute inset-0 bg-[#000]/80 backdrop-blur-sm" onClick={() => { setIsCreateOpen(false); resetForm() }} />
-          <div className="relative z-10 w-full sm:max-w-lg bg-[#121212] border border-[#1F1F1F] rounded-t-2xl sm:rounded-2xl flex flex-col max-h-[90vh]">
-            <div className="flex items-center justify-between px-6 py-5 border-b border-[#1F1F1F]">
+          <div className="relative z-10 w-[calc(100%-24px)] sm:w-full sm:max-w-lg bg-[#121212] border border-[#1F1F1F] rounded-2xl flex flex-col max-h-[82dvh] sm:max-h-[90vh] overflow-hidden">
+            <div className="flex items-center justify-between p-4 sm:px-6 sm:py-5 border-b border-[#1F1F1F] sticky top-0 bg-[#121212] z-20 rounded-t-2xl">
               <h2 className="text-base font-semibold text-[#F5F5F5]">เพิ่ม Flash ใหม่</h2>
               <button onClick={() => { setIsCreateOpen(false); resetForm() }} className="p-1.5 rounded-lg text-[#737373] hover:text-[#F5F5F5] hover:bg-[#1F1F1F] transition-colors">
                 <X className="w-4 h-4" />
               </button>
             </div>
-            <div className="overflow-y-auto px-6 py-5 flex-1">
+            <div className="overflow-y-auto p-4 sm:px-6 sm:py-5 flex-1">
               {error && <div className="mb-4 px-4 py-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm">{error}</div>}
-              <FormFields />
+              {renderFormFields()}
             </div>
-            <div className="flex gap-3 px-6 py-4 border-t border-[#1F1F1F]">
-              <button onClick={() => { setIsCreateOpen(false); resetForm() }} className="flex-1 py-3 rounded-xl text-sm font-medium border border-[#262626] text-[#737373] hover:text-[#F5F5F5] hover:border-[#555] transition-colors">
+            <div className="flex gap-3 p-4 sm:px-6 sm:py-4 border-t border-[#1F1F1F] sticky bottom-0 bg-[#121212] z-20 rounded-b-2xl">
+              <button onClick={() => { setIsCreateOpen(false); resetForm() }} className="flex-1 py-2.5 sm:py-3 rounded-xl text-sm font-medium border border-[#262626] text-[#737373] hover:text-[#F5F5F5] hover:border-[#555] transition-colors">
                 ยกเลิก
               </button>
-              <button onClick={handleCreate} disabled={loading} className="flex-1 py-3 rounded-xl text-sm font-semibold bg-[#F5F5F5] text-[#0A0A0A] hover:bg-white transition-colors disabled:opacity-60 flex items-center justify-center gap-2">
+              <button onClick={handleCreate} disabled={loading} className="flex-1 py-2.5 sm:py-3 rounded-xl text-sm font-semibold bg-[#F5F5F5] text-[#0A0A0A] hover:bg-white transition-colors disabled:opacity-60 flex items-center justify-center gap-2">
                 {loading && <Loader2 className="w-4 h-4 animate-spin" />}
                 บันทึก
               </button>
@@ -524,24 +531,24 @@ export default function OwnerFlashManager({ shopId, initialItems, artists }: Pro
 
       {/* EDIT MODAL */}
       {editingItem && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 pt-8 sm:p-4">
           <div className="absolute inset-0 bg-[#000]/80 backdrop-blur-sm" onClick={() => { setEditingItem(null); resetForm() }} />
-          <div className="relative z-10 w-full sm:max-w-lg bg-[#121212] border border-[#1F1F1F] rounded-t-2xl sm:rounded-2xl flex flex-col max-h-[90vh]">
-            <div className="flex items-center justify-between px-6 py-5 border-b border-[#1F1F1F]">
+          <div className="relative z-10 w-[calc(100%-24px)] sm:w-full sm:max-w-lg bg-[#121212] border border-[#1F1F1F] rounded-2xl flex flex-col max-h-[82dvh] sm:max-h-[90vh] overflow-hidden">
+            <div className="flex items-center justify-between p-4 sm:px-6 sm:py-5 border-b border-[#1F1F1F] sticky top-0 bg-[#121212] z-20 rounded-t-2xl">
               <h2 className="text-base font-semibold text-[#F5F5F5]">แก้ไข {editingItem.flash_code}</h2>
               <button onClick={() => { setEditingItem(null); resetForm() }} className="p-1.5 rounded-lg text-[#737373] hover:text-[#F5F5F5] hover:bg-[#1F1F1F] transition-colors">
                 <X className="w-4 h-4" />
               </button>
             </div>
-            <div className="overflow-y-auto px-6 py-5 flex-1">
+            <div className="overflow-y-auto p-4 sm:px-6 sm:py-5 flex-1">
               {error && <div className="mb-4 px-4 py-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm">{error}</div>}
-              <FormFields isEdit />
+              {renderFormFields(true)}
             </div>
-            <div className="flex gap-3 px-6 py-4 border-t border-[#1F1F1F]">
-              <button onClick={() => { setEditingItem(null); resetForm() }} className="flex-1 py-3 rounded-xl text-sm font-medium border border-[#262626] text-[#737373] hover:text-[#F5F5F5] hover:border-[#555] transition-colors">
+            <div className="flex gap-3 p-4 sm:px-6 sm:py-4 border-t border-[#1F1F1F] sticky bottom-0 bg-[#121212] z-20 rounded-b-2xl">
+              <button onClick={() => { setEditingItem(null); resetForm() }} className="flex-1 py-2.5 sm:py-3 rounded-xl text-sm font-medium border border-[#262626] text-[#737373] hover:text-[#F5F5F5] hover:border-[#555] transition-colors">
                 ยกเลิก
               </button>
-              <button onClick={handleEdit} disabled={loading} className="flex-1 py-3 rounded-xl text-sm font-semibold bg-[#F5F5F5] text-[#0A0A0A] hover:bg-white transition-colors disabled:opacity-60 flex items-center justify-center gap-2">
+              <button onClick={handleEdit} disabled={loading} className="flex-1 py-2.5 sm:py-3 rounded-xl text-sm font-semibold bg-[#F5F5F5] text-[#0A0A0A] hover:bg-white transition-colors disabled:opacity-60 flex items-center justify-center gap-2">
                 {loading && <Loader2 className="w-4 h-4 animate-spin" />}
                 บันทึก
               </button>
@@ -560,16 +567,25 @@ export default function OwnerFlashManager({ shopId, initialItems, artists }: Pro
             <p className="text-sm text-[#737373] mb-6">
               ต้องการลบ <span className="font-mono text-[#F5F5F5] font-semibold">{deletingItem.flash_code}</span> ใช่หรือไม่? การดำเนินการนี้ไม่สามารถยกเลิกได้
             </p>
-            {deletingItem.booking_request_id && (
-              <div className="mb-4 px-4 py-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
-                ไม่สามารถลบได้ เนื่องจาก Flash นี้มีคำขอจองที่เกี่ยวข้อง
+            {error && (
+              <div className="mb-4 px-4 py-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm text-left">
+                {error}
+              </div>
+            )}
+            {(deletingItem.booking_request_id || deletingItem.status === 'held' || deletingItem.status === 'reserved') && (
+              <div className="mb-4 px-4 py-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm text-left font-medium">
+                {deletingItem.status === 'held'
+                  ? 'ไม่สามารถลบ Flash ที่กำลังถูกจองได้'
+                  : deletingItem.status === 'reserved'
+                    ? 'ไม่สามารถลบ Flash ที่ถูกจองแล้วได้'
+                    : 'ไม่สามารถลบได้ เนื่องจาก Flash นี้มีคำขอจองที่เกี่ยวข้อง'}
               </div>
             )}
             <div className="flex gap-3">
               <button onClick={() => setDeletingItem(null)} className="flex-1 py-3 rounded-xl text-sm border border-[#262626] text-[#737373] hover:text-[#F5F5F5] hover:border-[#555] transition-colors">
                 ยกเลิก
               </button>
-              {!deletingItem.booking_request_id && (
+              {(!deletingItem.booking_request_id && deletingItem.status !== 'held' && deletingItem.status !== 'reserved') && (
                 <button onClick={handleDelete} disabled={loading} className="flex-1 py-3 rounded-xl text-sm font-semibold bg-red-500/80 text-white hover:bg-red-500 transition-colors disabled:opacity-60 flex items-center justify-center gap-2">
                   {loading && <Loader2 className="w-4 h-4 animate-spin" />}
                   ลบ

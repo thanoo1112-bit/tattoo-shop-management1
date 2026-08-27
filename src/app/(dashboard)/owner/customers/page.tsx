@@ -15,6 +15,16 @@ export default async function OwnerCustomersPage() {
       phone_normalized,
       created_at,
       email,
+      booking_requests(
+        id,
+        created_at,
+        status,
+        rejection_reason,
+        requested_start_at,
+        flash_design_id,
+        flash_designs!booking_requests_flash_design_id_fkey(id, flash_code),
+        artist:profiles!booking_requests_artist_id_fkey(id, full_name, email)
+      ),
       tattoo_projects(
         id,
         name,
@@ -29,6 +39,8 @@ export default async function OwnerCustomersPage() {
         completed_at,
         created_at,
         artist_id,
+        flash_design_id,
+        flash_designs(id, flash_code),
         artist:profiles(id, full_name, email),
         appointments(
           id,

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { ProjectLifecycleCard } from '@/components/payments/ProjectLifecycleCard'
 import {
   Calendar, Clock, User, Users, Search, ChevronDown,
   CheckCircle2, XCircle, AlertCircle, Play, CalendarDays, ExternalLink
@@ -382,6 +383,15 @@ export function OwnerAppointmentsClient({ appointments }: Props) {
                             </span>
                           </div>
                         </div>
+                      </div>
+                    )}
+
+                    {project && (
+                      <div className="border-t border-[#262626]/60 pt-4 mt-2">
+                        <ProjectLifecycleCard
+                          projectId={project.id}
+                          bookingRequestId={project.booking_requests?.[0]?.id || ''}
+                        />
                       </div>
                     )}
 

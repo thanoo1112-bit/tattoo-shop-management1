@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react'
 import { useParams } from 'next/navigation'
-import { Menu, X, ArrowRight, MapPin, Phone, Clock, Calendar, Pencil, Layers, Plus, MessageSquare, UserRound, Images, CalendarCheck } from 'lucide-react'
+import { Menu, X, ArrowRight, MapPin, Phone, Clock, Calendar, Pencil, Layers, Plus, MessageSquare, UserRound, Images, CalendarCheck, Palette } from 'lucide-react'
 import { mockPortfolio, mockArtists, PortfolioItem } from '@/app/design-lab/customer-home-v2/_data/mockData'
 import { createClient } from '@/lib/supabase/client'
 
@@ -419,7 +419,7 @@ export default function StorefrontHome() {
       </div>
 
       {/* Main Container */}
-      <div className="max-w-[1280px] w-full mx-auto px-4 sm:px-8 py-6 md:py-12 flex flex-col">
+      <div className="max-w-[1280px] min-[1440px]:max-w-[1560px] w-full mx-auto px-4 sm:px-8 py-6 md:py-12 flex flex-col">
 
         {/* 2. HERO SECTION */}
         <section id="home" className="w-full relative rounded-xl rounded-b-none overflow-hidden border border-[#262626] bg-[#0A0A0A] h-[360px] md:h-[540px] flex items-end md:items-center p-6 md:p-12 lg:p-16">
@@ -475,9 +475,9 @@ export default function StorefrontHome() {
                 <UserRound className="w-[18px] h-[18px] md:w-[22px] md:h-[22px]" />
               </div>
               <div className="space-y-1 min-w-0">
-                <h3 className="text-xs md:text-sm font-semibold text-[#F5F5F5] truncate">เลือกช่างตามสไตล์</h3>
+                <h3 className="text-xs md:text-sm font-semibold text-[#F5F5F5] truncate">เลือกช่างที่ใช่</h3>
                 <p className="text-[10px] md:text-xs text-[#737373] leading-relaxed line-clamp-2 md:line-clamp-none">
-                  เลือกช่างที่ตรงกับแนวงานที่คุณต้องการ
+                  เลือกช่างสักตามสไตล์และผลงานที่คุณชื่นชอบ
                 </p>
               </div>
             </div>
@@ -488,9 +488,9 @@ export default function StorefrontHome() {
                 <Images className="w-[18px] h-[18px] md:w-[22px] md:h-[22px]" />
               </div>
               <div className="space-y-1 min-w-0">
-                <h3 className="text-xs md:text-sm font-semibold text-[#F5F5F5] truncate">ดูผลงานก่อนตัดสินใจ</h3>
+                <h3 className="text-xs md:text-sm font-semibold text-[#F5F5F5] truncate">ดูผลงานก่อนจอง</h3>
                 <p className="text-[10px] md:text-xs text-[#737373] leading-relaxed line-clamp-2 md:line-clamp-none">
-                  ดูผลงานและสไตล์ของช่างก่อนส่งคำขอจอง
+                  ชมผลงานและสไตล์ของช่างแต่ละคนก่อนตัดสินใจ
                 </p>
               </div>
             </div>
@@ -501,9 +501,9 @@ export default function StorefrontHome() {
                 <CalendarCheck className="w-[18px] h-[18px] md:w-[22px] md:h-[22px]" />
               </div>
               <div className="space-y-1 min-w-0">
-                <h3 className="text-xs md:text-sm font-semibold text-[#F5F5F5] truncate">จองคิวเป็นขั้นตอน</h3>
+                <h3 className="text-xs md:text-sm font-semibold text-[#F5F5F5] truncate">ส่งคำขอจองคิว</h3>
                 <p className="text-[10px] md:text-xs text-[#737373] leading-relaxed line-clamp-2 md:line-clamp-none">
-                  ส่งคำขอและติดตามสถานะการจองได้
+                  กรอกรายละเอียดงานและเลือกวันเวลาที่สะดวกเพื่อส่งคำขอ
                 </p>
               </div>
             </div>
@@ -514,9 +514,9 @@ export default function StorefrontHome() {
                 <MessageSquare className="w-[18px] h-[18px] md:w-[22px] md:h-[22px]" />
               </div>
               <div className="space-y-1 min-w-0">
-                <h3 className="text-xs md:text-sm font-semibold text-[#F5F5F5] truncate">พูดคุยรายละเอียดก่อนจอง</h3>
+                <h3 className="text-xs md:text-sm font-semibold text-[#F5F5F5] truncate">ติดตามสถานะได้ง่าย</h3>
                 <p className="text-[10px] md:text-xs text-[#737373] leading-relaxed line-clamp-2 md:line-clamp-none">
-                  เตรียมไอเดีย ตำแหน่ง และรายละเอียดงานก่อนส่งคำขอ
+                  ใช้รหัสติดตามเพื่อตรวจสอบสถานะการจองและการชำระเงิน
                 </p>
               </div>
             </div>
@@ -587,11 +587,17 @@ export default function StorefrontHome() {
 
           {/* 4. PORTFOLIO GRID */}
           <section id="tattoos" className="space-y-6 scroll-mt-20">
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg md:text-xl font-bold text-[#F5F5F5] uppercase tracking-wider">ผลงาน & Flash Designs</h2>
-              <button className="text-xs font-semibold text-[#A3A3A3] hover:text-[#F5F5F5] flex items-center gap-1">
+            <div className="flex items-end justify-between border-b border-[#262626] pb-4">
+              <div className="space-y-1">
+                <span className="text-[10px] uppercase tracking-wider text-[#737373] font-semibold">Our Work</span>
+                <h2 className="text-lg md:text-xl font-bold text-[#F5F5F5]">ผลงานของเรา</h2>
+              </div>
+              <a 
+                href={`/shop/${slug}/portfolio`}
+                className="text-xs font-semibold text-[#A3A3A3] hover:text-[#F5F5F5] flex items-center gap-1 cursor-pointer"
+              >
                 ดูทั้งหมด <ArrowRight size={14} />
-              </button>
+              </a>
             </div>
 
             {portfolioError ? (
@@ -604,7 +610,7 @@ export default function StorefrontHome() {
               </div>
             ) : (
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-5">
-                {filteredPortfolio.map((item) => (
+                {filteredPortfolio.slice(0, 4).map((item) => (
                   <div
                     key={item.id}
                     onClick={() => setSelectedItem(item)}
@@ -770,11 +776,11 @@ export default function StorefrontHome() {
           </div>
 
           {/* Desktop Layout (>= 768px) */}
-          <div className="hidden md:grid grid-cols-3 gap-6">
+          <div className="hidden md:grid grid-cols-3 min-[1440px]:grid-cols-4 gap-6 min-[1440px]:gap-8">
             {displayArtists.map((artist) => (
               <div 
                 key={artist.id}
-                className="bg-[#171717] border border-[#262626] rounded-xl overflow-hidden flex flex-col group hover:border-[#404040] transition-colors"
+                className="bg-[#171717] border border-[#262626] rounded-xl overflow-hidden flex flex-col group hover:border-[#404040] transition-colors w-full min-[1440px]:max-w-[360px] mx-0"
               >
                 <div className="aspect-[4/5] md:aspect-auto md:h-[340px] bg-[#121212] overflow-hidden relative">
                   <img 
@@ -852,8 +858,8 @@ export default function StorefrontHome() {
                   {[
                     { icon: <Pencil size={18} />, title: 'งานสักใหม่ (New Tattoo)', desc: 'รับงานสักใหม่ตามแบบหรือไอเดียที่พูดคุยกับช่าง' },
                     { icon: <Layers size={18} />, title: 'แก้ไข / Cover Up', desc: 'แก้ไขงานเก่า หรือปกปิดรอยสักเดิม' },
-                    { icon: <Plus size={18} />, title: 'ต่อเติมรอยสัก', desc: 'เพิ่มรายละเอียดหรือขยายงานจากรอยสักเดิม' },
-                    { icon: <MessageSquare size={18} />, title: 'ให้คำปรึกษาก่อนจอง', desc: 'พูดคุยแนวทาง ตำแหน่ง และรายละเอียดของงานก่อนจอง' },
+                    { icon: <Palette size={18} />, title: 'ออกแบบลายสักเฉพาะบุคคล (Custom Design)', desc: 'ออกแบบและปรับลายให้เหมาะกับสไตล์ ตำแหน่ง และความต้องการของลูกค้า' },
+                    { icon: <MessageSquare size={18} />, title: 'ให้คำปรึกษาก่อนจอง', desc: 'พูดคุยแนวทาง ตำแหน่ง ขนาด และรายละเอียดของงานก่อนส่งคำขอจอง' },
                   ].map((s, i) => (
                     <div key={i} className="flex items-start gap-3">
                       <div className="mt-0.5 text-[#A3A3A3] flex-shrink-0">{s.icon}</div>
@@ -891,10 +897,20 @@ export default function StorefrontHome() {
                   <span className="text-[10px] uppercase tracking-[0.25em] text-[#737373] font-semibold">About Us</span>
                   <h2 className="text-2xl font-bold text-[#F5F5F5]">เกี่ยวกับเรา</h2>
                 </div>
-                <p className="text-sm text-[#A3A3A3] leading-[1.75]">
-                  157 Tattoo Studio คือพื้นที่สำหรับงานสักที่ให้ความสำคัญกับตัวตนของแต่ละคน
-                  เราร่วมพัฒนาไอเดียและรายละเอียดของงาน เพื่อให้ผลงานเหมาะกับสไตล์และความต้องการของคุณ
-                </p>
+                <div className="space-y-4">
+                  <p className="text-sm text-[#A3A3A3] leading-[1.75]">
+                    157 Tattoo Studio คือพื้นที่สำหรับงานสักที่ให้ความสำคัญกับตัวตนของแต่ละคน
+                    เราร่วมพัฒนาไอเดียและรายละเอียดของงาน เพื่อให้ผลงานเหมาะกับสไตล์และความต้องการของคุณ
+                  </p>
+                  <div>
+                    <a 
+                      href={`/shop/${slug}/about`}
+                      className="inline-flex items-center text-xs font-semibold text-[#A3A3A3] hover:text-[#F5F5F5] transition-colors cursor-pointer group"
+                    >
+                      อ่านเพิ่มเติม <ArrowRight size={14} className="ml-1 group-hover:translate-x-0.5 transition-transform" />
+                    </a>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -921,8 +937,8 @@ export default function StorefrontHome() {
                   {[
                     { icon: <Pencil size={16} />, title: 'งานสักใหม่ (New Tattoo)', desc: 'รับงานสักใหม่ตามแบบหรือไอเดียที่พูดคุยกับช่าง' },
                     { icon: <Layers size={16} />, title: 'แก้ไข / Cover Up', desc: 'แก้ไขงานเก่า หรือปกปิดรอยสักเดิม' },
-                    { icon: <Plus size={16} />, title: 'ต่อเติมรอยสัก', desc: 'เพิ่มรายละเอียดหรือขยายงานจากรอยสักเดิม' },
-                    { icon: <MessageSquare size={16} />, title: 'ให้คำปรึกษาก่อนจอง', desc: 'พูดคุยแนวทาง ตำแหน่ง และรายละเอียดของงานก่อนจอง' },
+                    { icon: <Palette size={16} />, title: 'ออกแบบลายสักเฉพาะบุคคล (Custom Design)', desc: 'ออกแบบและปรับลายให้เหมาะกับสไตล์ ตำแหน่ง และความต้องการของลูกค้า' },
+                    { icon: <MessageSquare size={16} />, title: 'ให้คำปรึกษาก่อนจอง', desc: 'พูดคุยแนวทาง ตำแหน่ง ขนาด และรายละเอียดของงานก่อนส่งคำขอจอง' },
                   ].map((s, i) => (
                     <div key={i} className="flex items-start gap-3">
                       <div className="mt-0.5 text-[#A3A3A3] flex-shrink-0">{s.icon}</div>
@@ -955,6 +971,14 @@ export default function StorefrontHome() {
                   157 Tattoo Studio คือพื้นที่สำหรับงานสักที่ให้ความสำคัญกับตัวตนของแต่ละคน
                   เราร่วมพัฒนาไอเดียและรายละเอียดของงาน เพื่อให้ผลงานเหมาะกับสไตล์และความต้องการของคุณ
                 </p>
+                <div className="pt-1">
+                  <a 
+                    href={`/shop/${slug}/about`}
+                    className="inline-flex items-center text-xs font-semibold text-[#A3A3A3] hover:text-[#F5F5F5] transition-colors cursor-pointer group"
+                  >
+                    อ่านเพิ่มเติม <ArrowRight size={14} className="ml-1 group-hover:translate-x-0.5 transition-transform" />
+                  </a>
+                </div>
               </div>
             </div>
           </div>
@@ -1143,11 +1167,18 @@ export default function StorefrontHome() {
             <div className="flex-1 overflow-y-auto flex flex-col md:flex-row min-h-0">
               
               {/* Left Side (Image Area) */}
-              <div className="w-full md:w-[50%] max-h-[45vh] md:max-h-full md:h-full md:border-r border-[#262626] bg-[#0A0A0A] flex-shrink-0 flex items-center justify-center relative overflow-hidden">
+              <div className="w-full md:w-[50%] md:h-full md:border-r border-[#262626] bg-[#171717] flex-shrink-0 flex items-center justify-center relative overflow-hidden">
+                {/* Mobile View: Full image without cropping */}
                 <img 
                   src={selectedItem.image} 
                   alt={selectedItem.name}
-                  className="w-full h-auto max-h-[45vh] md:max-h-[70vh] object-contain grayscale"
+                  className="w-full h-auto object-contain grayscale md:hidden"
+                />
+                {/* Desktop View: Full frame cover */}
+                <img 
+                  src={selectedItem.image} 
+                  alt={selectedItem.name}
+                  className="hidden md:block w-full h-full object-cover grayscale"
                 />
               </div>
 

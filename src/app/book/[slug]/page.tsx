@@ -1,5 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { redirect } from 'next/navigation';
+import Link from 'next/link';
+import { ArrowLeft } from 'lucide-react';
 import ShopHero from '@/components/booking/ShopHero';
 import BookingProgress from '@/components/booking/BookingProgress';
 import ArtistSelectionList from '@/components/booking/ArtistSelectionList';
@@ -40,6 +42,9 @@ export default async function PublicBookingPage({ params, searchParams }: PagePr
       .maybeSingle();
     if (flashData) {
       flashDesign = flashData;
+    } else {
+      // Flash was deleted or is invalid! Redirect to clean Custom Booking.
+      redirect(`/book/${slug}?step=1`);
     }
   }
   
@@ -185,8 +190,18 @@ export default async function PublicBookingPage({ params, searchParams }: PagePr
         artistWorkTypes={artistWorkTypes}
       >
         <div className="w-full relative">
+          {/* Back to Storefront Button */}
+          <div className="flex justify-start -mt-3 md:-mt-5 pb-1 md:pb-0">
+            <Link
+              href={`/shop/${slug}`}
+              className="inline-flex items-center gap-2 text-xs font-semibold text-[#A3A3A3] hover:text-[#F5F5F5] transition-colors py-3 px-4 -ml-4 md:py-2 md:px-3 md:-ml-3 rounded-md cursor-pointer hover:bg-white/5 active:bg-white/10 select-none min-h-[40px] md:min-h-[auto]"
+            >
+              <ArrowLeft size={16} /> กลับหน้าร้าน
+            </Link>
+          </div>
+
           {/* Booking Page Intro */}
-          <div className="pt-6 md:pt-10 pb-6 md:pb-8 text-center md:text-left">
+          <div className="pt-6 md:pt-8 pb-6 md:pb-8 text-center md:text-left">
             <span className="text-[10px] md:text-[11px] font-bold tracking-[0.2em] text-[#737373] uppercase mb-3 block">
               BOOKING REQUEST
             </span>

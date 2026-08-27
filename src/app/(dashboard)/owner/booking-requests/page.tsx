@@ -24,6 +24,14 @@ export default async function OwnerBookingRequestsPage() {
       confirmed_start_at,
       confirmed_end_at,
       artist_id,
+      flash_design_id,
+      flash_designs!booking_requests_flash_design_id_fkey (
+        id,
+        flash_code,
+        price,
+        size,
+        artist_id
+      ),
       artist:profiles!booking_requests_artist_id_fkey(
         full_name,
         email

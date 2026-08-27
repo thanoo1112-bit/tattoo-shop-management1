@@ -7,6 +7,7 @@ import {
   XCircle, AlertCircle, FileText, ArrowUpRight
 } from 'lucide-react'
 import { formatThaiDate, formatThaiTime } from '@/lib/dateUtils'
+import { useSearchParams } from 'next/navigation'
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -25,10 +26,24 @@ interface FlatPayment {
   artistId: string
   artistName: string
   phoneNormalized: string | null
+  projectPaidTotal: number
+  projectOutstanding: number
+}
+
+interface ProjectSummary {
+  id: string
+  name: string
+  status: string
+  agreedPrice: number | null
+  artistId: string
+  createdAt: string
+  paidAmount: number
+  outstanding: number
 }
 
 interface Props {
   flatPayments: FlatPayment[]
+  projectsSummary: ProjectSummary[]
 }
 
 // ── Constants & Helpers ───────────────────────────────────────────────────
@@ -56,11 +71,11 @@ const monthsThai = [
 
 function getBangkokYearMonth(isoStr: string): string {
   const d = new Date(isoStr)
-  const bkkMs = d.getTime() + 7 * 60 * 60 * 1000
-  const bkkDate = new Date(bkkMs)
-  const yyyy = bkkDate.getUTCFullYear()
-  const mm = String(bkkDate.getUTCMonth() + 1).padStart(2, '0')
-  return `${yyyy}-${mm}`
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Bangkok',
+    year: 'numeric',
+    month: '2-digit'
+  }).format(d)
 }
 
 function formatMonthName(yrMo: string): string {
@@ -69,35 +84,46 @@ function formatMonthName(yrMo: string): string {
   return `${monthsThai[mo - 1]} ${thaiYear}`
 }
 
-export function OwnerFinanceClient({ flatPayments }: Props) {
+export function OwnerFinanceClient({ flatPayments, projectsSummary }: Props) {
+  const searchParams = useSearchParams();
+  const artistParam = searchParams?.get('artistId') || 'all';
+
   const [period, setPeriod] = useState<'all' | 'this_month' | 'prev_month' | string>('all')
   const [filterStatus, setFilterStatus] = useState<string>('all')
   const [filterType, setFilterType] = useState<string>('all')
-  const [filterArtist, setFilterArtist] = useState<string>('all')
+  const [filterArtist, setFilterArtist] = useState<string>(artistParam)
   const [searchQuery, setSearchQuery] = useState('')
   const [expandedPaymentId, setExpandedPaymentId] = useState<string | null>(null)
 
   // Bangkok today details
-  const bangkokTodayParts = (() => {
-    const now = new Date()
-    const bkkMs = now.getTime() + 7 * 60 * 60 * 1000
-    const d = new Date(bkkMs)
-    return {
-      year: d.getUTCFullYear(),
-      month: d.getUTCMonth() + 1
-    }
-  })()
-
-  const thisMonthStr = `${bangkokTodayParts.year}-${String(bangkokTodayParts.month).padStart(2, '0')}`
+  const thisMonthStr = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Bangkok',
+    year: 'numeric',
+    month: '2-digit'
+  }).format(new Date())
 
   const prevMonthStr = (() => {
-    let y = bangkokTodayParts.year
-    let m = bangkokTodayParts.month - 1
-    if (m === 0) {
-      m = 12
-      y -= 1
+    const now = new Date()
+    const bkkParts = new Intl.DateTimeFormat('en-US', {
+      timeZone: 'Asia/Bangkok',
+      year: 'numeric',
+      month: 'numeric',
+      day: 'numeric'
+    }).formatToParts(now)
+    
+    const yearPart = bkkParts.find(p => p.type === 'year')?.value
+    const monthPart = bkkParts.find(p => p.type === 'month')?.value
+    
+    if (yearPart && monthPart) {
+      let y = parseInt(yearPart)
+      let m = parseInt(monthPart) - 1
+      if (m === 0) {
+        m = 12
+        y -= 1
+      }
+      return `${y}-${String(m).padStart(2, '0')}`
     }
-    return `${y}-${String(m).padStart(2, '0')}`
+    return ''
   })()
 
   // Generate dynamic months list from payments
@@ -180,6 +206,16 @@ export function OwnerFinanceClient({ flatPayments }: Props) {
   // Average per project
   const averagePerProject = totalProjectsCount > 0 ? Math.round(totalRevenue / totalProjectsCount) : 0
 
+  // Filter projectsSummary for outstanding balance based on selected artist filter only (period filter ignored)
+  const filteredProjectsSummary = projectsSummary.filter(proj => {
+    // 1. Artist filter
+    if (filterArtist !== 'all' && proj.artistId !== filterArtist) return false
+
+    return true
+  })
+
+  const totalOutstanding = filteredProjectsSummary.reduce((sum, proj) => sum + proj.outstanding, 0)
+
   // ── Artist Revenue Summary Calculations ─────────────────
 
   const artistSummaryData = artistsList.map(art => {
@@ -245,6 +281,10 @@ export function OwnerFinanceClient({ flatPayments }: Props) {
         <div className="bg-[#171717] border border-[#262626] rounded-xl p-5 space-y-1 sm:col-span-1 col-span-2">
           <p className="text-xs text-[#737373] font-medium uppercase">รายได้ทั้งหมด</p>
           <p className="text-2xl font-bold text-emerald-400">฿{totalRevenue.toLocaleString()}</p>
+        </div>
+        <div className="bg-[#171717] border border-[#262626] rounded-xl p-5 space-y-1">
+          <p className="text-xs text-[#737373] font-medium uppercase">ยอดค้างชำระ</p>
+          <p className="text-2xl font-bold text-yellow-500">฿{totalOutstanding.toLocaleString()}</p>
         </div>
         <div className="bg-[#171717] border border-[#262626] rounded-xl p-5 space-y-1">
           <p className="text-xs text-[#737373] font-medium uppercase">เฉลี่ยต่อโปรเจกต์</p>
@@ -429,6 +469,8 @@ export function OwnerFinanceClient({ flatPayments }: Props) {
                           <p>รหัสการชำระเงิน: <span className="text-[#F5F5F5] font-mono">{p.id}</span></p>
                           <p>โปรเจกต์: <span className="text-[#F5F5F5]">{p.projectName}</span></p>
                           <p>ราคางานสักที่ตกลง: <span className="text-[#F5F5F5]">{p.agreedPrice !== null ? `฿${p.agreedPrice.toLocaleString()}` : '—'}</span></p>
+                          <p>ยอดชำระสะสมของงาน: <span className="text-emerald-400">฿{p.projectPaidTotal.toLocaleString()}</span></p>
+                          <p>ยอดค้างชำระของงาน: <span className="text-yellow-500 font-semibold">฿{p.projectOutstanding.toLocaleString()}</span></p>
                         </div>
                         <div className="space-y-1.5">
                           <p>สร้างเมื่อ: <span className="text-[#F5F5F5]">{formatThaiDate(p.created_at)} {formatThaiTime(p.created_at)}</span></p>

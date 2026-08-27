@@ -3,6 +3,7 @@
 import { User, MoreHorizontal, Power, PowerOff } from 'lucide-react'
 import { useState, useTransition } from 'react'
 import { setArtistStatus } from '@/app/(dashboard)/owner/artists/actions'
+import Link from 'next/link'
 
 type Artist = {
   id: string
@@ -88,7 +89,14 @@ export function ArtistTable({ artists, shopId }: { artists: Artist[], shopId: st
                         {isActive ? 'ใช้งานอยู่' : 'ไม่ได้ใช้งาน'}
                       </span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-[#A3A3A3]">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-[#A3A3A3] flex items-center gap-3">
+                      <Link
+                        href={`/owner/artists/${artist.user_id}`}
+                        className="text-white hover:text-gray-300 font-medium transition-colors"
+                      >
+                        จัดการ
+                      </Link>
+                      <span className="text-[#333]">|</span>
                       {isActive ? (
                         <button
                           onClick={() => handleDeactivate(artist)}
@@ -157,7 +165,13 @@ export function ArtistTable({ artists, shopId }: { artists: Artist[], shopId: st
                     </div>
                   </div>
 
-                  <div className="mt-2 flex justify-end">
+                  <div className="mt-2 flex justify-between items-center">
+                    <Link
+                      href={`/owner/artists/${artist.user_id}`}
+                      className="text-white hover:text-gray-300 text-sm font-medium transition-colors"
+                    >
+                      จัดการข้อมูล
+                    </Link>
                     {isActive ? (
                       <button
                         onClick={() => handleDeactivate(artist)}

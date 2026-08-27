@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { ownerNavigation } from '@/lib/navigation/owner-nav'
-import { LogOut, User, PenTool } from 'lucide-react'
+import { LogOut, User } from 'lucide-react'
 import { logout } from '@/app/(auth)/login/actions'
 import { useTransition } from 'react'
 import { BrandLogo } from '@/components/brand-logo'
@@ -23,7 +23,16 @@ export function OwnerSidebar({ ownerName }: OwnerSidebarProps) {
           <BrandLogo />
         </div>
 
-        <nav className="flex-1 px-4 py-6 space-y-1 overflow-y-auto">
+        <nav className="flex-1 px-4 py-6 space-y-1 overflow-y-auto no-scrollbar">
+          <style>{`
+            .no-scrollbar::-webkit-scrollbar {
+              display: none !important;
+            }
+            .no-scrollbar {
+              -ms-overflow-style: none !important;
+              scrollbar-width: none !important;
+            }
+          `}</style>
           {ownerNavigation.map((item) => {
             const isActive = pathname === item.href
             const Icon = item.icon
@@ -54,16 +63,6 @@ export function OwnerSidebar({ ownerName }: OwnerSidebarProps) {
               </Link>
             )
           })}
-          
-          <div className="pt-4 border-t border-[#262626] mt-4">
-            <Link
-              href="/artist/dashboard"
-              className="group flex items-center px-3 py-2.5 text-sm font-medium rounded-md text-[#9CA3AB] hover:bg-[#262626] hover:text-[#F3F3F3] transition-all duration-200"
-            >
-              <PenTool className="flex-shrink-0 mr-3 h-5 w-5 text-[#747C85] group-hover:text-[#B9C0C8] transition-colors" />
-              <span className="truncate">สลับไปมุมมองช่างสัก</span>
-            </Link>
-          </div>
         </nav>
       </div>
       

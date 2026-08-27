@@ -4,7 +4,7 @@ import { useState, useTransition } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { ownerNavigation } from '@/lib/navigation/owner-nav'
-import { Menu, X, LogOut, User, Bell, PenTool } from 'lucide-react'
+import { Menu, X, LogOut, User, Bell } from 'lucide-react'
 import { logout } from '@/app/(auth)/login/actions'
 import { BrandLogo } from '@/components/brand-logo'
 
@@ -94,16 +94,6 @@ export function OwnerMobileNav({ ownerName }: OwnerMobileNavProps) {
             )
           })}
           
-          <div className="pt-4 border-t border-[#262626] mt-4">
-            <Link
-              href="/artist/dashboard"
-              onClick={() => setIsOpen(false)}
-              className="flex items-center px-4 py-3 text-base font-medium rounded-md text-[#9CA3AB] hover:bg-[#262626] hover:text-[#F3F3F3] transition-colors"
-            >
-              <PenTool className="mr-4 h-6 w-6 text-[#747C85]" />
-              สลับไปมุมมองช่างสัก
-            </Link>
-          </div>
         </nav>
 
         <div className="flex-shrink-0 border-t border-[#262626] p-4 bg-[#121212]">

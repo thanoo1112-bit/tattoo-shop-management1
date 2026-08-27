@@ -1,7 +1,10 @@
 'use client';
 
-import { useState, useMemo } from 'react';
-import { ChevronLeft, ChevronRight, User } from 'lucide-react';
+import { useState, useMemo, useEffect } from 'react';
+import { createPortal } from 'react-dom';
+import { ChevronLeft, ChevronRight, User, X, AlertCircle } from 'lucide-react';
+import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 
 interface Artist {
   id: string;
@@ -13,8 +16,22 @@ interface Appointment {
   artist_id: string;
   request_date: string;
   preferred_time: string | null;
+  end_time_str: string | null;
   status: string;
-  artist: { display_name: string };
+  session_number: number;
+  customer_name: string;
+  customer_phone: string;
+  artist_name: string;
+  is_flash: boolean;
+  project_name: string;
+  tattoo_style: string;
+  body_placement: string;
+  width_cm: number | null;
+  height_cm: number | null;
+  agreed_price: number | null;
+  project_payments: any[];
+  booking_requests: any[];
+  artist?: { display_name: string };
 }
 
 interface OwnerShopCalendarProps {
@@ -39,9 +56,13 @@ const STATUS_MAP: Record<string, { label: string, color: string }> = {
 };
 
 export function OwnerShopCalendar({ artists, appointments, dailyCapacities }: OwnerShopCalendarProps) {
+  const searchParams = useSearchParams();
+  const artistParam = searchParams?.get('artistId') || 'all';
+
   const [currentMonth, setCurrentMonth] = useState(new Date(new Date().getFullYear(), new Date().getMonth(), 1));
-  const [selectedArtist, setSelectedArtist] = useState<string>('all');
+  const [selectedArtist, setSelectedArtist] = useState<string>(artistParam);
   const [selectedMobileDate, setSelectedMobileDate] = useState<string | null>(null);
+  const [selectedApptForModal, setSelectedApptForModal] = useState<Appointment | null>(null);
 
   const daysInMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0).getDate();
   const firstDayOfMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1).getDay();
@@ -153,17 +174,31 @@ export function OwnerShopCalendar({ artists, appointments, dailyCapacities }: Ow
                   {dayApps.slice(0, 3).map(app => {
                     const statusInfo = STATUS_MAP[app.status] || { label: app.status, color: 'bg-[#262626] text-[#9CA3AB]' };
                     return (
-                      <div key={app.id} className="text-[10px] bg-[#121212] border border-[#262626] rounded p-1.5 flex flex-col gap-0.5 shadow-sm">
-                        <div className="flex justify-between items-start">
-                          <span className="font-medium text-[#F3F3F3] truncate max-w-[80px]">
-                            {app.artist.display_name}
+                      <button
+                        key={app.id}
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedApptForModal(app);
+                        }}
+                        className="w-full text-left text-[10px] bg-[#121212] hover:bg-[#1E1E1E] border border-[#262626] rounded p-1.5 flex flex-col gap-0.5 shadow-sm cursor-pointer transition-colors"
+                      >
+                        <div className="flex justify-between items-center text-[#9CA3AB] text-[9px] font-semibold gap-1">
+                          <span className={app.is_flash ? 'text-purple-400' : 'text-gray-400'}>
+                            {app.is_flash ? '⚡ FLASH' : '✏️ CUSTOM'}
                           </span>
-                          <span className="text-[#9CA3AB]">{app.preferred_time || '-'}</span>
+                          <span className="shrink-0">{app.preferred_time || ''}{app.end_time_str ? `–${app.end_time_str}` : ''}</span>
                         </div>
-                        <span className={`inline-block px-1 py-0.5 rounded-[3px] text-[9px] w-fit ${statusInfo.color}`}>
+                        <div className="font-semibold text-[#F5F5F5] truncate text-[9.5px]">
+                          ล/ค: {app.customer_name}
+                        </div>
+                        <div className="text-[#A3A3A3] truncate text-[9px]">
+                          ช่าง: {app.artist_name}
+                        </div>
+                        <span className={`inline-block px-1 py-0.5 rounded-[3px] text-[8px] w-fit font-medium ${statusInfo.color}`}>
                           {statusInfo.label}
                         </span>
-                      </div>
+                      </button>
                     );
                   })}
                   {dayApps.length > 3 && (
@@ -235,17 +270,29 @@ export function OwnerShopCalendar({ artists, appointments, dailyCapacities }: Ow
                   {dayApps.map(app => {
                     const statusInfo = STATUS_MAP[app.status] || { label: app.status, color: 'bg-[#262626] text-[#9CA3AB]' };
                     return (
-                      <div key={app.id} className="bg-[#171717] border border-[#262626] rounded-lg p-3 flex justify-between items-start shadow-sm">
-                        <div>
-                          <p className="text-sm font-medium text-[#F3F3F3] mb-1">{app.artist.display_name}</p>
-                          <span className={`inline-block px-2 py-0.5 rounded text-[10px] ${statusInfo.color}`}>
+                      <button
+                        key={app.id}
+                        type="button"
+                        onClick={() => setSelectedApptForModal(app)}
+                        className="w-full text-left bg-[#171717] hover:bg-[#202020] border border-[#262626] rounded-lg p-3 flex justify-between items-start shadow-sm cursor-pointer transition-colors"
+                      >
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2">
+                            <span className={`text-[9px] font-semibold ${app.is_flash ? 'text-purple-400' : 'text-gray-400'}`}>
+                              {app.is_flash ? '⚡ FLASH' : '✏️ CUSTOM'}
+                            </span>
+                            <span className="text-[10px] text-[#737373]">•</span>
+                            <p className="text-xs font-semibold text-[#F3F3F3]">ล/ค: {app.customer_name}</p>
+                          </div>
+                          <p className="text-[11px] text-[#A3A3A3]">ช่าง: {app.artist_name}</p>
+                          <span className={`inline-block px-2 py-0.5 rounded text-[9px] font-medium ${statusInfo.color}`}>
                             {statusInfo.label}
                           </span>
                         </div>
-                        <div className="text-sm text-[#9CA3AB]">
-                          {app.preferred_time || '-'}
+                        <div className="text-xs text-[#9CA3AB] shrink-0">
+                          {app.preferred_time || ''}{app.end_time_str ? `–${app.end_time_str}` : ''} น.
                         </div>
-                      </div>
+                      </button>
                     );
                   })}
                 </div>
@@ -254,6 +301,151 @@ export function OwnerShopCalendar({ artists, appointments, dailyCapacities }: Ow
           </div>
         )}
       </div>
+
+      {/* Detail Modal */}
+      {selectedApptForModal && createPortal(
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-[#171717] border border-[#262626] rounded-xl w-full max-w-md overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
+            {/* Header */}
+            <div className="p-4 border-b border-[#262626] flex items-center justify-between">
+              <h3 className="text-base font-semibold text-[#F5F5F5] flex items-center gap-2">
+                <span>รายละเอียดนัดหมาย</span>
+                <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium border ${
+                  selectedApptForModal.is_flash 
+                    ? 'text-purple-400 bg-purple-500/10 border-purple-500/20' 
+                    : 'text-gray-400 bg-gray-500/10 border-gray-500/20'
+                }`}>
+                  {selectedApptForModal.is_flash ? 'FLASH' : 'CUSTOM'}
+                </span>
+              </h3>
+              <button 
+                type="button" 
+                onClick={() => setSelectedApptForModal(null)}
+                className="p-1 rounded-md text-[#9CA3AB] hover:text-[#F3F3F3] hover:bg-[#262626] transition-colors cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="p-5 space-y-4 overflow-y-auto text-xs text-[#A3A3A3]">
+              {/* Main info card */}
+              <div className="bg-[#0A0A0A] border border-[#262626] rounded-lg p-4 space-y-3">
+                <div className="flex justify-between">
+                  <span>ชื่อลูกค้า:</span>
+                  <span className="text-[#F5F5F5] font-medium">{selectedApptForModal.customer_name}</span>
+                </div>
+                {selectedApptForModal.customer_phone && (
+                  <div className="flex justify-between">
+                    <span>เบอร์ติดต่อ:</span>
+                    <span className="text-[#F5F5F5] font-medium">{selectedApptForModal.customer_phone}</span>
+                  </div>
+                )}
+                <div className="flex justify-between">
+                  <span>ช่างสัก:</span>
+                  <span className="text-[#F5F5F5] font-medium">{selectedApptForModal.artist_name}</span>
+                </div>
+                <div className="flex justify-between border-t border-[#262626] pt-2">
+                  <span>วันที่นัด:</span>
+                  <span className="text-[#F5F5F5] font-medium">
+                    {selectedApptForModal.request_date}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span>เวลานัด:</span>
+                  <span className="text-[#F5F5F5] font-medium">
+                    {selectedApptForModal.preferred_time || ''}{selectedApptForModal.end_time_str ? ` – ${selectedApptForModal.end_time_str}` : ''} น.
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Session:</span>
+                  <span className="text-[#F5F5F5] font-medium"># {selectedApptForModal.session_number}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>สถานะนัดหมาย:</span>
+                  <span className={`px-2 py-0.5 rounded text-[10px] font-semibold ${
+                    STATUS_MAP[selectedApptForModal.status]?.color || 'bg-[#262626] text-[#9CA3AB]'
+                  }`}>
+                    {STATUS_MAP[selectedApptForModal.status]?.label || selectedApptForModal.status}
+                  </span>
+                </div>
+              </div>
+
+              {/* Project Details */}
+              <div className="space-y-2">
+                <h4 className="font-semibold text-[#F5F5F5] uppercase tracking-wider text-[10px]">รายละเอียดลายสัก</h4>
+                <div className="bg-[#121212] border border-[#262626] rounded-lg p-3 space-y-2">
+                  <div className="flex justify-between">
+                    <span>ชื่องานสัก:</span>
+                    <span className="text-[#F5F5F5] font-medium truncate max-w-[180px]">{selectedApptForModal.project_name}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>สไตล์:</span>
+                    <span className="text-[#F5F5F5]">{selectedApptForModal.tattoo_style}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>ตำแหน่ง:</span>
+                    <span className="text-[#F5F5F5]">{selectedApptForModal.body_placement}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>ขนาดแนะนำ:</span>
+                    <span className="text-[#F5F5F5]">
+                      {selectedApptForModal.width_cm && selectedApptForModal.height_cm 
+                        ? `${selectedApptForModal.width_cm} × ${selectedApptForModal.height_cm} ซม.` 
+                        : '—'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Payment Summary */}
+              {(() => {
+                const projectPayments = selectedApptForModal.project_payments || [];
+                const brPayments = selectedApptForModal.booking_requests?.flatMap((br: any) => br.payments || []) || [];
+                const allPayments = [...projectPayments, ...brPayments];
+                const paidTotal = allPayments.filter((p: any) => p.status === 'paid').reduce((sum: number, p: any) => sum + Number(p.amount), 0);
+                const agreedPrice = selectedApptForModal.agreed_price !== null ? Number(selectedApptForModal.agreed_price) : null;
+                const remaining = agreedPrice !== null ? Math.max(0, agreedPrice - paidTotal) : null;
+
+                return (
+                  <div className="space-y-2">
+                    <h4 className="font-semibold text-[#F5F5F5] uppercase tracking-wider text-[10px]">การชำระเงินโดยสรุป</h4>
+                    <div className="bg-[#121212] border border-[#262626] rounded-lg p-3 space-y-2">
+                      <div className="flex justify-between">
+                        <span>ราคางานสัก:</span>
+                        <span className="text-[#F5F5F5] font-semibold">
+                          {agreedPrice !== null ? `฿${agreedPrice.toLocaleString()}` : '—'}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>ชำระเงินแล้ว:</span>
+                        <span className="text-emerald-400">฿{paidTotal.toLocaleString()}</span>
+                      </div>
+                      <div className="flex justify-between border-t border-[#262626] pt-2 font-semibold">
+                        <span>ยอดคงเหลือ:</span>
+                        <span className={remaining && remaining > 0 ? 'text-yellow-500' : 'text-[#F5F5F5]'}>
+                          {remaining !== null ? `฿${remaining.toLocaleString()}` : '—'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+
+            {/* Action Button */}
+            <div className="p-4 border-t border-[#262626] bg-[#121212]">
+              <Link
+                href="/owner/appointments"
+                className="w-full inline-flex justify-center items-center gap-1.5 px-4 h-10 rounded-lg bg-[#F5F5F5] hover:bg-white text-black text-sm font-semibold transition-colors cursor-pointer"
+              >
+                <span>จัดการคิว →</span>
+              </Link>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
     </div>
   );
 }

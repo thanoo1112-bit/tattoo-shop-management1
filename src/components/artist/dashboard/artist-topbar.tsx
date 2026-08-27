@@ -5,7 +5,6 @@ import { usePathname } from 'next/navigation'
 
 const ROUTE_NAMES: Record<string, { title: string, subtitle: string }> = {
   '/artist/dashboard': { title: 'ภาพรวม', subtitle: 'ข้อมูลและงานสำคัญของคุณ' },
-  '/artist/booking-requests': { title: 'คำขอจอง', subtitle: 'คำขอจากลูกค้าที่รอการยืนยัน' },
   '/artist/calendar': { title: 'ปฏิทินงาน', subtitle: 'ตารางเวลาและวันว่างของคุณ' },
   '/artist/appointments': { title: 'งานสักของฉัน', subtitle: 'นัดหมายและประวัติงานสัก' },
   '/artist/customers': { title: 'ลูกค้าของฉัน', subtitle: 'ข้อมูลประวัติของลูกค้า' },

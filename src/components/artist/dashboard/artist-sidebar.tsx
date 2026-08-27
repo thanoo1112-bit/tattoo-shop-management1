@@ -3,12 +3,11 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { BrandLogo } from '@/components/brand-logo'
-import { LayoutDashboard, Inbox, CalendarDays, PenTool, Users, DollarSign, User, LogOut, Shield } from 'lucide-react'
+import { LayoutDashboard, CalendarDays, PenTool, Users, DollarSign, User, LogOut, Shield } from 'lucide-react'
 import { logout } from '@/app/(auth)/login/actions'
 
 const MENU_ITEMS = [
   { name: 'ภาพรวม', href: '/artist/dashboard', icon: LayoutDashboard },
-  { name: 'คำขอจอง', href: '/artist/booking-requests', icon: Inbox },
   { name: 'ปฏิทินงาน', href: '/artist/calendar', icon: CalendarDays },
   { name: 'งานสักของฉัน', href: '/artist/appointments', icon: PenTool },
   { name: 'ลูกค้าของฉัน', href: '/artist/customers', icon: Users },
@@ -30,7 +29,16 @@ export function ArtistSidebar({ artistName, avatarUrl, isOwner }: { artistName: 
           </Link>
         </div>
 
-        <nav className="flex-1 px-4 py-6 space-y-1 overflow-y-auto">
+        <nav className="flex-1 px-4 py-6 space-y-1 overflow-y-auto no-scrollbar">
+          <style>{`
+            .no-scrollbar::-webkit-scrollbar {
+              display: none !important;
+            }
+            .no-scrollbar {
+              -ms-overflow-style: none !important;
+              scrollbar-width: none !important;
+            }
+          `}</style>
           {MENU_ITEMS.map((item) => {
             const isActive = pathname === item.href
             const Icon = item.icon

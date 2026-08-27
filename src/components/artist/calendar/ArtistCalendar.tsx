@@ -5,6 +5,10 @@ import { ChevronLeft, ChevronRight, X, Clock, AlertCircle } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { updateArtistDefaultCapacity, updateArtistDailyOverride } from '@/app/(dashboard)/artist/calendar/actions';
+import { 
+  ownerUpdateArtistDefaultCapacity, 
+  ownerUpdateArtistDailyOverride 
+} from '@/app/(dashboard)/owner/artists/actions';
 
 interface Appointment {
   id: string;
@@ -33,6 +37,9 @@ interface ArtistCalendarProps {
   overrides: Record<string, { capacity: number, is_closed: boolean }>;
   occupied: Record<string, number>;
   appointments: Appointment[];
+  mode?: 'self' | 'owner';
+  artistId?: string;
+  shopId?: string;
 }
 
 const THAI_MONTHS = [
@@ -42,7 +49,15 @@ const THAI_MONTHS = [
 
 const DAYS_OF_WEEK = ['อา', 'จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส'];
 
-export function ArtistCalendar({ defaultCapacity, overrides, occupied, appointments }: ArtistCalendarProps) {
+export function ArtistCalendar({ 
+  defaultCapacity, 
+  overrides, 
+  occupied, 
+  appointments,
+  mode = 'self',
+  artistId,
+  shopId
+}: ArtistCalendarProps) {
   const [currentMonth, setCurrentMonth] = useState(new Date(new Date().getFullYear(), new Date().getMonth(), 1));
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   
@@ -118,8 +133,12 @@ export function ArtistCalendar({ defaultCapacity, overrides, occupied, appointme
   const handleSaveDefaultCapacity = () => {
     const val = parseInt(localDefaultCap);
     if (isNaN(val) || val <= 0) return;
-    startTransitionDefault(() => {
-      updateArtistDefaultCapacity(val);
+    startTransitionDefault(async () => {
+      if (mode === 'owner' && artistId && shopId) {
+        await ownerUpdateArtistDefaultCapacity(artistId, shopId, val);
+      } else {
+        await updateArtistDefaultCapacity(val);
+      }
     });
   };
 
@@ -139,12 +158,23 @@ export function ArtistCalendar({ defaultCapacity, overrides, occupied, appointme
     if (!selectedDate) return;
     const val = parseInt(overrideCap);
     
-    startTransitionOverride(() => {
+    startTransitionOverride(async () => {
       // If matches default and not closed, remove override
       if (!isClosed && !isNaN(val) && val === defaultCapacity) {
-        updateArtistDailyOverride(selectedDate, null, false).then(() => setSelectedDate(null));
+        if (mode === 'owner' && artistId && shopId) {
+          await ownerUpdateArtistDailyOverride(artistId, shopId, selectedDate, null, false);
+        } else {
+          await updateArtistDailyOverride(selectedDate, null, false);
+        }
+        setSelectedDate(null);
       } else {
-        updateArtistDailyOverride(selectedDate, isNaN(val) ? 0 : val, isClosed).then(() => setSelectedDate(null));
+        const capVal = isNaN(val) ? 0 : val;
+        if (mode === 'owner' && artistId && shopId) {
+          await ownerUpdateArtistDailyOverride(artistId, shopId, selectedDate, capVal, isClosed);
+        } else {
+          await updateArtistDailyOverride(selectedDate, capVal, isClosed);
+        }
+        setSelectedDate(null);
       }
     });
   };

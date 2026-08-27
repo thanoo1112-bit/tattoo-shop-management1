@@ -1,7 +1,7 @@
 import { requireArtist } from '@/lib/auth/membership'
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
-import { Inbox, Calendar, ArrowRight, User, CalendarDays, ClipboardCheck, Wallet } from 'lucide-react'
+import { Calendar, ArrowRight, User, CalendarDays, ClipboardCheck, Wallet } from 'lucide-react'
 import { DashboardStatCard } from '@/components/owner/dashboard-stat-card'
 import { EmptyState } from '@/components/owner/empty-state'
 
@@ -36,14 +36,7 @@ export default async function ArtistDashboard() {
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-5">
-        <DashboardStatCard 
-          title="คำขอจองใหม่" 
-          value="0" 
-          subtitle="รอการตรวจสอบ" 
-          icon={<Inbox className="h-5 w-5" />} 
-          type="requests"
-        />
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-5">
         <DashboardStatCard 
           title="คิวเดือนนี้" 
           value="0" 
@@ -91,28 +84,6 @@ export default async function ArtistDashboard() {
               actionHref="/artist/appointments"
             />
           </section>
-
-          {/* Recent Booking Requests */}
-          <section>
-            <div className="flex items-center justify-between mb-5">
-              <div className="flex items-center gap-3">
-                <div className="w-1 h-5 bg-[#FFFFFF] rounded-full" />
-                <h2 className="text-lg font-medium text-[#F3F3F3] tracking-wide">คำขอจองล่าสุด</h2>
-              </div>
-              <Link href="/artist/booking-requests" className="text-xs text-[#9CA3AB] hover:text-[#FFFFFF] flex items-center gap-1 transition-colors">
-                ดูคำขอทั้งหมด <ArrowRight className="h-3 w-3" />
-              </Link>
-            </div>
-            
-            <div className="md:border border-[#262626] rounded-xl bg-[#171717] shadow-md">
-              <EmptyState 
-                icon={Inbox}
-                title="ยังไม่มีคำขอจองใหม่"
-                description="คำขอจากลูกค้าจะปรากฏที่นี่"
-              />
-            </div>
-          </section>
-
         </div>
 
         {/* Right Column: Status & Quick Actions */}
@@ -151,15 +122,11 @@ export default async function ArtistDashboard() {
               <h2 className="text-lg font-medium text-[#F3F3F3] tracking-wide">การจัดการด่วน</h2>
             </div>
             <div className="grid grid-cols-2 gap-3">
-              <Link href="/artist/booking-requests" className="flex flex-col items-center justify-center p-5 bg-[#171717] border border-[#262626] rounded-xl hover:bg-[#262626] hover:border-[#FFFFFF]/45 transition-all duration-200 group shadow-sm">
-                <Inbox className="h-6 w-6 text-[#9CA3AB] group-hover:text-[#FFFFFF] mb-2.5 transition-colors" />
-                <span className="text-xs font-medium text-[#C8CDD3] group-hover:text-[#F3F3F3]">ดูคำขอจอง</span>
-              </Link>
               <Link href="/artist/calendar" className="flex flex-col items-center justify-center p-5 bg-[#171717] border border-[#262626] rounded-xl hover:bg-[#262626] hover:border-[#FFFFFF]/45 transition-all duration-200 group shadow-sm">
                 <CalendarDays className="h-6 w-6 text-[#9CA3AB] group-hover:text-[#FFFFFF] mb-2.5 transition-colors" />
                 <span className="text-xs font-medium text-[#C8CDD3] group-hover:text-[#F3F3F3]">ดูปฏิทิน</span>
               </Link>
-              <Link href="/artist/profile" className="flex flex-col items-center justify-center p-5 bg-[#171717] border border-[#262626] rounded-xl hover:bg-[#262626] hover:border-[#FFFFFF]/45 transition-all duration-200 group shadow-sm col-span-2">
+              <Link href="/artist/profile" className="flex flex-col items-center justify-center p-5 bg-[#171717] border border-[#262626] rounded-xl hover:bg-[#262626] hover:border-[#FFFFFF]/45 transition-all duration-200 group shadow-sm">
                 <User className="h-6 w-6 text-[#9CA3AB] group-hover:text-[#FFFFFF] mb-2.5 transition-colors" />
                 <span className="text-xs font-medium text-[#C8CDD3] group-hover:text-[#F3F3F3]">แก้ไขโปรไฟล์</span>
               </Link>

@@ -49,7 +49,9 @@ export default async function FinancePage() {
   }
 
   const flatPayments: any[] = []
+  const projectsSummary: any[] = []
 
+  // Pre-calculate project-level metrics for projectsSummary
   for (const p of (projects || [])) {
     const directPayments = p.payments || []
     const brPayments: any[] = []
@@ -62,9 +64,36 @@ export default async function FinancePage() {
       }
     }
 
-    const allPayments = [...directPayments, ...brPayments]
-    
-    // Resolve customer info
+    // Deduplicate payments by id (since deposit payments link to both project and booking request and may appear twice)
+    const uniquePaymentsMap = new Map()
+    for (const pay of directPayments) {
+      if (pay?.id) uniquePaymentsMap.set(pay.id, pay)
+    }
+    for (const pay of brPayments) {
+      if (pay?.id) uniquePaymentsMap.set(pay.id, pay)
+    }
+    const allPayments = Array.from(uniquePaymentsMap.values())
+
+    const paidAmount = allPayments
+      .filter(pay => pay.status === 'paid')
+      .reduce((sum, pay) => sum + Number(pay.amount), 0)
+
+    const agreedPrice = p.agreed_price !== null ? Number(p.agreed_price) : 0
+    const isEligibleForOutstanding = p.status === 'active' || p.status === 'completed'
+    const outstanding = isEligibleForOutstanding ? Math.max(agreedPrice - paidAmount, 0) : 0
+
+    projectsSummary.push({
+      id: p.id,
+      name: p.name || 'งานสักไม่มีชื่อ',
+      status: p.status,
+      agreedPrice: p.agreed_price !== null ? Number(p.agreed_price) : null,
+      artistId: p.artist_id,
+      createdAt: p.created_at,
+      paidAmount,
+      outstanding
+    })
+
+    // Resolve customer and artist info for flatPayments
     const customerObj = Array.isArray(p.customer) ? p.customer[0] : p.customer
     const customerName = (customerObj as any)?.full_name || 'ไม่ระบุชื่อ'
     const phoneNormalized = (customerObj as any)?.phone_normalized || null
@@ -87,7 +116,9 @@ export default async function FinancePage() {
         agreedPrice: p.agreed_price !== null ? Number(p.agreed_price) : null,
         artistId: p.artist_id,
         artistName,
-        phoneNormalized
+        phoneNormalized,
+        projectPaidTotal: paidAmount,
+        projectOutstanding: outstanding
       })
     }
   }
@@ -99,7 +130,7 @@ export default async function FinancePage() {
         <h2 className="text-lg font-medium text-[#F3F3F3] tracking-wide">การเงิน</h2>
       </div>
 
-      <OwnerFinanceClient flatPayments={flatPayments} />
+      <OwnerFinanceClient flatPayments={flatPayments} projectsSummary={projectsSummary} />
     </div>
   )
 }

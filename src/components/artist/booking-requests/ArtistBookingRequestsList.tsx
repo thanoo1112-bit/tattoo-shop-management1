@@ -53,6 +53,14 @@ type BookingRequest = {
   confirmed_end_at?: string | null;
   payments?: Payment[] | null;
   artist_id?: string;
+  flash_design_id?: string | null;
+  flash_designs?: {
+    id: string;
+    flash_code: string;
+    price: number;
+    size: string;
+    artist_id: string;
+  } | null;
   artist?: {
     full_name: string | null;
     email: string | null;
@@ -74,6 +82,7 @@ type MappedImage = {
 const STATUS_TABS = [
   { id: 'all', name: 'ทั้งหมด' },
   { id: 'pending_review', name: 'รอตรวจสอบ' },
+  { id: 'verification_pending', name: 'รอตรวจสลิป' },
   { id: 'pending_payment', name: 'รอมัดจำ' },
   { id: 'approved', name: 'รับแล้ว' },
   { id: 'rejected', name: 'ปฏิเสธ' },
@@ -131,6 +140,12 @@ export default function ArtistBookingRequestsList({ initialRequests, isOwnerView
   const [acceptError, setAcceptError] = useState<string | null>(null);
   const [acceptSuccessMessage, setAcceptSuccessMessage] = useState<string | null>(null);
   const [acceptSuccessSubtext, setAcceptSuccessSubtext] = useState<string | null>(null);
+
+  // Reject Modal States
+  const [rejectingRequest, setRejectingRequest] = useState<BookingRequest | null>(null);
+  const [rejectionReason, setRejectionReason] = useState<string>('');
+  const [isSubmittingReject, setIsSubmittingReject] = useState(false);
+  const [rejectError, setRejectError] = useState<string | null>(null);
 
   // Schedule Availability States
   const [scheduleAppointments, setScheduleAppointments] = useState<any[]>([]);
@@ -206,11 +221,53 @@ export default function ArtistBookingRequestsList({ initialRequests, isOwnerView
 
   const filteredRequests = requestsList.filter((req) => {
     if (activeTab === 'all') return true;
+    if (activeTab === 'pending_review') {
+      return req.status === 'pending_review';
+    }
+    if (activeTab === 'approved') {
+      return req.status === 'approved';
+    }
+    if (activeTab === 'rejected') {
+      return req.status === 'rejected';
+    }
+    if (activeTab === 'verification_pending') {
+      if (req.status !== 'pending_payment') return false;
+      const depositPayments = (req.payments || []).filter(p => p.payment_type === 'deposit');
+      return depositPayments.some(p => p.status === 'verification_pending');
+    }
+    if (activeTab === 'pending_payment') {
+      if (req.status !== 'pending_payment') return false;
+      const depositPayments = (req.payments || []).filter(p => p.payment_type === 'deposit');
+      return !depositPayments.some(p => p.status === 'verification_pending');
+    }
     return req.status === activeTab;
   });
 
   const getTabCount = (tabId: string) => {
     if (tabId === 'all') return requestsList.length;
+    if (tabId === 'pending_review') {
+      return requestsList.filter(r => r.status === 'pending_review').length;
+    }
+    if (tabId === 'approved') {
+      return requestsList.filter(r => r.status === 'approved').length;
+    }
+    if (tabId === 'rejected') {
+      return requestsList.filter(r => r.status === 'rejected').length;
+    }
+    if (tabId === 'verification_pending') {
+      return requestsList.filter(r => {
+        if (r.status !== 'pending_payment') return false;
+        const depositPayments = (r.payments || []).filter(p => p.payment_type === 'deposit');
+        return depositPayments.some(p => p.status === 'verification_pending');
+      }).length;
+    }
+    if (tabId === 'pending_payment') {
+      return requestsList.filter(r => {
+        if (r.status !== 'pending_payment') return false;
+        const depositPayments = (r.payments || []).filter(p => p.payment_type === 'deposit');
+        return !depositPayments.some(p => p.status === 'verification_pending');
+      }).length;
+    }
     return requestsList.filter(r => r.status === tabId).length;
   };
 
@@ -223,7 +280,7 @@ export default function ArtistBookingRequestsList({ initialRequests, isOwnerView
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      const { data, error } = await supabase
+      let dbQuery = supabase
         .from('booking_requests')
         .select(`
           id,
@@ -239,6 +296,19 @@ export default function ArtistBookingRequestsList({ initialRequests, isOwnerView
           project_id,
           confirmed_start_at,
           confirmed_end_at,
+          artist_id,
+          flash_design_id,
+          flash_designs!booking_requests_flash_design_id_fkey (
+            id,
+            flash_code,
+            price,
+            size,
+            artist_id
+          ),
+          artist:profiles!booking_requests_artist_id_fkey(
+            full_name,
+            email
+          ),
           payments (
             id,
             status,
@@ -262,9 +332,28 @@ export default function ArtistBookingRequestsList({ initialRequests, isOwnerView
               id
             )
           )
-        `)
-        .eq('artist_id', user.id)
-        .order('created_at', { ascending: false });
+        `);
+
+      if (isOwnerView) {
+        const { data: memberData } = await supabase
+          .from('shop_members')
+          .select('shop_id')
+          .eq('user_id', user.id)
+          .eq('status', 'active')
+          .eq('role', 'owner')
+          .limit(1)
+          .maybeSingle();
+
+        if (memberData?.shop_id) {
+          dbQuery = dbQuery.eq('shop_id', memberData.shop_id);
+        } else {
+          dbQuery = dbQuery.eq('artist_id', user.id);
+        }
+      } else {
+        dbQuery = dbQuery.eq('artist_id', user.id);
+      }
+
+      const { data, error } = await dbQuery.order('created_at', { ascending: false });
 
       if (error) throw error;
 
@@ -312,7 +401,11 @@ export default function ArtistBookingRequestsList({ initialRequests, isOwnerView
       setStartTime(reqTimeStr);
     }
     setEndTime('');
-    setAgreedPrice('');
+    if (request.flash_design_id && request.flash_designs) {
+      setAgreedPrice(request.flash_designs.price.toString());
+    } else {
+      setAgreedPrice('');
+    }
     setDepositAmount('');
     setAcceptError(null);
     setAcceptSuccessMessage(null);
@@ -425,6 +518,45 @@ export default function ArtistBookingRequestsList({ initialRequests, isOwnerView
     }
   };
 
+  const handleRejectClick = (request: BookingRequest) => {
+    setRejectionReason('');
+    setRejectError(null);
+    setRejectingRequest(request);
+  };
+
+  const submitRejectRequest = async () => {
+    if (!rejectingRequest) return;
+    const trimmed = rejectionReason.trim();
+    if (!trimmed) {
+      setRejectError('กรุณากรอกเหตุผลที่ปฏิเสธคำขอนี้');
+      return;
+    }
+
+    setIsSubmittingReject(true);
+    setRejectError(null);
+
+    try {
+      const { error } = await supabase.rpc('reject_booking_request_v2', {
+        p_booking_id: rejectingRequest.id,
+        p_rejection_reason: trimmed
+      });
+
+      if (error) {
+        console.error('REJECT_REQUEST_RPC_ERROR', error);
+        throw error;
+      }
+
+      setRejectingRequest(null);
+      setExpandedRequestId(null);
+      await fetchRequestsList();
+    } catch (err: any) {
+      console.error('REJECT_REQUEST_CATCH_ERROR', err);
+      setRejectError(err?.message || 'ไม่สามารถปฏิเสธคำขอได้ กรุณาลองใหม่อีกครั้ง');
+    } finally {
+      setIsSubmittingReject(false);
+    }
+  };
+
   const handleViewSlip = async (storagePath: string, paymentId: string) => {
     try {
       setLoadingProofId(paymentId);
@@ -526,45 +658,56 @@ export default function ArtistBookingRequestsList({ initialRequests, isOwnerView
     }
   };
 
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'pending_review':
-        return (
-          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-[#262626] text-[#F5F5F5] border border-[#262626]">
-            รอตรวจสอบ
-          </span>
-        );
-      case 'pending_payment':
-        return (
-          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-500/10 text-yellow-400 border border-yellow-500/20">
-            รอมัดจำ
-          </span>
-        );
-      case 'approved':
-        return (
-          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-500/10 text-green-400 border border-green-500/20">
-            รับแล้ว
-          </span>
-        );
-      case 'rejected':
-        return (
-          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-500/10 text-red-400 border border-red-500/20">
-            ปฏิเสธ
-          </span>
-        );
-      case 'expired':
-        return (
-          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-[#1F1F1F] text-[#737373] border border-[#262626]">
-            หมดอายุ
-          </span>
-        );
-      default:
-        return (
-          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-[#262626] text-[#A3A3A3]">
-            {status}
-          </span>
-        );
+  const getStatusBadge = (req: BookingRequest) => {
+    if (req.status === 'pending_review') {
+      return (
+        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-[#262626] text-[#F5F5F5] border border-[#262626]">
+          คำขอใหม่
+        </span>
+      );
     }
+    if (req.status === 'pending_payment') {
+      const depositPayments = (req.payments || []).filter(p => p.payment_type === 'deposit');
+      const hasVerificationPending = depositPayments.some(p => p.status === 'verification_pending');
+      if (hasVerificationPending) {
+        return (
+          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-500/10 text-blue-400 border border-blue-500/20">
+            รอตรวจสอบสลิป
+          </span>
+        );
+      }
+      return (
+        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-500/10 text-yellow-400 border border-yellow-500/20">
+          รอชำระมัดจำ
+        </span>
+      );
+    }
+    if (req.status === 'approved') {
+      return (
+        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-500/10 text-green-400 border border-green-500/20">
+          ยืนยันคิวแล้ว
+        </span>
+      );
+    }
+    if (req.status === 'rejected') {
+      return (
+        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-500/10 text-red-400 border border-red-500/20">
+          ปฏิเสธ
+        </span>
+      );
+    }
+    if (req.status === 'expired') {
+      return (
+        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-[#1F1F1F] text-[#737373] border border-[#262626]">
+          หมดอายุ
+        </span>
+      );
+    }
+    return (
+      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-[#262626] text-[#A3A3A3]">
+        {req.status}
+      </span>
+    );
   };
 
   // Fetch and sign URLs on-demand and open Lightbox
@@ -836,13 +979,22 @@ export default function ArtistBookingRequestsList({ initialRequests, isOwnerView
                   <h3 className="text-lg font-semibold text-[#F5F5F5] tracking-wide truncate">
                     {request.submitted_full_name}
                   </h3>
+                  {request.flash_design_id ? (
+                    <span className="text-[10px] bg-purple-500/10 text-purple-400 px-2 py-0.5 rounded-full border border-purple-500/20 font-bold tracking-wider whitespace-nowrap">
+                      FLASH
+                    </span>
+                  ) : (
+                    <span className="text-[10px] bg-zinc-800 text-zinc-400 px-2 py-0.5 rounded-full border border-[#333] font-bold tracking-wider whitespace-nowrap">
+                      CUSTOM
+                    </span>
+                  )}
                   {isOwnerView && request.artist && (
                     <span className="text-[10px] bg-[#262626] text-[#A3A3A3] px-2 py-0.5 rounded-full border border-[#333] whitespace-nowrap">
                       ช่าง: {request.artist.full_name || request.artist.email || 'ไม่ทราบชื่อ'}
                     </span>
                   )}
                 </div>
-              {getStatusBadge(request.status)}
+              {getStatusBadge(request)}
             </div>
             <div className="text-[11px] text-[#737373] flex items-center gap-1">
               <span>ส่งคำขอเมื่อ:</span>
@@ -894,6 +1046,35 @@ export default function ArtistBookingRequestsList({ initialRequests, isOwnerView
                 </div>
               </div>
             </div>
+            
+            {/* Flash Design Details */}
+            {request.flash_design_id && request.flash_designs && (
+              <div className="pt-3 border-t border-[#262626]/50 text-sm">
+                <span className="text-xs text-[#8a8a8a] uppercase tracking-wider block font-semibold mb-2">ข้อมูลลายสำเร็จรูป (FLASH DETAIL)</span>
+                <div className="bg-[#171717] border border-purple-500/20 rounded-lg p-4 space-y-2">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <span className="text-xs text-[#737373] block">รหัสลาย</span>
+                      <span className="font-semibold text-xs sm:text-sm text-purple-400">{request.flash_designs.flash_code}</span>
+                    </div>
+                    <div>
+                      <span className="text-xs text-[#737373] block">ราคาฟิกซ์</span>
+                      <span className="font-semibold text-xs sm:text-sm text-[#F5F5F5]">฿{Number(request.flash_designs.price).toLocaleString()}</span>
+                    </div>
+                    <div>
+                      <span className="text-xs text-[#737373] block">ขนาดแนะนำ</span>
+                      <span className="font-semibold text-xs sm:text-sm text-[#F5F5F5]">{request.flash_designs.size}</span>
+                    </div>
+                    <div>
+                      <span className="text-xs text-[#737373] block">ช่างสักเจ้าของผลงาน</span>
+                      <span className="font-semibold text-xs sm:text-sm text-[#F5F5F5]">
+                        {request.artist?.full_name || request.artist?.email || 'ไม่ระบุ'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Description */}
             <div className="pt-3 border-t border-[#262626]/50 text-sm">
@@ -1059,7 +1240,8 @@ export default function ArtistBookingRequestsList({ initialRequests, isOwnerView
               <div className="pt-4 border-t border-[#262626]/50 flex items-center justify-end gap-3" onClick={(e) => e.stopPropagation()}>
                 <button
                   type="button"
-                  className="px-4 py-2 border border-red-500/60 text-red-500 hover:text-red-400 hover:bg-red-500/8 hover:border-red-400/75 active:bg-red-500/15 rounded-lg text-xs sm:text-sm font-semibold transition-all disabled:opacity-75 disabled:cursor-not-allowed cursor-pointer"
+                  onClick={() => handleRejectClick(request)}
+                  className="px-4 py-2 border border-red-500/60 text-red-500 hover:text-red-400 hover:bg-red-500/8 hover:border-red-400/75 active:bg-red-500/15 rounded-lg text-xs sm:text-sm font-semibold transition-all cursor-pointer"
                   style={{ boxShadow: '0 0 14px rgba(239, 68, 68, 0.12)' }}
                   onMouseEnter={(e) => {
                     (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 0 18px rgba(239, 68, 68, 0.22)';
@@ -1073,7 +1255,6 @@ export default function ArtistBookingRequestsList({ initialRequests, isOwnerView
                   onMouseUp={(e) => {
                     (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 0 18px rgba(239, 68, 68, 0.22)';
                   }}
-                  disabled
                 >
                   ปฏิเสธคำขอ
                 </button>
@@ -1351,14 +1532,17 @@ export default function ArtistBookingRequestsList({ initialRequests, isOwnerView
                   <div className="space-y-4">
                     {/* Price */}
                     <div>
-                      <label className="text-xs text-[#A3A3A3] font-semibold block mb-1.5">ราคางานสัก (บาท)</label>
+                      <label className="text-xs text-[#A3A3A3] font-semibold block mb-1.5">
+                        ราคางานสัก (บาท) {acceptingRequest?.flash_design_id && <span className="text-purple-400 font-bold ml-1">(ราคาฟิกซ์ลาย Flash)</span>}
+                      </label>
                       <input
                         type="number"
                         min="0"
                         value={agreedPrice}
                         onChange={(e) => setAgreedPrice(e.target.value)}
+                        readOnly={!!acceptingRequest?.flash_design_id}
                         placeholder="เช่น 3500"
-                        className="w-full bg-[#171717] border border-[#262626] rounded-lg px-3 py-2 text-sm text-[#F5F5F5] focus:outline-none focus:border-[#F5F5F5]/30"
+                        className={`w-full bg-[#171717] border border-[#262626] rounded-lg px-3 py-2 text-sm text-[#F5F5F5] focus:outline-none focus:border-[#F5F5F5]/30 ${acceptingRequest?.flash_design_id ? 'opacity-75 cursor-not-allowed border-purple-500/20 text-purple-300 font-semibold' : ''}`}
                       />
                     </div>
 
@@ -1631,6 +1815,60 @@ export default function ArtistBookingRequestsList({ initialRequests, isOwnerView
             >
               ตกลง
             </button>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* Reject Booking Request Dialog */}
+      {mounted && rejectingRequest && createPortal(
+        <div className="fixed inset-0 z-[9998] flex items-center justify-center bg-black/80 p-4 animate-in fade-in duration-200" onClick={() => !isSubmittingReject && setRejectingRequest(null)}>
+          <div className="bg-[#171717] border border-[#262626] rounded-xl w-full max-w-sm overflow-hidden shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="p-6 text-center space-y-4">
+              <div className="w-12 h-12 rounded-full bg-red-500/10 flex items-center justify-center mx-auto mb-2">
+                <AlertCircle className="h-6 w-6 text-red-500" />
+              </div>
+              <h3 className="text-lg font-medium text-[#F5F5F5]">ยืนยันปฏิเสธคำขอนี้?</h3>
+              <p className="text-xs text-[#A3A3A3] leading-relaxed">
+                การปฏิเสธคำขอจองจะทำให้สถานะเป็น "ปฏิเสธ" และปล่อยลายสัก Flash (หากระบุไว้) กลับมาใช้งานได้ตามเดิม
+              </p>
+              
+              <div className="text-left space-y-1.5 pt-2">
+                <label className="text-xs text-[#A3A3A3] font-semibold block">ระบุเหตุผลในการปฏิเสธ (จำเป็น)</label>
+                <textarea
+                  value={rejectionReason}
+                  onChange={(e) => setRejectionReason(e.target.value)}
+                  placeholder="เช่น ช่วงเวลาดังกล่าวติดภารกิจด่วน หรือ ลายสักไม่ตรงกับสไตล์..."
+                  rows={3}
+                  className="w-full bg-[#121212] border border-[#262626] rounded-lg px-3 py-2 text-xs text-[#F5F5F5] focus:outline-none focus:border-[#F5F5F5]/30 placeholder:text-zinc-600 resize-none"
+                />
+              </div>
+            </div>
+            {rejectError && (
+              <div className="px-6 pb-2 text-center text-xs text-red-400">{rejectError}</div>
+            )}
+            <div className="border-t border-[#262626] p-4 flex gap-3 bg-[#121212]">
+              <button
+                type="button"
+                disabled={isSubmittingReject}
+                onClick={() => setRejectingRequest(null)}
+                className="flex-1 px-4 py-2 border border-[#262626] hover:bg-[#262626] text-[#A3A3A3] hover:text-[#F5F5F5] font-semibold rounded-lg text-sm transition-all disabled:opacity-50"
+              >
+                ยกเลิก
+              </button>
+              <button
+                type="button"
+                disabled={isSubmittingReject || !rejectionReason.trim()}
+                onClick={submitRejectRequest}
+                className={`flex-1 px-4 py-2 font-semibold rounded-lg text-sm transition-all flex items-center justify-center ${
+                  isSubmittingReject || !rejectionReason.trim()
+                    ? 'bg-red-950/20 text-red-500/40 border border-red-950/30 cursor-not-allowed'
+                    : 'bg-red-500 hover:bg-red-600 text-white cursor-pointer'
+                }`}
+              >
+                {isSubmittingReject ? 'กำลังปฏิเสธ...' : 'ยืนยันปฏิเสธ'}
+              </button>
+            </div>
           </div>
         </div>,
         document.body

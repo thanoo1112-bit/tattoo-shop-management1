@@ -31,18 +31,25 @@ interface Style {
   name: string
 }
 
+interface ArtistStyle {
+  artistId: string
+  styleId: string
+}
+
 interface OwnerPortfolioManagerProps {
   shopId: string
   initialItems: PortfolioItem[]
   artists: Artist[]
   styles: Style[]
+  artistStyles: ArtistStyle[]
 }
 
 export default function OwnerPortfolioManager({
   shopId,
   initialItems,
   artists,
-  styles
+  styles,
+  artistStyles
 }: OwnerPortfolioManagerProps) {
   const supabase = createClient()
   const [items, setItems] = useState<PortfolioItem[]>(initialItems)
@@ -63,6 +70,11 @@ export default function OwnerPortfolioManager({
   const [sizeDimensions, setSizeDimensions] = useState('')
   const [isPublished, setIsPublished] = useState(false)
   const [imageFile, setImageFile] = useState<File | null>(null)
+
+  // Filter styles based on selected artist
+  const filteredStyles = artistId
+    ? styles.filter(s => artistStyles.some(as => as.artistId === artistId && as.styleId === s.id))
+    : styles
 
   // Reset form helper
   const resetForm = () => {
@@ -532,7 +544,7 @@ export default function OwnerPortfolioManager({
 
       {/* CREATE MODAL */}
       {isCreateOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 overflow-y-auto">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 pt-12 sm:p-4 overflow-y-auto">
           <div className="w-full max-w-lg bg-[#171717] border border-[#262626] rounded-xl shadow-2xl relative my-8">
             <div className="flex items-center justify-between p-5 border-b border-[#262626]">
               <h3 className="text-lg font-medium text-[#FFFFFF]">เพิ่มผลงานใหม่</h3>
@@ -579,7 +591,10 @@ export default function OwnerPortfolioManager({
                   </label>
                   <select
                     value={artistId}
-                    onChange={(e) => setArtistId(e.target.value)}
+                    onChange={(e) => {
+                      setArtistId(e.target.value)
+                      setStyleId('') // Reset style on artist change
+                    }}
                     className="w-full bg-[#0B0B0B] border border-[#2A2A2A] text-[#F5F5F5] px-3 py-2.5 rounded-md text-xs focus:outline-none"
                   >
                     <option value="">-- ไม่ระบุช่าง --</option>
@@ -599,7 +614,7 @@ export default function OwnerPortfolioManager({
                     className="w-full bg-[#0B0B0B] border border-[#2A2A2A] text-[#F5F5F5] px-3 py-2.5 rounded-md text-xs focus:outline-none"
                   >
                     <option value="">-- ไม่ระบุสไตล์ --</option>
-                    {styles.map(s => (
+                    {filteredStyles.map(s => (
                       <option key={s.id} value={s.id}>{s.name}</option>
                     ))}
                   </select>
@@ -684,7 +699,7 @@ export default function OwnerPortfolioManager({
 
       {/* EDIT MODAL */}
       {editingItem && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 overflow-y-auto">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 pt-12 sm:p-4 overflow-y-auto">
           <div className="w-full max-w-lg bg-[#171717] border border-[#262626] rounded-xl shadow-2xl relative my-8">
             <div className="flex items-center justify-between p-5 border-b border-[#262626]">
               <h3 className="text-lg font-medium text-[#FFFFFF]">แก้ไขผลงาน</h3>
@@ -730,7 +745,10 @@ export default function OwnerPortfolioManager({
                   </label>
                   <select
                     value={artistId}
-                    onChange={(e) => setArtistId(e.target.value)}
+                    onChange={(e) => {
+                      setArtistId(e.target.value)
+                      setStyleId('') // Reset style on artist change
+                    }}
                     className="w-full bg-[#0B0B0B] border border-[#2A2A2A] text-[#F5F5F5] px-3 py-2.5 rounded-md text-xs focus:outline-none"
                   >
                     <option value="">-- ไม่ระบุช่าง --</option>
@@ -750,7 +768,7 @@ export default function OwnerPortfolioManager({
                     className="w-full bg-[#0B0B0B] border border-[#2A2A2A] text-[#F5F5F5] px-3 py-2.5 rounded-md text-xs focus:outline-none"
                   >
                     <option value="">-- ไม่ระบุสไตล์ --</option>
-                    {styles.map(s => (
+                    {filteredStyles.map(s => (
                       <option key={s.id} value={s.id}>{s.name}</option>
                     ))}
                   </select>

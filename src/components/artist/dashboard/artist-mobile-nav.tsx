@@ -4,12 +4,11 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { BrandLogo } from '@/components/brand-logo'
-import { LayoutDashboard, Inbox, CalendarDays, PenTool, Users, DollarSign, User, LogOut, Menu, X, Bell, Shield } from 'lucide-react'
+import { LayoutDashboard, CalendarDays, PenTool, Users, DollarSign, User, LogOut, Menu, X, Bell, Shield } from 'lucide-react'
 import { logout } from '@/app/(auth)/login/actions'
 
 const MENU_ITEMS = [
   { name: 'ภาพรวม', href: '/artist/dashboard', icon: LayoutDashboard },
-  { name: 'คำขอจอง', href: '/artist/booking-requests', icon: Inbox },
   { name: 'ปฏิทินงาน', href: '/artist/calendar', icon: CalendarDays },
   { name: 'งานสักของฉัน', href: '/artist/appointments', icon: PenTool },
   { name: 'ลูกค้าของฉัน', href: '/artist/customers', icon: Users },

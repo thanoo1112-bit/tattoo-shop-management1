@@ -34,6 +34,11 @@ interface Artist {
   email: string | null
 }
 
+interface FlashDesign {
+  id: string
+  flash_code: string
+}
+
 interface TattooProject {
   id: string
   name: string
@@ -48,16 +53,31 @@ interface TattooProject {
   completed_at: string | null
   created_at: string
   artist_id: string
+  flash_design_id: string | null
+  flash_designs: FlashDesign | null
   artist: Artist | null
   appointments: Appointment[]
   payments: Payment[]
+}
+
+interface BookingRequest {
+  id: string
+  created_at: string
+  status: string
+  rejection_reason: string | null
+  requested_start_at: string
+  flash_design_id: string | null
+  flash_designs: FlashDesign | null
+  artist: Artist | null
 }
 
 interface Customer {
   id: string
   full_name: string
   phone_normalized: string | null
+  email: string | null
   created_at: string
+  booking_requests?: BookingRequest[]
   tattoo_projects: TattooProject[]
 }
 
@@ -126,6 +146,146 @@ export function OwnerCustomersClient({ customers }: Props) {
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedArtistId, setSelectedArtistId] = useState<string>('all')
   const [expandedCustomerId, setExpandedCustomerId] = useState<string | null>(null)
+
+  const renderProjectCard = (proj: TattooProject) => {
+    const statusInfo = PROJECT_STATUS_MAP[proj.status] ?? {
+      label: proj.status,
+      colorClass: 'text-gray-400 bg-gray-500/10 border-gray-500/20'
+    }
+    
+    // Calculate project financials
+    const projPayments = proj.payments ?? []
+    const totalPaid = projPayments
+      .filter(p => p.status === 'paid')
+      .reduce((sum, p) => sum + Number(p.amount), 0)
+    const agreedPrice = proj.agreed_price !== null ? Number(proj.agreed_price) : null
+    const remaining = agreedPrice !== null ? Math.max(0, agreedPrice - totalPaid) : null
+    const isFlash = !!proj.flash_design_id
+    const flashCode = proj.flash_designs?.flash_code || ''
+
+    return (
+      <div key={proj.id} className="bg-[#171717] border border-[#262626] rounded-xl p-5 space-y-4">
+        {/* Project Header */}
+        <div className="flex items-start justify-between gap-4">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="text-sm font-semibold text-[#F5F5F5]">{proj.name || 'งานสักไม่มีชื่อ'}</p>
+              <span className={`text-[9px] px-1.5 py-0.5 rounded font-medium border ${
+                isFlash 
+                  ? 'text-purple-400 bg-purple-500/10 border-purple-500/20' 
+                  : 'text-gray-400 bg-gray-500/10 border-gray-500/20'
+              }`}>
+                {isFlash ? `FLASH (${flashCode})` : 'CUSTOM'}
+              </span>
+            </div>
+            <div className="flex flex-wrap gap-x-3 gap-y-1 mt-1 text-[11px] text-[#A3A3A3]">
+              {proj.tattoo_style && <span>สไตล์: {proj.tattoo_style}</span>}
+              {proj.body_placement && <span>ตำแหน่ง: {proj.body_placement}</span>}
+              {(proj.width_cm || proj.height_cm) && (
+                <span>ขนาด: {proj.width_cm ?? '—'} × {proj.height_cm ?? '—'} ซม.</span>
+              )}
+              <span>ช่างสัก: <span className="text-[#F5F5F5] font-medium">{proj.artist?.full_name || proj.artist?.email || 'ไม่ระบุ'}</span></span>
+            </div>
+          </div>
+          <span className={`shrink-0 px-2.5 py-0.5 rounded-full text-[10px] font-medium border ${statusInfo.colorClass}`}>
+            {statusInfo.label}
+          </span>
+        </div>
+
+        {/* Project Meta Dates */}
+        <div className="text-[10px] text-[#737373] flex flex-wrap gap-x-4 gap-y-1">
+          <span>สร้างเมื่อ: {formatThaiDate(proj.created_at)}</span>
+          {proj.status === 'completed' && proj.completed_at && (
+            <span className="text-green-400">เสร็จสิ้นเมื่อ: {formatThaiDate(proj.completed_at)}</span>
+          )}
+        </div>
+
+        {/* Financial breakdown */}
+        <div className="border border-[#262626] rounded-lg p-3 bg-[#121212] space-y-1.5 text-xs">
+          <div className="flex justify-between items-center text-[#737373]">
+            <span>ราคางานสัก</span>
+            <span className="text-[#F5F5F5] font-medium">
+              {agreedPrice !== null ? `฿${agreedPrice.toLocaleString()}` : '—'}
+            </span>
+          </div>
+          <div className="flex justify-between items-center text-[#737373]">
+            <span>ชำระแล้ว</span>
+            <span className="text-emerald-400 font-medium">฿{totalPaid.toLocaleString()}</span>
+          </div>
+          <div className="flex justify-between items-center border-t border-[#262626]/60 pt-1.5">
+            <span className="text-[#A3A3A3]">ยอดคงเหลือ</span>
+            <span className={`font-semibold ${remaining !== null && remaining > 0 ? 'text-yellow-500' : 'text-[#F5F5F5]'}`}>
+              {remaining !== null ? `฿${remaining.toLocaleString()}` : '—'}
+            </span>
+          </div>
+          {agreedPrice !== null && totalPaid >= agreedPrice && (
+            <div className="text-emerald-400 font-semibold text-[10px] mt-1 text-right">
+              ✓ ชำระครบแล้ว
+            </div>
+          )}
+        </div>
+
+        {/* Payments transactions */}
+        {projPayments.length > 0 && (
+          <div className="space-y-1.5">
+            <p className="text-[11px] font-semibold text-[#A3A3A3]">ประวัติการชำระเงิน</p>
+            <div className="divide-y divide-[#262626]/40">
+              {projPayments.map(pay => {
+                const payStatus = PAYMENT_STATUS_MAP[pay.status] ?? { label: pay.status, colorClass: 'text-gray-400' }
+                return (
+                  <div key={pay.id} className="py-1.5 flex items-center justify-between text-xs">
+                    <span className="text-[#A3A3A3]">{PAYMENT_TYPE_MAP[pay.payment_type] || pay.payment_type}</span>
+                    <div className="flex items-center gap-3">
+                      <span className="font-semibold text-[#F5F5F5]">฿{Number(pay.amount).toLocaleString()}</span>
+                      <span className={`text-[10px] px-1.5 py-0.2 rounded border ${payStatus.colorClass}`}>
+                        {payStatus.label}
+                      </span>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Session list */}
+        {proj.appointments && proj.appointments.length > 0 && (
+          <div className="space-y-2">
+            <p className="text-[11px] font-semibold text-[#A3A3A3]">ประวัติ Session ({proj.appointments.length})</p>
+            <div className="space-y-2">
+              {proj.appointments.map(appt => {
+                const apptStatus = APPT_STATUS_MAP[appt.status] ?? { label: appt.status, colorClass: 'text-gray-400' }
+                return (
+                  <div key={appt.id} className="bg-[#121212] border border-[#262626]/60 rounded-lg p-3 space-y-2">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="font-semibold text-[#F5F5F5]">Session {appt.session_number}</span>
+                      <span className={`text-[10px] px-2 py-0.2 rounded-full border ${apptStatus.colorClass}`}>
+                        {apptStatus.label}
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-[11px] text-[#737373]">
+                      <div>นัดหมาย: {formatThaiDate(appt.start_at)}</div>
+                      <div>เวลานัด: {formatTimeRange(appt.start_at, appt.end_at)} น.</div>
+                      {appt.actual_started_at && (
+                        <div className="col-span-2 text-yellow-500/90">
+                          เริ่มจริง: {formatThaiDate(appt.actual_started_at)} • {formatThaiTime(appt.actual_started_at)}
+                        </div>
+                      )}
+                      {appt.actual_ended_at && (
+                        <div className="col-span-2 text-green-400">
+                          จบจริง: {formatThaiDate(appt.actual_ended_at)} • {formatThaiTime(appt.actual_ended_at)}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )}
+      </div>
+    )
+  }
 
   // Generate dynamic unique artists list from all projects
   const artistsList = Array.from(
@@ -311,163 +471,191 @@ export function OwnerCustomersClient({ customers }: Props) {
                   }`}
                 >
                   <div className="overflow-hidden flex flex-col gap-5">
-                    {/* Profile Summary Card */}
-                    <div className="border-t border-[#262626]/60 pt-4 mt-1">
-                      <div className="bg-[#171717] border border-[#262626] rounded-xl p-4 space-y-3">
-                        <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-xs">
-                          <div>
-                            <p className="text-[#737373] mb-0.5">เบอร์ติดต่อ</p>
-                            <p className="font-medium text-[#F5F5F5]">{c.phone_normalized || '—'}</p>
-                          </div>
-                          <div>
-                            <p className="text-[#737373] mb-0.5">เริ่มเป็นลูกค้าเมื่อ</p>
-                            <p className="font-medium text-[#F5F5F5]">
-                              {c.created_at ? formatThaiDate(c.created_at) : '—'}
-                            </p>
-                          </div>
-                          <div>
-                            <p className="text-[#737373] mb-0.5">จำนวนโปรเจกต์ทั้งหมด</p>
-                            <p className="font-medium text-[#F5F5F5]">{c.tattoo_projects.length} งาน</p>
-                          </div>
+                    {/* ข้อมูลลูกค้า + Quick Actions */}
+                    <div className="border-t border-[#262626]/60 pt-4 mt-1 space-y-4">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-[#171717] border border-[#262626] rounded-xl p-4">
+                        <div className="space-y-1.5">
+                          <p className="text-[#737373] text-[10px] uppercase font-semibold tracking-wider">ข้อมูลการติดต่อ</p>
+                          <p className="text-sm font-semibold text-[#F5F5F5]">{c.full_name}</p>
+                          {c.phone_normalized && (
+                            <p className="text-xs text-[#A3A3A3]">เบอร์ติดต่อ: {c.phone_normalized}</p>
+                          )}
+                          {c.email && (
+                            <p className="text-xs text-[#A3A3A3]">อีเมล: {c.email}</p>
+                          )}
+                        </div>
+
+                        <div className="flex flex-wrap gap-2.5">
+                          {c.phone_normalized && (
+                            <a
+                              href={`tel:${c.phone_normalized}`}
+                              className="inline-flex items-center justify-center gap-1.5 px-4 h-11 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-semibold transition-colors min-w-[100px] cursor-pointer"
+                            >
+                              <Phone className="w-3.5 h-3.5" />
+                              โทร
+                            </a>
+                          )}
+                          {c.email && (
+                            <a
+                              href={`mailto:${c.email}`}
+                              className="inline-flex items-center justify-center gap-1.5 px-4 h-11 bg-[#262626] hover:bg-[#333333] border border-[#404040] text-[#F3F3F3] rounded-lg text-xs font-semibold transition-colors min-w-[100px] cursor-pointer"
+                            >
+                              ส่งอีเมล
+                            </a>
+                          )}
                         </div>
                       </div>
                     </div>
 
-                    {/* Projects List */}
-                    <div className="space-y-4">
-                      <h4 className="text-xs uppercase tracking-wider font-semibold text-[#737373] border-b border-[#262626] pb-2">
-                        ประวัติงานสัก ({c.tattoo_projects.length})
-                      </h4>
+                    {/* Customer Summary */}
+                    {(() => {
+                      const totalProjVal = c.tattoo_projects.length
+                      const activeProjVal = c.tattoo_projects.filter(p => p.status === 'active').length
+                      const completedProjVal = c.tattoo_projects.filter(p => p.status === 'completed').length
 
-                      {c.tattoo_projects.map(proj => {
-                        const statusInfo = PROJECT_STATUS_MAP[proj.status] ?? {
-                          label: proj.status,
-                          colorClass: 'text-gray-400 bg-gray-500/10 border-gray-500/20'
-                        }
-                        
-                        // Calculate project financials
-                        const projPayments = proj.payments ?? []
-                        const totalPaid = projPayments
-                          .filter(p => p.status === 'paid')
-                          .reduce((sum, p) => sum + Number(p.amount), 0)
-                        const agreedPrice = proj.agreed_price !== null ? Number(proj.agreed_price) : null
-                        const remaining = agreedPrice !== null ? Math.max(0, agreedPrice - totalPaid) : null
+                      // Settle/Lifetime Paid logic (finance dedup)
+                      const uniquePaymentsMap = new Map<string, Payment>()
+                      c.tattoo_projects.forEach(proj => {
+                        (proj.payments || []).forEach(p => {
+                          if (p.status === 'paid') {
+                            uniquePaymentsMap.set(p.id, p)
+                          }
+                        })
+                      })
+                      const lifetimePaid = Array.from(uniquePaymentsMap.values()).reduce((sum, p) => sum + Number(p.amount), 0)
 
-                        return (
-                          <div key={proj.id} className="bg-[#171717] border border-[#262626] rounded-xl p-5 space-y-4">
-                            {/* Project Header */}
-                            <div className="flex items-start justify-between gap-4">
-                              <div className="min-w-0">
-                                <p className="text-sm font-semibold text-[#F5F5F5]">{proj.name || 'งานสักไม่มีชื่อ'}</p>
-                                <div className="flex flex-wrap gap-x-3 gap-y-1 mt-1 text-[11px] text-[#A3A3A3]">
-                                  {proj.tattoo_style && <span>สไตล์: {proj.tattoo_style}</span>}
-                                  {proj.body_placement && <span>ตำแหน่ง: {proj.body_placement}</span>}
-                                  {(proj.width_cm || proj.height_cm) && (
-                                    <span>ขนาด: {proj.width_cm ?? '—'} × {proj.height_cm ?? '—'} ซม.</span>
-                                  )}
-                                  <span>ช่างสัก: <span className="text-[#F5F5F5] font-medium">{proj.artist?.full_name || proj.artist?.email || 'ไม่ระบุ'}</span></span>
-                                </div>
-                              </div>
-                              <span className={`shrink-0 px-2.5 py-0.5 rounded-full text-[10px] font-medium border ${statusInfo.colorClass}`}>
-                                {statusInfo.label}
-                              </span>
+                      // Last Service Date logic
+                      const attendedAppts = c.tattoo_projects.flatMap(p => p.appointments || []).filter(a => {
+                        // Either we have an actual start time, OR the status is completed
+                        return a.actual_started_at || a.status === 'completed'
+                      })
+                      const lastServiceStr = (() => {
+                        if (attendedAppts.length === 0) return 'ยังไม่มีประวัติการใช้บริการ'
+                        const times = attendedAppts.map(a => {
+                          const dateStr = a.actual_started_at || a.start_at
+                          return new Date(dateStr).getTime()
+                        })
+                        const latestTime = Math.max(...times)
+                        return formatThaiDate(new Date(latestTime))
+                      })()
+
+                      return (
+                        <div className="space-y-2">
+                          <h4 className="text-[#737373] text-[10px] uppercase font-semibold tracking-wider">ข้อมูลสรุป</h4>
+                          <div className="bg-[#171717] border border-[#262626] rounded-xl p-4 grid grid-cols-2 sm:grid-cols-5 gap-4 text-xs">
+                            <div>
+                              <p className="text-[#737373] mb-0.5">งานทั้งหมด</p>
+                              <p className="text-base font-bold text-[#F5F5F5]">{totalProjVal} งาน</p>
                             </div>
-
-                            {/* Project Meta Dates */}
-                            <div className="text-[10px] text-[#737373] flex flex-wrap gap-x-4 gap-y-1">
-                              <span>สร้างเมื่อ: {formatThaiDate(proj.created_at)}</span>
-                              {proj.status === 'completed' && proj.completed_at && (
-                                <span className="text-green-400">เสร็จสิ้นเมื่อ: {formatThaiDate(proj.completed_at)}</span>
-                              )}
+                            <div>
+                              <p className="text-[#737373] mb-0.5">กำลังมีงาน</p>
+                              <p className="text-base font-bold text-blue-400">{activeProjVal} งาน</p>
                             </div>
-
-                            {/* Financial breakdown */}
-                            <div className="border border-[#262626] rounded-lg p-3 bg-[#121212] space-y-1.5 text-xs">
-                              <div className="flex justify-between items-center text-[#737373]">
-                                <span>ราคางานสัก</span>
-                                <span className="text-[#F5F5F5] font-medium">
-                                  {agreedPrice !== null ? `฿${agreedPrice.toLocaleString()}` : '—'}
-                                </span>
-                              </div>
-                              <div className="flex justify-between items-center text-[#737373]">
-                                <span>ชำระแล้ว</span>
-                                <span className="text-emerald-400 font-medium">฿{totalPaid.toLocaleString()}</span>
-                              </div>
-                              <div className="flex justify-between items-center border-t border-[#262626]/60 pt-1.5">
-                                <span className="text-[#A3A3A3]">ยอดคงเหลือ</span>
-                                <span className={`font-semibold ${remaining !== null && remaining > 0 ? 'text-yellow-500' : 'text-[#F5F5F5]'}`}>
-                                  {remaining !== null ? `฿${remaining.toLocaleString()}` : '—'}
-                                </span>
-                              </div>
-                              {agreedPrice !== null && totalPaid >= agreedPrice && (
-                                <div className="text-emerald-400 font-semibold text-[10px] mt-1 text-right">
-                                  ✓ ชำระครบแล้ว
-                                </div>
-                              )}
+                            <div>
+                              <p className="text-[#737373] mb-0.5">งานเสร็จแล้ว</p>
+                              <p className="text-base font-bold text-green-400">{completedProjVal} งาน</p>
                             </div>
-
-                            {/* Payments transactions */}
-                            {projPayments.length > 0 && (
-                              <div className="space-y-1.5">
-                                <p className="text-[11px] font-semibold text-[#A3A3A3]">ประวัติการชำระเงิน</p>
-                                <div className="divide-y divide-[#262626]/40">
-                                  {projPayments.map(pay => {
-                                    const payStatus = PAYMENT_STATUS_MAP[pay.status] ?? { label: pay.status, colorClass: 'text-gray-400' }
-                                    return (
-                                      <div key={pay.id} className="py-1.5 flex items-center justify-between text-xs">
-                                        <span className="text-[#A3A3A3]">{PAYMENT_TYPE_MAP[pay.payment_type] || pay.payment_type}</span>
-                                        <div className="flex items-center gap-3">
-                                          <span className="font-semibold text-[#F5F5F5]">฿{Number(pay.amount).toLocaleString()}</span>
-                                          <span className={`text-[10px] px-1.5 py-0.2 rounded border ${payStatus.colorClass}`}>
-                                            {payStatus.label}
-                                          </span>
-                                        </div>
-                                      </div>
-                                    )
-                                  })}
-                                </div>
-                              </div>
-                            )}
-
-                            {/* Session list */}
-                            {proj.appointments && proj.appointments.length > 0 && (
-                              <div className="space-y-2">
-                                <p className="text-[11px] font-semibold text-[#A3A3A3]">ประวัติ Session ({proj.appointments.length})</p>
-                                <div className="space-y-2">
-                                  {proj.appointments.map(appt => {
-                                    const apptStatus = APPT_STATUS_MAP[appt.status] ?? { label: appt.status, colorClass: 'text-gray-400' }
-                                    return (
-                                      <div key={appt.id} className="bg-[#121212] border border-[#262626]/60 rounded-lg p-3 space-y-2">
-                                        <div className="flex items-center justify-between text-xs">
-                                          <span className="font-semibold text-[#F5F5F5]">Session {appt.session_number}</span>
-                                          <span className={`text-[10px] px-2 py-0.2 rounded-full border ${apptStatus.colorClass}`}>
-                                            {apptStatus.label}
-                                          </span>
-                                        </div>
-                                        <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-[11px] text-[#737373]">
-                                          <div>นัดหมาย: {formatThaiDate(appt.start_at)}</div>
-                                          <div>เวลานัด: {formatTimeRange(appt.start_at, appt.end_at)} น.</div>
-                                          {appt.actual_started_at && (
-                                            <div className="col-span-2 text-yellow-500/90">
-                                              เริ่มจริง: {formatThaiDate(appt.actual_started_at)} • {formatThaiTime(appt.actual_started_at)}
-                                            </div>
-                                          )}
-                                          {appt.actual_ended_at && (
-                                            <div className="col-span-2 text-green-400">
-                                              จบจริง: {formatThaiDate(appt.actual_ended_at)} • {formatThaiTime(appt.actual_ended_at)}
-                                            </div>
-                                          )}
-                                        </div>
-                                      </div>
-                                    )
-                                  })}
-                                </div>
-                              </div>
-                            )}
+                            <div>
+                              <p className="text-[#737373] mb-0.5">ยอดชำระสะสม</p>
+                              <p className="text-base font-bold text-emerald-400">฿{lifetimePaid.toLocaleString()}</p>
+                            </div>
+                            <div className="col-span-2 sm:col-span-1">
+                              <p className="text-[#737373] mb-0.5">ใช้บริการล่าสุด</p>
+                              <p className="text-xs font-semibold text-[#F5F5F5]">{lastServiceStr}</p>
+                            </div>
                           </div>
-                        )
-                      })}
-                    </div>
+                        </div>
+                      )
+                    })()}
+
+                    {/* งานที่กำลังดำเนินการ */}
+                    {(() => {
+                      const activeProjects = c.tattoo_projects.filter(p => p.status === 'active')
+                      if (activeProjects.length === 0) return null
+                      return (
+                        <div className="space-y-3">
+                          <h4 className="text-xs uppercase tracking-wider font-semibold text-blue-400 border-b border-[#262626] pb-2">
+                            งานที่กำลังดำเนินการ ({activeProjects.length})
+                          </h4>
+                          <div className="space-y-4">
+                            {activeProjects.map(proj => renderProjectCard(proj))}
+                          </div>
+                        </div>
+                      )
+                    })()}
+
+                    {/* ประวัติงานสัก */}
+                    {(() => {
+                      const historyProjects = c.tattoo_projects.filter(p => p.status === 'completed' || p.status === 'cancelled')
+                      if (historyProjects.length === 0) return null
+                      return (
+                        <div className="space-y-3">
+                          <h4 className="text-xs uppercase tracking-wider font-semibold text-[#737373] border-b border-[#262626] pb-2">
+                            ประวัติงานสัก ({historyProjects.length})
+                          </h4>
+                          <div className="space-y-4">
+                            {historyProjects.map(proj => renderProjectCard(proj))}
+                          </div>
+                        </div>
+                      )
+                    })()}
+
+                    {/* คำขอจองที่ผ่านมา */}
+                    {(() => {
+                      const historicalBookings = (c.booking_requests || []).filter(br => 
+                        br.status === 'rejected' || br.status === 'expired' || br.status === 'cancelled'
+                      )
+                      if (historicalBookings.length === 0) return null
+                      return (
+                        <div className="space-y-3">
+                          <h4 className="text-xs uppercase tracking-wider font-semibold text-[#737373] border-b border-[#262626] pb-2">
+                            คำขอจองที่ผ่านมา ({historicalBookings.length})
+                          </h4>
+                          <div className="space-y-3">
+                            {historicalBookings.map(br => {
+                              const isFlashBR = !!br.flash_design_id
+                              const flashCodeBR = br.flash_designs?.flash_code || ''
+                              const bookingStatusLabel = br.status === 'rejected' ? 'ปฏิเสธแล้ว' : br.status === 'expired' ? 'หมดอายุ' : 'ยกเลิกแล้ว'
+                              const statusColor = br.status === 'rejected' ? 'text-red-400 border-red-500/20 bg-red-500/10' : 'text-gray-400 border-gray-500/20 bg-gray-500/10'
+
+                              return (
+                                <div key={br.id} className="bg-[#171717] border border-[#262626] rounded-xl p-4 space-y-2">
+                                  <div className="flex items-start justify-between gap-4">
+                                    <div className="space-y-1">
+                                      <div className="flex items-center gap-2">
+                                        <span className={`text-[9px] px-1.5 py-0.5 rounded font-medium border ${
+                                          isFlashBR 
+                                            ? 'text-purple-400 bg-purple-500/10 border-purple-500/20' 
+                                            : 'text-gray-400 bg-gray-500/10 border-gray-500/20'
+                                        }`}>
+                                          {isFlashBR ? `FLASH (${flashCodeBR})` : 'CUSTOM'}
+                                        </span>
+                                        <span className="text-[10px] text-[#737373]">•</span>
+                                        <span className="text-xs text-[#F5F5F5]">วันที่ส่ง: {formatThaiDate(br.created_at)}</span>
+                                      </div>
+                                      <p className="text-[11px] text-[#A3A3A3]">
+                                        ช่างสัก: <span className="text-[#F5F5F5]">{br.artist?.full_name || br.artist?.email || 'ไม่ระบุ'}</span>
+                                      </p>
+                                      {br.requested_start_at && (
+                                        <p className="text-[11px] text-[#737373]">เวลานัดที่ขอ: {formatThaiDate(br.requested_start_at)}</p>
+                                      )}
+                                    </div>
+                                    <span className={`shrink-0 px-2 py-0.5 rounded text-[10px] font-medium border ${statusColor}`}>
+                                      {bookingStatusLabel}
+                                    </span>
+                                  </div>
+                                  {br.status === 'rejected' && br.rejection_reason && (
+                                    <div className="bg-[#1C1C1C] border border-[#262626] rounded p-2.5 text-[11px] text-red-400">
+                                      <span className="font-semibold">เหตุผลที่ปฏิเสธ:</span> {br.rejection_reason}
+                                    </div>
+                                  )}
+                                </div>
+                              )
+                            })}
+                          </div>
+                        </div>
+                      )
+                    })()}
                   </div>
                 </div>
               </div>
