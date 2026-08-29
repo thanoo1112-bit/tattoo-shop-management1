@@ -157,7 +157,7 @@ export default function FlashBookingClient({
   const selectedData = selectedDate ? availabilityMap.get(selectedDate) : null;
   const isDateValid = selectedData && selectedData.can_request;
 
-  const timeOptions = Array.from({ length: 14 }, (_, i) => `${i + 10}:00`);
+  const timeOptions = [...Array.from({ length: 14 }, (_, i) => `${i + 10}:00`), '00:00'];
 
   // Prices and Deposits
   const price = useMemo(() => {
