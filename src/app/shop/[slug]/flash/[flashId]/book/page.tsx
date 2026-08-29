@@ -16,7 +16,6 @@ interface PageProps {
 export default async function FlashBookingPageRoute({ params, searchParams }: PageProps) {
   const { slug, flashId } = await params;
   const resolvedSearchParams = await searchParams;
-  const holdId = (resolvedSearchParams.hold_id as string) || '';
   const variantId = (resolvedSearchParams.variant_id as string) || '';
 
   // 1. Fetch Shop details
@@ -97,7 +96,6 @@ export default async function FlashBookingPageRoute({ params, searchParams }: Pa
           }}
           styleName={styleName}
           variants={variants || []}
-          initialHoldId={holdId}
           initialVariantId={variantId}
           settings={settings}
           acceptsColor={acceptsColor}

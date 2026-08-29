@@ -52,10 +52,11 @@ const DEFAULT_VARIANTS: FlashVariant[] = [
 
 const statusLabel = (status: string) => {
   switch (status) {
-    case 'open': return { label: 'เปิดรับจอง', cls: 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' }
+    case 'open':
+    case 'held':
+    case 'reserved':
+      return { label: 'เปิดรับจอง', cls: 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' }
     case 'closed': return { label: 'ปิดรับจอง', cls: 'bg-[#262626] text-[#737373] border border-[#333]' }
-    case 'held': return { label: 'กำลังถือครอง', cls: 'bg-amber-500/10 text-amber-400 border border-amber-500/20' }
-    case 'reserved': return { label: 'ถูกจองแล้ว', cls: 'bg-blue-500/10 text-blue-400 border border-blue-500/20' }
     case 'sold': return { label: 'ขายแล้ว', cls: 'bg-[#262626] text-[#6B7280] border border-[#444] line-through' }
     default: return { label: status, cls: 'bg-[#262626] text-[#737373] border border-[#333]' }
   }

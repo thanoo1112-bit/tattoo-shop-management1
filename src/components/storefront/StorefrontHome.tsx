@@ -250,45 +250,19 @@ export default function StorefrontHome() {
       return
     }
 
-    setHoldingFlashId(flash.id)
-    setFlashHoldError(null)
-    try {
-      const holdId = crypto.randomUUID()
-      const { data: held, error: holdErr } = await supabase.rpc('hold_public_flash', {
-        p_flash_id: flash.id,
-        p_session_id: holdId
-      })
-      if (holdErr || !held) {
-        setFlashHoldError('ขออภัย ลายนี้มีผู้จองแล้ว')
-        setFlashDesigns(prev => prev.filter(f => f.id !== flash.id))
-        return
-      }
-      setFlashDesigns(prev => prev.filter(f => f.id !== flash.id))
-      const params = new URLSearchParams({
-        hold_id: holdId,
-      })
-      if (selectedVariantId) {
-        params.set('variant_id', selectedVariantId)
-      }
-      window.location.href = `/shop/${slug}/flash/${flash.id}/book?${params.toString()}`
-    } catch {
-      setFlashHoldError('เกิดข้อผิดพลาด กรุณาลองใหม่')
-    } finally {
-      setHoldingFlashId(null)
+    const params = new URLSearchParams()
+    if (selectedVariantId) {
+      params.set('variant_id', selectedVariantId)
     }
+    const queryString = params.toString()
+    window.location.href = `/shop/${slug}/flash/${flash.id}/book${queryString ? `?${queryString}` : ''}`
   }
 
   const getFlashDisplayState = (flash: any) => {
     if (!flash) return 'open';
     if (flash.status === 'sold') return 'sold';
-    if (flash.status === 'reserved') return 'reserved';
-    if (flash.status === 'held') {
-      if (flash.held_expires_at && new Date(flash.held_expires_at) > new Date()) {
-        return 'held';
-      }
-      return 'open';
-    }
-    return flash.status;
+    if (flash.status === 'closed') return 'closed';
+    return 'open';
   };
 
   // Resolve active artists and styles (falls back to mock if empty)
@@ -845,17 +819,10 @@ export default function StorefrontHome() {
                             </button>
                           );
                         }
-                        if (state === 'reserved') {
+                        if (state === 'closed') {
                           return (
                             <button disabled className="w-full py-2 rounded-xl text-xs font-semibold bg-[#262626] text-[#737373] mt-auto cursor-not-allowed">
-                              จองแล้ว
-                            </button>
-                          );
-                        }
-                        if (state === 'held') {
-                          return (
-                            <button disabled className="w-full py-2 rounded-xl text-xs font-semibold bg-[#1A1A1A] text-[#A3A3A3] mt-auto cursor-not-allowed">
-                              กำลังมีผู้ทำรายการ
+                              ปิดรับจอง
                             </button>
                           );
                         }
@@ -990,17 +957,10 @@ export default function StorefrontHome() {
                         </button>
                       );
                     }
-                    if (state === 'reserved') {
+                    if (state === 'closed') {
                       return (
                         <button disabled className="px-6 py-3 rounded-xl text-sm font-semibold bg-[#262626] text-[#737373] cursor-not-allowed">
-                          จองแล้ว
-                        </button>
-                      );
-                    }
-                    if (state === 'held') {
-                      return (
-                        <button disabled className="px-6 py-3 rounded-xl text-sm font-semibold bg-[#1A1A1A] text-[#A3A3A3] cursor-not-allowed">
-                          กำลังมีผู้ทำรายการ
+                          ปิดรับจอง
                         </button>
                       );
                     }

@@ -39,20 +39,9 @@ export default function FlashBookingError({
     }
   }, []);
 
-  const handleCancelAndRelease = async () => {
+  const handleCancel = () => {
     setIsReleasing(true);
-    try {
-      if (flashId && holdId) {
-        await supabase.rpc('release_public_flash_hold', {
-          p_flash_id: flashId,
-          p_session_id: holdId
-        });
-      }
-    } catch (err) {
-      console.error('Failed to release hold in error page:', err);
-    } finally {
-      router.replace(`/shop/${shopSlug}`);
-    }
+    router.replace(`/shop/${shopSlug}`);
   };
 
   return (
@@ -73,11 +62,11 @@ export default function FlashBookingError({
             ลองใหม่
           </button>
           <button
-            onClick={handleCancelAndRelease}
+            onClick={handleCancel}
             disabled={isReleasing}
             className="w-full py-3 bg-[#171717] border border-[#262626] text-[#A3A3A3] font-medium rounded-xl text-sm hover:text-white hover:bg-[#222] transition-colors"
           >
-            {isReleasing ? 'กำลังยกเลิกการจอง...' : 'ยกเลิกการจอง'}
+            ยกเลิกและกลับหน้าร้าน
           </button>
         </div>
       </div>

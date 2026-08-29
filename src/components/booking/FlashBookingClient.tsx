@@ -39,7 +39,6 @@ interface FlashBookingClientProps {
   artist: { artist_id: string; display_name: string; avatar_url: string | null };
   styleName: string;
   variants: FlashVariant[];
-  initialHoldId: string;
   initialVariantId: string;
   settings: any;
   acceptsColor: boolean;
@@ -52,7 +51,6 @@ export default function FlashBookingClient({
   artist,
   styleName,
   variants,
-  initialHoldId,
   initialVariantId,
   settings,
   acceptsColor,
@@ -89,8 +87,6 @@ export default function FlashBookingClient({
   // Availability & Hold count-down states
   const [availability, setAvailability] = useState<DailyAvailability[]>([]);
   const [loadingAvailability, setLoadingAvailability] = useState(true);
-  const [holdExpired, setHoldExpired] = useState(false);
-  const [holdTimeRemaining, setHoldTimeRemaining] = useState('');
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [initError, setInitError] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
@@ -105,37 +101,6 @@ export default function FlashBookingClient({
     const { data } = supabase.storage.from('flash-images').getPublicUrl(flash.image_path);
     return data.publicUrl;
   }, [flash.image_path, supabase]);
-
-  // Validate Hold & Count down
-  useEffect(() => {
-    // 1. Initial Hold Validation
-    const isHoldOwner = flash.status === 'held' && flash.held_by_session_id === initialHoldId;
-    const isHoldActive = flash.held_expires_at && new Date(flash.held_expires_at) > new Date();
-
-    if (!isHoldOwner || !isHoldActive) {
-      setHoldExpired(true);
-      return;
-    }
-
-    // 2. Count down timer
-    const interval = setInterval(() => {
-      const now = new Date().getTime();
-      const expires = new Date(flash.held_expires_at!).getTime();
-      const diff = expires - now;
-
-      if (diff <= 0) {
-        setHoldExpired(true);
-        setHoldTimeRemaining('00:00');
-        clearInterval(interval);
-      } else {
-        const m = Math.floor(diff / 60000);
-        const s = Math.floor((diff % 60000) / 1000);
-        setHoldTimeRemaining(`${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`);
-      }
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, [flash, initialHoldId]);
 
   // Load Artist Availability
   useEffect(() => {
@@ -234,8 +199,6 @@ export default function FlashBookingClient({
 
   // Validation
   const isFormValid = useMemo(() => {
-    if (holdExpired) return false;
-    
     // Width & height validation
     const w = parseFloat(widthCm);
     const h = parseFloat(heightCm);
@@ -265,7 +228,6 @@ export default function FlashBookingClient({
       termsAccepted
     );
   }, [
-    holdExpired,
     selectedVariant,
     widthCm,
     heightCm,
@@ -281,18 +243,7 @@ export default function FlashBookingClient({
   // Cancel Hold and release
   const handleCancelBooking = async () => {
     setSubmitError(null);
-    try {
-      if (initialHoldId) {
-        await supabase.rpc('release_public_flash_hold', {
-          p_flash_id: flash.id,
-          p_session_id: initialHoldId
-        });
-      }
-      router.replace(`/shop/${shop.slug}`);
-    } catch (err) {
-      console.error('Failed to release hold:', err);
-      router.replace(`/shop/${shop.slug}`);
-    }
+    router.replace(`/shop/${shop.slug}`);
   };
 
   // Submit Booking
@@ -317,7 +268,7 @@ export default function FlashBookingClient({
         p_color_mode: colorMode,
         p_work_type: 'new_work',
         p_flash_design_id: flash.id,
-        p_hold_session_id: initialHoldId
+        p_hold_session_id: null
       });
 
       if (sessionError || !sessionData || sessionData.length === 0) {
@@ -350,7 +301,7 @@ export default function FlashBookingClient({
         p_is_first_tattoo: isFirstTattoo,
         p_safety_notice_acknowledged: safetyNoticeAcknowledged,
         p_flash_design_id: flash.id,
-        p_hold_session_id: initialHoldId,
+        p_hold_session_id: null,
         p_flash_variant_id: selectedVariantId || null
       });
 
@@ -430,29 +381,7 @@ export default function FlashBookingClient({
     );
   }
 
-  // Hold Expired / Invalid screen
-  if (holdExpired) {
-    return (
-      <div className="w-full max-w-md mx-auto bg-[#121212] border border-[#262626] rounded-2xl p-6 sm:p-8 text-center space-y-6 animate-in fade-in zoom-in-95 duration-200">
-        <div className="w-16 h-16 bg-red-500/10 border border-red-500/20 rounded-full flex items-center justify-center mx-auto text-red-400">
-          <AlertTriangle size={32} />
-        </div>
-        <div className="space-y-2">
-          <h2 className="text-xl font-bold text-white">เวลาถือครองงาน Flash นี้หมดแล้ว</h2>
-          <p className="text-sm text-[#A3A3A3]">
-            ขออภัย เนื่องจากลายนี่กำหนดการถือครองสิทธิ์การจองได้สูงสุด 30 นาที คิวนี้จึงถูกยกเลิกแล้ว กรุณากลับไปหน้าแกลเลอรีเพื่อเลือกจองใหม่อีกครั้ง
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={() => router.replace(`/shop/${shop.slug}`)}
-          className="w-full py-3.5 bg-white text-black font-semibold rounded-xl hover:bg-neutral-200 active:scale-95 transition-all"
-        >
-          กลับสู่หน้าร้านหลัก
-        </button>
-      </div>
-    );
-  }
+
 
   // Load Fail / Query Error Fallback UI
   if (initError) {
@@ -491,12 +420,6 @@ export default function FlashBookingClient({
       <div className="text-center space-y-2 py-4">
         <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold tracking-tight text-white uppercase">Flash Booking</h1>
         <p className="text-sm sm:text-base text-[#A3A3A3]">จองแบบสักลายนี่ง่าย ๆ จบครบในหน้าเดียว</p>
-        {holdTimeRemaining && (
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-500/10 border border-amber-500/20 rounded-full text-xs text-amber-500 font-medium">
-            <Clock size={12} />
-            <span>ระบบกำลังสำรองลายสักนี้ให้คุณเป็นเวลา {holdTimeRemaining} นาที</span>
-          </div>
-        )}
       </div>
 
       <form onSubmit={handleSubmitBooking} className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-start">
