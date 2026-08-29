@@ -424,8 +424,9 @@ export default function FlashBookingClient({
 
       <form onSubmit={handleSubmitBooking} className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-start">
         
-        {/* LEFT COLUMN: Selected Flash (lg:col-span-4) */}
-        <div className="lg:col-span-4 space-y-4">
+        {/* LEFT COLUMN: Selected Flash & Sizing/Placement (lg:col-span-4) */}
+        <div className="lg:col-span-4 space-y-6">
+          {/* Flash card detail */}
           <div className="bg-[#121212] border border-[#262626] rounded-2xl overflow-hidden">
             <div className="relative aspect-square w-full bg-[#0A0A0A] flex items-center justify-center p-4 border-b border-[#262626]">
               <img
@@ -452,138 +453,141 @@ export default function FlashBookingClient({
               </div>
             </div>
           </div>
-        </div>
 
-        {/* CENTER COLUMN: Form inputs (lg:col-span-5) */}
-        <div className="lg:col-span-5 space-y-6 bg-[#121212] border border-[#262626] rounded-2xl p-5 sm:p-6">
-          
-          {/* SECTION 1: Variants & Sizes */}
-          <div className="space-y-4">
-            <h3 className="text-base font-semibold text-white border-b border-[#1a1a1a] pb-2">1. ขนาดงานสัก</h3>
-            
-            {variants.length > 0 ? (
-              <div className="space-y-4">
-                <span className="text-xs text-[#737373] block">เลือกแบบขนาดงานสักที่ต้องการ:</span>
-                <div className="grid grid-cols-2 gap-2.5">
-                  {variants.map(variant => (
-                    <button
-                      key={variant.id}
-                      type="button"
-                      onClick={() => {
-                        setSelectedVariantId(variant.id);
-                        // Pre-populate default sizing if limits exist
-                        if (variant.min_size_cm) setWidthCm(String(variant.min_size_cm));
-                        if (variant.max_size_cm) setHeightCm(String(variant.max_size_cm));
-                      }}
-                      className={`p-3 rounded-xl border text-left transition-all ${
-                        selectedVariantId === variant.id
-                          ? 'border-white bg-[#1a1a1a] text-white'
-                          : 'border-[#262626] bg-[#0A0A0A] text-[#A3A3A3] hover:border-[#404040]'
-                      }`}
-                    >
-                      <div className="font-semibold text-sm">{variant.size_name}</div>
-                      <div className="text-xs text-[#737373] mt-1">
-                        {variant.min_size_cm && variant.max_size_cm 
-                          ? `${variant.min_size_cm} - ${variant.max_size_cm} ซม.` 
-                          : 'ขนาดคงตัว'}
-                      </div>
-                      <div className="text-sm font-bold text-white mt-1.5">฿{Number(variant.price).toLocaleString()}</div>
-                    </button>
-                  ))}
-                </div>
+          {/* SECTION 1 & 2: ขนาดและตำแหน่ง */}
+          <div className="bg-[#121212] border border-[#262626] rounded-2xl p-5 sm:p-6 space-y-6">
+            {/* SECTION 1: Variants & Sizes */}
+            <div className="space-y-4">
+              <h3 className="text-base font-semibold text-white border-b border-[#1a1a1a] pb-2">1. ขนาดงานสัก</h3>
+              
+              {variants.length > 0 ? (
+                <div className="space-y-4">
+                  <span className="text-xs text-[#737373] block">เลือกแบบขนาดงานสักที่ต้องการ:</span>
+                  <div className="grid grid-cols-2 gap-2.5">
+                    {variants.map(variant => (
+                      <button
+                        key={variant.id}
+                        type="button"
+                        onClick={() => {
+                          setSelectedVariantId(variant.id);
+                          // Pre-populate default sizing if limits exist
+                          if (variant.min_size_cm) setWidthCm(String(variant.min_size_cm));
+                          if (variant.max_size_cm) setHeightCm(String(variant.max_size_cm));
+                        }}
+                        className={`p-3 rounded-xl border text-left transition-all ${
+                          selectedVariantId === variant.id
+                            ? 'border-white bg-[#1a1a1a] text-white'
+                            : 'border-[#262626] bg-[#0A0A0A] text-[#A3A3A3] hover:border-[#404040]'
+                        }`}
+                      >
+                        <div className="font-semibold text-sm">{variant.size_name}</div>
+                        <div className="text-xs text-[#737373] mt-1">
+                          {variant.min_size_cm && variant.max_size_cm 
+                            ? `${variant.min_size_cm} - ${variant.max_size_cm} ซม.` 
+                            : 'ขนาดคงตัว'}
+                        </div>
+                        <div className="text-sm font-bold text-white mt-1.5">฿{Number(variant.price).toLocaleString()}</div>
+                      </button>
+                    ))}
+                  </div>
 
-                {/* Show size input fields bound by variant range if min/max exists */}
-                {selectedVariant && (selectedVariant.min_size_cm || selectedVariant.max_size_cm) && (
-                  <div className="space-y-2 bg-[#0A0A0A] p-4 rounded-xl border border-[#262626] mt-2">
-                    <span className="text-xs text-[#A3A3A3] block font-medium">
-                      ระบุขนาดจริงที่ต้องการในสเกลของ ({selectedVariant.size_name}):
-                      {selectedVariant.min_size_cm && ` ขั้นต่ำ ${selectedVariant.min_size_cm} ซม.`}
-                      {selectedVariant.max_size_cm && ` สูงสุด ${selectedVariant.max_size_cm} ซม.`}
-                    </span>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-xs text-[#737373] mb-1">ความกว้าง (ซม.) *</label>
-                        <input
-                          type="number"
-                          step="0.1"
-                          required
-                          value={widthCm}
-                          onChange={e => setWidthCm(e.target.value)}
-                          className="w-full bg-[#121212] border border-[#262626] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-white"
-                          placeholder="กว้าง"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs text-[#737373] mb-1">ความสูง (ซม.) *</label>
-                        <input
-                          type="number"
-                          step="0.1"
-                          required
-                          value={heightCm}
-                          onChange={e => setHeightCm(e.target.value)}
-                          className="w-full bg-[#121212] border border-[#262626] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-white"
-                          placeholder="สูง"
-                        />
+                  {/* Show size input fields bound by variant range if min/max exists */}
+                  {selectedVariant && (selectedVariant.min_size_cm || selectedVariant.max_size_cm) && (
+                    <div className="space-y-2 bg-[#0A0A0A] p-4 rounded-xl border border-[#262626] mt-2">
+                      <span className="text-xs text-[#A3A3A3] block font-medium">
+                        ระบุขนาดจริงที่ต้องการในสเกลของ ({selectedVariant.size_name}):
+                        {selectedVariant.min_size_cm && ` ขั้นต่ำ ${selectedVariant.min_size_cm} ซม.`}
+                        {selectedVariant.max_size_cm && ` สูงสุด ${selectedVariant.max_size_cm} ซม.`}
+                      </span>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-xs text-[#737373] mb-1">ความกว้าง (ซม.) *</label>
+                          <input
+                            type="number"
+                            step="0.1"
+                            required
+                            value={widthCm}
+                            onChange={e => setWidthCm(e.target.value)}
+                            className="w-full bg-[#121212] border border-[#262626] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-white"
+                            placeholder="กว้าง"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs text-[#737373] mb-1">ความสูง (ซม.) *</label>
+                          <input
+                            type="number"
+                            step="0.1"
+                            required
+                            value={heightCm}
+                            onChange={e => setHeightCm(e.target.value)}
+                            className="w-full bg-[#121212] border border-[#262626] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-white"
+                            placeholder="สูง"
+                          />
+                        </div>
                       </div>
                     </div>
+                  )}
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-4 bg-[#0A0A0A] p-4 rounded-xl border border-[#262626]">
+                  <div>
+                    <label className="block text-xs text-[#A3A3A3] mb-1">ความกว้าง (ซม.) *</label>
+                    <input
+                      type="number"
+                      step="0.1"
+                      required
+                      value={widthCm}
+                      onChange={e => setWidthCm(e.target.value)}
+                      className="w-full bg-[#121212] border border-[#262626] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-white"
+                      placeholder="กว้าง"
+                    />
                   </div>
-                )}
-              </div>
-            ) : (
-              <div className="grid grid-cols-2 gap-4 bg-[#0A0A0A] p-4 rounded-xl border border-[#262626]">
-                <div>
-                  <label className="block text-xs text-[#A3A3A3] mb-1">ความกว้าง (ซม.) *</label>
-                  <input
-                    type="number"
-                    step="0.1"
-                    required
-                    value={widthCm}
-                    onChange={e => setWidthCm(e.target.value)}
-                    className="w-full bg-[#121212] border border-[#262626] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-white"
-                    placeholder="กว้าง"
-                  />
+                  <div>
+                    <label className="block text-xs text-[#A3A3A3] mb-1">ความสูง (ซม.) *</label>
+                    <input
+                      type="number"
+                      step="0.1"
+                      required
+                      value={heightCm}
+                      onChange={e => setHeightCm(e.target.value)}
+                      className="w-full bg-[#121212] border border-[#262626] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-white"
+                      placeholder="สูง"
+                    />
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-xs text-[#A3A3A3] mb-1">ความสูง (ซม.) *</label>
-                  <input
-                    type="number"
-                    step="0.1"
-                    required
-                    value={heightCm}
-                    onChange={e => setHeightCm(e.target.value)}
-                    className="w-full bg-[#121212] border border-[#262626] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-white"
-                    placeholder="สูง"
-                  />
-                </div>
-              </div>
-            )}
-          </div>
+              )}
+            </div>
 
-          {/* SECTION 2: Placement */}
-          <div className="space-y-3">
-            <h3 className="text-base font-semibold text-white border-b border-[#1a1a1a] pb-2">2. ตำแหน่งที่จะสัก</h3>
-            <div>
-              <label className="block text-xs text-[#737373] mb-1">เลือกตำแหน่งร่างกาย *</label>
-              <select
-                required
-                value={placement}
-                onChange={e => setPlacement(e.target.value)}
-                className="w-full bg-[#0A0A0A] border border-[#262626] rounded-xl px-3.5 py-3 text-sm text-white focus:outline-none focus:border-white"
-              >
-                <option value="">-- เลือกตำแหน่ง --</option>
-                <option value="ต้นแขน">ต้นแขน (Upper Arm)</option>
-                <option value="ท่อนแขน">ท่อนแขน (Forearm)</option>
-                <option value="หน้าอก">หน้าอก (Chest)</option>
-                <option value="หลัง">หลัง (Back)</option>
-                <option value="ต้นขา">ต้นขา (Thigh)</option>
-                <option value="หน้าแข้ง">หน้าแข้ง (Shin)</option>
-                <option value="อื่น ๆ">อื่น ๆ (Other)</option>
-              </select>
+            {/* SECTION 2: Placement */}
+            <div className="space-y-3">
+              <h3 className="text-base font-semibold text-white border-b border-[#1a1a1a] pb-2">2. ตำแหน่งที่จะสัก</h3>
+              <div>
+                <label className="block text-xs text-[#737373] mb-1">เลือกตำแหน่งร่างกาย *</label>
+                <select
+                  required
+                  value={placement}
+                  onChange={e => setPlacement(e.target.value)}
+                  className="w-full bg-[#0A0A0A] border border-[#262626] rounded-xl px-3.5 py-3 text-sm text-white focus:outline-none focus:border-white"
+                >
+                  <option value="">-- เลือกตำแหน่ง --</option>
+                  <option value="ต้นแขน">ต้นแขน (Upper Arm)</option>
+                  <option value="ท่อนแขน">ท่อนแขน (Forearm)</option>
+                  <option value="หน้าอก">หน้าอก (Chest)</option>
+                  <option value="หลัง">หลัง (Back)</option>
+                  <option value="ต้นขา">ต้นขา (Thigh)</option>
+                  <option value="หน้าแข้ง">หน้าแข้ง (Shin)</option>
+                  <option value="อื่น ๆ">อื่น ๆ (Other)</option>
+                </select>
+              </div>
             </div>
           </div>
+        </div>
 
-          {/* SECTION 3: Availability Date & Time */}
-          <div className="space-y-4">
+        {/* CENTER COLUMN: Calendar & Contact Inputs (lg:col-span-5) */}
+        <div className="lg:col-span-5 space-y-6">
+          
+          {/* SECTION 3: Availability Date & Time Card */}
+          <div className="bg-[#121212] border border-[#262626] rounded-2xl p-5 sm:p-6 space-y-4">
             <h3 className="text-base font-semibold text-white border-b border-[#1a1a1a] pb-2">3. วันที่และเวลาที่สะดวก</h3>
             
             {loadingAvailability ? (
@@ -623,8 +627,8 @@ export default function FlashBookingClient({
             )}
           </div>
 
-          {/* SECTION 4: Customer Details */}
-          <div className="space-y-4">
+          {/* SECTION 4: Customer Details Card */}
+          <div className="bg-[#121212] border border-[#262626] rounded-2xl p-5 sm:p-6 space-y-4">
             <h3 className="text-base font-semibold text-white border-b border-[#1a1a1a] pb-2">4. ข้อมูลผู้ติดต่อ</h3>
             
             <div className="space-y-3 text-sm">
