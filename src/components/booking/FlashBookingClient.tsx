@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import BookingCalendar from './BookingCalendar';
 import { DailyAvailability } from './BookingCalendarFlow';
-import { formatThaiDate } from '@/lib/dateUtils';
+import { formatThaiDate, formatThaiNumericDate } from '@/lib/dateUtils';
 import { calculateTattooEstimate, getLatestPreferredStartTime } from '@/lib/bookingCalculations';
 import { X, Calendar as CalendarIcon, Clock, Check, AlertTriangle, ShieldCheck } from 'lucide-react';
 
@@ -88,6 +88,7 @@ export default function FlashBookingClient({
   const [availability, setAvailability] = useState<DailyAvailability[]>([]);
   const [loadingAvailability, setLoadingAvailability] = useState(true);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+  const [showDatePicker, setShowDatePicker] = useState(false);
   const [initError, setInitError] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
 
@@ -593,36 +594,96 @@ export default function FlashBookingClient({
             {loadingAvailability ? (
               <div className="text-center py-6 text-xs text-[#737373]">กำลังโหลดข้อมูลตารางคิว...</div>
             ) : (
-              <div className="space-y-5">
-                <BookingCalendar
-                  availabilityMap={availabilityMap}
-                  selectedDateKey={selectedDate}
-                  onSelectDate={handleDateSelect}
-                />
-
-                {selectedDate && isDateValid && (
-                  <div className="bg-[#0A0A0A] border border-[#262626] rounded-xl p-4 space-y-3">
-                    <span className="block text-xs text-[#A3A3A3] font-medium">
-                      เลือกเวลาที่สะดวกสำหรับ วันที่ {formatThaiDate(selectedDate, { longMonth: true })} *
+              <div className="space-y-4">
+                {/* Date Picker Trigger Input */}
+                <div className="relative">
+                  <label className="block text-xs text-[#737373] mb-1.5">วันที่ต้องการจอง *</label>
+                  <div 
+                    onClick={() => {
+                      if (!loadingAvailability) {
+                        setShowDatePicker(!showDatePicker);
+                      }
+                    }}
+                    className="w-full bg-[#0A0A0A] border border-[#262626] rounded-xl px-3.5 py-3 text-sm text-white focus:outline-none focus:border-white flex items-center justify-between cursor-pointer select-none transition-colors hover:border-[#404040]"
+                  >
+                    <span className={selectedDate ? 'text-white font-medium' : 'text-[#737373]'}>
+                      {selectedDate ? formatThaiNumericDate(selectedDate) : 'วว/ดด/ปปปป'}
                     </span>
-                    <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 max-h-[160px] overflow-y-auto pr-1">
-                      {timeOptions.map(time => (
-                        <button
-                          key={time}
-                          type="button"
-                          onClick={() => setPreferredTime(time)}
-                          className={`py-2 px-1 text-center text-xs rounded-lg border transition-all ${
-                            preferredTime === time
-                              ? 'bg-white border-white text-black font-semibold'
-                              : 'bg-[#121212] border-[#262626] text-[#A3A3A3] hover:border-neutral-500'
-                          }`}
-                        >
-                          {time}
-                        </button>
-                      ))}
-                    </div>
+                    <CalendarIcon size={18} className="text-[#A3A3A3]" />
                   </div>
-                )}
+
+                  {/* Date Picker Popover */}
+                  {showDatePicker && (
+                    <>
+                      {/* Invisible backdrop to close on click outside */}
+                      <div className="fixed inset-0 z-40" onClick={() => setShowDatePicker(false)} />
+                      
+                      <div className="absolute left-0 right-0 mt-2 bg-[#121212] border border-[#262626] rounded-2xl p-4 shadow-2xl z-50 animate-in fade-in slide-in-from-top-2 duration-150 max-w-sm sm:max-w-md mx-auto">
+                        <BookingCalendar
+                          availabilityMap={availabilityMap}
+                          selectedDateKey={selectedDate}
+                          onSelectDate={(dateKey) => {
+                            handleDateSelect(dateKey);
+                            setShowDatePicker(false);
+                          }}
+                        />
+                        <div className="flex justify-between items-center mt-3 pt-3 border-t border-[#262626] text-xs">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedDate('');
+                              setPreferredTime('');
+                              setShowDatePicker(false);
+                            }}
+                            className="text-[#737373] hover:text-white transition-colors"
+                          >
+                            ล้าง
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setShowDatePicker(false)}
+                            className="text-[#A3A3A3] hover:text-white transition-colors"
+                          >
+                            ปิด
+                          </button>
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </div>
+
+                {/* Time Picker Dropdown */}
+                <div className="space-y-1.5">
+                  <label className="block text-xs text-[#737373] mb-1.5">เวลาที่ต้องการ *</label>
+                  <select
+                    required
+                    disabled={!selectedDate || !isDateValid || timeOptions.length === 0}
+                    value={preferredTime}
+                    onChange={e => setPreferredTime(e.target.value)}
+                    className="w-full bg-[#0A0A0A] border border-[#262626] rounded-xl px-3.5 py-3 text-sm text-white focus:outline-none focus:border-white disabled:opacity-60 disabled:cursor-not-allowed transition-all hover:border-[#404040] disabled:hover:border-[#262626]"
+                  >
+                    {!selectedDate ? (
+                      <option value="">กรุณาเลือกวันที่ก่อน</option>
+                    ) : !isDateValid ? (
+                      <option value="">วันที่เลือกไม่สามารถจองได้</option>
+                    ) : timeOptions.length === 0 ? (
+                      <option value="">ไม่มีเวลาว่างในวันนี้</option>
+                    ) : (
+                      <>
+                        <option value="">-- เลือกเวลา --</option>
+                        {timeOptions.map(time => (
+                          <option key={time} value={time}>
+                            {time} น.
+                          </option>
+                        ))}
+                      </>
+                    )}
+                  </select>
+                  
+                  {selectedDate && isDateValid && timeOptions.length === 0 && (
+                    <p className="text-xs text-amber-500 mt-1">ไม่มีเวลาว่างในวันนี้ กรุณาเลือกวันอื่น</p>
+                  )}
+                </div>
               </div>
             )}
           </div>
