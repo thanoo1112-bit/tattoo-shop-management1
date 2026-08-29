@@ -245,13 +245,6 @@ export default function StorefrontHome() {
   }
 
   const handleBookFlash = async (flash: any) => {
-    const { data: { session } } = await supabase.auth.getSession()
-    if (!session) {
-      const returnTo = `/shop/${slug}?flash_id=${flash.id}`
-      window.location.href = `/customer/login?shop=${slug}&returnTo=${encodeURIComponent(returnTo)}`
-      return
-    }
-
     if (selectedFlashVariants.length > 0 && !selectedVariantId) {
       setFlashHoldError('กรุณาเลือกขนาดที่ต้องการ')
       return
@@ -272,13 +265,12 @@ export default function StorefrontHome() {
       }
       setFlashDesigns(prev => prev.filter(f => f.id !== flash.id))
       const params = new URLSearchParams({
-        flash_id: flash.id,
         hold_id: holdId,
       })
       if (selectedVariantId) {
         params.set('variant_id', selectedVariantId)
       }
-      window.location.href = `/book/${slug}?${params.toString()}`
+      window.location.href = `/shop/${slug}/flash/${flash.id}/book?${params.toString()}`
     } catch {
       setFlashHoldError('เกิดข้อผิดพลาด กรุณาลองใหม่')
     } finally {
