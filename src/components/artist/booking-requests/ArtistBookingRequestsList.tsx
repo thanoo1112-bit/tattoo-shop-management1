@@ -51,6 +51,7 @@ type Payment = {
 
 type BookingRequest = {
   id: string;
+  shop_id: string;
   requested_start_at: string;
   status: string;
   submitted_full_name: string;
@@ -224,6 +225,7 @@ export default function ArtistBookingRequestsList({ initialRequests, isOwnerView
   const [modeBError, setModeBError] = useState<string | null>(null);
   const [isSubmittingModeB, setIsSubmittingModeB] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [modeBDepositAmount, setModeBDepositAmount] = useState<number>(500);
 
   const supabase = createClient();
 
@@ -234,6 +236,27 @@ export default function ArtistBookingRequestsList({ initialRequests, isOwnerView
       }
     });
   }, [supabase]);
+
+  // Load shop deposit settings for Mode B pricing
+  useEffect(() => {
+    if (!modeBPricingRequest) return;
+    
+    const fetchDepositSettings = async () => {
+      const { data, error } = await supabase
+        .from('shop_booking_settings')
+        .select('deposit_required, default_deposit_amount')
+        .eq('shop_id', modeBPricingRequest.shop_id)
+        .maybeSingle();
+      
+      if (!error && data) {
+        setModeBDepositAmount(data.deposit_required ? Number(data.default_deposit_amount) : 0);
+      } else {
+        setModeBDepositAmount(500); // fallback
+      }
+    };
+    
+    fetchDepositSettings();
+  }, [modeBPricingRequest, supabase]);
 
   useEffect(() => {
     setRequestsList(initialRequests);
@@ -514,7 +537,7 @@ export default function ArtistBookingRequestsList({ initialRequests, isOwnerView
       const { error } = await supabase.rpc('approve_booking_request_v2', {
         p_booking_id: modeBPricingRequest.id,
         p_agreed_price: priceNum,
-        p_deposit_amount: 500,
+        p_deposit_amount: modeBDepositAmount,
         p_confirmed_start_at: modeBPricingRequest.requested_start_at,
         p_confirmed_end_at: modeBPricingRequest.requested_end_at
       });

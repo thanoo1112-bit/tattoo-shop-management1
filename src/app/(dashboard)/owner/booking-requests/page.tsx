@@ -11,6 +11,7 @@ export default async function OwnerBookingRequestsPage() {
     .from('booking_requests')
     .select(`
       id,
+      shop_id,
       requested_start_at,
       requested_end_at,
       status,
