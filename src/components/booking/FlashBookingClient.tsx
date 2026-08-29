@@ -462,6 +462,39 @@ export default function FlashBookingClient({
               </div>
             </div>
 
+            {/* BLOCK 1.5: VARIANT SIZE CARDS — moved here from center column */}
+            {variants.length > 0 && (
+              <div className="space-y-2">
+                <span className="text-[9px] uppercase tracking-widest text-[#737373] font-semibold block">ขนาดงานสัก</span>
+                <div className="grid grid-cols-2 gap-2">
+                  {variants.map(variant => (
+                    <button
+                      key={variant.id}
+                      type="button"
+                      onClick={() => {
+                        setSelectedVariantId(variant.id);
+                        if (variant.min_size_cm) setWidthCm(String(variant.min_size_cm));
+                        if (variant.max_size_cm) setHeightCm(String(variant.max_size_cm));
+                      }}
+                      className={`p-2.5 rounded-xl border text-left transition-all ${
+                        selectedVariantId === variant.id
+                          ? 'border-white bg-[#1a1a1a] text-white'
+                          : 'border-[#262626] bg-[#0A0A0A] text-[#A3A3A3] hover:border-[#404040]'
+                      }`}
+                    >
+                      <div className="font-semibold text-xs">{variant.size_name}</div>
+                      <div className="text-[10px] text-[#737373] mt-0.5">
+                        {variant.min_size_cm && variant.max_size_cm
+                          ? `${variant.min_size_cm}–${variant.max_size_cm} ซม.`
+                          : 'ขนาดคงตัว'}
+                      </div>
+                      <div className="text-xs font-bold text-white mt-1">฿{Number(variant.price).toLocaleString()}</div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* BLOCK 2: PRICE — full-width price card */}
             <div className="border border-[#262626] rounded-xl px-4 py-3 flex items-center justify-between bg-[#0A0A0A]">
               <span className="text-[10px] uppercase tracking-widest text-[#737373] font-semibold">Price</span>
@@ -472,79 +505,42 @@ export default function FlashBookingClient({
           {/* CENTER COLUMN: Size, Placement, Date, Time (lg:col-span-5) */}
           <div className="lg:col-span-5 space-y-6 lg:border-l lg:border-r lg:border-[#262626] lg:px-8">
             
-            {/* Size Section */}
-            <div className="space-y-4">
-              <h3 className="text-base font-semibold text-white border-b border-[#262626] pb-2">ขนาดงานสัก</h3>
-              
-              {variants.length > 0 ? (
-                <div className="space-y-4">
-                  <span className="text-xs text-[#737373] block">เลือกแบบขนาดงานสักที่ต้องการ:</span>
-                  <div className="grid grid-cols-2 gap-2.5">
-                    {variants.map(variant => (
-                      <button
-                        key={variant.id}
-                        type="button"
-                        onClick={() => {
-                          setSelectedVariantId(variant.id);
-                          // Pre-populate default sizing if limits exist
-                          if (variant.min_size_cm) setWidthCm(String(variant.min_size_cm));
-                          if (variant.max_size_cm) setHeightCm(String(variant.max_size_cm));
-                        }}
-                        className={`p-3 rounded-xl border text-left transition-all ${
-                          selectedVariantId === variant.id
-                            ? 'border-white bg-[#1a1a1a] text-white'
-                            : 'border-[#262626] bg-[#0A0A0A] text-[#A3A3A3] hover:border-[#404040]'
-                        }`}
-                      >
-                        <div className="font-semibold text-sm">{variant.size_name}</div>
-                        <div className="text-xs text-[#737373] mt-1">
-                          {variant.min_size_cm && variant.max_size_cm 
-                            ? `${variant.min_size_cm} - ${variant.max_size_cm} ซม.` 
-                            : 'ขนาดคงตัว'}
-                        </div>
-                        <div className="text-sm font-bold text-white mt-1.5">฿{Number(variant.price).toLocaleString()}</div>
-                      </button>
-                    ))}
-                  </div>
-
-                  {/* Show size input fields bound by variant range if min/max exists */}
-                  {selectedVariant && (selectedVariant.min_size_cm || selectedVariant.max_size_cm) && (
-                    <div className="space-y-2 bg-[#0A0A0A] p-4 rounded-xl border border-[#262626] mt-2">
-                      <span className="text-xs text-[#A3A3A3] block font-medium">
-                        ระบุขนาดจริงที่ต้องการในสเกลของ ({selectedVariant.size_name}):
-                        {selectedVariant.min_size_cm && ` ขั้นต่ำ ${selectedVariant.min_size_cm} ซม.`}
-                        {selectedVariant.max_size_cm && ` สูงสุด ${selectedVariant.max_size_cm} ซม.`}
-                      </span>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <label className="block text-xs text-[#737373] mb-1">ความกว้าง (ซม.) *</label>
-                          <input
-                            type="number"
-                            step="0.1"
-                            required
-                            value={widthCm}
-                            onChange={e => setWidthCm(e.target.value)}
-                            className="w-full bg-[#121212] border border-[#262626] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-white"
-                            placeholder="กว้าง"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-xs text-[#737373] mb-1">ความสูง (ซม.) *</label>
-                          <input
-                            type="number"
-                            step="0.1"
-                            required
-                            value={heightCm}
-                            onChange={e => setHeightCm(e.target.value)}
-                            className="w-full bg-[#121212] border border-[#262626] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-white"
-                            placeholder="สูง"
-                          />
-                        </div>
-                      </div>
+            {/* Size Inputs — shown only when a variant with size range is selected, or when no variants */}
+            {variants.length > 0 ? (
+              selectedVariant && (selectedVariant.min_size_cm || selectedVariant.max_size_cm) && (
+                <div className="space-y-3">
+                  <h3 className="text-base font-semibold text-white border-b border-[#262626] pb-2">ระบุขนาดจริง</h3>
+                  <div className="grid grid-cols-2 gap-4 bg-[#0A0A0A] p-4 rounded-xl border border-[#262626]">
+                    <div>
+                      <label className="block text-xs text-[#737373] mb-1">ความกว้าง (ซม.) *</label>
+                      <input
+                        type="number"
+                        step="0.1"
+                        required
+                        value={widthCm}
+                        onChange={e => setWidthCm(e.target.value)}
+                        className="w-full bg-[#121212] border border-[#262626] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-white"
+                        placeholder="กว้าง"
+                      />
                     </div>
-                  )}
+                    <div>
+                      <label className="block text-xs text-[#737373] mb-1">ความสูง (ซม.) *</label>
+                      <input
+                        type="number"
+                        step="0.1"
+                        required
+                        value={heightCm}
+                        onChange={e => setHeightCm(e.target.value)}
+                        className="w-full bg-[#121212] border border-[#262626] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-white"
+                        placeholder="สูง"
+                      />
+                    </div>
+                  </div>
                 </div>
-              ) : (
+              )
+            ) : (
+              <div className="space-y-3">
+                <h3 className="text-base font-semibold text-white border-b border-[#262626] pb-2">ขนาดงานสัก</h3>
                 <div className="grid grid-cols-2 gap-4 bg-[#0A0A0A] p-4 rounded-xl border border-[#262626]">
                   <div>
                     <label className="block text-xs text-[#A3A3A3] mb-1">ความกว้าง (ซม.) *</label>
@@ -571,8 +567,8 @@ export default function FlashBookingClient({
                     />
                   </div>
                 </div>
-              )}
-            </div>
+              </div>
+            )}
 
             {/* Placement Section */}
             <div className="space-y-3">
