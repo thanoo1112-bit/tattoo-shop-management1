@@ -21,8 +21,8 @@ export default async function AppointmentsPage() {
       created_at,
       artist_id,
       artist:profiles!appointments_artist_id_fkey(id, full_name, email),
-      customer:customers!appointments_shop_id_customer_id_fkey(id, full_name, phone_normalized),
-      project:tattoo_projects!appointments_shop_id_project_id_fkey(
+      customer:customers(id, full_name, phone_normalized),
+      project:tattoo_projects(
         id,
         name,
         status,
