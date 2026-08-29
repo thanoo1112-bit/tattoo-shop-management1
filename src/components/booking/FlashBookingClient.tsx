@@ -92,6 +92,8 @@ export default function FlashBookingClient({
   const [holdExpired, setHoldExpired] = useState(false);
   const [holdTimeRemaining, setHoldTimeRemaining] = useState('');
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+  const [initError, setInitError] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
 
   // Submit states
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -139,6 +141,7 @@ export default function FlashBookingClient({
   useEffect(() => {
     const fetchAvailability = async () => {
       setLoadingAvailability(true);
+      setInitError(false);
       try {
         const today = new Date();
         const parts = new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Bangkok', year: 'numeric', month: 'numeric', day: 'numeric' }).formatToParts(today);
@@ -157,18 +160,21 @@ export default function FlashBookingClient({
           p_end_date: endDateStr
         });
 
-        if (!error && data) {
+        if (error) throw error;
+
+        if (data) {
           setAvailability(data);
         }
       } catch (err) {
         console.error('Failed to load availability:', err);
+        setInitError(true);
       } finally {
         setLoadingAvailability(false);
       }
     };
 
     fetchAvailability();
-  }, [shop.id, artist.artist_id, supabase]);
+  }, [shop.id, artist.artist_id, supabase, retryCount]);
 
   const availabilityMap = useMemo(() => {
     const map = new Map<string, DailyAvailability>();
@@ -438,11 +444,43 @@ export default function FlashBookingClient({
           </p>
         </div>
         <button
+          type="button"
           onClick={() => router.replace(`/shop/${shop.slug}`)}
           className="w-full py-3.5 bg-white text-black font-semibold rounded-xl hover:bg-neutral-200 active:scale-95 transition-all"
         >
           กลับสู่หน้าร้านหลัก
         </button>
+      </div>
+    );
+  }
+
+  // Load Fail / Query Error Fallback UI
+  if (initError) {
+    return (
+      <div className="w-full max-w-md mx-auto bg-[#121212] border border-[#262626] rounded-2xl p-6 sm:p-8 text-center space-y-6 animate-in fade-in zoom-in-95 duration-200">
+        <h2 className="text-xl font-bold tracking-tight text-white uppercase">157 TATTOO</h2>
+        <div className="space-y-2">
+          <p className="text-sm text-red-400 font-semibold">ไม่สามารถโหลดหน้าจอง Flash ได้</p>
+          <p className="text-xs text-[#A3A3A3]">
+            เกิดข้อผิดพลาดในการโหลดข้อมูลของแบบสักหรือคิวของช่างสัก กรุณาลองใหม่อีกครั้ง หรือยกเลิกเพื่อกลับหน้าร้านหลัก
+          </p>
+        </div>
+        <div className="pt-4 space-y-3">
+          <button
+            type="button"
+            onClick={() => setRetryCount(prev => prev + 1)}
+            className="w-full py-3 bg-white text-black font-semibold rounded-xl text-sm hover:bg-neutral-200 active:scale-95 transition-all"
+          >
+            ลองใหม่
+          </button>
+          <button
+            type="button"
+            onClick={handleCancelBooking}
+            className="w-full py-3 bg-[#171717] border border-[#262626] text-[#A3A3A3] font-medium rounded-xl text-sm hover:text-white hover:bg-[#222] transition-colors"
+          >
+            ยกเลิกการจอง
+          </button>
+        </div>
       </div>
     );
   }
