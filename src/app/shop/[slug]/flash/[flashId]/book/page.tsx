@@ -69,7 +69,7 @@ export default async function FlashBookingPageRoute({ params, searchParams }: Pa
     .eq('id', flash.style_id)
     .maybeSingle();
 
-  const styleName = style ? style.name : 'Unknown';
+  const styleName = style ? style.name : (flash.style_name || '-');
 
   // 5. Fetch Flash Design Variants
   const { data: variants } = await supabase

@@ -58,3 +58,10 @@ CREATE POLICY "Select Flash Design Variants Auth" ON public.flash_design_variant
               AND sm.status = 'active'
         )
     );
+
+-- 3. Grant select and define public read policy for shop_booking_settings
+GRANT SELECT ON TABLE public.shop_booking_settings TO anon, authenticated;
+DROP POLICY IF EXISTS "Public read for shop booking settings" ON public.shop_booking_settings;
+CREATE POLICY "Public read for shop booking settings" ON public.shop_booking_settings
+    FOR SELECT TO anon, authenticated
+    USING (true);

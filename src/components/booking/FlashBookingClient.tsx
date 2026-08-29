@@ -200,6 +200,8 @@ export default function FlashBookingClient({
 
   // Validation
   const isFormValid = useMemo(() => {
+    if (variants.length > 0 && !selectedVariantId) return false;
+
     // Width & height validation
     const w = parseFloat(widthCm);
     const h = parseFloat(heightCm);
@@ -229,6 +231,8 @@ export default function FlashBookingClient({
       termsAccepted
     );
   }, [
+    variants,
+    selectedVariantId,
     selectedVariant,
     widthCm,
     heightCm,
@@ -580,13 +584,13 @@ export default function FlashBookingClient({
                   className="w-full bg-[#0A0A0A] border border-[#262626] rounded-xl px-3.5 py-3 text-sm text-white focus:outline-none focus:border-white"
                 >
                   <option value="">-- เลือกตำแหน่ง --</option>
-                  <option value="ต้นแขน">ต้นแขน (Upper Arm)</option>
-                  <option value="ท่อนแขน">ท่อนแขน (Forearm)</option>
-                  <option value="หน้าอก">หน้าอก (Chest)</option>
-                  <option value="หลัง">หลัง (Back)</option>
-                  <option value="ต้นขา">ต้นขา (Thigh)</option>
-                  <option value="หน้าแข้ง">หน้าแข้ง (Shin)</option>
-                  <option value="อื่น ๆ">อื่น ๆ (Other)</option>
+                  <option value="ต้นแขน">ต้นแขน</option>
+                  <option value="ท่อนแขน">ท่อนแขน</option>
+                  <option value="หน้าอก">หน้าอก</option>
+                  <option value="หลัง">หลัง</option>
+                  <option value="ต้นขา">ต้นขา</option>
+                  <option value="หน้าแข้ง">หน้าแข้ง</option>
+                  <option value="อื่น ๆ">อื่น ๆ</option>
                 </select>
               </div>
             </div>
@@ -790,7 +794,17 @@ export default function FlashBookingClient({
                   </div>
                   <div className="flex justify-between text-sm">
                     <span className="text-[#A3A3A3]">ยอดมัดจำ</span>
-                    <span className="text-amber-500 font-bold">฿{deposit.toLocaleString()}</span>
+                    <span className="text-amber-500 font-bold">
+                      {settings ? (
+                        settings.deposit_required ? (
+                          `฿${deposit.toLocaleString()}`
+                        ) : (
+                          'ไม่เรียกเก็บมัดจำ'
+                        )
+                      ) : (
+                        '-'
+                      )}
+                    </span>
                   </div>
                 </div>
               </div>
