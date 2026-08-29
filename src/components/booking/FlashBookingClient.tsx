@@ -78,7 +78,9 @@ export default function FlashBookingClient({
   const [preferredTime, setPreferredTime] = useState('');
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
+  const [phoneTouched, setPhoneTouched] = useState(false);
   const [email, setEmail] = useState('');
+  const [emailTouched, setEmailTouched] = useState(false);
   const [description, setDescription] = useState('');
   const [isFirstTattoo, setIsFirstTattoo] = useState(false);
   const [safetyNoticeAcknowledged, setSafetyNoticeAcknowledged] = useState(false);
@@ -173,6 +175,27 @@ export default function FlashBookingClient({
     return 0;
   }, [settings]);
 
+  // Validation errors
+  const phoneError = useMemo(() => {
+    if (!phoneTouched) return '';
+    const trimmed = phone.trim();
+    if (trimmed.length === 0) return 'กรุณากรอกเบอร์โทรศัพท์';
+    const digits = trimmed.replace(/\D/g, '');
+    if (digits.length !== 10) return 'กรุณากรอกเบอร์โทรศัพท์ให้ครบ 10 หลัก';
+    if (!digits.startsWith('0')) return 'กรุณากรอกเบอร์โทรศัพท์ให้ถูกต้อง';
+    return '';
+  }, [phone, phoneTouched]);
+
+  const emailError = useMemo(() => {
+    if (!emailTouched) return '';
+    const trimmed = email.trim();
+    if (trimmed.length === 0) return 'กรุณากรอกอีเมล';
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(trimmed)) return 'กรุณากรอกอีเมลให้ถูกต้อง';
+    if (!trimmed.toLowerCase().endsWith('@gmail.com')) return 'กรุณาใช้อีเมล @gmail.com';
+    return '';
+  }, [email, emailTouched]);
+
   // Validation
   const isFormValid = useMemo(() => {
     if (variants.length > 0 && !selectedVariantId) return false;
@@ -196,12 +219,20 @@ export default function FlashBookingClient({
       }
     }
 
+    const trimmedPhone = phone.trim();
+    const isPhoneValid = trimmedPhone.length === 10 && trimmedPhone.startsWith('0') && /^\d+$/.test(trimmedPhone);
+
+    const trimmedEmail = email.trim().toLowerCase();
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const isEmailValid = emailRegex.test(trimmedEmail) && trimmedEmail.endsWith('@gmail.com');
+
     return (
       placement.trim().length > 0 &&
       selectedDate.trim().length > 0 &&
       preferredTime.trim().length > 0 &&
       fullName.trim().length > 0 &&
-      phone.replace(/\D/g, '').length >= 9 &&
+      isPhoneValid &&
+      isEmailValid &&
       safetyNoticeAcknowledged &&
       termsAccepted
     );
@@ -216,6 +247,7 @@ export default function FlashBookingClient({
     preferredTime,
     fullName,
     phone,
+    email,
     safetyNoticeAcknowledged,
     termsAccepted
   ]);
@@ -234,7 +266,44 @@ export default function FlashBookingClient({
     setIsSubmitting(true);
     setSubmitError(null);
 
-    const normPhone = phone.replace(/\D/g, '');
+    // Normalize inputs
+    const normPhone = phone.trim().replace(/\D/g, '');
+    const normEmail = email.trim().toLowerCase();
+
+    // Re-validate phone number
+    if (normPhone.length === 0) {
+      setSubmitError('กรุณากรอกเบอร์โทรศัพท์');
+      setIsSubmitting(false);
+      return;
+    }
+    if (normPhone.length !== 10) {
+      setSubmitError('กรุณากรอกเบอร์โทรศัพท์ให้ครบ 10 หลัก');
+      setIsSubmitting(false);
+      return;
+    }
+    if (!normPhone.startsWith('0')) {
+      setSubmitError('กรุณากรอกเบอร์โทรศัพท์ให้ถูกต้อง');
+      setIsSubmitting(false);
+      return;
+    }
+
+    // Re-validate email
+    if (normEmail.length === 0) {
+      setSubmitError('กรุณากรอกอีเมล');
+      setIsSubmitting(false);
+      return;
+    }
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(normEmail)) {
+      setSubmitError('กรุณากรอกอีเมลให้ถูกต้อง');
+      setIsSubmitting(false);
+      return;
+    }
+    if (!normEmail.endsWith('@gmail.com')) {
+      setSubmitError('กรุณาใช้อีเมล @gmail.com');
+      setIsSubmitting(false);
+      return;
+    }
 
     try {
       // 1. Determine color mode to use based on artist settings
@@ -271,7 +340,7 @@ export default function FlashBookingClient({
         p_description: description || null,
         p_full_name: fullName,
         p_phone: normPhone,
-        p_email: email || null,
+        p_email: normEmail,
         p_health_note: null,
         p_requested_date: selectedDate,
         p_requested_time: preferredTime,
@@ -635,24 +704,42 @@ export default function FlashBookingClient({
                 <div>
                   <label className="block text-xs text-[#737373] mb-1">เบอร์โทรศัพท์ *</label>
                   <input
-                    type="tel"
+                    type="text"
+                    inputMode="numeric"
+                    maxLength={10}
                     required
                     value={phone}
-                    onChange={e => setPhone(e.target.value)}
+                    onChange={e => {
+                      const digits = e.target.value.replace(/\D/g, '');
+                      setPhone(digits);
+                      setPhoneTouched(true);
+                    }}
+                    onBlur={() => setPhoneTouched(true)}
                     className="w-full bg-[#0A0A0A] border border-[#262626] rounded-lg px-3.5 py-2 text-sm text-white focus:outline-none focus:border-white"
                     placeholder="เช่น 08XXXXXXXX"
                   />
+                  {phoneError && (
+                    <p className="text-xs text-red-400 mt-1">{phoneError}</p>
+                  )}
                 </div>
 
                 <div>
-                  <label className="block text-xs text-[#737373] mb-1">อีเมล (ถ้ามี)</label>
+                  <label className="block text-xs text-[#737373] mb-1">อีเมล *</label>
                   <input
                     type="email"
+                    required
                     value={email}
-                    onChange={e => setEmail(e.target.value)}
+                    onChange={e => {
+                      setEmail(e.target.value);
+                      setEmailTouched(true);
+                    }}
+                    onBlur={() => setEmailTouched(true)}
                     className="w-full bg-[#0A0A0A] border border-[#262626] rounded-lg px-3.5 py-2 text-sm text-white focus:outline-none focus:border-white"
-                    placeholder="name@example.com"
+                    placeholder="example@gmail.com"
                   />
+                  {emailError && (
+                    <p className="text-xs text-red-400 mt-1">{emailError}</p>
+                  )}
                 </div>
 
                 <div>
