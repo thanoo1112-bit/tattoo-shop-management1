@@ -74,16 +74,10 @@ export async function loginCustomer(formData: FormData) {
       .maybeSingle()
 
     if (existingEmailCustomer) {
-      if (!existingEmailCustomer.auth_user_id) {
-        // Safe to link: manually-entered record with no auth account yet
-        await supabase
-          .from('customers')
-          .update({ auth_user_id: user.id })
-          .eq('id', existingEmailCustomer.id)
-      } else if (existingEmailCustomer.auth_user_id !== user.id) {
-        return { error: 'อีเมลนี้ถูกใช้งานร่วมกับบัญชีอื่นแล้ว' }
-      }
-      // else: already linked to this user — nothing to do
+      // Email already exists in this shop — block regardless of whether auth_user_id is NULL or another user.
+      // Auto-linking by email alone would allow history takeover of another customer's record.
+      // Staff must verify identity manually at the studio.
+      return { error: 'อีเมลนี้มีข้อมูลลูกค้าอยู่ในระบบแล้ว กรุณาติดต่อร้านเพื่อยืนยันข้อมูล' }
     } else {
       // No customer record at all.
       // This happens when email confirmation is ON and register couldn't call ensure_customer_account.
