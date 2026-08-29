@@ -53,52 +53,47 @@ export default function BookingCalendar({ availabilityMap, selectedDateKey, onSe
 
   return (
     <div className="w-full">
-      <div className="flex items-center justify-between mb-6 px-2">
-        <h3 className="text-lg font-semibold text-[#F5F5F5]">
+      {/* Month header */}
+      <div className="flex items-center justify-between mb-3 px-1">
+        <h3 className="text-sm font-semibold text-[#F5F5F5]">
           {thaiMonthName} {thaiYear}
         </h3>
-        <div className="flex items-center space-x-2">
+        <div className="flex items-center space-x-1">
           <button 
             onClick={handlePrevMonth}
             disabled={isPrevDisabled}
-            className="p-2 rounded-full text-[#A3A3A3] hover:text-[#F5F5F5] hover:bg-[#171717] disabled:text-[#404040] disabled:hover:bg-transparent transition-colors"
+            className="p-1.5 rounded-full text-[#A3A3A3] hover:text-[#F5F5F5] hover:bg-[#171717] disabled:text-[#404040] disabled:hover:bg-transparent transition-colors"
           >
-            <ChevronLeft size={20} />
+            <ChevronLeft size={16} />
           </button>
           <button 
             onClick={handleNextMonth}
-            className="p-2 rounded-full text-[#A3A3A3] hover:text-[#F5F5F5] hover:bg-[#171717] transition-colors"
+            className="p-1.5 rounded-full text-[#A3A3A3] hover:text-[#F5F5F5] hover:bg-[#171717] transition-colors"
           >
-            <ChevronRight size={20} />
+            <ChevronRight size={16} />
           </button>
         </div>
       </div>
 
-      <div className="mb-4">
-        <div className="flex flex-wrap items-center justify-end gap-x-3 gap-y-2 mb-5 text-[11px] sm:text-xs text-[#A3A3A3]">
-          <div className="flex items-center">
-            <span className="w-1.5 h-1.5 rounded-full bg-[#F5F5F5] mr-1.5 drop-shadow-[0_0_4px_rgba(255,255,255,0.25)]"></span>
-            <span>ว่าง</span>
-          </div>
-          <div className="flex items-center">
-            <span className="w-1.5 h-1.5 rounded-full border border-[#F5F5F5] mr-1.5"></span>
-            <span>ยังรับได้</span>
-          </div>
-          <div className="flex items-center">
-            <span className="w-1.5 h-1.5 bg-[#404040] rounded-full mr-1.5"></span>
-            <span>เต็ม</span>
-          </div>
-          <div className="flex items-center text-[#404040] font-bold mr-1.5">
-            × <span className="ml-1 font-normal">ปิดรับคิว</span>
-          </div>
+      {/* Legend — compact single row */}
+      <div className="flex items-center gap-x-3 mb-2 text-[10px] text-[#737373]">
+        <div className="flex items-center gap-1">
+          <span className="w-1.5 h-1.5 rounded-full bg-[#F5F5F5]"></span>ว่าง
         </div>
+        <div className="flex items-center gap-1">
+          <span className="w-1.5 h-1.5 rounded-full border border-[#F5F5F5]"></span>ยังรับได้
+        </div>
+        <div className="flex items-center gap-1">
+          <span className="w-1.5 h-1.5 rounded-full bg-[#404040]"></span>เต็ม
+        </div>
+        <div className="flex items-center gap-1 text-[#404040] font-bold">× <span className="font-normal">ปิดรับ</span></div>
       </div>
 
       <div className="bg-[#262626] border border-[#262626] rounded-xl overflow-hidden flex flex-col">
         {/* Weekday Header */}
         <div className="grid grid-cols-7 bg-[#121212] border-b border-[#262626]">
           {DAYS_OF_WEEK.map(day => (
-            <div key={day} className="text-center text-[13px] sm:text-sm font-medium text-[#A3A3A3] py-2.5 sm:py-3">
+            <div key={day} className="text-center text-[11px] font-medium text-[#A3A3A3] py-1.5">
               {day}
             </div>
           ))}
@@ -107,7 +102,7 @@ export default function BookingCalendar({ availabilityMap, selectedDateKey, onSe
         {/* Dates Grid */}
         <div className="grid grid-cols-7 gap-[1px] bg-[#262626]">
           {blanks.map(blank => (
-            <div key={`blank-${blank}`} className="bg-[#121212] aspect-square"></div>
+            <div key={`blank-${blank}`} className="bg-[#121212] h-[42px]"></div>
           ))}
           
           {days.map(day => {
@@ -123,7 +118,7 @@ export default function BookingCalendar({ availabilityMap, selectedDateKey, onSe
             
             const dayData = availabilityMap.get(dateKey);
             
-            let cellClass = "bg-[#121212] relative flex flex-col items-center justify-center aspect-square w-full focus:outline-none transition-colors ";
+            let cellClass = "bg-[#121212] relative flex flex-col items-center justify-center h-[42px] w-full focus:outline-none transition-colors ";
             
             let Indicator = null;
 
@@ -139,19 +134,19 @@ export default function BookingCalendar({ availabilityMap, selectedDateKey, onSe
                }
 
                if (dayData.status === 'AVAILABLE') {
-                 Indicator = <span className="w-1.5 h-1.5 rounded-full bg-[#F5F5F5] drop-shadow-[0_0_4px_rgba(245,245,245,0.25)]"></span>;
+                 Indicator = <span className="w-1 h-1 rounded-full bg-[#F5F5F5] drop-shadow-[0_0_4px_rgba(245,245,245,0.25)]"></span>;
                } else if (dayData.status === 'LIMITED') {
-                 Indicator = <span className="w-1.5 h-1.5 rounded-full border border-[#F5F5F5]"></span>;
+                 Indicator = <span className="w-1 h-1 rounded-full border border-[#F5F5F5]"></span>;
                } else if (dayData.status === 'FULL') {
-                 Indicator = <span className="w-1.5 h-1.5 rounded-full bg-[#404040]"></span>;
+                 Indicator = <span className="w-1 h-1 rounded-full bg-[#404040]"></span>;
                } else if (dayData.status === 'CLOSED') {
-                 Indicator = <span className="text-[11px] text-[#404040] font-bold leading-none">×</span>;
+                 Indicator = <span className="text-[10px] text-[#404040] font-bold leading-none">×</span>;
                }
             } else {
               cellClass += "cursor-default";
             }
 
-            let numClass = "flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 rounded-full z-10 relative text-sm sm:text-base transition-colors ";
+            let numClass = "flex items-center justify-center w-7 h-7 rounded-full z-10 relative text-xs transition-colors ";
             
             if (isPast) {
               numClass += "text-[#404040]";
@@ -186,7 +181,7 @@ export default function BookingCalendar({ availabilityMap, selectedDateKey, onSe
                   {day}
                 </div>
                 {!isSelected && Indicator && (
-                  <div className="absolute bottom-1 sm:bottom-1.5 flex justify-center w-full">
+                  <div className="absolute bottom-0.5 flex justify-center w-full">
                     {Indicator}
                   </div>
                 )}
@@ -195,7 +190,7 @@ export default function BookingCalendar({ availabilityMap, selectedDateKey, onSe
           })}
           
           {Array.from({ length: (7 - ((blanks.length + days.length) % 7)) % 7 }, (_, i) => (
-            <div key={`trailing-${i}`} className="bg-[#121212] aspect-square"></div>
+            <div key={`trailing-${i}`} className="bg-[#121212] h-[42px]"></div>
           ))}
         </div>
       </div>

@@ -503,7 +503,7 @@ export default function FlashBookingClient({
           </div>
 
           {/* CENTER COLUMN: Size, Placement, Date, Time (lg:col-span-5) */}
-          <div className="lg:col-span-5 space-y-6 lg:border-l lg:border-r lg:border-[#262626] lg:px-8">
+          <div className="lg:col-span-5 space-y-4 lg:border-l lg:border-r lg:border-[#262626] lg:px-8">
             
             {/* Size Inputs — shown only when a variant with size range is selected, or when no variants */}
             {variants.length > 0 ? (
@@ -600,7 +600,7 @@ export default function FlashBookingClient({
               {loadingAvailability ? (
                 <div className="text-center py-6 text-xs text-[#737373]">กำลังโหลดข้อมูลตารางคิว...</div>
               ) : (
-                <div className="space-y-5">
+                <div className="space-y-3">
                   {/* Full Monthly Calendar — always visible */}
                   <BookingCalendar
                     availabilityMap={availabilityMap}
@@ -609,24 +609,24 @@ export default function FlashBookingClient({
                   />
 
                   {/* Time Slots */}
-                  <div className="space-y-3">
+                  <div className="space-y-2">
                     <h4 className="text-sm font-medium text-white">ช่วงเวลาที่สะดวก *</h4>
 
                     {!selectedDate ? (
-                      <p className="text-xs text-[#737373] py-2">กรุณาเลือกวันที่ก่อน</p>
+                      <p className="text-xs text-[#737373] py-1">กรุณาเลือกวันที่ก่อน</p>
                     ) : !isDateValid ? (
-                      <p className="text-xs text-amber-500 py-2">วันที่เลือกไม่สามารถจองได้ กรุณาเลือกวันอื่น</p>
+                      <p className="text-xs text-amber-500 py-1">วันที่เลือกไม่สามารถจองได้ กรุณาเลือกวันอื่น</p>
                     ) : timeOptions.length === 0 ? (
-                      <p className="text-xs text-amber-500 py-2">ไม่มีเวลาว่างในวันนี้ กรุณาเลือกวันอื่น</p>
+                      <p className="text-xs text-amber-500 py-1">ไม่มีเวลาว่างในวันนี้ กรุณาเลือกวันอื่น</p>
                     ) : (
-                      <div className="max-h-48 overflow-y-auto pr-1">
+                      <div className="max-h-36 overflow-y-auto pr-1">
                         <div className="grid grid-cols-3 gap-1.5">
                           {timeOptions.map(time => (
                             <button
                               key={time}
                               type="button"
                               onClick={() => setPreferredTime(time)}
-                              className={`py-2 rounded-lg border text-xs font-medium transition-all ${
+                              className={`py-1.5 rounded-lg border text-xs font-medium transition-all ${
                                 preferredTime === time
                                   ? 'border-white bg-white text-[#0A0A0A]'
                                   : 'border-[#262626] bg-[#0A0A0A] text-[#A3A3A3] hover:border-[#404040] hover:text-white'
