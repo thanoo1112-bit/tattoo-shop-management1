@@ -262,7 +262,7 @@ export default function ArtistBookingRequestsList({ initialRequests, isOwnerView
           confirmed_start_at,
           confirmed_end_at,
           flash_design_id,
-          flash_designs!booking_requests_flash_design_id_fkey (
+          flash_designs:flash_designs!booking_requests_flash_design_id_fkey (
             id,
             flash_code,
             image_path,
@@ -855,6 +855,7 @@ export default function ArtistBookingRequestsList({ initialRequests, isOwnerView
     const project = request.project;
     const photoCount = project?.references?.length || 0;
     const isExpanded = expandedRequestId === request.id;
+    const isFlash = !!(request.flash_design_id || request.flash_designs?.id || request.project?.flash_design_id);
 
     return (
       <div
@@ -875,7 +876,7 @@ export default function ArtistBookingRequestsList({ initialRequests, isOwnerView
                   <h3 className="text-lg font-semibold text-[#F5F5F5] tracking-wide truncate">
                     {request.submitted_full_name}
                   </h3>
-                  {request.flash_design_id && (
+                  {isFlash && (
                     <span className="bg-[#FFFFFF] text-black text-[9px] font-bold px-1.5 py-0.5 rounded tracking-wide font-mono whitespace-nowrap">
                       FLASH
                     </span>
@@ -896,7 +897,7 @@ export default function ArtistBookingRequestsList({ initialRequests, isOwnerView
 
           {/* 2. Collapsed Short Summary */}
           <div className="flex gap-4 pt-3 border-t border-[#262626]/40">
-            {request.flash_design_id && request.flash_designs?.image_path && (
+            {isFlash && request.flash_designs?.image_path && (
               <div className="w-16 h-16 shrink-0 bg-[#0A0A0A] border border-[#262626] rounded-lg overflow-hidden">
                 <img 
                   src={supabase.storage.from('flash-images').getPublicUrl(request.flash_designs.image_path).data.publicUrl} 
@@ -906,7 +907,7 @@ export default function ArtistBookingRequestsList({ initialRequests, isOwnerView
               </div>
             )}
             <div className="space-y-1.5 text-xs sm:text-sm text-[#A3A3A3] leading-relaxed font-medium flex-1">
-              {request.flash_design_id ? (
+              {isFlash ? (
                 <>
                   <div className="text-[#F5F5F5] font-semibold text-sm">
                     งาน Flash • {request.flash_designs?.flash_code || 'Flash Design'}
@@ -995,7 +996,7 @@ export default function ArtistBookingRequestsList({ initialRequests, isOwnerView
                 <div>
                   <span className="text-xs text-[#737373] block mb-0.5">ราคางานสัก</span>
                   <span className="font-semibold text-xs sm:text-sm text-[#F5F5F5]">
-                    {request.flash_design_id ? (
+                    {isFlash ? (
                       <>
                         ฿{(project?.agreed_price ?? request.flash_variant?.price ?? request.flash_designs?.price ?? 0).toLocaleString()}
                       </>
@@ -1009,7 +1010,7 @@ export default function ArtistBookingRequestsList({ initialRequests, isOwnerView
                   <span className="font-semibold text-xs sm:text-sm text-[#F5F5F5]">
                     {(() => {
                       const depositPayment = (request.payments || []).find(p => p.payment_type === 'deposit');
-                      const amt = depositPayment?.amount ?? (request.flash_design_id ? 500 : null);
+                      const amt = depositPayment?.amount ?? (isFlash ? 500 : null);
                       return amt !== null ? `฿${amt.toLocaleString()}` : 'รอสรุปยอดมัดจำ';
                     })()}
                   </span>
@@ -1018,7 +1019,7 @@ export default function ArtistBookingRequestsList({ initialRequests, isOwnerView
             </div>
 
             {/* Description (Custom Only) */}
-            {!request.flash_design_id && (
+            {!isFlash && (
               <div className="pt-3 border-t border-[#262626]/50 text-sm">
                 <span className="text-xs text-[#737373] uppercase tracking-wider block font-medium mb-1">รายละเอียด / แนวคิดงาน</span>
                 <p className="text-[#F5F5F5] whitespace-pre-wrap leading-relaxed font-medium">
@@ -1069,7 +1070,7 @@ export default function ArtistBookingRequestsList({ initialRequests, isOwnerView
             )}
 
             {/* Image References (Custom Only) */}
-            {!request.flash_design_id && photoCount > 0 && (
+            {!isFlash && photoCount > 0 && (
               <div className="pt-3 border-t border-[#262626]/50 space-y-2">
                 <span className="text-xs text-[#737373] uppercase tracking-wider block font-medium">รูปภาพแนบจากลูกค้า</span>
                 <button
