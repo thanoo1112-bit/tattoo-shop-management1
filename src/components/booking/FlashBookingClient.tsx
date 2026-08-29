@@ -73,6 +73,7 @@ export default function FlashBookingClient({
   const [widthCm, setWidthCm] = useState('');
   const [heightCm, setHeightCm] = useState('');
   const [placement, setPlacement] = useState('');
+  const [placementTouched, setPlacementTouched] = useState(false);
   const [selectedDate, setSelectedDate] = useState('');
   const [preferredTime, setPreferredTime] = useState('');
   const [fullName, setFullName] = useState('');
@@ -542,22 +543,22 @@ export default function FlashBookingClient({
             <div className="space-y-3">
               <h3 className="text-base font-semibold text-white border-b border-[#262626] pb-2">ตำแหน่งที่จะสัก</h3>
               <div>
-                <label className="block text-xs text-[#737373] mb-1">เลือกตำแหน่งร่างกาย *</label>
-                <select
+                <label className="block text-xs text-[#737373] mb-1">ตำแหน่งที่จะสัก *</label>
+                <input
+                  type="text"
                   required
                   value={placement}
-                  onChange={e => setPlacement(e.target.value)}
+                  onChange={e => {
+                    setPlacement(e.target.value);
+                    setPlacementTouched(true);
+                  }}
+                  onBlur={() => setPlacementTouched(true)}
+                  placeholder="เช่น ต้นแขนด้านในข้างซ้าย, หลังใบหู, ซี่โครงขวา"
                   className="w-full bg-[#0A0A0A] border border-[#262626] rounded-xl px-3.5 py-3 text-sm text-white focus:outline-none focus:border-white"
-                >
-                  <option value="">-- เลือกตำแหน่ง --</option>
-                  <option value="ต้นแขน">ต้นแขน</option>
-                  <option value="ท่อนแขน">ท่อนแขน</option>
-                  <option value="หน้าอก">หน้าอก</option>
-                  <option value="หลัง">หลัง</option>
-                  <option value="ต้นขา">ต้นขา</option>
-                  <option value="หน้าแข้ง">หน้าแข้ง</option>
-                  <option value="อื่น ๆ">อื่น ๆ</option>
-                </select>
+                />
+                {placementTouched && placement.trim() === '' && (
+                  <p className="text-xs text-red-400 mt-1">กรุณาระบุตำแหน่งที่ต้องการสัก</p>
+                )}
               </div>
             </div>
 
