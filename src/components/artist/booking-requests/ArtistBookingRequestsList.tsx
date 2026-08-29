@@ -907,49 +907,55 @@ export default function ArtistBookingRequestsList({ initialRequests, isOwnerView
             )}
             <div className="space-y-1.5 text-xs sm:text-sm text-[#A3A3A3] leading-relaxed font-medium flex-1">
               {request.flash_design_id ? (
-                <div>
-                  <span className="text-[#F5F5F5] font-mono font-bold tracking-widest block text-xs">
-                    {request.flash_designs?.flash_code || 'Flash Design'}
-                  </span>
-                  <span>
-                    สไตล์: {request.flash_designs?.style_name || 'ไม่ระบุ'}
-                    {' • '}
+                <>
+                  <div className="text-[#F5F5F5] font-semibold text-sm">
+                    งาน Flash • {request.flash_designs?.flash_code || 'Flash Design'}
+                  </div>
+                  <div>
+                    สไตล์: {request.flash_designs?.style_name || 'ไม่ระบุสไตล์'}
+                  </div>
+                  <div>
                     {request.flash_variant ? (
-                      <>
+                      <span>
                         ขนาด: {request.flash_variant.size_name}
-                        {request.flash_variant.min_size_cm !== null && (
+                        {project?.width_cm && project?.height_cm ? (
+                          <>
+                            {' • '}{project.width_cm} × {project.height_cm} ซม.
+                          </>
+                        ) : request.flash_variant.min_size_cm !== null ? (
                           <span className="text-[#737373]">
                             {' '}({request.flash_variant.min_size_cm}
                             {request.flash_variant.max_size_cm !== null
                               ? `–${request.flash_variant.max_size_cm} ซม.`
                               : ' ซม. ขึ้นไป'})
                           </span>
-                        )}
-                      </>
+                        ) : null}
+                      </span>
                     ) : (
-                      <>ขนาด: {request.flash_designs?.size || 'ไม่ระบุ'}</>
+                      <span>ขนาด: {project?.width_cm && project?.height_cm ? `${project.width_cm} × ${project.height_cm} ซม.` : request.flash_designs?.size || 'อิงตามขนาดดีไซน์'}</span>
                     )}
-                  </span>
-                </div>
+                  </div>
+                  <div>
+                    ตำแหน่ง: {project?.body_placement || 'ไม่ระบุตำแหน่ง'}
+                  </div>
+                </>
               ) : (
-                <div>
-                  {project ? `${project.tattoo_style || 'ไม่ระบุสไตล์'} • ${WORK_TYPE_MAP[project.work_type] || project.work_type} • ${COLOR_MODE_MAP[project.color_mode] || project.color_mode}` : 'ไม่ระบุรายละเอียดงาน'}
-                </div>
+                <>
+                  <div>
+                    {project ? `${project.tattoo_style || 'ไม่ระบุสไตล์'} • ${WORK_TYPE_MAP[project.work_type] || project.work_type} • ${COLOR_MODE_MAP[project.color_mode] || project.color_mode}` : 'ไม่ระบุรายละเอียดงาน'}
+                  </div>
+                  <div>
+                    {project ? (
+                      <>
+                        {project.width_cm && project.height_cm ? `ขนาด: กว้าง ${project.width_cm} ซม. × สูง ${project.height_cm} ซม.` : 'ขนาด: ไม่ระบุ'}
+                        {' • '}
+                        {project.body_placement || 'ไม่ระบุตำแหน่ง'}
+                      </>
+                    ) : ''}
+                  </div>
+                </>
               )}
               
-              <div>
-                {request.flash_design_id ? (
-                  <span>ตำแหน่ง: {project?.body_placement || 'ไม่ระบุ'}</span>
-                ) : (
-                  project ? (
-                    <>
-                      {project.width_cm && project.height_cm ? `ขนาด: กว้าง ${project.width_cm} ซม. × สูง ${project.height_cm} ซม.` : 'ขนาด: ไม่ระบุ'}
-                      {' • '}
-                      {project.body_placement || 'ไม่ระบุตำแหน่ง'}
-                    </>
-                  ) : ''
-                )}
-              </div>
               <div>
                 {formatThaiDate(request.requested_start_at)} • {formatThaiTime(request.requested_start_at)}
               </div>
@@ -982,13 +988,44 @@ export default function ArtistBookingRequestsList({ initialRequests, isOwnerView
               </div>
             </div>
 
-            {/* Description */}
+            {/* Pricing Section (Agreed Price & Deposit) */}
             <div className="pt-3 border-t border-[#262626]/50 text-sm">
-              <span className="text-xs text-[#737373] uppercase tracking-wider block font-medium mb-1">รายละเอียด / แนวคิดงาน</span>
-              <p className="text-[#F5F5F5] whitespace-pre-wrap leading-relaxed font-medium">
-                {project?.description || 'ไม่ได้ระบุ'}
-              </p>
+              <span className="text-xs text-[#737373] uppercase tracking-wider block font-medium mb-2">สรุปค่าบริการ</span>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs sm:text-sm text-[#F5F5F5]">
+                <div>
+                  <span className="text-xs text-[#737373] block mb-0.5">ราคางานสัก</span>
+                  <span className="font-semibold text-xs sm:text-sm text-[#F5F5F5]">
+                    {request.flash_design_id ? (
+                      <>
+                        ฿{(project?.agreed_price ?? request.flash_variant?.price ?? request.flash_designs?.price ?? 0).toLocaleString()}
+                      </>
+                    ) : (
+                      project?.agreed_price ? `฿${project.agreed_price.toLocaleString()}` : 'รอช่างประเมินราคา'
+                    )}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-xs text-[#737373] block mb-0.5">ยอดมัดจำ</span>
+                  <span className="font-semibold text-xs sm:text-sm text-[#F5F5F5]">
+                    {(() => {
+                      const depositPayment = (request.payments || []).find(p => p.payment_type === 'deposit');
+                      const amt = depositPayment?.amount ?? (request.flash_design_id ? 500 : null);
+                      return amt !== null ? `฿${amt.toLocaleString()}` : 'รอสรุปยอดมัดจำ';
+                    })()}
+                  </span>
+                </div>
+              </div>
             </div>
+
+            {/* Description (Custom Only) */}
+            {!request.flash_design_id && (
+              <div className="pt-3 border-t border-[#262626]/50 text-sm">
+                <span className="text-xs text-[#737373] uppercase tracking-wider block font-medium mb-1">รายละเอียด / แนวคิดงาน</span>
+                <p className="text-[#F5F5F5] whitespace-pre-wrap leading-relaxed font-medium">
+                  {project?.description || 'ไม่ได้ระบุ'}
+                </p>
+              </div>
+            )}
 
             {/* Health Note */}
             {request.health_note && (
@@ -1031,8 +1068,8 @@ export default function ArtistBookingRequestsList({ initialRequests, isOwnerView
               </div>
             )}
 
-            {/* Image References */}
-            {photoCount > 0 && (
+            {/* Image References (Custom Only) */}
+            {!request.flash_design_id && photoCount > 0 && (
               <div className="pt-3 border-t border-[#262626]/50 space-y-2">
                 <span className="text-xs text-[#737373] uppercase tracking-wider block font-medium">รูปภาพแนบจากลูกค้า</span>
                 <button

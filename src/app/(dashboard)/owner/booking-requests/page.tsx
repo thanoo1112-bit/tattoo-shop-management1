@@ -55,6 +55,14 @@ export default async function OwnerBookingRequestsPage() {
           id
         )
       ),
+      flash_designs (
+        id,
+        flash_code,
+        image_path,
+        size,
+        price,
+        style_name
+      ),
       flash_variant:flash_design_variants (
         id,
         size_name,
