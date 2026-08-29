@@ -7,7 +7,6 @@ import { createClient } from '@/lib/supabase/client';
 import BookingCalendar from './BookingCalendar';
 import { DailyAvailability } from './BookingCalendarFlow';
 import { formatThaiDate, formatThaiNumericDate } from '@/lib/dateUtils';
-import { calculateTattooEstimate, getLatestPreferredStartTime } from '@/lib/bookingCalculations';
 import { X, Calendar as CalendarIcon, Clock, Check, AlertTriangle, ShieldCheck } from 'lucide-react';
 
 interface FlashDesign {
@@ -158,32 +157,10 @@ export default function FlashBookingClient({
   const selectedData = selectedDate ? availabilityMap.get(selectedDate) : null;
   const isDateValid = selectedData && selectedData.can_request;
 
-  // Determine size category and latest start time
-  const sizeCategory = useMemo(() => {
-    if (selectedVariant) {
-      // Estimate based on variant dimensions or fallback
-      const w = selectedVariant.min_size_cm || 10;
-      const h = selectedVariant.max_size_cm || 10;
-      return calculateTattooEstimate(String(w), String(h)).sizeCategory || 'กลาง';
-    }
-    return calculateTattooEstimate(widthCm, heightCm).sizeCategory || 'กลาง';
-  }, [selectedVariant, widthCm, heightCm]);
-
-  const latestStartTimeDecimal = useMemo(() => {
-    const STORE_CLOSING_HOURS = 23;
-    const STORE_CLOSING_MINUTES = 30;
-    const closingTimeDecimal = STORE_CLOSING_HOURS + (STORE_CLOSING_MINUTES / 60);
-    return getLatestPreferredStartTime(sizeCategory, closingTimeDecimal);
-  }, [sizeCategory]);
-
-  const timeOptions = useMemo(() => {
-    const options: string[] = [];
-    for (let h = 10; h <= 23; h++) {
-      if (h <= latestStartTimeDecimal) options.push(`${h}:00`);
-      if (h + 0.5 <= latestStartTimeDecimal) options.push(`${h}:30`);
-    }
-    return options;
-  }, [latestStartTimeDecimal]);
+  // Flash booking: time is customer preferred time only.
+  // Calendar (daily availability) controls whether a day is bookable.
+  // Once a day is valid, all 24 hourly slots are available — no per-slot filtering.
+  const timeOptions = Array.from({ length: 24 }, (_, h) => `${String(h).padStart(2, '0')}:00`);
 
   // Prices and Deposits
   const price = useMemo(() => {
@@ -611,13 +588,12 @@ export default function FlashBookingClient({
                   {/* Time Slots */}
                   <div className="space-y-2">
                     <h4 className="text-sm font-medium text-white">ช่วงเวลาที่สะดวก *</h4>
+                    <p className="text-[10px] text-[#737373]">เลือกเวลาที่คุณสะดวก</p>
 
                     {!selectedDate ? (
                       <p className="text-xs text-[#737373] py-1">กรุณาเลือกวันที่ก่อน</p>
                     ) : !isDateValid ? (
                       <p className="text-xs text-amber-500 py-1">วันที่เลือกไม่สามารถจองได้ กรุณาเลือกวันอื่น</p>
-                    ) : timeOptions.length === 0 ? (
-                      <p className="text-xs text-amber-500 py-1">ไม่มีเวลาว่างในวันนี้ กรุณาเลือกวันอื่น</p>
                     ) : (
                       <div className="max-h-36 overflow-y-auto pr-1">
                         <div className="grid grid-cols-3 gap-1.5">
