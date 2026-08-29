@@ -40,19 +40,7 @@ export default async function AppointmentsPage() {
       details: error?.details,
       hint: error?.hint,
     })
-
-    return (
-      <div className="p-8 bg-red-950/20 border border-red-500/30 rounded-xl max-w-2xl mx-auto my-12 text-[#FCA5A5] space-y-4">
-        <h2 className="text-xl font-semibold">Error Fetching Owner Appointments</h2>
-        <div className="text-sm font-mono space-y-2 bg-black/40 p-4 rounded border border-red-500/10">
-          <p><strong>Message:</strong> {error.message}</p>
-          <p><strong>Code:</strong> {error.code}</p>
-          <p><strong>Details:</strong> {error.details || 'none'}</p>
-          <p><strong>Hint:</strong> {error.hint || 'none'}</p>
-        </div>
-        <p className="text-xs text-neutral-400">Please copy and send this error output to the assistant.</p>
-      </div>
-    )
+    throw new Error('ไม่สามารถดึงข้อมูลคิวงานได้ กรุณาลองใหม่อีกครั้ง')
   }
 
   // Pre-sort appointments by start_at ascending (upcoming first)

@@ -77,13 +77,7 @@ export default async function OwnerBookingRequestsPage() {
         <div className="md:border border-red-500/20 rounded-xl bg-red-500/5 p-8 flex flex-col items-center justify-center text-center">
           <AlertCircle className="h-10 w-10 text-red-400 mb-4" />
           <h3 className="text-base font-medium text-[#F3F3F3] mb-2">ไม่สามารถโหลดคำขอจองได้</h3>
-          <p className="text-sm text-[#747C85] max-w-xs mb-4">เกิดความผิดพลาดในการดึงข้อมูลจากเซิร์ฟเวอร์</p>
-          <div className="text-left text-xs font-mono bg-black/40 p-4 rounded border border-red-500/10 mb-6 text-red-300 max-w-md w-full space-y-1">
-            <p><strong>Message:</strong> {error.message}</p>
-            <p><strong>Code:</strong> {error.code}</p>
-            <p><strong>Details:</strong> {error.details || 'none'}</p>
-            <p><strong>Hint:</strong> {error.hint || 'none'}</p>
-          </div>
+          <p className="text-sm text-[#747C85] max-w-xs mb-6">เกิดความผิดพลาดในการดึงข้อมูลจากเซิร์ฟเวอร์ กรุณาลองใหม่อีกครั้ง</p>
           <a
             href="/owner/booking-requests"
             className="px-5 py-2.5 text-xs font-medium text-black bg-[#FFFFFF] hover:bg-[#E5E5E5] border border-[#E5E5E5] rounded-md transition-all"
