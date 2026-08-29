@@ -23,16 +23,14 @@ export async function registerCustomer(formData: FormData) {
 
   const supabase = await createClient()
 
-  // 1. Resolve shop_id from slug
-  const { data: shop, error: shopErr } = await supabase
-    .from('shops')
-    .select('id')
-    .eq('slug', shopSlug)
-    .single()
+  // 1. Resolve shop_id from slug using public definer RPC
+  const { data: shopData, error: shopErr } = await supabase
+    .rpc('get_public_shop_by_slug', { p_slug: shopSlug })
 
-  if (shopErr || !shop) {
+  if (shopErr || !shopData || shopData.length === 0) {
     return { error: 'ไม่พบข้อมูลร้านสักในระบบ' }
   }
+  const shop = shopData[0]
 
   // 2. Perform Supabase signup
   const { data: signUpData, error: signUpErr } = await supabase.auth.signUp({

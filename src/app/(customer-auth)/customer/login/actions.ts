@@ -46,16 +46,14 @@ export async function loginCustomer(formData: FormData) {
     }
   }
 
-  // 3. Resolve shop_id
-  const { data: shop } = await supabase
-    .from('shops')
-    .select('id')
-    .eq('slug', shopSlug)
-    .single()
+  // 3. Resolve shop_id using public definer RPC
+  const { data: shopData, error: shopErr } = await supabase
+    .rpc('get_public_shop_by_slug', { p_slug: shopSlug })
 
-  if (!shop) {
+  if (shopErr || !shopData || shopData.length === 0) {
     return { error: 'ไม่พบข้อมูลร้านสักในระบบ' }
   }
+  const shop = shopData[0]
 
   // 4. Ensure customer record exists for this customer (without creating for Owner/Artist)
   const { data: customer } = await supabase
