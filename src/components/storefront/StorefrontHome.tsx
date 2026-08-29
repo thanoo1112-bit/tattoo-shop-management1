@@ -400,62 +400,9 @@ export default function StorefrontHome() {
 
             {/* Actions */}
             <div className="flex items-center gap-3">
-              {currentUser && !isStaff ? (
-                <div className="relative">
-                  <button 
-                    onClick={() => setAccountDropdownOpen(!accountDropdownOpen)}
-                    className="px-4 py-2 bg-[#171717] border border-[#404040] text-[#F5F5F5] hover:bg-[#262626] transition-colors rounded-md text-xs font-semibold cursor-pointer flex items-center gap-1.5"
-                  >
-                    <UserRound size={14} className="text-[#A3A3A3]" />
-                    <span>{customerName}</span>
-                    <span className="text-[10px] text-[#A3A3A3] ml-0.5">▼</span>
-                  </button>
-                  
-                  {accountDropdownOpen && (
-                    <>
-                      {/* Backdrop for closing dropdown */}
-                      <div className="fixed inset-0 z-40 cursor-default" onClick={() => setAccountDropdownOpen(false)} />
-                      <div className="absolute right-0 mt-1.5 w-48 bg-[#121212] border border-[#262626] rounded-md shadow-lg py-1 z-50 animate-in fade-in slide-in-from-top-1 duration-150">
-                        <div className="px-4 py-2 border-b border-[#262626] text-[10px] text-[#8A8A8A] uppercase tracking-wider font-bold">
-                          บัญชีลูกค้า
-                        </div>
-                        <a 
-                          href="/customer/bookings" 
-                          className="flex items-center gap-2 px-4 py-2 text-xs text-[#A3A3A3] hover:text-[#F5F5F5] hover:bg-[#1A1A1A] transition-colors"
-                          onClick={() => setAccountDropdownOpen(false)}
-                        >
-                          <CalendarCheck size={14} />
-                          การจองของฉัน
-                        </a>
-                        <a 
-                          href="/customer/profile" 
-                          className="flex items-center gap-2 px-4 py-2 text-xs text-[#A3A3A3] hover:text-[#F5F5F5] hover:bg-[#1A1A1A] transition-colors"
-                          onClick={() => setAccountDropdownOpen(false)}
-                        >
-                          <UserRound size={14} />
-                          โปรไฟล์ของฉัน
-                        </a>
-                        <button 
-                          onClick={() => {
-                            setAccountDropdownOpen(false)
-                            handleSignOut()
-                          }}
-                          className="w-full text-left flex items-center gap-2 px-4 py-2 text-xs text-red-400 hover:text-red-300 hover:bg-[#1A1A1A] transition-colors border-t border-[#262626]/60 mt-1"
-                        >
-                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                          </svg>
-                          ออกจากระบบ
-                        </button>
-                      </div>
-                    </>
-                  )}
-                </div>
-              ) : (
-                <a href={`/customer/login?shop=${slug}`} className="px-4 py-2 bg-[#171717] border border-[#404040] text-[#F5F5F5] hover:bg-[#262626] transition-colors rounded-md text-xs font-semibold cursor-pointer block text-center">
-                  เข้าสู่ระบบ
-                </a>
-              )}
+              <a href="/track" className="px-4 py-2 bg-[#171717] border border-[#404040] text-[#F5F5F5] hover:bg-[#262626] transition-colors rounded-md text-xs font-semibold cursor-pointer block text-center">
+                ติดตามสถานะ
+              </a>
               <a href={`/book/${slug}`} className="px-4 py-2 bg-[#FFFFFF] hover:bg-[#E5E5E5] text-black transition-colors rounded-md text-xs font-semibold cursor-pointer block text-center">
                 จองคิวสัก
               </a>
@@ -603,64 +550,14 @@ export default function StorefrontHome() {
             ติดต่อเรา
           </a>
 
-          {/* Customer Account Section in Mobile Drawer */}
-          {currentUser && !isStaff ? (
-            <div className="mt-auto border-t border-[#262626] pt-6 pb-4">
-              <div className="flex items-center gap-3 px-1 mb-4">
-                <div className="w-10 h-10 rounded-full bg-[#1F1F1F] border border-[#404040] flex items-center justify-center text-[#F5F5F5]">
-                  <UserRound size={18} />
-                </div>
-                <div>
-                  <div className="text-[14px] font-bold text-[#F5F5F5]">{customerName}</div>
-                  <div className="text-[10px] text-[#A3A3A3] tracking-wide uppercase">บัญชีลูกค้า</div>
-                </div>
-              </div>
-
-              <div className="flex flex-col gap-1 text-[13px] font-semibold text-[#A3A3A3] mb-6">
-                <a 
-                  href="/customer/bookings" 
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="h-10 flex items-center gap-2.5 px-1 hover:text-[#F5F5F5] transition-colors"
-                >
-                  <CalendarCheck size={16} />
-                  การจองของฉัน
-                </a>
-                <a 
-                  href="/customer/profile" 
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="h-10 flex items-center gap-2.5 px-1 hover:text-[#F5F5F5] transition-colors"
-                >
-                  <UserRound size={16} />
-                  โปรไฟล์ของฉัน
-                </a>
-                <button 
-                  onClick={() => {
-                    setMobileMenuOpen(false)
-                    handleSignOut()
-                  }}
-                  className="h-10 flex items-center gap-2.5 px-1 text-red-400 hover:text-red-300 transition-colors text-left w-full"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                  </svg>
-                  ออกจากระบบ
-                </button>
-              </div>
-
-              <a href={`/book/${slug}`} className="w-full py-2.5 bg-[#FFFFFF] text-black rounded-md text-xs font-bold text-center cursor-pointer hover:bg-[#E5E5E5] transition-colors block">
-                จองคิวสัก
-              </a>
-            </div>
-          ) : (
-            <div className="flex flex-col gap-3 pt-6 border-t border-[#262626]/60 mt-4">
-              <a href={`/customer/login?shop=${slug}`} className="w-full py-2.5 bg-[#171717] border border-[#404040] text-[#F5F5F5] rounded-md text-xs font-semibold text-center cursor-pointer hover:bg-[#262626] transition-colors block">
-                เข้าสู่ระบบ
-              </a>
-              <a href={`/book/${slug}`} className="w-full py-2.5 bg-[#FFFFFF] text-black rounded-md text-xs font-bold text-center cursor-pointer hover:bg-[#E5E5E5] transition-colors block">
-                จองคิวสัก
-              </a>
-            </div>
-          )}
+          <div className="flex flex-col gap-3 pt-6 border-t border-[#262626]/60 mt-4">
+            <a href="/track" className="w-full py-2.5 bg-[#171717] border border-[#404040] text-[#F5F5F5] rounded-md text-xs font-semibold text-center cursor-pointer hover:bg-[#262626] transition-colors block">
+              ติดตามสถานะ
+            </a>
+            <a href={`/book/${slug}`} className="w-full py-2.5 bg-[#FFFFFF] text-black rounded-md text-xs font-bold text-center cursor-pointer hover:bg-[#E5E5E5] transition-colors block">
+              จองคิวสัก
+            </a>
+          </div>
         </div>
       </div>
 

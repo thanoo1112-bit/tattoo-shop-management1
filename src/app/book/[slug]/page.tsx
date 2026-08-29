@@ -12,7 +12,6 @@ import BookingSuccessState from '@/components/booking/BookingSuccessState';
 import { BookingStateProvider } from '@/components/booking/BookingStateProvider';
 import BookingSummaryFlow from '@/components/booking/BookingSummaryFlow';
 import BookingStepGuard from '@/components/booking/BookingStepGuard';
-import { requireCustomer } from '@/lib/auth/customer';
 
 // Using Supabase directly without Auth
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -40,8 +39,6 @@ export default async function PublicBookingPage({ params, searchParams }: PagePr
   });
   const queryString = queryParams.toString();
   const returnToPath = `/book/${slug}${queryString ? `?${queryString}` : ''}`;
-
-  await requireCustomer(slug, returnToPath);
 
   const flashIdParam = resolvedSearchParams.flash_id as string;
   const holdIdParam = resolvedSearchParams.hold_id as string;
