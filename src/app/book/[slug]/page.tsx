@@ -12,6 +12,7 @@ import BookingSuccessState from '@/components/booking/BookingSuccessState';
 import { BookingStateProvider } from '@/components/booking/BookingStateProvider';
 import BookingSummaryFlow from '@/components/booking/BookingSummaryFlow';
 import BookingStepGuard from '@/components/booking/BookingStepGuard';
+import { requireCustomer } from '@/lib/auth/customer';
 
 // Using Supabase directly without Auth
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -29,6 +30,18 @@ export default async function PublicBookingPage({ params, searchParams }: PagePr
   // Await params and searchParams for Next.js App Router conventions
   const { slug } = await params;
   const resolvedSearchParams = await searchParams;
+
+  // Build the exact return path with query parameters
+  const queryParams = new URLSearchParams();
+  Object.entries(resolvedSearchParams).forEach(([key, val]) => {
+    if (val !== undefined) {
+      queryParams.set(key, Array.isArray(val) ? val[0] : val);
+    }
+  });
+  const queryString = queryParams.toString();
+  const returnToPath = `/book/${slug}${queryString ? `?${queryString}` : ''}`;
+
+  await requireCustomer(slug, returnToPath);
 
   const flashIdParam = resolvedSearchParams.flash_id as string;
   const holdIdParam = resolvedSearchParams.hold_id as string;

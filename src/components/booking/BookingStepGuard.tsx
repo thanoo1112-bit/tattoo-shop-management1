@@ -45,6 +45,29 @@ export default function BookingStepGuard({
       return;
     }
 
+    const loadCustomerData = async () => {
+      const supabaseClient = createClient();
+      const { data: { user } } = await supabaseClient.auth.getUser();
+      if (!user) return;
+      const { data: customer } = await supabaseClient
+        .from('customers')
+        .select('full_name, phone_normalized, email')
+        .eq('auth_user_id', user.id)
+        .maybeSingle();
+      if (customer) {
+        setFormData(prev => {
+          if (prev.fullName) return prev;
+          return {
+            ...prev,
+            fullName: customer.full_name,
+            phone: customer.phone_normalized,
+            email: customer.email || user.email || ''
+          };
+        });
+      }
+    };
+    loadCustomerData();
+
     let targetStep = currentStep;
 
     let newFormData = { ...formData };

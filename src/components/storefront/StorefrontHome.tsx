@@ -123,12 +123,35 @@ export default function StorefrontHome() {
     initData()
   }, [slug])
 
+  // Auto open flash modal if flash_id is in URL query parameters (e.g. after redirecting back from login)
+  useEffect(() => {
+    if (flashDesigns.length === 0) return;
+    const urlParams = new URLSearchParams(window.location.search);
+    const urlFlashId = urlParams.get('flash_id');
+    if (urlFlashId) {
+      const matched = flashDesigns.find(f => f.id === urlFlashId);
+      if (matched) {
+        // Prevent infinite redirect by clearing URL search parameters safely
+        const newUrl = window.location.pathname;
+        window.history.replaceState({}, '', newUrl);
+        openFlashModal(matched);
+      }
+    }
+  }, [flashDesigns]);
+
   const getFlashImageUrl = (path: string) => {
     const { data } = supabase.storage.from('flash-images').getPublicUrl(path)
     return data.publicUrl
   }
 
   const openFlashModal = async (flash: any) => {
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) {
+      const returnTo = `/shop/${slug}?flash_id=${flash.id}`
+      window.location.href = `/customer/login?shop=${slug}&returnTo=${encodeURIComponent(returnTo)}`
+      return
+    }
+
     setSelectedFlash(flash)
     setSelectedFlashVariants([])
     setSelectedVariantId(null)
@@ -144,7 +167,6 @@ export default function StorefrontHome() {
 
       if (!error && variants) {
         setSelectedFlashVariants(variants)
-        // Auto select first enabled variant if available
         if (variants.length > 0) {
           setSelectedVariantId(variants[0].id)
         }
@@ -155,6 +177,13 @@ export default function StorefrontHome() {
   }
 
   const handleBookFlash = async (flash: any) => {
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) {
+      const returnTo = `/shop/${slug}?flash_id=${flash.id}`
+      window.location.href = `/customer/login?shop=${slug}&returnTo=${encodeURIComponent(returnTo)}`
+      return
+    }
+
     if (selectedFlashVariants.length > 0 && !selectedVariantId) {
       setFlashHoldError('กรุณาเลือกขนาดที่ต้องการ')
       return
@@ -173,9 +202,7 @@ export default function StorefrontHome() {
         setFlashDesigns(prev => prev.filter(f => f.id !== flash.id))
         return
       }
-      // Remove from visible list immediately
       setFlashDesigns(prev => prev.filter(f => f.id !== flash.id))
-      // Navigate to book page with flash params
       const params = new URLSearchParams({
         flash_id: flash.id,
         hold_id: holdId,

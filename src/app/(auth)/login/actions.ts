@@ -33,7 +33,8 @@ export async function login(formData: FormData) {
   const membership = await getCurrentMembership()
   
   if (!membership) {
-    return { error: 'บัญชีนี้ไม่ได้เป็นสมาชิกของร้าน' }
+    // If not a shop member, redirect to customer storefront
+    redirect('/shop/157-tattoo')
   }
   
   if (membership.role === 'owner') {
