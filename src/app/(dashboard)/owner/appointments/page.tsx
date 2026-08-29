@@ -16,10 +16,10 @@ export default async function AppointmentsPage() {
       start_at,
       end_at,
       notes,
-      actual_started_at,
-      actual_ended_at,
       created_at,
       artist_id,
+      customer_id,
+      project_id,
       artist:profiles!appointments_artist_id_fkey(id, full_name, email),
       customer:customers(id, full_name, phone_normalized),
       project:tattoo_projects(
@@ -27,29 +27,32 @@ export default async function AppointmentsPage() {
         name,
         status,
         agreed_price,
-        tattoo_style,
-        payments(
-          id,
-          amount,
-          status,
-          payment_type
-        ),
-        booking_requests(
-          id,
-          payments(
-            id,
-            amount,
-            status,
-            payment_type
-          )
-        )
+        tattoo_style
       )
     `)
     .eq('shop_id', membership.shop_id)
+    .order('start_at', { ascending: true })
 
   if (error) {
-    console.error('Error fetching owner appointments:', error)
-    throw new Error('ไม่สามารถดึงข้อมูลคิวงานได้ กรุณาลองใหม่อีกครั้ง')
+    console.error('OWNER APPOINTMENTS ERROR', {
+      message: error?.message,
+      code: error?.code,
+      details: error?.details,
+      hint: error?.hint,
+    })
+
+    return (
+      <div className="p-8 bg-red-950/20 border border-red-500/30 rounded-xl max-w-2xl mx-auto my-12 text-[#FCA5A5] space-y-4">
+        <h2 className="text-xl font-semibold">Error Fetching Owner Appointments</h2>
+        <div className="text-sm font-mono space-y-2 bg-black/40 p-4 rounded border border-red-500/10">
+          <p><strong>Message:</strong> {error.message}</p>
+          <p><strong>Code:</strong> {error.code}</p>
+          <p><strong>Details:</strong> {error.details || 'none'}</p>
+          <p><strong>Hint:</strong> {error.hint || 'none'}</p>
+        </div>
+        <p className="text-xs text-neutral-400">Please copy and send this error output to the assistant.</p>
+      </div>
+    )
   }
 
   // Pre-sort appointments by start_at ascending (upcoming first)
