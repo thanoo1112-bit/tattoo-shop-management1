@@ -87,11 +87,15 @@ export async function registerCustomer(formData: FormData) {
     }
   }
 
-  // Redirect to returnTo path (if relative/internal) or storefront home
-  if (returnTo && returnTo.startsWith('/') && !returnTo.startsWith('//') && !/^(https?:)?\/\//i.test(returnTo)) {
-    redirect(returnTo)
-  } else {
-    redirect(`/shop/${shopSlug}`)
-  }
+  // Enforce safe internal relative paths only, fallback to shop storefront
+  const isSafeReturnTo = returnTo && 
+                         returnTo.startsWith('/') && 
+                         !returnTo.startsWith('//') && 
+                         !/^(https?:)?\/\//i.test(returnTo)
+
+  const destination = isSafeReturnTo ? returnTo : `/shop/${shopSlug}`
+  
+  console.log(`[registerCustomer] Redirecting to destination: ${destination} (returnTo: ${returnTo}, safe: ${isSafeReturnTo})`)
+  redirect(destination)
 }
 
