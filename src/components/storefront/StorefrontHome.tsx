@@ -452,8 +452,8 @@ export default function StorefrontHome() {
                   )}
                 </div>
               ) : (
-                <a href="/track" className="px-4 py-2 bg-[#171717] border border-[#404040] text-[#F5F5F5] hover:bg-[#262626] transition-colors rounded-md text-xs font-semibold cursor-pointer block text-center">
-                  ติดตามสถานะ
+                <a href={`/customer/login?shop=${slug}`} className="px-4 py-2 bg-[#171717] border border-[#404040] text-[#F5F5F5] hover:bg-[#262626] transition-colors rounded-md text-xs font-semibold cursor-pointer block text-center">
+                  เข้าสู่ระบบ
                 </a>
               )}
               <a href={`/book/${slug}`} className="px-4 py-2 bg-[#FFFFFF] hover:bg-[#E5E5E5] text-black transition-colors rounded-md text-xs font-semibold cursor-pointer block text-center">
@@ -653,8 +653,8 @@ export default function StorefrontHome() {
             </div>
           ) : (
             <div className="flex flex-col gap-3 pt-6 border-t border-[#262626]/60 mt-4">
-              <a href="/track" className="w-full py-2.5 bg-[#171717] border border-[#404040] text-[#F5F5F5] rounded-md text-xs font-semibold text-center cursor-pointer hover:bg-[#262626] transition-colors block">
-                ติดตามสถานะ
+              <a href={`/customer/login?shop=${slug}`} className="w-full py-2.5 bg-[#171717] border border-[#404040] text-[#F5F5F5] rounded-md text-xs font-semibold text-center cursor-pointer hover:bg-[#262626] transition-colors block">
+                เข้าสู่ระบบ
               </a>
               <a href={`/book/${slug}`} className="w-full py-2.5 bg-[#FFFFFF] text-black rounded-md text-xs font-bold text-center cursor-pointer hover:bg-[#E5E5E5] transition-colors block">
                 จองคิวสัก
