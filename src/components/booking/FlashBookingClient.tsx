@@ -321,7 +321,17 @@ export default function FlashBookingClient({
       });
 
       if (sessionError || !sessionData || sessionData.length === 0) {
-        console.error('create_public_booking_upload_session failed', sessionError);
+        console.error(
+          'create_public_booking_upload_session failed',
+          {
+            error: sessionError,
+            message: sessionError?.message,
+            code: sessionError?.code,
+            details: sessionError?.details,
+            hint: sessionError?.hint,
+            sessionData
+          }
+        );
         throw new Error(sessionError?.message || 'ไม่สามารถจองคิวสักนี้ได้ในขณะนี้');
       }
 
