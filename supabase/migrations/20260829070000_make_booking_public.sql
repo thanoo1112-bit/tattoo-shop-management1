@@ -248,17 +248,16 @@ BEGIN
     IF v_existing.id IS NOT NULL THEN
         v_customer_id := v_existing.id;
         
-        -- Safely update name/email, and link to v_uid if it was NULL and user is logged in
+        -- Safely update name/email, but DO NOT modify auth_user_id
         UPDATE public.customers SET
             full_name = COALESCE(NULLIF(btrim(p_full_name), ''), full_name),
             email = COALESCE(v_email_val, email),
-            auth_user_id = COALESCE(auth_user_id, v_uid),
             updated_at = now()
         WHERE id = v_customer_id;
     ELSE
-        -- No existing record -> create a new one
+        -- No existing record -> create a new guest profile with auth_user_id = NULL
         INSERT INTO public.customers (shop_id, auth_user_id, full_name, phone_normalized, email, source)
-        VALUES (v_session.shop_id, v_uid, btrim(p_full_name), v_phone_norm, v_email_val, 'online')
+        VALUES (v_session.shop_id, NULL, btrim(p_full_name), v_phone_norm, v_email_val, 'online')
         RETURNING id INTO v_customer_id;
     END IF;
 
