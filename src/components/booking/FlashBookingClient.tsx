@@ -850,7 +850,7 @@ export default function FlashBookingClient({
           <button
             type="button"
             onClick={() => setShowCancelConfirm(true)}
-            className="w-full sm:w-auto py-3 px-6 border border-[#262626] text-[#737373] hover:text-white hover:bg-[#171717] text-sm rounded-xl transition-all active:scale-[0.98]"
+            className="w-full sm:w-auto py-3 px-6 bg-[#2A0D0D] border border-[#B83232] text-[#FF5A5A] hover:bg-[#3F1414] hover:text-[#FFA3A3] focus:ring-1 focus:ring-[#B83232]/50 focus:outline-none text-sm rounded-xl transition-all active:scale-[0.98]"
           >
             ยกเลิกการจอง
           </button>
