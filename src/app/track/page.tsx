@@ -32,6 +32,7 @@ interface BookingData {
   flash_code: string | null
   flash_style: string | null
   agreed_price: number | null
+  shop_slug: string
 }
 
 function TrackingForm() {
@@ -45,6 +46,8 @@ function TrackingForm() {
   const [searched, setSearched] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
+
+  const activeShopSlug = selectedBooking?.shop_slug || bookings[0]?.shop_slug || searchParams.get('shop') || searchParams.get('slug') || '157-tattoo'
 
   const supabase = createClient()
 
@@ -149,11 +152,11 @@ function TrackingForm() {
     <div className="min-h-screen bg-[#0A0A0A] text-[#F3F3F3] pb-16">
       {/* Header Bar */}
       <header className="h-16 border-b border-[#262626] bg-[#0A0A0A]/85 backdrop-blur-sm px-4 md:px-8 flex items-center justify-between sticky top-0 z-50">
-        <a href="/" className="flex items-center gap-2 hover:opacity-85 transition-opacity">
+        <a href={`/shop/${activeShopSlug}`} className="flex items-center gap-2 hover:opacity-85 transition-opacity">
           <BrandLogo />
         </a>
         <a 
-          href="/" 
+          href={`/shop/${activeShopSlug}`}
           className="text-xs text-[#9CA3AB] hover:text-[#FFFFFF] transition-colors font-medium border border-[#262626] rounded-md px-3 py-1.5 bg-[#171717]"
         >
           กลับหน้าร้าน
