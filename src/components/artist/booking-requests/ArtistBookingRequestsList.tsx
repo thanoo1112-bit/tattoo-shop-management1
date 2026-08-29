@@ -262,7 +262,7 @@ export default function ArtistBookingRequestsList({ initialRequests, isOwnerView
           confirmed_start_at,
           confirmed_end_at,
           flash_design_id,
-          flash_designs (
+          flash_designs!booking_requests_flash_design_id_fkey (
             id,
             flash_code,
             image_path,

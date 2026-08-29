@@ -55,7 +55,7 @@ export default async function OwnerBookingRequestsPage() {
           id
         )
       ),
-      flash_designs (
+      flash_designs!booking_requests_flash_design_id_fkey (
         id,
         flash_code,
         image_path,
