@@ -190,7 +190,7 @@ export default function ArtistSelectionList({ artists, shopSlug, initialArtistId
                   aria-selected={isSelected}
                   className={`group flex items-center p-4 md:p-5 min-h-[88px] md:min-h-[104px] rounded-2xl border transition-all duration-200 active:scale-[0.98] ${isSelected ? 'border-[#F5F5F5] bg-[#171717]' : 'border-[#262626] bg-[#121212] hover:bg-[#1a1a1a] hover:border-[#404040]'}`}
                 >
-                  <div className="w-[48px] h-[48px] md:w-[56px] md:h-[56px] rounded-full overflow-hidden bg-[#121212] flex-shrink-0 border border-[#262626] relative self-start mt-0.5">
+                  <div className="w-[72px] h-[72px] rounded-[12px] overflow-hidden bg-[#121212] flex-shrink-0 border border-[#262626] relative self-start mt-0.5">
                     {artist.avatar_url ? (
                       <Image 
                         src={artist.avatar_url} 
@@ -253,7 +253,7 @@ export default function ArtistSelectionList({ artists, shopSlug, initialArtistId
               if (!sa) return null;
               return (
                 <div className="flex items-start gap-3 md:gap-3.5 min-w-0">
-                  <div className="w-[44px] h-[44px] md:w-[56px] md:h-[56px] rounded-full overflow-hidden bg-[#171717] border border-[#262626] relative flex-shrink-0 mt-0.5">
+                  <div className="w-[72px] h-[72px] rounded-[12px] overflow-hidden bg-[#171717] border border-[#262626] relative flex-shrink-0 mt-0.5">
                     {sa.avatar_url ? (
                       <Image src={sa.avatar_url} alt={sa.display_name} fill className="object-cover" />
                     ) : (

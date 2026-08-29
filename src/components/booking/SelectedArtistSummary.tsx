@@ -14,7 +14,7 @@ export default function SelectedArtistSummary({ artist, shopSlug }: SelectedArti
   return (
     <div className="flex flex-row items-center justify-between gap-2 sm:gap-4 mb-6 md:mb-8 border-b border-[#262626] pb-6">
       <div className="flex items-center min-w-0">
-        <div className="w-[40px] h-[40px] sm:w-[48px] sm:h-[48px] rounded-full overflow-hidden bg-[#121212] border border-[#262626] flex-shrink-0 relative">
+        <div className="w-[72px] h-[72px] rounded-[12px] overflow-hidden bg-[#121212] border border-[#262626] flex-shrink-0 relative">
           {artist.avatar_url ? (
             <Image 
               src={artist.avatar_url} 

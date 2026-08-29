@@ -16,7 +16,7 @@ export default function ArtistCard({ artist, shopSlug }: { artist: Artist, shopS
       href={href}
       className="group flex items-center p-4 md:p-5 h-[100px] md:h-[120px] rounded-2xl border border-[#262626] bg-[#121212] hover:bg-[#1a1a1a] transition-all duration-200 active:scale-[0.98]"
     >
-      <div className="w-[56px] h-[56px] md:w-[64px] md:h-[64px] rounded-full overflow-hidden bg-[#121212] flex-shrink-0 border border-[#262626] relative">
+      <div className="w-[72px] h-[72px] rounded-[12px] overflow-hidden bg-[#121212] flex-shrink-0 border border-[#262626] relative">
         {artist.avatar_url ? (
           <Image 
             src={artist.avatar_url} 
