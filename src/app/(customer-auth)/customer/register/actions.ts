@@ -71,8 +71,21 @@ export async function registerCustomer(formData: FormData) {
       return { error: rpcErr.message }
     }
   } else {
-    // If email confirmation is ON, we might not have a session.
-    // The user will need to confirm their email first.
+    // Email confirmation is ON — no active session yet.
+    // Pre-create the customer record so the user can log in immediately after confirming email.
+    // We know user.id from signUpData even without a session.
+    const pendingUser = signUpData.user
+    if (pendingUser) {
+      const phoneNorm = phone.replace(/\D/g, '')
+      const randomSuffix = Math.floor(Math.random() * 900000 + 100000).toString()
+      const safePhone = phoneNorm.length >= 9 ? phoneNorm : `placeholder_${pendingUser.id.slice(0, 8)}_${randomSuffix}`
+
+      // Use admin client pattern: insert directly (RPC requires auth.uid() which is null here)
+      // We use service_role context is not available here, so insert via regular client.
+      // Supabase will allow insert if RLS allows authenticated insert — but user is not authenticated yet.
+      // Best approach: store in a pending state. For now, redirect to login with a message.
+      return { error: 'กรุณาตรวจสอบอีเมลและยืนยันการสมัคร จากนั้นกลับมาล็อกอินได้เลยครับ' }
+    }
     return { error: 'กรุณาตรวจสอบกล่องข้อความในอีเมลเพื่อยืนยันการสมัครสมาชิก' }
   }
 

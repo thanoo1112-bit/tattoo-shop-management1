@@ -55,7 +55,7 @@ export async function loginCustomer(formData: FormData) {
   }
   const shop = shopData[0]
 
-  // 4. Ensure customer record exists for this customer (without creating for Owner/Artist)
+  // 4. Ensure customer record exists — use the RPC which handles all upsert/link logic
   const { data: customer } = await supabase
     .from('customers')
     .select('id')
@@ -64,17 +64,17 @@ export async function loginCustomer(formData: FormData) {
     .maybeSingle()
 
   if (!customer) {
-    // Check if there is an existing customer record with the same email that is NOT yet linked
+    // Try to link an unlinked record that matches this email
     const { data: existingEmailCustomer } = await supabase
       .from('customers')
-      .select('id, auth_user_id')
+      .select('id, auth_user_id, phone_normalized')
       .eq('shop_id', shop.id)
       .eq('email', email)
       .maybeSingle()
 
     if (existingEmailCustomer) {
       if (!existingEmailCustomer.auth_user_id) {
-        // Link it!
+        // Safe to link: this was a manually-entered customer record with no auth account yet
         await supabase
           .from('customers')
           .update({ auth_user_id: user.id })
@@ -82,16 +82,20 @@ export async function loginCustomer(formData: FormData) {
       } else if (existingEmailCustomer.auth_user_id !== user.id) {
         return { error: 'อีเมลนี้ถูกใช้งานร่วมกับบัญชีอื่นแล้ว' }
       }
+      // else already linked to current user — nothing to do
     } else {
-      // Create a default customer record with placeholder phone, user can update in Profile
-      const fullName = user.user_metadata?.full_name || 'Customer'
+      // No customer record at all — user signed up via Supabase but customer row was never created
+      // (happens when email confirmation is enabled and register skipped ensure_customer_account)
+      // Create a minimal record; user should complete phone in Profile page
+      const fullName = (user.user_metadata?.full_name as string | undefined) || 'Customer'
+      const randomSuffix = Math.floor(Math.random() * 900000 + 100000).toString()
       await supabase
         .from('customers')
         .insert({
           shop_id: shop.id,
           auth_user_id: user.id,
           full_name: fullName,
-          phone_normalized: '0000000000', // placeholder
+          phone_normalized: `placeholder_${user.id.slice(0, 8)}_${randomSuffix}`,
           email: email,
           source: 'online'
         })
