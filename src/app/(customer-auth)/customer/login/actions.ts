@@ -55,7 +55,7 @@ export async function loginCustomer(formData: FormData) {
   }
   const shop = shopData[0]
 
-  // 4. Ensure customer record exists — use the RPC which handles all upsert/link logic
+  // 4. Check for existing customer record linked to this auth user
   const { data: customer } = await supabase
     .from('customers')
     .select('id')
@@ -64,17 +64,18 @@ export async function loginCustomer(formData: FormData) {
     .maybeSingle()
 
   if (!customer) {
-    // Try to link an unlinked record that matches this email
+    // No customer row linked to this auth_user_id yet.
+    // Try to link an existing unlinked record with the same email first.
     const { data: existingEmailCustomer } = await supabase
       .from('customers')
-      .select('id, auth_user_id, phone_normalized')
+      .select('id, auth_user_id')
       .eq('shop_id', shop.id)
       .eq('email', email)
       .maybeSingle()
 
     if (existingEmailCustomer) {
       if (!existingEmailCustomer.auth_user_id) {
-        // Safe to link: this was a manually-entered customer record with no auth account yet
+        // Safe to link: manually-entered record with no auth account yet
         await supabase
           .from('customers')
           .update({ auth_user_id: user.id })
@@ -82,23 +83,61 @@ export async function loginCustomer(formData: FormData) {
       } else if (existingEmailCustomer.auth_user_id !== user.id) {
         return { error: 'อีเมลนี้ถูกใช้งานร่วมกับบัญชีอื่นแล้ว' }
       }
-      // else already linked to current user — nothing to do
+      // else: already linked to this user — nothing to do
     } else {
-      // No customer record at all — user signed up via Supabase but customer row was never created
-      // (happens when email confirmation is enabled and register skipped ensure_customer_account)
-      // Create a minimal record; user should complete phone in Profile page
-      const fullName = (user.user_metadata?.full_name as string | undefined) || 'Customer'
-      const randomSuffix = Math.floor(Math.random() * 900000 + 100000).toString()
-      await supabase
+      // No customer record at all.
+      // This happens when email confirmation is ON and register couldn't call ensure_customer_account.
+      // Read real full_name and phone from user_metadata (saved during signUp).
+      const metaFullName = (user.user_metadata?.full_name as string | undefined)?.trim() || ''
+      const metaPhone = (user.user_metadata?.phone as string | undefined)?.trim() || ''
+
+      if (!metaPhone || metaPhone.replace(/\D/g, '').length < 9) {
+        // user_metadata has no valid phone — cannot create customer record safely
+        return { error: 'ไม่พบข้อมูลเบอร์โทรในบัญชีของคุณ กรุณาติดต่อร้านเพื่อเชื่อมข้อมูล' }
+      }
+
+      const phoneNorm = metaPhone.replace(/\D/g, '')
+
+      // Check if this phone is already taken by a different customer in this shop
+      const { data: phoneConflict } = await supabase
         .from('customers')
-        .insert({
-          shop_id: shop.id,
-          auth_user_id: user.id,
-          full_name: fullName,
-          phone_normalized: `placeholder_${user.id.slice(0, 8)}_${randomSuffix}`,
-          email: email,
-          source: 'online'
-        })
+        .select('id, auth_user_id')
+        .eq('shop_id', shop.id)
+        .eq('phone_normalized', phoneNorm)
+        .maybeSingle()
+
+      if (phoneConflict) {
+        if (!phoneConflict.auth_user_id) {
+          // Unlinked record — link it (and update name/email if needed)
+          await supabase
+            .from('customers')
+            .update({ auth_user_id: user.id, full_name: metaFullName || undefined, email: email })
+            .eq('id', phoneConflict.id)
+        } else if (phoneConflict.auth_user_id !== user.id) {
+          // Phone belongs to a different auth user — block to prevent history takeover
+          return { error: 'เบอร์โทรศัพท์นี้มีข้อมูลอยู่ในระบบแล้ว กรุณาติดต่อร้าน' }
+        }
+        // else: already linked to this user — nothing to do
+      } else {
+        // Create a new customer record with real data from user_metadata
+        const { error: insertErr } = await supabase
+          .from('customers')
+          .insert({
+            shop_id: shop.id,
+            auth_user_id: user.id,
+            full_name: metaFullName || 'Customer',
+            phone_normalized: phoneNorm,
+            email: email,
+            source: 'online'
+          })
+
+        if (insertErr) {
+          if (insertErr.message.includes('unique') || insertErr.code === '23505') {
+            return { error: 'เบอร์โทรศัพท์นี้มีข้อมูลอยู่ในระบบแล้ว กรุณาติดต่อร้าน' }
+          }
+          return { error: 'ไม่สามารถสร้างข้อมูลลูกค้าได้ กรุณาลองใหม่อีกครั้ง' }
+        }
+      }
     }
   }
 

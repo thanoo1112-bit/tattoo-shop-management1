@@ -10,7 +10,6 @@ export async function registerCustomer(formData: FormData) {
   const password = formData.get('password') as string
   const confirmPassword = formData.get('confirmPassword') as string
   const shopSlug = (formData.get('shopSlug') as string || '157-tattoo').trim()
-
   const returnTo = (formData.get('returnTo') as string || '').trim()
 
   if (!fullName || !phone || !email || !password) {
@@ -21,9 +20,15 @@ export async function registerCustomer(formData: FormData) {
     return { error: 'รหัสผ่านไม่ตรงกัน' }
   }
 
+  // Validate phone: must have at least 9 digits after stripping non-digits
+  const phoneNorm = phone.replace(/\D/g, '')
+  if (phoneNorm.length < 9) {
+    return { error: 'กรุณากรอกเบอร์โทรศัพท์ให้ถูกต้อง (อย่างน้อย 9 หลัก)' }
+  }
+
   const supabase = await createClient()
 
-  // 1. Resolve shop_id from slug using public definer RPC
+  // 1. Resolve shop_id from slug using public SECURITY DEFINER RPC (bypasses RLS for anon)
   const { data: shopData, error: shopErr } = await supabase
     .rpc('get_public_shop_by_slug', { p_slug: shopSlug })
 
@@ -32,32 +37,34 @@ export async function registerCustomer(formData: FormData) {
   }
   const shop = shopData[0]
 
-  // 2. Perform Supabase signup
+  // 2. Perform Supabase signup — store full_name AND phone in user_metadata
+  //    so they survive email confirmation and are available during first login.
   const { data: signUpData, error: signUpErr } = await supabase.auth.signUp({
     email,
     password,
     options: {
       data: {
         full_name: fullName,
+        phone: phoneNorm,  // normalised digits-only phone
       }
     }
   })
 
   if (signUpErr) {
-    if (signUpErr.message.includes('already registered')) {
+    if (signUpErr.message.toLowerCase().includes('already registered') ||
+        signUpErr.message.toLowerCase().includes('user already registered')) {
       return { error: 'อีเมลนี้ถูกใช้งานแล้ว' }
     }
     return { error: signUpErr.message }
   }
 
-  // 3. Ensure the customer record is created/linked using RPC ensure_customer_account
-  // Since signup signs in the user automatically (or if email confirmation is off), auth.uid() will be available.
-  // Wait! If email confirmation is ON, supabase.auth.signUp() does NOT sign the user in.
-  // Let's check if the session is present.
+  // 3. Check if we have a session (email confirmation OFF) or not (email confirmation ON)
   const { data: { session } } = await supabase.auth.getSession()
-  
+
   if (session) {
-    const { data: customerId, error: rpcErr } = await supabase.rpc('ensure_customer_account', {
+    // Email confirmation is OFF — user is signed in immediately.
+    // Call ensure_customer_account to create/link the customer record with real phone & name.
+    const { error: rpcErr } = await supabase.rpc('ensure_customer_account', {
       p_shop_id: shop.id,
       p_full_name: fullName,
       p_phone: phone,
@@ -65,28 +72,19 @@ export async function registerCustomer(formData: FormData) {
     })
 
     if (rpcErr) {
-      if (rpcErr.message.includes('already associated') || rpcErr.message.includes('already registered')) {
-        return { error: 'เบอร์โทรศัพท์นี้ถูกใช้งานในระบบแล้ว กรุณาติดต่อช่างสักเพื่อยืนยันตัวตน' }
+      if (rpcErr.message.includes('already associated') ||
+          rpcErr.message.includes('Phone number is already associated')) {
+        return { error: 'เบอร์โทรศัพท์นี้มีข้อมูลอยู่ในระบบแล้ว กรุณาติดต่อร้าน' }
       }
       return { error: rpcErr.message }
     }
   } else {
-    // Email confirmation is ON — no active session yet.
-    // Pre-create the customer record so the user can log in immediately after confirming email.
-    // We know user.id from signUpData even without a session.
-    const pendingUser = signUpData.user
-    if (pendingUser) {
-      const phoneNorm = phone.replace(/\D/g, '')
-      const randomSuffix = Math.floor(Math.random() * 900000 + 100000).toString()
-      const safePhone = phoneNorm.length >= 9 ? phoneNorm : `placeholder_${pendingUser.id.slice(0, 8)}_${randomSuffix}`
-
-      // Use admin client pattern: insert directly (RPC requires auth.uid() which is null here)
-      // We use service_role context is not available here, so insert via regular client.
-      // Supabase will allow insert if RLS allows authenticated insert — but user is not authenticated yet.
-      // Best approach: store in a pending state. For now, redirect to login with a message.
-      return { error: 'กรุณาตรวจสอบอีเมลและยืนยันการสมัคร จากนั้นกลับมาล็อกอินได้เลยครับ' }
+    // Email confirmation is ON — no session yet.
+    // full_name and phone are already saved in user_metadata above.
+    // loginCustomer will read these on first login and create the real customer record.
+    return {
+      error: 'กรุณาตรวจสอบอีเมลของคุณและยืนยันการสมัคร จากนั้นกลับมาล็อกอินได้เลยครับ'
     }
-    return { error: 'กรุณาตรวจสอบกล่องข้อความในอีเมลเพื่อยืนยันการสมัครสมาชิก' }
   }
 
   // Redirect to returnTo path (if relative/internal) or storefront home
@@ -96,3 +94,4 @@ export async function registerCustomer(formData: FormData) {
     redirect(`/shop/${shopSlug}`)
   }
 }
+
