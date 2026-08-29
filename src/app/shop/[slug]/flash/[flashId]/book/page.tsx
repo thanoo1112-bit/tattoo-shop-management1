@@ -36,16 +36,31 @@ export default async function FlashBookingPageRoute({ params, searchParams }: Pa
     notFound();
   }
 
-  // 3. Fetch Artist Profile
-  const { data: artist } = await supabase
-    .from('profiles')
-    .select('id, full_name, avatar_url')
-    .eq('id', flash.artist_id)
-    .maybeSingle();
+  // 3. Fetch Artist Profile and work settings via public secure RPC
+  const { data: artistDataRaw } = await supabase.rpc('get_public_artist_by_id', {
+    p_shop_id: shop.id,
+    p_artist_id: flash.artist_id
+  });
 
-  if (!artist) {
+  if (!artistDataRaw || artistDataRaw.length === 0) {
     notFound();
   }
+  const artistData = artistDataRaw[0] as {
+    id: string;
+    full_name: string;
+    avatar_url: string;
+    accepts_color: boolean;
+    accepts_black_grey: boolean;
+  };
+
+  const artist = {
+    id: artistData.id,
+    full_name: artistData.full_name,
+    avatar_url: artistData.avatar_url
+  };
+
+  const acceptsColor = artistData.accepts_color;
+  const acceptsBlackGrey = artistData.accepts_black_grey;
 
   // 4. Fetch Style details
   const { data: style } = await supabase
@@ -70,17 +85,6 @@ export default async function FlashBookingPageRoute({ params, searchParams }: Pa
     .select('*')
     .eq('shop_id', shop.id)
     .maybeSingle();
-
-  // 7. Fetch Artist work settings (accepts_color, accepts_black_grey, etc.)
-  const { data: memberSettings } = await supabase
-    .from('shop_members')
-    .select('accepts_black_grey, accepts_color')
-    .eq('shop_id', shop.id)
-    .eq('user_id', artist.id)
-    .maybeSingle();
-
-  const acceptsColor = memberSettings ? memberSettings.accepts_color : true;
-  const acceptsBlackGrey = memberSettings ? memberSettings.accepts_black_grey : true;
 
 
   return (
