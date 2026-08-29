@@ -366,6 +366,11 @@ export default function FlashBookingClient({
       }
 
       // Success
+      if (flashBookingMode === 'fixed_price') {
+        router.replace(`/payment/${publicToken}`);
+        return;
+      }
+
       setSuccessData({
         flashCode: flash.flash_code,
         artistName: artist.display_name,

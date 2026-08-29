@@ -127,7 +127,7 @@ function TrackingForm() {
       case 'pending':
         return { text: 'ยังไม่ชำระเงิน', color: 'text-neutral-400' }
       case 'verification_pending':
-        return { text: 'รอการตรวจสอบสลิป', color: 'text-amber-400' }
+        return { text: 'รอตรวจสอบการชำระเงิน', color: 'text-amber-400' }
       case 'paid':
         return { text: 'ชำระเงินมัดจำสำเร็จ', color: 'text-green-400 font-semibold' }
       case 'failed':
