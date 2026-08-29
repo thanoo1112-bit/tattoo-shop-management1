@@ -28,6 +28,10 @@ interface BookingData {
   deposit_amount: number | null
   deposit_status: string | null
   public_token: string
+  flash_design_id: string | null
+  flash_code: string | null
+  flash_style: string | null
+  agreed_price: number | null
 }
 
 function TrackingForm() {
@@ -320,24 +324,54 @@ function TrackingForm() {
                       รายละเอียดงานสัก
                     </h3>
                     <div className="space-y-3">
-                      <div className="flex items-start gap-3">
-                        <Scissors size={16} className="text-[#A3A3A3] shrink-0 mt-0.5" />
-                        <div>
-                          <div className="text-[11px] text-[#737373]">ข้อมูลงาน / ลายสัก</div>
-                          <div className="text-sm font-semibold">
-                            {selectedBooking.project_name} 
-                            {selectedBooking.tattoo_style && ` (${selectedBooking.tattoo_style})`}
+                      {selectedBooking.flash_design_id ? (
+                        <>
+                          <div className="flex items-start gap-3">
+                            <Scissors size={16} className="text-[#A3A3A3] shrink-0 mt-0.5" />
+                            <div>
+                              <div className="text-[11px] text-[#737373]">งาน Flash</div>
+                              <div className="text-sm font-semibold">{selectedBooking.flash_code}</div>
+                            </div>
                           </div>
-                          <div className="text-[11px] text-[#A3A3A3] mt-0.5">
-                            โทนสี: {selectedBooking.color_mode === 'color' ? 'สี' : 'ขาวดำ'} | ตำแหน่ง: {selectedBooking.body_placement}
+
+                          {selectedBooking.flash_style && (
+                            <div className="flex items-start gap-3">
+                              <div className="w-4 shrink-0" />
+                              <div>
+                                <div className="text-[11px] text-[#737373]">สไตล์</div>
+                                <div className="text-sm font-semibold">{selectedBooking.flash_style}</div>
+                              </div>
+                            </div>
+                          )}
+
+                          <div className="flex items-start gap-3">
+                            <div className="w-4 shrink-0" />
+                            <div>
+                              <div className="text-[11px] text-[#737373]">ตำแหน่ง</div>
+                              <div className="text-sm font-semibold">{selectedBooking.body_placement || '-'}</div>
+                            </div>
+                          </div>
+                        </>
+                      ) : (
+                        <div className="flex items-start gap-3">
+                          <Scissors size={16} className="text-[#A3A3A3] shrink-0 mt-0.5" />
+                          <div>
+                            <div className="text-[11px] text-[#737373]">ข้อมูลงาน / ลายสัก</div>
+                            <div className="text-sm font-semibold">
+                              {selectedBooking.project_name} 
+                              {selectedBooking.tattoo_style && ` (${selectedBooking.tattoo_style})`}
+                            </div>
+                            <div className="text-[11px] text-[#A3A3A3] mt-0.5">
+                              โทนสี: {selectedBooking.color_mode === 'color' ? 'สี' : 'ขาวดำ'} | ตำแหน่ง: {selectedBooking.body_placement}
+                            </div>
                           </div>
                         </div>
-                      </div>
+                      )}
 
                       <div className="flex items-start gap-3">
                         <Clock size={16} className="text-[#A3A3A3] shrink-0 mt-0.5" />
                         <div>
-                          <div className="text-[11px] text-[#737373]">ขนาดประมาณ</div>
+                          <div className="text-[11px] text-[#737373]">ขนาดงาน</div>
                           <div className="text-sm font-semibold">
                             {selectedBooking.width_cm && selectedBooking.height_cm 
                               ? `${selectedBooking.width_cm} × ${selectedBooking.height_cm} ซม.`
@@ -356,24 +390,38 @@ function TrackingForm() {
                     ข้อมูลมัดจำและการชำระเงิน
                   </h3>
 
-                  <div className="bg-[#202020] rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                    <div className="flex items-center gap-3">
-                      <CreditCard size={20} className="text-[#A3A3A3] shrink-0" />
-                      <div>
-                        <div className="text-xs text-[#737373]">จำนวนเงินมัดจำ</div>
-                        <div className="text-base font-bold text-[#FFFFFF]">
-                          {selectedBooking.deposit_amount 
-                            ? `${selectedBooking.deposit_amount.toLocaleString('th-TH')} บาท`
-                            : 'รอแจ้งราคา'}
+                  <div className="bg-[#202020] rounded-xl p-4 space-y-3.5">
+                    {selectedBooking.flash_design_id && selectedBooking.agreed_price !== null && (
+                      <div className="flex items-center gap-3">
+                        <Scissors size={18} className="text-[#A3A3A3] shrink-0" />
+                        <div>
+                          <div className="text-xs text-[#737373]">ราคางานสัก</div>
+                          <div className="text-base font-bold text-[#FFFFFF]">
+                            ฿{selectedBooking.agreed_price.toLocaleString('th-TH')}
+                          </div>
                         </div>
                       </div>
-                    </div>
+                    )}
 
-                    <div className="flex flex-col sm:items-end">
-                      <div className="text-xs text-[#737373]">สถานะการชำระเงิน</div>
-                      <span className={`text-sm ${mapPaymentStatus(selectedBooking.deposit_status).color}`}>
-                        {mapPaymentStatus(selectedBooking.deposit_status).text}
-                      </span>
+                    <div className={`flex flex-col sm:flex-row sm:items-center justify-between gap-4 ${selectedBooking.flash_design_id ? 'border-t border-[#262626] pt-3.5' : ''}`}>
+                      <div className="flex items-center gap-3">
+                        <CreditCard size={18} className="text-[#A3A3A3] shrink-0" />
+                        <div>
+                          <div className="text-xs text-[#737373]">ยอดมัดจำ</div>
+                          <div className="text-base font-bold text-[#FFFFFF]">
+                            {selectedBooking.deposit_amount !== null
+                              ? `฿${selectedBooking.deposit_amount.toLocaleString('th-TH')}`
+                              : 'รอแจ้งราคา'}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex flex-col sm:items-end">
+                        <div className="text-xs text-[#737373]">สถานะการชำระเงิน</div>
+                        <span className={`text-sm ${mapPaymentStatus(selectedBooking.deposit_status).color}`}>
+                          {mapPaymentStatus(selectedBooking.deposit_status).text}
+                        </span>
+                      </div>
                     </div>
                   </div>
 
