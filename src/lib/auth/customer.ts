@@ -19,23 +19,13 @@ export async function getCurrentCustomer(shopSlug?: string) {
   const supabase = await createClient()
 
   let shopId: string | null = null
+  const resolvedSlug = shopSlug || '157-tattoo'
 
-  if (shopSlug) {
-    const { data: shop } = await supabase
-      .from('shops')
-      .select('id')
-      .eq('slug', shopSlug)
-      .single()
-    if (shop) shopId = shop.id
-  } else {
-    // Default to the first shop
-    const { data: shops } = await supabase
-      .from('shops')
-      .select('id')
-      .limit(1)
-    if (shops && shops.length > 0) {
-      shopId = shops[0].id
-    }
+  const { data: shopData } = await supabase
+    .rpc('get_public_shop_by_slug', { p_slug: resolvedSlug })
+
+  if (shopData && shopData.length > 0) {
+    shopId = shopData[0].id
   }
 
   if (!shopId) return null
