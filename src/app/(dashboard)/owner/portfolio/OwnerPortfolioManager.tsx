@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Plus, X, Pencil, Trash2, ArrowUp, ArrowDown, Image as ImageIcon, Loader2 } from 'lucide-react'
+import { Plus, X, Pencil, Trash2, ArrowUp, ArrowDown, Image as ImageIcon, Loader2, Eye, EyeOff } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { optimizeImage } from '@/lib/images/optimize-image'
 
@@ -31,18 +31,25 @@ interface Style {
   name: string
 }
 
+interface ArtistStyle {
+  artistId: string
+  styleId: string
+}
+
 interface OwnerPortfolioManagerProps {
   shopId: string
   initialItems: PortfolioItem[]
   artists: Artist[]
   styles: Style[]
+  artistStyles: ArtistStyle[]
 }
 
 export default function OwnerPortfolioManager({
   shopId,
   initialItems,
   artists,
-  styles
+  styles,
+  artistStyles
 }: OwnerPortfolioManagerProps) {
   const supabase = createClient()
   const [items, setItems] = useState<PortfolioItem[]>(initialItems)
@@ -63,6 +70,11 @@ export default function OwnerPortfolioManager({
   const [sizeDimensions, setSizeDimensions] = useState('')
   const [isPublished, setIsPublished] = useState(false)
   const [imageFile, setImageFile] = useState<File | null>(null)
+
+  // Filter styles based on selected artist
+  const filteredStyles = artistId
+    ? styles.filter(s => artistStyles.some(as => as.artistId === artistId && as.styleId === s.id))
+    : styles
 
   // Reset form helper
   const resetForm = () => {
@@ -400,116 +412,91 @@ export default function OwnerPortfolioManager({
 
       {/* Portfolio Items List / Table */}
       {items.length > 0 ? (
-        <div className="bg-[#121212] border border-[#262626] rounded-xl overflow-hidden shadow-sm">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="border-b border-[#262626] bg-[#171717] text-[#A3A3A3] text-xs uppercase tracking-wider">
-                  <th className="py-4 px-6 font-semibold w-16">จัดเรียง</th>
-                  <th className="py-4 px-6 font-semibold w-24">รูปภาพ</th>
-                  <th className="py-4 px-6 font-semibold">ชื่อผลงาน</th>
-                  <th className="py-4 px-6 font-semibold">ช่างสัก / สไตล์</th>
-                  <th className="py-4 px-6 font-semibold">ตำแหน่ง / ขนาด</th>
-                  <th className="py-4 px-6 font-semibold text-center w-28">การเผยแพร่</th>
-                  <th className="py-4 px-6 font-semibold text-right w-24">จัดการ</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[#262626] text-sm text-[#F5F5F5]">
-                {items.map((item, index) => (
-                  <tr key={item.id} className="hover:bg-[#1A1A1A] transition-colors">
-                    
-                    {/* Reorder Arrows */}
-                    <td className="py-4 px-6 text-center">
-                      <div className="flex flex-col items-center justify-center gap-1">
-                        <button
-                          onClick={() => handleMove(index, 'up')}
-                          disabled={index === 0 || loading}
-                          className="p-1 hover:bg-[#262626] text-[#A3A3A3] hover:text-[#FFFFFF] rounded transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-                        >
-                          <ArrowUp size={16} />
-                        </button>
-                        <button
-                          onClick={() => handleMove(index, 'down')}
-                          disabled={index === items.length - 1 || loading}
-                          className="p-1 hover:bg-[#262626] text-[#A3A3A3] hover:text-[#FFFFFF] rounded transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-                        >
-                          <ArrowDown size={16} />
-                        </button>
-                      </div>
-                    </td>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-5">
+          {items.map((item) => (
+            <div 
+              key={item.id} 
+              className={`bg-[#171717] border border-[#262626] rounded-xl overflow-hidden flex flex-col group relative transition-all duration-200 ${
+                !item.is_published ? 'opacity-50 hover:opacity-75' : 'opacity-100'
+              }`}
+            >
+              {/* Image Container (aspect-square) */}
+              <div className="relative aspect-square bg-[#0B0B0B] border-b border-[#262626] overflow-hidden">
+                <img
+                  src={getImageUrl(item.image_path)}
+                  alt={item.title}
+                  className="w-full h-full object-cover transition-all duration-300"
+                />
+                
+                {/* Status overlay badge */}
+                <div className="absolute top-2 right-2">
+                  <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded ${
+                    item.is_published 
+                      ? 'bg-emerald-500/90 text-white' 
+                      : 'bg-[#404040]/90 text-[#A3A3A3] border border-[#262626]'
+                  }`}>
+                    {item.is_published ? 'แสดงหน้าร้าน' : 'ซ่อนอยู่'}
+                  </span>
+                </div>
+              </div>
 
-                    {/* Thumbnail Image */}
-                    <td className="py-4 px-6">
-                      <div className="w-14 h-14 bg-[#0B0B0B] border border-[#262626] rounded-md overflow-hidden relative">
-                        <img
-                          src={getImageUrl(item.image_path)}
-                          alt={item.title}
-                          className="w-full h-full object-cover grayscale"
-                        />
-                      </div>
-                    </td>
+              {/* Card details and compact controls */}
+              <div className="p-3 space-y-2 flex-1 flex flex-col justify-between bg-[#121212]/40">
+                <div>
+                  <h3 className="text-xs font-bold text-[#F5F5F5] truncate">{item.title}</h3>
+                  <p className="text-[10px] text-[#A3A3A3] mt-0.5 truncate">
+                    {item.artist_name || '-'} • {item.style_name || '-'}
+                  </p>
 
-                    {/* Title */}
-                    <td className="py-4 px-6 font-medium break-all">
-                      {item.title}
-                    </td>
+                </div>
 
-                    {/* Artist & Style */}
-                    <td className="py-4 px-6">
-                      <div className="space-y-0.5">
-                        <p className="text-sm font-semibold">{item.artist_name || '-'}</p>
-                        <p className="text-xs text-[#A3A3A3]">{item.style_name || '-'}</p>
-                      </div>
-                    </td>
+                {/* Compact Control Row */}
+                <div className="border-t border-[#262626]/60 pt-2 flex items-center justify-between text-[10px]">
+                  {/* Eye Toggle button */}
+                  <button
+                    onClick={() => handleTogglePublish(item)}
+                    disabled={loading}
+                    className={`flex items-center gap-1 px-2 py-1 rounded text-xs font-semibold cursor-pointer select-none transition-colors border ${
+                      item.is_published
+                        ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/20'
+                        : 'bg-zinc-500/10 border-zinc-500/20 text-zinc-400 hover:bg-zinc-500/20'
+                    }`}
+                  >
+                    {item.is_published ? (
+                      <>
+                        <Eye size={12} />
+                        เปิดตา
+                      </>
+                    ) : (
+                      <>
+                        <EyeOff size={12} />
+                        ปิดตา
+                      </>
+                    )}
+                  </button>
 
-                    {/* Placement & Size */}
-                    <td className="py-4 px-6">
-                      <div className="space-y-0.5">
-                        <p className="text-sm">{item.placement || '-'}</p>
-                        <p className="text-xs text-[#A3A3A3]">{item.size_dimensions || '-'}</p>
-                      </div>
-                    </td>
-
-                    {/* Publish Status Toggle */}
-                    <td className="py-4 px-6 text-center">
-                      <button
-                        onClick={() => handleTogglePublish(item)}
-                        disabled={loading}
-                        className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold border cursor-pointer select-none transition-colors ${
-                          item.is_published
-                            ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/20'
-                            : 'bg-zinc-500/10 border-zinc-500/20 text-zinc-400 hover:bg-zinc-500/20'
-                        }`}
-                      >
-                        {item.is_published ? 'เผยแพร่' : 'ซ่อน'}
-                      </button>
-                    </td>
-
-                    {/* Actions (Edit / Delete) */}
-                    <td className="py-4 px-6 text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <button
-                          onClick={() => openEdit(item)}
-                          disabled={loading}
-                          className="p-2 hover:bg-[#262626] text-[#A3A3A3] hover:text-[#FFFFFF] rounded transition-colors"
-                        >
-                          <Pencil size={16} />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(item)}
-                          disabled={loading}
-                          className="p-2 hover:bg-[#262626] text-red-500/80 hover:text-red-400 rounded transition-colors"
-                        >
-                          <Trash2 size={16} />
-                        </button>
-                      </div>
-                    </td>
-
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      onClick={() => openEdit(item)}
+                      disabled={loading}
+                      className="p-1 hover:bg-[#262626] text-[#A3A3A3] hover:text-[#FFFFFF] rounded transition-colors"
+                      title="แก้ไข"
+                    >
+                      <Pencil size={14} />
+                    </button>
+                    <button
+                      onClick={() => handleDelete(item)}
+                      disabled={loading}
+                      className="p-1 hover:bg-[#262626] text-red-500/80 hover:text-red-400 rounded transition-colors"
+                      title="ลบ"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))}
         </div>
       ) : (
         <div className="bg-[#121212] rounded-xl border border-[#262626] p-10 text-center flex flex-col items-center justify-center min-h-[280px]">
@@ -532,7 +519,7 @@ export default function OwnerPortfolioManager({
 
       {/* CREATE MODAL */}
       {isCreateOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 overflow-y-auto">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 pt-12 sm:p-4 overflow-y-auto">
           <div className="w-full max-w-lg bg-[#171717] border border-[#262626] rounded-xl shadow-2xl relative my-8">
             <div className="flex items-center justify-between p-5 border-b border-[#262626]">
               <h3 className="text-lg font-medium text-[#FFFFFF]">เพิ่มผลงานใหม่</h3>
@@ -579,7 +566,10 @@ export default function OwnerPortfolioManager({
                   </label>
                   <select
                     value={artistId}
-                    onChange={(e) => setArtistId(e.target.value)}
+                    onChange={(e) => {
+                      setArtistId(e.target.value)
+                      setStyleId('') // Reset style on artist change
+                    }}
                     className="w-full bg-[#0B0B0B] border border-[#2A2A2A] text-[#F5F5F5] px-3 py-2.5 rounded-md text-xs focus:outline-none"
                   >
                     <option value="">-- ไม่ระบุช่าง --</option>
@@ -599,53 +589,13 @@ export default function OwnerPortfolioManager({
                     className="w-full bg-[#0B0B0B] border border-[#2A2A2A] text-[#F5F5F5] px-3 py-2.5 rounded-md text-xs focus:outline-none"
                   >
                     <option value="">-- ไม่ระบุสไตล์ --</option>
-                    {styles.map(s => (
+                    {filteredStyles.map(s => (
                       <option key={s.id} value={s.id}>{s.name}</option>
                     ))}
                   </select>
                 </div>
               </div>
 
-              <div>
-                <label className="block text-xs font-medium text-[#9EA4AA] uppercase tracking-wider mb-2">
-                  แนวคิด / รายละเอียด
-                </label>
-                <textarea
-                  value={concept}
-                  onChange={(e) => setConcept(e.target.value)}
-                  placeholder="อธิบายแนวคิดของการออกแบบงานสัก"
-                  rows={2}
-                  className="w-full bg-[#0B0B0B] border border-[#2A2A2A] text-[#F5F5F5] px-4 py-2.5 rounded-md text-xs focus:outline-none resize-none"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-medium text-[#9EA4AA] uppercase tracking-wider mb-2">
-                    ตำแหน่งที่สัก
-                  </label>
-                  <input
-                    type="text"
-                    value={placement}
-                    onChange={(e) => setPlacement(e.target.value)}
-                    placeholder="เช่น แขน, น่อง, หลังหู"
-                    className="w-full bg-[#0B0B0B] border border-[#2A2A2A] text-[#F5F5F5] px-4 py-2.5 rounded-md text-xs focus:outline-none"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-medium text-[#9EA4AA] uppercase tracking-wider mb-2">
-                    ขนาดจริง
-                  </label>
-                  <input
-                    type="text"
-                    value={sizeDimensions}
-                    onChange={(e) => setSizeDimensions(e.target.value)}
-                    placeholder="เช่น 10 × 15 ซม."
-                    className="w-full bg-[#0B0B0B] border border-[#2A2A2A] text-[#F5F5F5] px-4 py-2.5 rounded-md text-xs focus:outline-none"
-                  />
-                </div>
-              </div>
 
               <div className="flex items-center space-x-2 pt-2">
                 <input
@@ -684,7 +634,7 @@ export default function OwnerPortfolioManager({
 
       {/* EDIT MODAL */}
       {editingItem && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 overflow-y-auto">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 pt-12 sm:p-4 overflow-y-auto">
           <div className="w-full max-w-lg bg-[#171717] border border-[#262626] rounded-xl shadow-2xl relative my-8">
             <div className="flex items-center justify-between p-5 border-b border-[#262626]">
               <h3 className="text-lg font-medium text-[#FFFFFF]">แก้ไขผลงาน</h3>
@@ -730,7 +680,10 @@ export default function OwnerPortfolioManager({
                   </label>
                   <select
                     value={artistId}
-                    onChange={(e) => setArtistId(e.target.value)}
+                    onChange={(e) => {
+                      setArtistId(e.target.value)
+                      setStyleId('') // Reset style on artist change
+                    }}
                     className="w-full bg-[#0B0B0B] border border-[#2A2A2A] text-[#F5F5F5] px-3 py-2.5 rounded-md text-xs focus:outline-none"
                   >
                     <option value="">-- ไม่ระบุช่าง --</option>
@@ -750,53 +703,13 @@ export default function OwnerPortfolioManager({
                     className="w-full bg-[#0B0B0B] border border-[#2A2A2A] text-[#F5F5F5] px-3 py-2.5 rounded-md text-xs focus:outline-none"
                   >
                     <option value="">-- ไม่ระบุสไตล์ --</option>
-                    {styles.map(s => (
+                    {filteredStyles.map(s => (
                       <option key={s.id} value={s.id}>{s.name}</option>
                     ))}
                   </select>
                 </div>
               </div>
 
-              <div>
-                <label className="block text-xs font-medium text-[#9EA4AA] uppercase tracking-wider mb-2">
-                  แนวคิด / รายละเอียด
-                </label>
-                <textarea
-                  value={concept}
-                  onChange={(e) => setConcept(e.target.value)}
-                  placeholder="อธิบายแนวคิดของการออกแบบงานสัก"
-                  rows={2}
-                  className="w-full bg-[#0B0B0B] border border-[#2A2A2A] text-[#F5F5F5] px-4 py-2.5 rounded-md text-xs focus:outline-none resize-none"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-medium text-[#9EA4AA] uppercase tracking-wider mb-2">
-                    ตำแหน่งที่สัก
-                  </label>
-                  <input
-                    type="text"
-                    value={placement}
-                    onChange={(e) => setPlacement(e.target.value)}
-                    placeholder="เช่น แขน, น่อง, หลังหู"
-                    className="w-full bg-[#0B0B0B] border border-[#2A2A2A] text-[#F5F5F5] px-4 py-2.5 rounded-md text-xs focus:outline-none"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-medium text-[#9EA4AA] uppercase tracking-wider mb-2">
-                    ขนาดจริง
-                  </label>
-                  <input
-                    type="text"
-                    value={sizeDimensions}
-                    onChange={(e) => setSizeDimensions(e.target.value)}
-                    placeholder="เช่น 10 × 15 ซม."
-                    className="w-full bg-[#0B0B0B] border border-[#2A2A2A] text-[#F5F5F5] px-4 py-2.5 rounded-md text-xs focus:outline-none"
-                  />
-                </div>
-              </div>
 
               <div className="flex items-center space-x-2 pt-2">
                 <input

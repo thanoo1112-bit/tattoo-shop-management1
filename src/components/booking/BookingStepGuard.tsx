@@ -55,7 +55,27 @@ export default function BookingStepGuard({
     const urlFlashId = urlParams.get('flash_id');
     const urlHoldId = urlParams.get('hold_id');
 
-    if (urlFlashId && formData.flashId !== urlFlashId) {
+     if (!urlFlashId && formData.flashId) {
+      setFormData(prev => ({
+        ...prev,
+        flashId: '',
+        holdId: '',
+        flashCode: '',
+        flashPrice: '',
+        flashSize: '',
+        flashStyle: '',
+        flashVariantId: '',
+        flashMinSize: null,
+        flashMaxSize: null,
+        workType: '',
+        colorMode: '',
+      }));
+      return;
+    }
+
+    const urlVariantId = urlParams.get('variant_id');
+
+    if (urlFlashId && (formData.flashId !== urlFlashId || formData.flashVariantId !== (urlVariantId || ''))) {
       setIsReady(false);
       const supabaseClient = createClient();
       
@@ -79,21 +99,34 @@ export default function BookingStepGuard({
           window.history.replaceState({}, '', url.toString());
         }
 
-        const { data: flash } = await supabaseClient
-          .from('flash_designs')
-          .select('*')
-          .eq('id', urlFlashId)
-          .maybeSingle();
+        const [{ data: flash }, { data: variant }] = await Promise.all([
+          supabaseClient
+            .from('flash_designs')
+            .select('*')
+            .eq('id', urlFlashId)
+            .maybeSingle(),
+          urlVariantId
+            ? supabaseClient
+                .from('flash_design_variants')
+                .select('*')
+                .eq('id', urlVariantId)
+                .eq('flash_design_id', urlFlashId)
+                .maybeSingle()
+            : Promise.resolve({ data: null })
+        ]);
 
         if (flash) {
           setFormData(prev => ({
             ...prev,
             flashId: urlFlashId,
+            flashVariantId: urlVariantId || '',
             holdId: holdId || '',
             flashCode: flash.flash_code,
-            flashSize: flash.size,
-            flashPrice: flash.price.toString(),
+            flashSize: variant ? variant.size_name : flash.size,
+            flashPrice: variant ? variant.price.toString() : flash.price.toString(),
             flashStyle: flash.style_name,
+            flashMinSize: variant ? Number(variant.min_size_cm) : null,
+            flashMaxSize: variant ? (variant.max_size_cm ? Number(variant.max_size_cm) : null) : null,
             widthCm: '',
             heightCm: '',
             workType: 'new_work',
@@ -101,8 +134,11 @@ export default function BookingStepGuard({
             __artistId: flash.artist_id,
             __styleId: flash.style_id
           }));
+          setIsReady(true);
+        } else {
+          alert('ขออภัย ไม่พบลายสักที่เลือกหรือลายสักนี้ถูกลบแล้ว');
+          router.replace(`/book/${shopSlug}?step=1`);
         }
-        setIsReady(true);
       };
 
       executeHoldAndLoad();
@@ -251,6 +287,7 @@ export default function BookingStepGuard({
         if (newFormData.flashCode) queryParams.set('flash_code', newFormData.flashCode);
         if (newFormData.flashSize) queryParams.set('size', newFormData.flashSize);
         if (newFormData.flashPrice) queryParams.set('price', newFormData.flashPrice);
+        if (newFormData.flashVariantId) queryParams.set('variant_id', newFormData.flashVariantId);
       }
       
       redirectUrl += `?${queryParams.toString()}`;

@@ -62,7 +62,15 @@ export default async function FinancePage() {
       }
     }
 
-    const allPayments = [...directPayments, ...brPayments]
+    // Deduplicate payments by id (since deposit payments link to both project and booking request and may appear twice)
+    const uniquePaymentsMap = new Map()
+    for (const pay of directPayments) {
+      if (pay?.id) uniquePaymentsMap.set(pay.id, pay)
+    }
+    for (const pay of brPayments) {
+      if (pay?.id) uniquePaymentsMap.set(pay.id, pay)
+    }
+    const allPayments = Array.from(uniquePaymentsMap.values())
     
     // Resolve customer info
     const customerObj = Array.isArray(p.customer) ? p.customer[0] : p.customer

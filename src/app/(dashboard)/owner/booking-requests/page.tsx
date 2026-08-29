@@ -47,9 +47,20 @@ export default async function OwnerBookingRequestsPage() {
         height_cm,
         color_mode,
         work_type,
+        size_note,
+        agreed_price,
+        flash_design_id,
+        flash_variant_id,
         references:tattoo_project_references (
           id
         )
+      ),
+      flash_variant:flash_design_variants (
+        id,
+        size_name,
+        min_size_cm,
+        max_size_cm,
+        price
       )
     `)
     .eq('shop_id', membership.shop_id)

@@ -199,7 +199,13 @@ export default function BookingCalendarFlow({ artist, shopSlug, availability }: 
               onClick={() => {
                 const currentUrl = new URL(window.location.href);
                 const styleParam = currentUrl.searchParams.get('style');
-                router.push(`/book/${shopSlug}?step=2&artist=${artist.artist_id}${styleParam ? '&style=' + styleParam : ''}`);
+                let url = `/book/${shopSlug}?step=2&artist=${artist.artist_id}${styleParam ? '&style=' + styleParam : ''}`;
+                if (formData.flashId) {
+                  url += `&flash_id=${formData.flashId}`;
+                  if (formData.holdId) url += `&hold_id=${formData.holdId}`;
+                  if (formData.flashVariantId) url += `&variant_id=${formData.flashVariantId}`;
+                }
+                router.push(url);
               }}
               className="flex-1 py-3.5 md:py-4 text-center rounded-xl border border-[#262626] text-[#A3A3A3] hover:text-[#F5F5F5] hover:bg-[#1A1A1A] transition-colors font-medium"
             >
@@ -211,7 +217,13 @@ export default function BookingCalendarFlow({ artist, shopSlug, availability }: 
                 if (formData.selectedDate && !isContinueDisabled) {
                   const currentUrl = new URL(window.location.href);
                   const styleParam = currentUrl.searchParams.get('style');
-                  router.push(`/book/${shopSlug}?step=4&artist=${artist.artist_id}${styleParam ? '&style=' + styleParam : ''}`);
+                  let url = `/book/${shopSlug}?step=4&artist=${artist.artist_id}${styleParam ? '&style=' + styleParam : ''}`;
+                  if (formData.flashId) {
+                    url += `&flash_id=${formData.flashId}`;
+                    if (formData.holdId) url += `&hold_id=${formData.holdId}`;
+                    if (formData.flashVariantId) url += `&variant_id=${formData.flashVariantId}`;
+                  }
+                  router.push(url);
                 }
               }}
               className="flex-1 py-3.5 md:py-4 px-6 rounded-xl font-medium transition-all flex items-center justify-center

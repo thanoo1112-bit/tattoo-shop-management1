@@ -44,6 +44,12 @@ export default async function OwnerPortfolioPage() {
     .select('id, name')
     .eq('shop_id', shopId)
 
+  // 4. Fetch artist-to-styles mapping
+  const { data: artistStyles } = await supabase
+    .from('artist_tattoo_styles')
+    .select('artist_id, style_id')
+    .eq('shop_id', shopId)
+
   const typedItems = (portfolioItems || []).map((item: any) => ({
     ...item,
     artist_name: item.profiles?.full_name || null,
@@ -60,12 +66,18 @@ export default async function OwnerPortfolioPage() {
     name: item.name
   }))
 
+  const typedArtistStyles = (artistStyles || []).map((item: any) => ({
+    artistId: item.artist_id,
+    styleId: item.style_id
+  }))
+
   return (
     <OwnerPortfolioManager
       shopId={shopId}
       initialItems={typedItems}
       artists={typedArtists}
       styles={typedStyles}
+      artistStyles={typedArtistStyles}
     />
   )
 }

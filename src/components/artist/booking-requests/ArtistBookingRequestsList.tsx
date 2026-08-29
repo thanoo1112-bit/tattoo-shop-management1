@@ -24,6 +24,18 @@ type TattooProject = {
   color_mode: string;
   work_type: string;
   references: ProjectReference[];
+  agreed_price?: number | null;
+  flash_design_id?: string | null;
+  flash_variant_id?: string | null;
+  size_note?: string | null;
+};
+
+type FlashVariant = {
+  id: string;
+  size_name: string;
+  min_size_cm: number | null;
+  max_size_cm: number | null;
+  price: number;
 };
 
 type Payment = {
@@ -57,6 +69,16 @@ type BookingRequest = {
     full_name: string | null;
     email: string | null;
   } | null;
+  flash_design_id?: string | null;
+  flash_designs?: {
+    id: string;
+    flash_code: string;
+    image_path: string;
+    size: string;
+    price: number;
+    style_name: string | null;
+  } | null;
+  flash_variant?: FlashVariant | null;
 };
 
 type ArtistBookingRequestsListProps = {
@@ -239,6 +261,15 @@ export default function ArtistBookingRequestsList({ initialRequests, isOwnerView
           project_id,
           confirmed_start_at,
           confirmed_end_at,
+          flash_design_id,
+          flash_designs (
+            id,
+            flash_code,
+            image_path,
+            size,
+            price,
+            style_name
+          ),
           payments (
             id,
             status,
@@ -258,6 +289,8 @@ export default function ArtistBookingRequestsList({ initialRequests, isOwnerView
             height_cm,
             color_mode,
             work_type,
+            agreed_price,
+            flash_design_id,
             references:tattoo_project_references (
               id
             )
@@ -312,7 +345,13 @@ export default function ArtistBookingRequestsList({ initialRequests, isOwnerView
       setStartTime(reqTimeStr);
     }
     setEndTime('');
-    setAgreedPrice('');
+    const isFlash = !!request.flash_design_id || !!request.project?.flash_design_id;
+    if (isFlash) {
+      const flashPrice = request.project?.agreed_price ?? request.flash_designs?.price ?? '';
+      setAgreedPrice(String(flashPrice));
+    } else {
+      setAgreedPrice('');
+    }
     setDepositAmount('');
     setAcceptError(null);
     setAcceptSuccessMessage(null);
@@ -836,6 +875,11 @@ export default function ArtistBookingRequestsList({ initialRequests, isOwnerView
                   <h3 className="text-lg font-semibold text-[#F5F5F5] tracking-wide truncate">
                     {request.submitted_full_name}
                   </h3>
+                  {request.flash_design_id && (
+                    <span className="bg-[#FFFFFF] text-black text-[9px] font-bold px-1.5 py-0.5 rounded tracking-wide font-mono whitespace-nowrap">
+                      FLASH
+                    </span>
+                  )}
                   {isOwnerView && request.artist && (
                     <span className="text-[10px] bg-[#262626] text-[#A3A3A3] px-2 py-0.5 rounded-full border border-[#333] whitespace-nowrap">
                       ช่าง: {request.artist.full_name || request.artist.email || 'ไม่ทราบชื่อ'}
@@ -851,21 +895,64 @@ export default function ArtistBookingRequestsList({ initialRequests, isOwnerView
           </div>
 
           {/* 2. Collapsed Short Summary */}
-          <div className="space-y-1.5 text-xs sm:text-sm text-[#A3A3A3] pt-3 border-t border-[#262626]/40 leading-relaxed font-medium">
-            <div>
-              {project ? `${project.tattoo_style || 'ไม่ระบุสไตล์'} • ${WORK_TYPE_MAP[project.work_type] || project.work_type} • ${COLOR_MODE_MAP[project.color_mode] || project.color_mode}` : 'ไม่ระบุรายละเอียดงาน'}
-            </div>
-            <div>
-              {project ? (
-                <>
-                  {project.width_cm && project.height_cm ? `ขนาด: กว้าง ${project.width_cm} ซม. × สูง ${project.height_cm} ซม.` : 'ขนาด: ไม่ระบุ'}
-                  {' • '}
-                  {project.body_placement || 'ไม่ระบุตำแหน่ง'}
-                </>
-              ) : ''}
-            </div>
-            <div>
-              {formatThaiDate(request.requested_start_at)} • {formatThaiTime(request.requested_start_at)}
+          <div className="flex gap-4 pt-3 border-t border-[#262626]/40">
+            {request.flash_design_id && request.flash_designs?.image_path && (
+              <div className="w-16 h-16 shrink-0 bg-[#0A0A0A] border border-[#262626] rounded-lg overflow-hidden">
+                <img 
+                  src={supabase.storage.from('flash-images').getPublicUrl(request.flash_designs.image_path).data.publicUrl} 
+                  alt={request.flash_designs.flash_code}
+                  className="w-full h-full object-cover grayscale"
+                />
+              </div>
+            )}
+            <div className="space-y-1.5 text-xs sm:text-sm text-[#A3A3A3] leading-relaxed font-medium flex-1">
+              {request.flash_design_id ? (
+                <div>
+                  <span className="text-[#F5F5F5] font-mono font-bold tracking-widest block text-xs">
+                    {request.flash_designs?.flash_code || 'Flash Design'}
+                  </span>
+                  <span>
+                    สไตล์: {request.flash_designs?.style_name || 'ไม่ระบุ'}
+                    {' • '}
+                    {request.flash_variant ? (
+                      <>
+                        ขนาด: {request.flash_variant.size_name}
+                        {request.flash_variant.min_size_cm !== null && (
+                          <span className="text-[#737373]">
+                            {' '}({request.flash_variant.min_size_cm}
+                            {request.flash_variant.max_size_cm !== null
+                              ? `–${request.flash_variant.max_size_cm} ซม.`
+                              : ' ซม. ขึ้นไป'})
+                          </span>
+                        )}
+                      </>
+                    ) : (
+                      <>ขนาด: {request.flash_designs?.size || 'ไม่ระบุ'}</>
+                    )}
+                  </span>
+                </div>
+              ) : (
+                <div>
+                  {project ? `${project.tattoo_style || 'ไม่ระบุสไตล์'} • ${WORK_TYPE_MAP[project.work_type] || project.work_type} • ${COLOR_MODE_MAP[project.color_mode] || project.color_mode}` : 'ไม่ระบุรายละเอียดงาน'}
+                </div>
+              )}
+              
+              <div>
+                {request.flash_design_id ? (
+                  <span>ตำแหน่ง: {project?.body_placement || 'ไม่ระบุ'}</span>
+                ) : (
+                  project ? (
+                    <>
+                      {project.width_cm && project.height_cm ? `ขนาด: กว้าง ${project.width_cm} ซม. × สูง ${project.height_cm} ซม.` : 'ขนาด: ไม่ระบุ'}
+                      {' • '}
+                      {project.body_placement || 'ไม่ระบุตำแหน่ง'}
+                    </>
+                  ) : ''
+                )}
+              </div>
+              <div>
+                {formatThaiDate(request.requested_start_at)} • {formatThaiTime(request.requested_start_at)}
+              </div>
             </div>
           </div>
 
@@ -1030,24 +1117,26 @@ export default function ArtistBookingRequestsList({ initialRequests, isOwnerView
                         </div>
                       )}
                       
-                      <div className="flex items-center justify-end gap-3 mt-4 pt-4 border-t border-[#262626]/50" onClick={(e) => e.stopPropagation()}>
-                        <button
-                          type="button"
-                          onClick={() => setConfirmInvalidRequest({ request, payment: depositPayment })}
-                          disabled={isVerifyingPayment}
-                          className="px-4 py-2 border border-red-500/60 text-red-500 hover:text-red-400 hover:bg-red-500/8 hover:border-red-400/75 rounded-lg text-xs sm:text-sm font-semibold transition-all disabled:opacity-50 cursor-pointer"
-                        >
-                          การชำระเงินไม่ถูกต้อง
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setConfirmPaidRequest({ request, payment: depositPayment })}
-                          disabled={isVerifyingPayment}
-                          className="px-4 py-2 bg-[#F5F5F5] hover:bg-[#E5E5E5] text-black rounded-lg text-xs sm:text-sm font-semibold transition-all cursor-pointer disabled:opacity-50"
-                        >
-                          ยืนยันได้รับเงิน
-                        </button>
-                      </div>
+                      {isOwnerView && (
+                        <div className="flex items-center justify-end gap-3 mt-4 pt-4 border-t border-[#262626]/50" onClick={(e) => e.stopPropagation()}>
+                          <button
+                            type="button"
+                            onClick={() => setConfirmInvalidRequest({ request, payment: depositPayment })}
+                            disabled={isVerifyingPayment}
+                            className="px-4 py-2 border border-red-500/60 text-red-500 hover:text-red-400 hover:bg-red-500/8 hover:border-red-400/75 rounded-lg text-xs sm:text-sm font-semibold transition-all disabled:opacity-50 cursor-pointer"
+                          >
+                            การชำระเงินไม่ถูกต้อง
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setConfirmPaidRequest({ request, payment: depositPayment })}
+                            disabled={isVerifyingPayment}
+                            className="px-4 py-2 bg-[#F5F5F5] hover:bg-[#E5E5E5] text-black rounded-lg text-xs sm:text-sm font-semibold transition-all cursor-pointer disabled:opacity-50"
+                          >
+                            ยืนยันได้รับเงิน
+                          </button>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -1352,14 +1441,27 @@ export default function ArtistBookingRequestsList({ initialRequests, isOwnerView
                     {/* Price */}
                     <div>
                       <label className="text-xs text-[#A3A3A3] font-semibold block mb-1.5">ราคางานสัก (บาท)</label>
-                      <input
-                        type="number"
-                        min="0"
-                        value={agreedPrice}
-                        onChange={(e) => setAgreedPrice(e.target.value)}
-                        placeholder="เช่น 3500"
-                        className="w-full bg-[#171717] border border-[#262626] rounded-lg px-3 py-2 text-sm text-[#F5F5F5] focus:outline-none focus:border-[#F5F5F5]/30"
-                      />
+                      {(() => {
+                        const isFlash = !!acceptingRequest?.flash_design_id || !!acceptingRequest?.project?.flash_design_id;
+                        return (
+                          <>
+                            <input
+                              type="number"
+                              min="0"
+                              value={agreedPrice}
+                              onChange={(e) => setAgreedPrice(e.target.value)}
+                              placeholder="เช่น 3500"
+                              readOnly={isFlash}
+                              className={`w-full bg-[#171717] border border-[#262626] rounded-lg px-3 py-2 text-sm text-[#F5F5F5] focus:outline-none focus:border-[#F5F5F5]/30 ${isFlash ? 'opacity-60 bg-neutral-900 cursor-not-allowed' : ''}`}
+                            />
+                            {isFlash && (
+                              <p className="text-[11px] text-[#A3A3A3] mt-1">
+                                ราคาถูกกำหนดตามลาย Flash แล้วและไม่สามารถแก้ไขได้
+                              </p>
+                            )}
+                          </>
+                        );
+                      })()}
                     </div>
 
                     {/* Deposit */}

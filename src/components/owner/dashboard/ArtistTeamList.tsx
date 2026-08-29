@@ -21,9 +21,10 @@ interface Artist {
 interface ArtistTeamListProps {
   artists: any[];
   shopId: string;
+  todayApptsCountByArtist?: Record<string, number>;
 }
 
-export function ArtistTeamList({ artists, shopId }: ArtistTeamListProps) {
+export function ArtistTeamList({ artists, shopId, todayApptsCountByArtist = {} }: ArtistTeamListProps) {
   const [onlineUserIds, setOnlineUserIds] = useState<Set<string>>(new Set());
   const [isSyncing, setIsSyncing] = useState(true);
   const [hasError, setHasError] = useState(false);
@@ -89,39 +90,37 @@ export function ArtistTeamList({ artists, shopId }: ArtistTeamListProps) {
             const isOnline = onlineUserIds.has(artist.user_id);
             const _statusColor = isOnline ? "bg-[#22C55E]" : "bg-[#EF4444]";
             
-            return (
-              <div key={artist.id} className="p-4 flex flex-row items-center justify-between gap-3 sm:gap-4 hover:bg-[#1E1E1E] transition-colors w-full overflow-hidden">
-                <div className="flex items-center gap-3 sm:gap-4 min-w-0 flex-1">
-                  {artist.profiles?.avatar_url ? (
-                    <div className="relative w-10 h-10 rounded-full overflow-hidden border border-[#262626] flex-shrink-0">
-                      <Image src={artist.profiles.avatar_url} alt={artist.profiles.full_name || 'Artist'} fill className="object-cover" />
+              return (
+                <div key={artist.id} className="p-4 flex flex-row items-center justify-between gap-3 sm:gap-4 hover:bg-[#1E1E1E] transition-colors w-full overflow-hidden">
+                  <div className="flex items-center gap-3 sm:gap-4 min-w-0 flex-1">
+                    {artist.profiles?.avatar_url ? (
+                      <div className="relative w-10 h-10 rounded-full overflow-hidden border border-[#262626] flex-shrink-0">
+                        <Image src={artist.profiles.avatar_url} alt={artist.profiles.full_name || 'Artist'} fill className="object-cover" />
+                      </div>
+                    ) : (
+                      <div className="w-10 h-10 rounded-full bg-[#262626] border border-[#333333] flex items-center justify-center flex-shrink-0">
+                        <User className="w-5 h-5 text-[#9CA3AB]" />
+                      </div>
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-medium text-[#F3F3F3] truncate">
+                          {artist.profiles?.full_name || 'ช่างสักนิรนาม'}
+                        </p>
+                        <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${isOnline ? 'bg-emerald-500' : 'bg-zinc-600'}`} />
+                      </div>
+                      <p className="text-xs text-[#9CA3AB] mt-0.5">
+                        {artist.role === 'owner' ? 'เจ้าของร้าน' : 'ช่างสัก'} • {isOnline ? 'ออนไลน์' : 'ออฟไลน์'}
+                      </p>
                     </div>
-                  ) : (
-                    <div className="w-10 h-10 rounded-full bg-[#262626] border border-[#333333] flex items-center justify-center flex-shrink-0">
-                      <User className="w-5 h-5 text-[#9CA3AB]" />
-                    </div>
-                  )}
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-[#F3F3F3] truncate pr-2">
-                      {artist.profiles?.full_name || 'ช่างสักนิรนาม'}
-                    </p>
-                    <p className="text-xs text-[#9CA3AB] mt-1">
-                      ช่างสัก
-                    </p>
+                  </div>
+                  <div className="flex-shrink-0 text-right">
+                    <span className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-[#1C1C1C] border border-[#292929] text-[#A3A3A3]">
+                      คิววันนี้: {todayApptsCountByArtist?.[artist.user_id] || 0}
+                    </span>
                   </div>
                 </div>
-                <div className="flex flex-col gap-1.5 text-xs text-[#9CA3AB] flex-shrink-0 max-w-[130px] sm:max-w-none">
-                  <div className="flex items-center gap-1.5 sm:gap-2">
-                    <Phone className="w-3.5 h-3.5 flex-shrink-0" />
-                    <span className="truncate">{artist.profiles?.phone || '—'}</span>
-                  </div>
-                  <div className="flex items-center gap-1.5 sm:gap-2">
-                    <Mail className="w-3.5 h-3.5 flex-shrink-0" />
-                    <span className="truncate max-w-[110px] sm:max-w-[200px]">{artist.profiles?.email || '—'}</span>
-                  </div>
-                </div>
-              </div>
-            );
+              );
           })}
           </div>
         </div>

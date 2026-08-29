@@ -1,0 +1,641 @@
+-- Migration: Add Flash Multi-Size Variants Support
+-- Creates public.flash_design_variants, alters booking tables, backfills legacy items, and defines atomic transactional RPC.
+
+-- 1. Create flash_design_variants table
+CREATE TABLE IF NOT EXISTS public.flash_design_variants (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    flash_design_id uuid NOT NULL REFERENCES public.flash_designs(id) ON DELETE CASCADE,
+    size_name text NOT NULL,
+    min_size_cm numeric NULL CHECK (min_size_cm IS NULL OR min_size_cm > 0),
+    max_size_cm numeric NULL CHECK (max_size_cm IS NULL OR max_size_cm >= min_size_cm),
+    price numeric NOT NULL CHECK (price >= 0),
+    is_enabled boolean NOT NULL DEFAULT true,
+    sort_order integer NOT NULL DEFAULT 0,
+    created_at timestamptz DEFAULT now(),
+    updated_at timestamptz DEFAULT now()
+);
+
+-- Enable RLS
+ALTER TABLE public.flash_design_variants ENABLE ROW LEVEL SECURITY;
+
+-- 2. Add columns to booking_requests and tattoo_projects (ON DELETE RESTRICT to preserve booking history)
+ALTER TABLE public.booking_requests
+ADD COLUMN IF NOT EXISTS flash_variant_id uuid REFERENCES public.flash_design_variants(id) ON DELETE RESTRICT;
+
+ALTER TABLE public.tattoo_projects
+ADD COLUMN IF NOT EXISTS flash_variant_id uuid REFERENCES public.flash_design_variants(id) ON DELETE RESTRICT;
+
+-- 3. Backfill existing legacy flash_designs into flash_design_variants
+INSERT INTO public.flash_design_variants (flash_design_id, size_name, min_size_cm, max_size_cm, price, is_enabled, sort_order)
+SELECT id, size, NULL, NULL, price, true, 0
+FROM public.flash_designs
+ON CONFLICT DO NOTHING;
+
+-- 4. Set RLS Policies for flash_design_variants
+DROP POLICY IF EXISTS "Public Read Flash Design Variants" ON public.flash_design_variants;
+DROP POLICY IF EXISTS "Owner CRUD Flash Design Variants" ON public.flash_design_variants;
+DROP POLICY IF EXISTS "Select Flash Design Variants" ON public.flash_design_variants;
+
+CREATE POLICY "Select Flash Design Variants" ON public.flash_design_variants FOR SELECT TO anon, authenticated
+    USING (
+        (is_enabled = true AND EXISTS (SELECT 1 FROM public.flash_designs WHERE id = flash_design_variants.flash_design_id))
+        OR EXISTS (
+            SELECT 1 FROM public.flash_designs fd
+            JOIN public.shop_members sm ON sm.shop_id = fd.shop_id
+            WHERE fd.id = flash_design_variants.flash_design_id
+              AND sm.user_id = auth.uid()
+              AND sm.role = 'owner'
+              AND sm.status = 'active'
+        )
+    );
+
+CREATE POLICY "Owner Insert Flash Design Variants" ON public.flash_design_variants FOR INSERT TO authenticated
+    WITH CHECK (
+        EXISTS (
+            SELECT 1 FROM public.flash_designs fd
+            JOIN public.shop_members sm ON sm.shop_id = fd.shop_id
+            WHERE fd.id = flash_design_variants.flash_design_id
+              AND sm.user_id = auth.uid()
+              AND sm.role = 'owner'
+              AND sm.status = 'active'
+        )
+    );
+
+CREATE POLICY "Owner Update Flash Design Variants" ON public.flash_design_variants FOR UPDATE TO authenticated
+    USING (
+        EXISTS (
+            SELECT 1 FROM public.flash_designs fd
+            JOIN public.shop_members sm ON sm.shop_id = fd.shop_id
+            WHERE fd.id = flash_design_variants.flash_design_id
+              AND sm.user_id = auth.uid()
+              AND sm.role = 'owner'
+              AND sm.status = 'active'
+        )
+    )
+    WITH CHECK (
+        EXISTS (
+            SELECT 1 FROM public.flash_designs fd
+            JOIN public.shop_members sm ON sm.shop_id = fd.shop_id
+            WHERE fd.id = flash_design_variants.flash_design_id
+              AND sm.user_id = auth.uid()
+              AND sm.role = 'owner'
+              AND sm.status = 'active'
+        )
+    );
+
+CREATE POLICY "Owner Delete Flash Design Variants" ON public.flash_design_variants FOR DELETE TO authenticated
+    USING (
+        EXISTS (
+            SELECT 1 FROM public.flash_designs fd
+            JOIN public.shop_members sm ON sm.shop_id = fd.shop_id
+            WHERE fd.id = flash_design_variants.flash_design_id
+              AND sm.user_id = auth.uid()
+              AND sm.role = 'owner'
+              AND sm.status = 'active'
+        )
+    );
+
+-- 5. RPC function to atomically upsert Flash designs with variants
+CREATE OR REPLACE FUNCTION public.upsert_flash_design_with_variants(
+    p_flash_id          uuid,
+    p_shop_id           uuid,
+    p_artist_id         uuid,
+    p_style_name        text,
+    p_image_path        text,
+    p_status            text,
+    p_variants          jsonb
+) RETURNS uuid
+LANGUAGE plpgsql
+SECURITY DEFINER SET search_path = ''
+AS $$
+DECLARE
+    v_flash_id          uuid := p_flash_id;
+    v_first_variant     jsonb;
+    v_parent_size       text;
+    v_parent_price      numeric;
+    v_v                 jsonb;
+    v_v_id              uuid;
+    v_v_size_name       text;
+    v_v_min             numeric;
+    v_v_max             numeric;
+    v_v_price           numeric;
+    v_v_enabled         boolean;
+    v_v_sort            int;
+    v_enabled_count     int := 0;
+    v_keep_ids          uuid[] := ARRAY[]::uuid[];
+BEGIN
+    -- Authorization check
+    IF NOT EXISTS (
+        SELECT 1 FROM public.shop_members
+        WHERE shop_id = p_shop_id
+          AND user_id = auth.uid()
+          AND role = 'owner'
+          AND status = 'active'
+    ) THEN
+        RAISE EXCEPTION 'Access Denied: Only shop owners can manage flash designs';
+    END IF;
+
+    -- Validate variants JSON array
+    IF jsonb_array_length(p_variants) = 0 THEN
+        RAISE EXCEPTION 'ต้องมีขนาดอย่างน้อย 1 ขนาด';
+    END IF;
+
+    -- Validate at least one is enabled and extract parent compatibility info
+    FOR v_v IN SELECT * FROM jsonb_array_elements(p_variants) LOOP
+        v_v_enabled := (v_v->>'is_enabled')::boolean;
+        IF v_v_enabled THEN
+            v_enabled_count := v_enabled_count + 1;
+            IF v_first_variant IS NULL THEN
+                v_first_variant := v_v;
+            END IF;
+        END IF;
+    END LOOP;
+
+    IF v_enabled_count = 0 THEN
+        RAISE EXCEPTION 'ต้องเปิดใช้งานอย่างน้อย 1 ขนาด';
+    END IF;
+
+    v_parent_size := v_first_variant->>'size_name';
+    v_parent_price := (v_first_variant->>'price')::numeric;
+
+    -- Guard status check if editing
+    IF v_flash_id IS NOT NULL THEN
+        IF EXISTS (
+            SELECT 1 FROM public.flash_designs
+            WHERE id = v_flash_id AND status IN ('held', 'reserved', 'sold')
+        ) THEN
+            RAISE EXCEPTION 'Cannot edit Flash design in held, reserved, or sold status';
+        END IF;
+    END IF;
+
+    -- Insert or Update parent row
+    IF v_flash_id IS NULL THEN
+        INSERT INTO public.flash_designs (
+            shop_id, artist_id, style_name, image_path, size, price, status
+        )
+        VALUES (
+            p_shop_id, p_artist_id, btrim(p_style_name), p_image_path, v_parent_size, v_parent_price, p_status
+        )
+        RETURNING id INTO v_flash_id;
+    ELSE
+        UPDATE public.flash_designs
+        SET artist_id = p_artist_id,
+            style_name = btrim(p_style_name),
+            image_path = p_image_path,
+            size = v_parent_size,
+            price = v_parent_price,
+            status = p_status,
+            updated_at = now()
+        WHERE id = v_flash_id;
+    END IF;
+
+    -- Process Variants
+    -- Extract IDs to keep
+    FOR v_v IN SELECT * FROM jsonb_array_elements(p_variants) LOOP
+        v_v_id := NULLIF(v_v->>'id', '')::uuid;
+        IF v_v_id IS NOT NULL THEN
+            v_keep_ids := array_append(v_keep_ids, v_v_id);
+        END IF;
+    END LOOP;
+
+    -- Delete removed variants (RESTRICT ensures FK errors are thrown if referenced)
+    IF p_flash_id IS NOT NULL THEN
+        IF EXISTS (
+            SELECT 1 FROM public.flash_design_variants fdv
+            WHERE fdv.flash_design_id = v_flash_id
+              AND NOT (fdv.id = ANY(v_keep_ids))
+              AND (
+                  EXISTS (SELECT 1 FROM public.booking_requests br WHERE br.flash_variant_id = fdv.id)
+                  OR EXISTS (SELECT 1 FROM public.tattoo_projects tp WHERE tp.flash_variant_id = fdv.id)
+              )
+        ) THEN
+            RAISE EXCEPTION 'ไม่สามารถลบขนาดนี้ได้ เนื่องจากมีประวัติการจองแล้ว';
+        END IF;
+
+        DELETE FROM public.flash_design_variants fdv
+        WHERE fdv.flash_design_id = v_flash_id
+          AND NOT (fdv.id = ANY(v_keep_ids));
+    END IF;
+
+    -- Insert or Update variants
+    v_v_sort := 0;
+    FOR v_v IN SELECT * FROM jsonb_array_elements(p_variants) LOOP
+        v_v_id := NULLIF(v_v->>'id', '')::uuid;
+        v_v_size_name := btrim(v_v->>'size_name');
+        v_v_min := NULLIF(v_v->>'min_size_cm', '')::numeric;
+        v_v_max := NULLIF(v_v->>'max_size_cm', '')::numeric;
+        v_v_price := (v_v->>'price')::numeric;
+        v_v_enabled := (v_v->>'is_enabled')::boolean;
+
+        -- Validate variant dimensions and price (new variants require min_size_cm > 0)
+        IF v_v_size_name = '' THEN
+            RAISE EXCEPTION 'กรุณาระบุชื่อขนาด';
+        END IF;
+        
+        -- New dimensions validation (Legacy variants might have NULL min/max sizes)
+        IF v_v_id IS NULL THEN
+            IF v_v_min IS NULL OR v_v_min <= 0 THEN
+                RAISE EXCEPTION 'ขนาดต่ำสุดต้องมากกว่า 0 ซม.';
+            END IF;
+        ELSE
+            -- If existing variant had a min_size_cm, or if it is being updated to a value:
+            IF v_v_min IS NOT NULL AND v_v_min <= 0 THEN
+                RAISE EXCEPTION 'ขนาดต่ำสุดต้องมากกว่า 0 ซม.';
+            END IF;
+        END IF;
+
+        IF v_v_max IS NOT NULL AND v_v_min IS NOT NULL AND v_v_max < v_v_min THEN
+            RAISE EXCEPTION 'ขนาดสูงสุดต้องไม่น้อยกว่าขนาดต่ำสุด';
+        END IF;
+        IF v_v_price IS NULL OR v_v_price < 0 THEN
+            RAISE EXCEPTION 'ราคาต้องไม่ต่ำกว่า 0 บาท';
+        END IF;
+
+        IF v_v_id IS NULL THEN
+            INSERT INTO public.flash_design_variants (
+                flash_design_id, size_name, min_size_cm, max_size_cm, price, is_enabled, sort_order
+            )
+            VALUES (
+                v_flash_id, v_v_size_name, v_v_min, v_v_max, v_v_price, v_v_enabled, v_v_sort
+            );
+        ELSE
+            UPDATE public.flash_design_variants
+            SET size_name = v_v_size_name,
+                min_size_cm = v_v_min,
+                max_size_cm = v_v_max,
+                price = v_v_price,
+                is_enabled = v_v_enabled,
+                sort_order = v_v_sort,
+                updated_at = now()
+            WHERE id = v_v_id;
+        END IF;
+
+        v_v_sort := v_v_sort + 1;
+    END LOOP;
+
+    RETURN v_flash_id;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.upsert_flash_design_with_variants(uuid, uuid, uuid, text, text, text, jsonb) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.upsert_flash_design_with_variants(uuid, uuid, uuid, text, text, text, jsonb) TO authenticated;
+
+
+-- 6. Update finalize_public_booking with variants support and strict validation
+DROP FUNCTION IF EXISTS public.finalize_public_booking(uuid, numeric, numeric, text, text, text, text, text, text, text, text, text[], text[], boolean, boolean, boolean, uuid, uuid);
+
+CREATE OR REPLACE FUNCTION public.finalize_public_booking(
+    p_session_id                    uuid,
+    p_width_cm                      numeric,
+    p_height_cm                     numeric,
+    p_placement                     text,
+    p_description                   text,
+    p_full_name                     text,
+    p_phone                         text,
+    p_email                         text,
+    p_health_note                   text,
+    p_requested_date                text,
+    p_requested_time                text,
+    p_real_area_paths               text[],
+    p_design_ref_paths              text[],
+    p_terms_accepted                boolean,
+    p_is_first_tattoo               boolean DEFAULT NULL,
+    p_safety_notice_acknowledged    boolean DEFAULT NULL,
+    p_flash_design_id               uuid    DEFAULT NULL,
+    p_hold_session_id               uuid    DEFAULT NULL,
+    p_flash_variant_id              uuid    DEFAULT NULL
+) RETURNS uuid
+LANGUAGE plpgsql
+SECURITY DEFINER SET search_path = ''
+AS $$
+DECLARE
+    v_session           record;
+    v_customer_id       uuid;
+    v_project_id        uuid;
+    v_booking_id        uuid;
+    v_public_token      uuid;
+    v_style_name        text;
+    v_width_val         numeric := p_width_cm;
+    v_height_val        numeric := p_height_cm;
+    v_acc_bg boolean; v_acc_col boolean; v_acc_nw boolean; v_acc_ext boolean;
+    v_acc_tu boolean; v_acc_cu boolean; v_acc_sc boolean;
+    v_effective_cap     int;
+    v_occupied_cap      int;
+    v_is_closed         boolean;
+    v_area              numeric;
+    v_max_dim           numeric;
+    v_buffer_hours      int;
+    v_time_decimal      numeric;
+    v_req_hour          int;
+    v_req_minute        int;
+    v_requested_start_at timestamptz;
+    v_requested_end_at  timestamptz;
+    v_phone_norm        text;
+    v_email_val         text;
+    v_real_count        int;
+    v_design_count      int;
+    v_total_paths       int;
+    v_distinct_paths    int;
+    v_all_paths         text[];
+    v_path              text;
+    v_meta_mime         text;
+    v_expected_prefix   text;
+    v_tracking_code     text;
+    v_success           boolean;
+    v_flash_price       numeric;
+    v_flash_size        text;
+    v_flash_artist_id   uuid;
+    v_flash_style_id    uuid;
+    v_variant_min       numeric;
+    v_variant_max       numeric;
+    v_size_range_str    text := '';
+BEGIN
+    IF p_safety_notice_acknowledged IS DISTINCT FROM TRUE THEN
+        RAISE EXCEPTION 'Safety notice must be acknowledged';
+    END IF;
+
+    IF v_width_val  <= 0 THEN v_width_val  := 5; END IF;
+    IF v_height_val <= 0 THEN v_height_val := 5; END IF;
+
+    v_phone_norm := regexp_replace(p_phone, '\D', '', 'g');
+    IF length(v_phone_norm) < 9 THEN RAISE EXCEPTION 'Invalid phone'; END IF;
+
+    v_email_val := NULLIF(btrim(p_email), '');
+
+    SELECT * INTO v_session FROM private.public_booking_upload_sessions WHERE id = p_session_id;
+    IF NOT FOUND THEN RAISE EXCEPTION 'Invalid session'; END IF;
+    IF v_session.status = 'consumed' THEN
+        SELECT public_token INTO v_public_token
+        FROM public.booking_requests WHERE id = v_session.booking_request_id;
+        IF v_public_token IS NULL THEN RAISE EXCEPTION 'Session consumed but booking not found'; END IF;
+        RETURN v_public_token;
+    END IF;
+    IF v_session.expires_at < now() THEN RAISE EXCEPTION 'Session expired'; END IF;
+
+    -- ===== FLASH VALIDATION =====
+    IF p_flash_design_id IS NOT NULL THEN
+        IF v_session.flash_design_id IS DISTINCT FROM p_flash_design_id THEN
+            RAISE EXCEPTION 'Session flash mismatch';
+        END IF;
+
+        IF p_flash_variant_id IS NOT NULL THEN
+            SELECT price, size_name, min_size_cm, max_size_cm
+            INTO v_flash_price, v_flash_size, v_variant_min, v_variant_max
+            FROM public.flash_design_variants
+            WHERE id = p_flash_variant_id
+              AND flash_design_id = p_flash_design_id
+              AND is_enabled = true;
+
+            IF NOT FOUND THEN
+                RAISE EXCEPTION 'Flash variant not found, disabled, or mismatch';
+            END IF;
+        ELSE
+            -- Legacy fallback check: If this flash design has variants, we require selecting one!
+            IF EXISTS (SELECT 1 FROM public.flash_design_variants WHERE flash_design_id = p_flash_design_id) THEN
+                RAISE EXCEPTION 'Flash variant selection is required';
+            END IF;
+
+            -- Normal legacy fallback to parent size & price
+            SELECT price, size, artist_id, style_id
+            INTO v_flash_price, v_flash_size, v_flash_artist_id, v_flash_style_id
+            FROM public.flash_designs
+            WHERE id = p_flash_design_id;
+        END IF;
+
+        -- Parent validation: Ensure Flash Design itself is held by this session and not expired
+        SELECT artist_id, style_id
+        INTO v_flash_artist_id, v_flash_style_id
+        FROM public.flash_designs
+        WHERE id = p_flash_design_id
+          AND status = 'held'
+          AND (
+              p_hold_session_id IS NULL
+              OR held_by_session_id = p_hold_session_id
+          )
+          AND held_expires_at > now();
+
+        IF NOT FOUND THEN
+            RAISE EXCEPTION 'Flash hold has expired or was taken by another session';
+        END IF;
+
+        IF v_session.artist_id IS DISTINCT FROM v_flash_artist_id THEN
+            RAISE EXCEPTION 'Flash artist mismatch';
+        END IF;
+        IF v_session.style_id IS DISTINCT FROM v_flash_style_id THEN
+            RAISE EXCEPTION 'Flash style mismatch';
+        END IF;
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM public.shop_members
+        WHERE shop_id = v_session.shop_id
+          AND user_id = v_session.artist_id
+          AND role IN ('artist', 'owner')
+          AND status = 'active'
+    ) THEN RAISE EXCEPTION 'Artist not active'; END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM public.artist_tattoo_styles ats
+        WHERE ats.shop_id   = v_session.shop_id
+          AND ats.artist_id = v_session.artist_id
+          AND ats.style_id  = v_session.style_id
+    ) THEN RAISE EXCEPTION 'Style not supported by artist'; END IF;
+
+    SELECT name INTO v_style_name FROM public.tattoo_styles WHERE id = v_session.style_id;
+
+    SELECT accepts_black_grey, accepts_color, accepts_new_work, accepts_extension,
+           accepts_touch_up, accepts_cover_up, accepts_scar_cover
+    INTO v_acc_bg, v_acc_col, v_acc_nw, v_acc_ext, v_acc_tu, v_acc_cu, v_acc_sc
+    FROM public.shop_members
+    WHERE shop_id = v_session.shop_id
+      AND user_id = v_session.artist_id
+      AND role IN ('artist', 'owner')
+      AND status = 'active';
+
+    IF v_session.color_mode = 'black_grey' AND NOT v_acc_bg  THEN RAISE EXCEPTION 'Artist rejects black_grey'; END IF;
+    IF v_session.color_mode = 'color'      AND NOT v_acc_col THEN RAISE EXCEPTION 'Artist rejects color'; END IF;
+    IF v_session.work_type  = 'new_work'   AND NOT v_acc_nw  THEN RAISE EXCEPTION 'Artist rejects new_work'; END IF;
+    IF v_session.work_type  = 'extension'  AND NOT v_acc_ext THEN RAISE EXCEPTION 'Artist rejects extension'; END IF;
+    IF v_session.work_type  = 'touch_up'   AND NOT v_acc_tu  THEN RAISE EXCEPTION 'Artist rejects touch_up'; END IF;
+    IF v_session.work_type  = 'cover_up'   AND NOT v_acc_cu  THEN RAISE EXCEPTION 'Artist rejects cover_up'; END IF;
+    IF v_session.work_type  = 'scar_cover' AND NOT v_acc_sc  THEN RAISE EXCEPTION 'Artist rejects scar_cover'; END IF;
+
+    v_area    := v_width_val * v_height_val;
+    v_max_dim := GREATEST(v_width_val, v_height_val);
+    IF    v_max_dim <= 5  AND v_area <= 25  THEN v_buffer_hours := 2;
+    ELSIF v_max_dim <= 10 AND v_area <= 75  THEN v_buffer_hours := 3;
+    ELSIF v_max_dim <= 15 AND v_area <= 150 THEN v_buffer_hours := 4;
+    ELSIF v_max_dim <= 25 AND v_area <= 350 THEN v_buffer_hours := 6;
+    ELSE                                         v_buffer_hours := 8; END IF;
+
+    v_req_minute := extract(minute from p_requested_time::time);
+    IF v_req_minute NOT IN (0, 30) THEN RAISE EXCEPTION 'Invalid time boundary'; END IF;
+
+    v_req_hour     := extract(hour from p_requested_time::time);
+    v_time_decimal := v_req_hour + (v_req_minute / 60.0);
+    IF v_time_decimal < 10.0 OR v_time_decimal > (23.5 - v_buffer_hours) THEN
+        RAISE EXCEPTION 'Requested time is outside store hours or buffer limit';
+    END IF;
+
+    SELECT effective_capacity, is_closed INTO v_effective_cap, v_is_closed
+    FROM public.get_effective_daily_capacity(v_session.shop_id, v_session.artist_id, p_requested_date::date);
+
+    IF v_is_closed THEN RAISE EXCEPTION 'Shop/Artist is closed on this date'; END IF;
+
+    SELECT public.get_occupied_daily_capacity(v_session.shop_id, v_session.artist_id, p_requested_date::date)
+    INTO v_occupied_cap;
+
+    IF v_effective_cap > 0 AND v_occupied_cap >= v_effective_cap THEN
+        RAISE EXCEPTION 'Daily capacity is FULL';
+    END IF;
+
+    v_real_count   := COALESCE(array_length(p_real_area_paths, 1), 0);
+    v_design_count := COALESCE(array_length(p_design_ref_paths, 1), 0);
+
+    IF v_real_count   > 5 THEN RAISE EXCEPTION 'Max 5 real area photos'; END IF;
+    IF v_design_count > 5 THEN RAISE EXCEPTION 'Max 5 design photos'; END IF;
+    IF (v_real_count + v_design_count) > 10 THEN RAISE EXCEPTION 'Max 10 total photos'; END IF;
+
+    IF v_session.work_type IN ('extension', 'touch_up', 'cover_up', 'scar_cover') THEN
+        IF v_real_count < 1 THEN RAISE EXCEPTION 'Real area photo required for this work type'; END IF;
+    END IF;
+
+    v_all_paths := COALESCE(p_real_area_paths, ARRAY[]::text[]) || COALESCE(p_design_ref_paths, ARRAY[]::text[]);
+    SELECT count(*), count(DISTINCT p) INTO v_total_paths, v_distinct_paths FROM unnest(v_all_paths) p;
+    IF v_total_paths != v_distinct_paths THEN RAISE EXCEPTION 'Duplicate storage paths detected'; END IF;
+
+    v_expected_prefix := 'temp/' || p_session_id || '/';
+    FOREACH v_path IN ARRAY v_all_paths LOOP
+        IF v_path NOT LIKE (v_expected_prefix || '%') THEN RAISE EXCEPTION 'Invalid path'; END IF;
+        IF NOT EXISTS (
+            SELECT 1 FROM storage.objects WHERE bucket_id = 'tattoo-references' AND name = v_path
+        ) THEN
+            RAISE EXCEPTION 'File missing: %', v_path;
+        END IF;
+    END LOOP;
+
+    INSERT INTO public.customers (shop_id, full_name, phone_normalized, email, source)
+    VALUES (v_session.shop_id, btrim(p_full_name), v_phone_norm, v_email_val, 'online')
+    ON CONFLICT (shop_id, phone_normalized) DO UPDATE SET
+        full_name  = COALESCE(EXCLUDED.full_name, public.customers.full_name),
+        email      = COALESCE(EXCLUDED.email, public.customers.email),
+        updated_at = now()
+    RETURNING id INTO v_customer_id;
+
+    IF p_flash_design_id IS NOT NULL THEN
+        -- Dynamic range display formatter logic
+        IF v_variant_min IS NOT NULL THEN
+            IF v_variant_max IS NOT NULL THEN
+                v_size_range_str := ' (' || v_variant_min || '–' || v_variant_max || ' ซม.)';
+            ELSE
+                v_size_range_str := ' (' || v_variant_min || ' ซม. ขึ้นไป)';
+            END IF;
+        END IF;
+
+        INSERT INTO public.tattoo_projects (
+            shop_id, customer_id, artist_id, style_id, tattoo_style, color_mode, work_type,
+            width_cm, height_cm, body_placement, description, name, status,
+            agreed_price, size_note, flash_design_id, flash_variant_id
+        )
+        VALUES (
+            v_session.shop_id, v_customer_id, v_session.artist_id, v_session.style_id,
+            v_style_name, v_session.color_mode, v_session.work_type,
+            NULL, NULL, btrim(p_placement), btrim(p_description),
+            'Flash Booking Request', 'proposed',
+            v_flash_price, 'Flash Size: ' || v_flash_size || v_size_range_str, p_flash_design_id, p_flash_variant_id
+        )
+        RETURNING id INTO v_project_id;
+    ELSE
+        INSERT INTO public.tattoo_projects (
+            shop_id, customer_id, artist_id, style_id, tattoo_style, color_mode, work_type,
+            width_cm, height_cm, body_placement, description, name, status
+        )
+        VALUES (
+            v_session.shop_id, v_customer_id, v_session.artist_id, v_session.style_id,
+            v_style_name, v_session.color_mode, v_session.work_type,
+            v_width_val, v_height_val, btrim(p_placement), btrim(p_description),
+            'Public Booking Request', 'proposed'
+        )
+        RETURNING id INTO v_project_id;
+    END IF;
+
+    FOREACH v_path IN ARRAY COALESCE(p_real_area_paths, ARRAY[]::text[]) LOOP
+        SELECT COALESCE(metadata->>'mimetype', 'application/octet-stream') INTO v_meta_mime
+        FROM storage.objects WHERE bucket_id = 'tattoo-references' AND name = v_path LIMIT 1;
+        IF v_meta_mime NOT IN ('image/jpeg', 'image/png', 'image/webp') THEN
+            RAISE EXCEPTION 'Invalid MIME type for image';
+        END IF;
+        INSERT INTO public.tattoo_project_references
+            (shop_id, project_id, storage_path, file_name, mime_type, reference_type)
+        VALUES
+            (v_session.shop_id, v_project_id, v_path, v_path, v_meta_mime, 'real_area');
+    END LOOP;
+
+    FOREACH v_path IN ARRAY COALESCE(p_design_ref_paths, ARRAY[]::text[]) LOOP
+        SELECT COALESCE(metadata->>'mimetype', 'application/octet-stream') INTO v_meta_mime
+        FROM storage.objects WHERE bucket_id = 'tattoo-references' AND name = v_path LIMIT 1;
+        IF v_meta_mime NOT IN ('image/jpeg', 'image/png', 'image/webp') THEN
+            RAISE EXCEPTION 'Invalid MIME type for image';
+        END IF;
+        INSERT INTO public.tattoo_project_references
+            (shop_id, project_id, storage_path, file_name, mime_type, reference_type)
+        VALUES
+            (v_session.shop_id, v_project_id, v_path, v_path, v_meta_mime, 'design_reference');
+    END LOOP;
+
+    v_requested_start_at := (p_requested_date || ' ' || p_requested_time)::timestamp AT TIME ZONE 'Asia/Bangkok';
+    v_requested_end_at   := v_requested_start_at + interval '1 hour';
+
+    v_success := false;
+    WHILE NOT v_success LOOP
+        v_tracking_code := private.generate_secure_tracking_code();
+        BEGIN
+            INSERT INTO public.booking_requests (
+                shop_id, project_id, customer_id, artist_id,
+                requested_start_at, requested_end_at, status,
+                submitted_full_name, submitted_phone, submitted_email,
+                health_note, is_first_tattoo, safety_notice_acknowledged,
+                terms_accepted_at, terms_version, tracking_code, flash_design_id, flash_variant_id
+            )
+            VALUES (
+                v_session.shop_id, v_project_id, v_customer_id, v_session.artist_id,
+                v_requested_start_at, v_requested_end_at, 'pending_review',
+                btrim(p_full_name), p_phone, v_email_val,
+                NULLIF(btrim(p_health_note), ''), p_is_first_tattoo, p_safety_notice_acknowledged,
+                now(), '2026-08-21-v1', v_tracking_code, p_flash_design_id, p_flash_variant_id
+            )
+            RETURNING id, public_token INTO v_booking_id, v_public_token;
+            v_success := true;
+        EXCEPTION WHEN unique_violation THEN
+            NULL;
+        END;
+    END LOOP;
+
+    UPDATE private.public_booking_upload_sessions
+    SET status = 'consumed', finalized_at = now(), booking_request_id = v_booking_id
+    WHERE id = p_session_id;
+
+    -- Set Flash status to reserved immediately
+    IF p_flash_design_id IS NOT NULL THEN
+        UPDATE public.flash_designs
+        SET status             = 'reserved',
+            held_by_session_id = NULL,
+            held_expires_at    = NULL,
+            booking_request_id = v_booking_id,
+            updated_at         = now()
+        WHERE id = p_flash_design_id;
+    END IF;
+
+    RETURN v_public_token;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.finalize_public_booking(
+    uuid, numeric, numeric, text, text, text, text, text, text, text, text,
+    text[], text[], boolean, boolean, boolean, uuid, uuid, uuid
+) FROM PUBLIC, anon, authenticated;
+
+GRANT EXECUTE ON FUNCTION public.finalize_public_booking(
+    uuid, numeric, numeric, text, text, text, text, text, text, text, text,
+    text[], text[], boolean, boolean, boolean, uuid, uuid, uuid
+) TO anon, authenticated;

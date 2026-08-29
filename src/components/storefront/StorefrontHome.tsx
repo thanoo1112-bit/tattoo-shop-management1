@@ -2,8 +2,8 @@
 
 import React, { useState, useEffect } from 'react'
 import { useParams } from 'next/navigation'
-import { Menu, X, ArrowRight, MapPin, Phone, Clock, Calendar, Pencil, Layers, Plus, MessageSquare, UserRound, Images, CalendarCheck } from 'lucide-react'
-import { mockPortfolio, mockArtists, PortfolioItem } from '@/app/design-lab/customer-home-v2/_data/mockData'
+import { Menu, X, ArrowRight, MapPin, Phone, Clock, Calendar, Pencil, Layers, Plus, MessageSquare, UserRound, Images, CalendarCheck, Palette } from 'lucide-react'
+import { mockArtists } from '@/app/design-lab/customer-home-v2/_data/mockData'
 import { createClient } from '@/lib/supabase/client'
 
 export default function StorefrontHome() {
@@ -29,6 +29,8 @@ export default function StorefrontHome() {
   const [flashHoldError, setFlashHoldError] = useState<string | null>(null)
   const [holdingFlashId, setHoldingFlashId] = useState<string | null>(null)
   const [selectedFlash, setSelectedFlash] = useState<any | null>(null)
+  const [selectedFlashVariants, setSelectedFlashVariants] = useState<any[]>([])
+  const [selectedVariantId, setSelectedVariantId] = useState<string | null>(null)
 
   // Fetch real shop and artist data
   useEffect(() => {
@@ -93,10 +95,10 @@ export default function StorefrontHome() {
           const { data: flashData } = await supabase
             .from('flash_designs')
             .select(`
-              id, flash_code, artist_id, style_id, image_path, size, price, status, style_name,
+              id, flash_code, artist_id, style_id, image_path, size, price, status, style_name, held_expires_at,
               profiles ( full_name )
             `)
-            .eq('status', 'open')
+            .in('status', ['open', 'held', 'reserved', 'sold'])
             .order('created_at', { ascending: false })
           setFlashDesigns(
             (flashData || []).map((f: any) => ({
@@ -126,7 +128,38 @@ export default function StorefrontHome() {
     return data.publicUrl
   }
 
+  const openFlashModal = async (flash: any) => {
+    setSelectedFlash(flash)
+    setSelectedFlashVariants([])
+    setSelectedVariantId(null)
+    setFlashHoldError(null)
+
+    try {
+      const { data: variants, error } = await supabase
+        .from('flash_design_variants')
+        .select('*')
+        .eq('flash_design_id', flash.id)
+        .eq('is_enabled', true)
+        .order('sort_order', { ascending: true })
+
+      if (!error && variants) {
+        setSelectedFlashVariants(variants)
+        // Auto select first enabled variant if available
+        if (variants.length > 0) {
+          setSelectedVariantId(variants[0].id)
+        }
+      }
+    } catch (e) {
+      console.error('Failed to load flash variants:', e)
+    }
+  }
+
   const handleBookFlash = async (flash: any) => {
+    if (selectedFlashVariants.length > 0 && !selectedVariantId) {
+      setFlashHoldError('กรุณาเลือกขนาดที่ต้องการ')
+      return
+    }
+
     setHoldingFlashId(flash.id)
     setFlashHoldError(null)
     try {
@@ -147,6 +180,9 @@ export default function StorefrontHome() {
         flash_id: flash.id,
         hold_id: holdId,
       })
+      if (selectedVariantId) {
+        params.set('variant_id', selectedVariantId)
+      }
       window.location.href = `/book/${slug}?${params.toString()}`
     } catch {
       setFlashHoldError('เกิดข้อผิดพลาด กรุณาลองใหม่')
@@ -154,6 +190,19 @@ export default function StorefrontHome() {
       setHoldingFlashId(null)
     }
   }
+
+  const getFlashDisplayState = (flash: any) => {
+    if (!flash) return 'open';
+    if (flash.status === 'sold') return 'sold';
+    if (flash.status === 'reserved') return 'reserved';
+    if (flash.status === 'held') {
+      if (flash.held_expires_at && new Date(flash.held_expires_at) > new Date()) {
+        return 'held';
+      }
+      return 'open';
+    }
+    return flash.status;
+  };
 
   // Resolve active artists and styles (falls back to mock if empty)
   const displayArtists = artists.length > 0 ? artists : mockArtists
@@ -419,7 +468,7 @@ export default function StorefrontHome() {
       </div>
 
       {/* Main Container */}
-      <div className="max-w-[1280px] w-full mx-auto px-4 sm:px-8 py-6 md:py-12 flex flex-col">
+      <div className="max-w-[1280px] min-[1440px]:max-w-[1560px] w-full mx-auto px-4 sm:px-8 py-6 md:py-12 flex flex-col">
 
         {/* 2. HERO SECTION */}
         <section id="home" className="w-full relative rounded-xl rounded-b-none overflow-hidden border border-[#262626] bg-[#0A0A0A] h-[360px] md:h-[540px] flex items-end md:items-center p-6 md:p-12 lg:p-16">
@@ -475,9 +524,9 @@ export default function StorefrontHome() {
                 <UserRound className="w-[18px] h-[18px] md:w-[22px] md:h-[22px]" />
               </div>
               <div className="space-y-1 min-w-0">
-                <h3 className="text-xs md:text-sm font-semibold text-[#F5F5F5] truncate">เลือกช่างตามสไตล์</h3>
+                <h3 className="text-xs md:text-sm font-semibold text-[#F5F5F5] truncate">เลือกช่างที่ใช่</h3>
                 <p className="text-[10px] md:text-xs text-[#737373] leading-relaxed line-clamp-2 md:line-clamp-none">
-                  เลือกช่างที่ตรงกับแนวงานที่คุณต้องการ
+                  เลือกช่างสักตามสไตล์และผลงานที่คุณชื่นชอบ
                 </p>
               </div>
             </div>
@@ -488,9 +537,9 @@ export default function StorefrontHome() {
                 <Images className="w-[18px] h-[18px] md:w-[22px] md:h-[22px]" />
               </div>
               <div className="space-y-1 min-w-0">
-                <h3 className="text-xs md:text-sm font-semibold text-[#F5F5F5] truncate">ดูผลงานก่อนตัดสินใจ</h3>
+                <h3 className="text-xs md:text-sm font-semibold text-[#F5F5F5] truncate">ดูผลงานก่อนจอง</h3>
                 <p className="text-[10px] md:text-xs text-[#737373] leading-relaxed line-clamp-2 md:line-clamp-none">
-                  ดูผลงานและสไตล์ของช่างก่อนส่งคำขอจอง
+                  ชมผลงานและสไตล์ของช่างแต่ละคนก่อนตัดสินใจ
                 </p>
               </div>
             </div>
@@ -501,9 +550,9 @@ export default function StorefrontHome() {
                 <CalendarCheck className="w-[18px] h-[18px] md:w-[22px] md:h-[22px]" />
               </div>
               <div className="space-y-1 min-w-0">
-                <h3 className="text-xs md:text-sm font-semibold text-[#F5F5F5] truncate">จองคิวเป็นขั้นตอน</h3>
+                <h3 className="text-xs md:text-sm font-semibold text-[#F5F5F5] truncate">ส่งคำขอจองคิว</h3>
                 <p className="text-[10px] md:text-xs text-[#737373] leading-relaxed line-clamp-2 md:line-clamp-none">
-                  ส่งคำขอและติดตามสถานะการจองได้
+                  กรอกรายละเอียดงานและเลือกวันเวลาที่สะดวกเพื่อส่งคำขอ
                 </p>
               </div>
             </div>
@@ -514,9 +563,9 @@ export default function StorefrontHome() {
                 <MessageSquare className="w-[18px] h-[18px] md:w-[22px] md:h-[22px]" />
               </div>
               <div className="space-y-1 min-w-0">
-                <h3 className="text-xs md:text-sm font-semibold text-[#F5F5F5] truncate">พูดคุยรายละเอียดก่อนจอง</h3>
+                <h3 className="text-xs md:text-sm font-semibold text-[#F5F5F5] truncate">ติดตามสถานะได้ง่าย</h3>
                 <p className="text-[10px] md:text-xs text-[#737373] leading-relaxed line-clamp-2 md:line-clamp-none">
-                  เตรียมไอเดีย ตำแหน่ง และรายละเอียดงานก่อนส่งคำขอ
+                  ใช้รหัสติดตามเพื่อตรวจสอบสถานะการจองและการชำระเงิน
                 </p>
               </div>
             </div>
@@ -587,11 +636,17 @@ export default function StorefrontHome() {
 
           {/* 4. PORTFOLIO GRID */}
           <section id="tattoos" className="space-y-6 scroll-mt-20">
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg md:text-xl font-bold text-[#F5F5F5] uppercase tracking-wider">ผลงาน & Flash Designs</h2>
-              <button className="text-xs font-semibold text-[#A3A3A3] hover:text-[#F5F5F5] flex items-center gap-1">
+            <div className="flex items-end justify-between border-b border-[#262626] pb-4">
+              <div className="space-y-1">
+                <span className="text-[10px] uppercase tracking-wider text-[#737373] font-semibold">Our Work</span>
+                <h2 className="text-lg md:text-xl font-bold text-[#F5F5F5]">ผลงานของเรา</h2>
+              </div>
+              <a 
+                href={`/shop/${slug}/portfolio`}
+                className="text-xs font-semibold text-[#A3A3A3] hover:text-[#F5F5F5] flex items-center gap-1 cursor-pointer"
+              >
                 ดูทั้งหมด <ArrowRight size={14} />
-              </button>
+              </a>
             </div>
 
             {portfolioError ? (
@@ -604,7 +659,7 @@ export default function StorefrontHome() {
               </div>
             ) : (
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-5">
-                {filteredPortfolio.map((item) => (
+                {filteredPortfolio.slice(0, 4).map((item) => (
                   <div
                     key={item.id}
                     onClick={() => setSelectedItem(item)}
@@ -614,10 +669,10 @@ export default function StorefrontHome() {
                       <img 
                         src={item.image} 
                         alt={item.name}
-                        className="w-full h-full object-cover grayscale group-hover:scale-[1.02] transition-transform duration-300"
+                        className="w-full h-full object-cover grayscale group-hover:grayscale-0 group-hover:scale-[1.02] transition-all duration-300"
                       />
                     </div>
-                    <div className="p-4 md:p-[18px] flex-1 flex flex-col justify-between gap-3">
+                    <div className="p-4 md:p-[18px] flex-1 flex flex-col justify-center">
                       <div className="space-y-1">
                         <h3 className="text-xs md:text-sm font-bold text-[#F5F5F5] tracking-wide truncate">{item.name}</h3>
                         <p className="text-[11px] md:text-xs text-[#A3A3A3] leading-relaxed">
@@ -625,9 +680,6 @@ export default function StorefrontHome() {
                         </p>
                       </div>
 
-                      <div className="flex items-center justify-end text-[11px] md:text-xs font-semibold text-[#F5F5F5] border-t border-[#262626]/60 pt-2.5 md:pt-3 mt-auto">
-                        <span>ดูรายละเอียด →</span>
-                      </div>
                     </div>
                   </div>
                 ))}
@@ -673,7 +725,7 @@ export default function StorefrontHome() {
                   <div
                     key={flash.id}
                     className="bg-[#171717] border border-[#262626] rounded-xl overflow-hidden flex flex-col group hover:border-[#404040] transition-colors cursor-pointer"
-                    onClick={() => setSelectedFlash(flash)}
+                    onClick={() => openFlashModal(flash)}
                   >
                     <div className="relative aspect-square bg-[#121212] overflow-hidden">
                       <img
@@ -698,13 +750,39 @@ export default function StorefrontHome() {
                         </span>
                         <span className="text-sm font-bold text-[#F5F5F5]">฿{Number(flash.price).toLocaleString()}</span>
                       </div>
-                      <button
-                        onClick={e => { e.stopPropagation(); handleBookFlash(flash) }}
-                        disabled={holdingFlashId === flash.id}
-                        className="w-full py-2 rounded-xl text-xs font-semibold bg-[#F5F5F5] text-[#0A0A0A] hover:bg-white transition-colors active:scale-95 disabled:opacity-60 mt-auto"
-                      >
-                        {holdingFlashId === flash.id ? '...' : 'จองลายนี้'}
-                      </button>
+                      {(() => {
+                        const state = getFlashDisplayState(flash);
+                        if (state === 'sold') {
+                          return (
+                            <button disabled className="w-full py-2 rounded-xl text-xs font-semibold bg-[#262626] text-[#737373] mt-auto cursor-not-allowed">
+                              SOLD OUT
+                            </button>
+                          );
+                        }
+                        if (state === 'reserved') {
+                          return (
+                            <button disabled className="w-full py-2 rounded-xl text-xs font-semibold bg-[#262626] text-[#737373] mt-auto cursor-not-allowed">
+                              จองแล้ว
+                            </button>
+                          );
+                        }
+                        if (state === 'held') {
+                          return (
+                            <button disabled className="w-full py-2 rounded-xl text-xs font-semibold bg-[#1A1A1A] text-[#A3A3A3] mt-auto cursor-not-allowed">
+                              กำลังมีผู้ทำรายการ
+                            </button>
+                          );
+                        }
+                        return (
+                          <button
+                            onClick={e => { e.stopPropagation(); handleBookFlash(flash) }}
+                            disabled={holdingFlashId === flash.id}
+                            className="w-full py-2 rounded-xl text-xs font-semibold bg-[#F5F5F5] text-[#0A0A0A] hover:bg-white transition-colors active:scale-95 disabled:opacity-60 mt-auto"
+                          >
+                            {holdingFlashId === flash.id ? '...' : 'จองลายนี้'}
+                          </button>
+                        );
+                      })()}
                     </div>
                   </div>
                 ))}
@@ -736,23 +814,120 @@ export default function StorefrontHome() {
                   </span>
                 </div>
               </div>
-              <div className="p-5 space-y-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-semibold text-[#F5F5F5]">{selectedFlash.artist_name}</p>
-                    <p className="text-xs text-[#737373]">{selectedFlash.style_name}</p>
-                  </div>
-                  <span className="text-xs font-semibold border border-[#262626] px-2.5 py-1 rounded-lg text-[#A3A3A3]">ขนาด {selectedFlash.size}</span>
+              <div className="p-5 space-y-4 overflow-y-auto max-h-[45vh]">
+                <div>
+                  <p className="text-sm font-semibold text-[#F5F5F5]">{selectedFlash.artist_name}</p>
+                  <p className="text-xs text-[#737373]">{selectedFlash.style_name}</p>
                 </div>
+
+                {selectedFlashVariants.length > 0 ? (
+                  <div className="space-y-3">
+                    <p className="text-xs font-semibold text-[#A3A3A3] uppercase tracking-wider">เลือกขนาด</p>
+                    <p className="text-[10px] text-[#737373] italic -mt-1">
+                      * ขนาดวัดจากด้านที่ยาวที่สุดของลาย
+                    </p>
+                    <div className="space-y-2 max-h-[200px] overflow-y-auto pr-1">
+                      {selectedFlashVariants.map(v => {
+                        const isSelected = selectedVariantId === v.id;
+                        let sizeRangeText = '';
+                        if (v.min_size_cm !== null && v.min_size_cm !== undefined) {
+                          if (v.max_size_cm !== null && v.max_size_cm !== undefined) {
+                            sizeRangeText = ` (${v.min_size_cm}–${v.max_size_cm} ซม.)`;
+                          } else {
+                            sizeRangeText = ` (${v.min_size_cm} ซม. ขึ้นไป)`;
+                          }
+                        }
+                        return (
+                          <label
+                            key={v.id}
+                            className={`flex items-center justify-between p-3 rounded-xl border cursor-pointer transition-all ${
+                              isSelected
+                                ? 'bg-white/5 border-white/20 text-[#F5F5F5]'
+                                : 'bg-[#171717] border-[#262626] text-[#A3A3A3] hover:border-[#404040]'
+                            }`}
+                          >
+                            <div className="flex items-center gap-3">
+                              <input
+                                type="radio"
+                                name="flash_size_variant"
+                                value={v.id}
+                                checked={isSelected}
+                                onChange={() => setSelectedVariantId(v.id)}
+                                className="w-4 h-4 accent-white"
+                              />
+                              <span className="text-xs font-semibold">
+                                {v.size_name}
+                                <span className="text-[10px] font-normal text-[#737373] block sm:inline sm:ml-1">
+                                  {sizeRangeText}
+                                </span>
+                              </span>
+                            </div>
+                            <span className="text-xs font-bold">฿{Number(v.price).toLocaleString()}</span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold border border-[#262626] px-2.5 py-1 rounded-lg text-[#A3A3A3]">
+                      ขนาด {selectedFlash.size}
+                    </span>
+                    <span className="text-sm font-bold text-[#F5F5F5]">
+                      ฿{Number(selectedFlash.price).toLocaleString()}
+                    </span>
+                  </div>
+                )}
+
                 <div className="flex items-center justify-between border-t border-[#1F1F1F] pt-4">
-                  <span className="text-xl font-bold text-[#F5F5F5]">฿{Number(selectedFlash.price).toLocaleString()}</span>
-                  <button
-                    onClick={() => handleBookFlash(selectedFlash)}
-                    disabled={holdingFlashId === selectedFlash.id}
-                    className="px-6 py-3 rounded-xl text-sm font-semibold bg-[#F5F5F5] text-[#0A0A0A] hover:bg-white transition-colors active:scale-95 disabled:opacity-60"
-                  >
-                    {holdingFlashId === selectedFlash.id ? 'กำลังจอง...' : 'จองลายนี้'}
-                  </button>
+                  {selectedFlashVariants.length > 0 && selectedVariantId ? (
+                    (() => {
+                      const activeVariant = selectedFlashVariants.find(v => v.id === selectedVariantId);
+                      return (
+                        <span className="text-xl font-bold text-[#F5F5F5]">
+                          ฿{activeVariant ? Number(activeVariant.price).toLocaleString() : '0'}
+                        </span>
+                      );
+                    })()
+                  ) : (
+                    <span className="text-xl font-bold text-[#F5F5F5]">
+                      ฿{Number(selectedFlash.price).toLocaleString()}
+                    </span>
+                  )}
+
+                  {(() => {
+                    const state = getFlashDisplayState(selectedFlash);
+                    if (state === 'sold') {
+                      return (
+                        <button disabled className="px-6 py-3 rounded-xl text-sm font-semibold bg-[#262626] text-[#737373] cursor-not-allowed">
+                          SOLD OUT
+                        </button>
+                      );
+                    }
+                    if (state === 'reserved') {
+                      return (
+                        <button disabled className="px-6 py-3 rounded-xl text-sm font-semibold bg-[#262626] text-[#737373] cursor-not-allowed">
+                          จองแล้ว
+                        </button>
+                      );
+                    }
+                    if (state === 'held') {
+                      return (
+                        <button disabled className="px-6 py-3 rounded-xl text-sm font-semibold bg-[#1A1A1A] text-[#A3A3A3] cursor-not-allowed">
+                          กำลังมีผู้ทำรายการ
+                        </button>
+                      );
+                    }
+                    return (
+                      <button
+                        onClick={() => handleBookFlash(selectedFlash)}
+                        disabled={holdingFlashId === selectedFlash.id || (selectedFlashVariants.length > 0 && !selectedVariantId)}
+                        className="px-6 py-3 rounded-xl text-sm font-semibold bg-[#F5F5F5] text-[#0A0A0A] hover:bg-white transition-colors active:scale-95 disabled:opacity-60"
+                      >
+                        {holdingFlashId === selectedFlash.id ? 'กำลังจอง...' : 'จองลายนี้'}
+                      </button>
+                    );
+                  })()}
                 </div>
                 {flashHoldError && (
                   <p className="text-xs text-red-400 text-center">{flashHoldError}</p>
@@ -770,17 +945,17 @@ export default function StorefrontHome() {
           </div>
 
           {/* Desktop Layout (>= 768px) */}
-          <div className="hidden md:grid grid-cols-3 gap-6">
+          <div className="hidden md:grid grid-cols-3 min-[1440px]:grid-cols-4 gap-6 min-[1440px]:gap-8">
             {displayArtists.map((artist) => (
               <div 
                 key={artist.id}
-                className="bg-[#171717] border border-[#262626] rounded-xl overflow-hidden flex flex-col group hover:border-[#404040] transition-colors"
+                className="bg-[#171717] border border-[#262626] rounded-xl overflow-hidden flex flex-col group hover:border-[#404040] transition-colors w-full min-[1440px]:max-w-[360px] mx-0"
               >
                 <div className="aspect-[4/5] md:aspect-auto md:h-[340px] bg-[#121212] overflow-hidden relative">
                   <img 
                     src={artist.avatar} 
                     alt={artist.name}
-                    className="w-full h-full object-cover grayscale group-hover:scale-[1.03] transition-transform duration-300"
+                    className="w-full h-full object-cover grayscale group-hover:grayscale-0 group-hover:scale-[1.03] transition-all duration-300"
                   />
                 </div>
                 <div className="p-6 md:p-7 flex flex-col justify-between gap-5 flex-1">
@@ -803,13 +978,13 @@ export default function StorefrontHome() {
             {displayArtists.map((artist) => (
               <div 
                 key={artist.id}
-                className="bg-[#171717] border border-[#262626] rounded-xl overflow-hidden w-[160px] flex-shrink-0 snap-align-start"
+                className="bg-[#171717] border border-[#262626] rounded-xl overflow-hidden w-[160px] flex-shrink-0 snap-align-start group"
               >
                 <div className="aspect-square bg-[#121212] overflow-hidden">
                   <img 
                     src={artist.avatar} 
                     alt={artist.name}
-                    className="w-full h-full object-cover grayscale"
+                    className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-300"
                   />
                 </div>
                 <div className="p-3 space-y-1">
@@ -852,8 +1027,8 @@ export default function StorefrontHome() {
                   {[
                     { icon: <Pencil size={18} />, title: 'งานสักใหม่ (New Tattoo)', desc: 'รับงานสักใหม่ตามแบบหรือไอเดียที่พูดคุยกับช่าง' },
                     { icon: <Layers size={18} />, title: 'แก้ไข / Cover Up', desc: 'แก้ไขงานเก่า หรือปกปิดรอยสักเดิม' },
-                    { icon: <Plus size={18} />, title: 'ต่อเติมรอยสัก', desc: 'เพิ่มรายละเอียดหรือขยายงานจากรอยสักเดิม' },
-                    { icon: <MessageSquare size={18} />, title: 'ให้คำปรึกษาก่อนจอง', desc: 'พูดคุยแนวทาง ตำแหน่ง และรายละเอียดของงานก่อนจอง' },
+                    { icon: <Palette size={18} />, title: 'ออกแบบลายสักเฉพาะบุคคล (Custom Design)', desc: 'ออกแบบและปรับลายให้เหมาะกับสไตล์ ตำแหน่ง และความต้องการของลูกค้า' },
+                    { icon: <MessageSquare size={18} />, title: 'ให้คำปรึกษาก่อนจอง', desc: 'พูดคุยแนวทาง ตำแหน่ง ขนาด และรายละเอียดของงานก่อนส่งคำขอจอง' },
                   ].map((s, i) => (
                     <div key={i} className="flex items-start gap-3">
                       <div className="mt-0.5 text-[#A3A3A3] flex-shrink-0">{s.icon}</div>
@@ -891,10 +1066,20 @@ export default function StorefrontHome() {
                   <span className="text-[10px] uppercase tracking-[0.25em] text-[#737373] font-semibold">About Us</span>
                   <h2 className="text-2xl font-bold text-[#F5F5F5]">เกี่ยวกับเรา</h2>
                 </div>
-                <p className="text-sm text-[#A3A3A3] leading-[1.75]">
-                  157 Tattoo Studio คือพื้นที่สำหรับงานสักที่ให้ความสำคัญกับตัวตนของแต่ละคน
-                  เราร่วมพัฒนาไอเดียและรายละเอียดของงาน เพื่อให้ผลงานเหมาะกับสไตล์และความต้องการของคุณ
-                </p>
+                <div className="space-y-4">
+                  <p className="text-sm text-[#A3A3A3] leading-[1.75]">
+                    157 Tattoo Studio คือพื้นที่สำหรับงานสักที่ให้ความสำคัญกับตัวตนของแต่ละคน
+                    เราร่วมพัฒนาไอเดียและรายละเอียดของงาน เพื่อให้ผลงานเหมาะกับสไตล์และความต้องการของคุณ
+                  </p>
+                  <div>
+                    <a 
+                      href={`/shop/${slug}/about`}
+                      className="inline-flex items-center text-xs font-semibold text-[#A3A3A3] hover:text-[#F5F5F5] transition-colors cursor-pointer group"
+                    >
+                      อ่านเพิ่มเติม <ArrowRight size={14} className="ml-1 group-hover:translate-x-0.5 transition-transform" />
+                    </a>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -921,8 +1106,8 @@ export default function StorefrontHome() {
                   {[
                     { icon: <Pencil size={16} />, title: 'งานสักใหม่ (New Tattoo)', desc: 'รับงานสักใหม่ตามแบบหรือไอเดียที่พูดคุยกับช่าง' },
                     { icon: <Layers size={16} />, title: 'แก้ไข / Cover Up', desc: 'แก้ไขงานเก่า หรือปกปิดรอยสักเดิม' },
-                    { icon: <Plus size={16} />, title: 'ต่อเติมรอยสัก', desc: 'เพิ่มรายละเอียดหรือขยายงานจากรอยสักเดิม' },
-                    { icon: <MessageSquare size={16} />, title: 'ให้คำปรึกษาก่อนจอง', desc: 'พูดคุยแนวทาง ตำแหน่ง และรายละเอียดของงานก่อนจอง' },
+                    { icon: <Palette size={16} />, title: 'ออกแบบลายสักเฉพาะบุคคล (Custom Design)', desc: 'ออกแบบและปรับลายให้เหมาะกับสไตล์ ตำแหน่ง และความต้องการของลูกค้า' },
+                    { icon: <MessageSquare size={16} />, title: 'ให้คำปรึกษาก่อนจอง', desc: 'พูดคุยแนวทาง ตำแหน่ง ขนาด และรายละเอียดของงานก่อนส่งคำขอจอง' },
                   ].map((s, i) => (
                     <div key={i} className="flex items-start gap-3">
                       <div className="mt-0.5 text-[#A3A3A3] flex-shrink-0">{s.icon}</div>
@@ -955,6 +1140,14 @@ export default function StorefrontHome() {
                   157 Tattoo Studio คือพื้นที่สำหรับงานสักที่ให้ความสำคัญกับตัวตนของแต่ละคน
                   เราร่วมพัฒนาไอเดียและรายละเอียดของงาน เพื่อให้ผลงานเหมาะกับสไตล์และความต้องการของคุณ
                 </p>
+                <div className="pt-1">
+                  <a 
+                    href={`/shop/${slug}/about`}
+                    className="inline-flex items-center text-xs font-semibold text-[#A3A3A3] hover:text-[#F5F5F5] transition-colors cursor-pointer group"
+                  >
+                    อ่านเพิ่มเติม <ArrowRight size={14} className="ml-1 group-hover:translate-x-0.5 transition-transform" />
+                  </a>
+                </div>
               </div>
             </div>
           </div>
@@ -1123,152 +1316,25 @@ export default function StorefrontHome() {
 
       {/* 9. PORTFOLIO ITEM DETAIL INTERACTION (Modal / Sheet) */}
       {selectedItem && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fade-in">
-          <div className="bg-[#171717] border border-[#262626] rounded-2xl w-full max-w-[440px] md:max-w-[850px] h-[88vh] max-h-[88vh] flex flex-col relative overflow-hidden shadow-2xl">
-            
-            {/* Sticky Header inside modal */}
-            <div className="h-14 flex items-center justify-between border-b border-[#262626] px-5 bg-[#171717] z-20 flex-shrink-0">
-              <span className="text-sm font-bold uppercase tracking-wider text-[#F5F5F5] truncate pr-4">
-                {selectedItem.name}
-              </span>
-              <button 
-                onClick={() => setSelectedItem(null)}
-                className="p-1.5 rounded-md hover:bg-[#262626] text-[#A3A3A3] hover:text-[#F5F5F5] transition-colors cursor-pointer"
-              >
-                <X size={18} />
-              </button>
-            </div>
-
-            {/* Scrollable Content Area */}
-            <div className="flex-1 overflow-y-auto flex flex-col md:flex-row min-h-0">
-              
-              {/* Left Side (Image Area) */}
-              <div className="w-full md:w-[50%] max-h-[45vh] md:max-h-full md:h-full md:border-r border-[#262626] bg-[#0A0A0A] flex-shrink-0 flex items-center justify-center relative overflow-hidden">
-                <img 
-                  src={selectedItem.image} 
-                  alt={selectedItem.name}
-                  className="w-full h-auto max-h-[45vh] md:max-h-[70vh] object-contain grayscale"
-                />
-              </div>
-
-              {/* Right Side (Content Details) */}
-              <div className="flex-1 p-5 space-y-5">
-                
-                {/* Quick Summary Block */}
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] uppercase tracking-[0.15em] text-[#737373] font-bold">
-                      {selectedItem.style}
-                    </span>
-                    <span className="text-[10px] font-mono text-[#F5F5F5] bg-[#121212] px-2 py-0.5 border border-[#262626] rounded">
-                      ออกแบบโดยช่าง {selectedItem.artist}
-                    </span>
-                  </div>
-                  
-                  {(selectedItem.placement || selectedItem.size) && (
-                    <div className="grid grid-cols-2 gap-3 text-xs bg-[#121212]/40 border border-[#262626] p-3.5 rounded-lg">
-                      {selectedItem.placement ? (
-                        <div className="space-y-0.5">
-                          <span className="text-[9px] uppercase tracking-wider text-[#737373] block">ตำแหน่งแนะนำ</span>
-                          <span className="text-[#F5F5F5] font-semibold">{selectedItem.placement}</span>
-                        </div>
-                      ) : <div />}
-                      {selectedItem.size ? (
-                        <div className={`space-y-0.5 ${selectedItem.placement ? 'border-l border-[#262626] pl-3.5' : ''}`}>
-                          <span className="text-[9px] uppercase tracking-wider text-[#737373] block">ขนาดตัวอย่าง</span>
-                          <span className="text-[#F5F5F5] font-semibold">{selectedItem.size}</span>
-                        </div>
-                      ) : <div />}
-                    </div>
-                  )}
-                </div>
-
-                {/* Info Chips / Meta Tags */}
-                <div className="flex flex-wrap gap-1.5">
-                  <span className="px-2.5 py-1 bg-[#121212] border border-[#262626] rounded text-[10px] font-semibold text-[#A3A3A3]">
-                    สไตล์: {selectedItem.style}
-                  </span>
-                  <span className="px-2.5 py-1 bg-[#121212] border border-[#262626] rounded text-[10px] font-semibold text-[#A3A3A3]">
-                    เวลาสัก: 3–5 ชม.
-                  </span>
-                  <span className="px-2.5 py-1 bg-[#121212] border border-[#262626] rounded text-[10px] font-semibold text-[#A3A3A3]">
-                    ระดับความเจ็บ: ปานกลาง
-                  </span>
-                </div>
-
-                {/* Collapsible Accordion Sections */}
-                <div className="space-y-2">
-                  {/* Section 1: แนวคิดการออกแบบ */}
-                  {selectedItem.concept && (
-                    <div className="border border-[#262626] rounded-lg overflow-hidden bg-[#121212]/20">
-                      <button 
-                        onClick={() => setExpandedSection(expandedSection === 'concept' ? null : 'concept')}
-                        className="w-full px-4 py-3 flex items-center justify-between text-xs font-bold text-[#F5F5F5] hover:bg-[#121212] transition-colors"
-                      >
-                        <span>แนวคิดการออกแบบ</span>
-                        <span className="text-[#737373] font-mono">{expandedSection === 'concept' ? '−' : '+'}</span>
-                      </button>
-                      {expandedSection === 'concept' && (
-                        <div className="px-4 pb-4 pt-1 text-xs text-[#A3A3A3] leading-relaxed border-t border-[#262626]/40">
-                          {selectedItem.concept}
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Section 2: ขนาดและตำแหน่งที่เหมาะสม */}
-                  {selectedItem.placement && (
-                    <div className="border border-[#262626] rounded-lg overflow-hidden bg-[#121212]/20">
-                      <button 
-                        onClick={() => setExpandedSection(expandedSection === 'placement' ? null : 'placement')}
-                        className="w-full px-4 py-3 flex items-center justify-between text-xs font-bold text-[#F5F5F5] hover:bg-[#121212] transition-colors"
-                      >
-                        <span>ขนาดและตำแหน่งที่เหมาะสม</span>
-                        <span className="text-[#737373] font-mono">{expandedSection === 'placement' ? '−' : '+'}</span>
-                      </button>
-                      {expandedSection === 'placement' && (
-                        <div className="px-4 pb-4 pt-1 text-xs text-[#A3A3A3] leading-relaxed border-t border-[#262626]/40 space-y-1">
-                          <p>งานดีไซน์ชิ้นนี้มีมิติความโค้งมนที่สอดคล้องกับสรีระบริเวณ <span className="text-[#F5F5F5] font-medium">{selectedItem.placement}</span> เป็นพิเศษ</p>
-                          {selectedItem.size && (
-                            <p>สามารถปรับเปลี่ยนย่อ-ขยายขนาดจากขนาดมาตรฐานคือ <span className="text-[#F5F5F5] font-medium">{selectedItem.size}</span> เพื่อให้รับกับสัดส่วนจริงของลูกค้าได้โดยตรง</p>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Section 3: สิ่งที่ควรรู้ก่อนจอง */}
-                  <div className="border border-[#262626] rounded-lg overflow-hidden bg-[#121212]/20">
-                    <button 
-                      onClick={() => setExpandedSection(expandedSection === 'prebooking' ? null : 'prebooking')}
-                      className="w-full px-4 py-3 flex items-center justify-between text-xs font-bold text-[#F5F5F5] hover:bg-[#121212] transition-colors"
-                    >
-                      <span>สิ่งที่ควรรู้ก่อนจอง</span>
-                      <span className="text-[#737373] font-mono">{expandedSection === 'prebooking' ? '−' : '+'}</span>
-                    </button>
-                    {expandedSection === 'prebooking' && (
-                      <div className="px-4 pb-4 pt-1 text-xs text-[#A3A3A3] leading-relaxed border-t border-[#262626]/40 space-y-1">
-                        <p>• นอนหลับพักผ่อนให้เพียงพออย่างน้อย 7-8 ชั่วโมงก่อนนัดหมาย</p>
-                        <p>• งดเครื่องดื่มแอลกอฮอล์และยาที่มีฤทธิ์ขยายหลอดเลือดล่วงหน้า 24 ชั่วโมง</p>
-                        <p>• รับประทานอาหารมื้อหลักให้เรียบร้อยก่อนรับบริการสัก</p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-              </div>
-            </div>
-
-            {/* Sticky Footer CTA */}
-            <div className="border-t border-[#262626] p-4 bg-[#121212] z-20 flex gap-2 flex-shrink-0">
-              <button className="flex-1 py-3 bg-[#171717] border border-[#404040] text-[#F5F5F5] hover:bg-[#262626] transition-colors text-xs font-semibold rounded-md cursor-pointer">
-                ดูผลงานช่าง
-              </button>
-              <button className="flex-1 py-3 bg-[#FFFFFF] hover:bg-[#E5E5E5] text-black transition-colors text-xs font-bold rounded-md cursor-pointer">
-                จองคิวลายนี้
-              </button>
-            </div>
-
+        <div 
+          className="fixed inset-0 bg-black/90 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fade-in cursor-zoom-out"
+          onClick={() => setSelectedItem(null)}
+        >
+          {/* Close Button */}
+          <button 
+            onClick={() => setSelectedItem(null)}
+            className="absolute top-4 right-4 p-2 rounded-full bg-black/50 hover:bg-black/70 text-white/80 hover:text-white transition-colors z-50 cursor-pointer"
+          >
+            <X size={24} />
+          </button>
+          
+          {/* Image */}
+          <div className="relative max-w-full max-h-[90vh] overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            <img 
+              src={selectedItem.image} 
+              alt={selectedItem.name}
+              className="max-w-full max-h-[90vh] object-contain rounded-lg shadow-2xl"
+            />
           </div>
         </div>
       )}

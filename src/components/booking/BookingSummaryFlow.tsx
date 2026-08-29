@@ -161,7 +161,8 @@ export default function BookingSummaryFlow({ artist, shopSlug, artistStyles, sel
         p_is_first_tattoo: isFirstTattoo,
         p_safety_notice_acknowledged: safetyNoticeAcknowledged,
         p_flash_design_id: formData.flashId || null,
-        p_hold_session_id: formData.holdId || null
+        p_hold_session_id: formData.holdId || null,
+        p_flash_variant_id: formData.flashVariantId || null
       });
 
       if (finalError) {
@@ -342,7 +343,18 @@ export default function BookingSummaryFlow({ artist, shopSlug, artistStyles, sel
             {formData.flashId ? (
               <div className="flex flex-row justify-between items-start gap-4">
                   <span className="text-[#A3A3A3] text-sm shrink-0">ขนาดงาน</span>
-                  <span className="text-[#F5F5F5] text-sm font-medium text-right min-w-0">{formData.flashSize}</span>
+                  <span className="text-[#F5F5F5] text-sm font-medium text-right min-w-0">
+                    {formData.flashSize}
+                    {(formData.flashMinSize !== null && formData.flashMinSize !== undefined) && (
+                      <span className="text-[#737373] text-xs ml-1">
+                        ({formData.flashMinSize}
+                        {(formData.flashMaxSize !== null && formData.flashMaxSize !== undefined)
+                          ? `–${formData.flashMaxSize} ซม.`
+                          : ' ซม. ขึ้นไป'}
+                        )
+                      </span>
+                    )}
+                  </span>
               </div>
             ) : (
               <>
@@ -469,7 +481,13 @@ export default function BookingSummaryFlow({ artist, shopSlug, artistStyles, sel
             onClick={() => {
               const currentUrl = new URL(window.location.href);
               const styleParam = currentUrl.searchParams.get('style');
-              router.push(`/book/${shopSlug}?step=3&artist=${artist.artist_id}${styleParam ? '&style=' + styleParam : ''}`);
+              let url = `/book/${shopSlug}?step=3&artist=${artist.artist_id}${styleParam ? '&style=' + styleParam : ''}`;
+              if (formData.flashId) {
+                url += `&flash_id=${formData.flashId}`;
+                if (formData.holdId) url += `&hold_id=${formData.holdId}`;
+                if (formData.flashVariantId) url += `&variant_id=${formData.flashVariantId}`;
+              }
+              router.push(url);
             }}
             className="flex-1 py-4 text-center rounded-md border border-[#404040] text-[#F5F5F5] hover:bg-[#1A1A1A] transition-colors font-medium"
           >

@@ -135,6 +135,11 @@ export default function BookingDetailsFlow({ shopSlug }: BookingDetailsFlowProps
     let url = `/book/${shopSlug}?step=3`;
     if (artistId) url += `&artist=${artistId}`;
     if (styleId) url += `&style=${styleId}`;
+    if (formData.flashId) {
+      url += `&flash_id=${formData.flashId}`;
+      if (formData.holdId) url += `&hold_id=${formData.holdId}`;
+      if (formData.flashVariantId) url += `&variant_id=${formData.flashVariantId}`;
+    }
     
     router.push(url);
   };
@@ -468,6 +473,11 @@ export default function BookingDetailsFlow({ shopSlug }: BookingDetailsFlowProps
               let url = `/book/${shopSlug}?step=1`;
               if (artistId) url += `&artist=${artistId}`;
               if (styleId) url += `&style=${styleId}`;
+              if (formData.flashId) {
+                url += `&flash_id=${formData.flashId}`;
+                if (formData.holdId) url += `&hold_id=${formData.holdId}`;
+                if (formData.flashVariantId) url += `&variant_id=${formData.flashVariantId}`;
+              }
               router.push(url);
             }}
             className="flex-1 py-4 text-center rounded-xl border border-[#262626] text-[#A3A3A3] hover:text-[#F5F5F5] hover:bg-[#1A1A1A] transition-colors font-medium"
