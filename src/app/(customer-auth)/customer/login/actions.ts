@@ -107,17 +107,10 @@ export async function loginCustomer(formData: FormData) {
         .maybeSingle()
 
       if (phoneConflict) {
-        if (!phoneConflict.auth_user_id) {
-          // Unlinked record — link it (and update name/email if needed)
-          await supabase
-            .from('customers')
-            .update({ auth_user_id: user.id, full_name: metaFullName || undefined, email: email })
-            .eq('id', phoneConflict.id)
-        } else if (phoneConflict.auth_user_id !== user.id) {
-          // Phone belongs to a different auth user — block to prevent history takeover
-          return { error: 'เบอร์โทรศัพท์นี้มีข้อมูลอยู่ในระบบแล้ว กรุณาติดต่อร้าน' }
-        }
-        // else: already linked to this user — nothing to do
+        // Phone already exists in this shop — block regardless of whether auth_user_id is NULL or another user.
+        // Auto-linking by phone alone would allow history takeover of another customer's record.
+        // Staff must verify identity manually at the studio.
+        return { error: 'เบอร์โทรศัพท์นี้มีข้อมูลอยู่ในระบบแล้ว กรุณาติดต่อร้านเพื่อยืนยันข้อมูล' }
       } else {
         // Create a new customer record with real data from user_metadata
         const { error: insertErr } = await supabase
