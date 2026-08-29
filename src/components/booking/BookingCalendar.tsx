@@ -107,7 +107,7 @@ export default function BookingCalendar({ availabilityMap, selectedDateKey, onSe
         {/* Dates Grid */}
         <div className="grid grid-cols-7 gap-[1px] bg-[#262626]">
           {blanks.map(blank => (
-            <div key={`blank-${blank}`} className="bg-[#121212] min-h-[64px] sm:min-h-[84px]"></div>
+            <div key={`blank-${blank}`} className="bg-[#121212] aspect-square"></div>
           ))}
           
           {days.map(day => {
@@ -123,7 +123,7 @@ export default function BookingCalendar({ availabilityMap, selectedDateKey, onSe
             
             const dayData = availabilityMap.get(dateKey);
             
-            let cellClass = "bg-[#121212] relative flex flex-col items-center justify-start pt-2 sm:pt-3 min-h-[64px] sm:min-h-[84px] w-full focus:outline-none transition-colors ";
+            let cellClass = "bg-[#121212] relative flex flex-col items-center justify-center aspect-square w-full focus:outline-none transition-colors ";
             
             let Indicator = null;
 
@@ -186,7 +186,7 @@ export default function BookingCalendar({ availabilityMap, selectedDateKey, onSe
                   {day}
                 </div>
                 {!isSelected && Indicator && (
-                  <div className="absolute bottom-2 sm:bottom-3 flex justify-center w-full">
+                  <div className="absolute bottom-1 sm:bottom-1.5 flex justify-center w-full">
                     {Indicator}
                   </div>
                 )}
@@ -195,7 +195,7 @@ export default function BookingCalendar({ availabilityMap, selectedDateKey, onSe
           })}
           
           {Array.from({ length: (7 - ((blanks.length + days.length) % 7)) % 7 }, (_, i) => (
-            <div key={`trailing-${i}`} className="bg-[#121212] min-h-[64px] sm:min-h-[84px]"></div>
+            <div key={`trailing-${i}`} className="bg-[#121212] aspect-square"></div>
           ))}
         </div>
       </div>
