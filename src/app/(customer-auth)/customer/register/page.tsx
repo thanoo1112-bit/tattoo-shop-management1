@@ -6,6 +6,7 @@ import { BrandLogo } from '@/components/brand-logo'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { Suspense } from 'react'
+import { Eye, EyeOff } from 'lucide-react'
 
 function RegisterForm() {
   const searchParams = useSearchParams()
@@ -14,6 +15,11 @@ function RegisterForm() {
 
   const [error, setError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
+
+  const [showPassword, setShowPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
+  const [passwordValue, setPasswordValue] = useState('')
+  const [confirmPasswordValue, setConfirmPasswordValue] = useState('')
 
   async function handleSubmit(formData: FormData) {
     setError(null)
@@ -94,24 +100,50 @@ function RegisterForm() {
 
           <div>
             <label className="block text-xs font-medium text-[#9CA3AB] mb-1.5" htmlFor="password">รหัสผ่าน</label>
-            <input
-              id="password"
-              name="password"
-              type="password"
-              required
-              className="w-full bg-[#262626] border border-[#262626] rounded-md p-3 text-sm text-[#F3F3F3] focus:outline-none focus:border-[#FFFFFF] focus:ring-1 focus:ring-[#FFFFFF] transition-all"
-            />
+            <div className="relative">
+              <input
+                id="password"
+                name="password"
+                type={showPassword ? 'text' : 'password'}
+                required
+                value={passwordValue}
+                onChange={(e) => setPasswordValue(e.target.value)}
+                className="w-full bg-[#262626] border border-[#262626] rounded-md p-3 pr-10 text-sm text-[#F3F3F3] focus:outline-none focus:border-[#FFFFFF] focus:ring-1 focus:ring-[#FFFFFF] transition-all"
+              />
+              {passwordValue.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-[#FFFFFF] hover:opacity-80 transition-opacity focus:outline-none"
+                >
+                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
+              )}
+            </div>
           </div>
 
           <div>
             <label className="block text-xs font-medium text-[#9CA3AB] mb-1.5" htmlFor="confirmPassword">ยืนยันรหัสผ่าน</label>
-            <input
-              id="confirmPassword"
-              name="confirmPassword"
-              type="password"
-              required
-              className="w-full bg-[#262626] border border-[#262626] rounded-md p-3 text-sm text-[#F3F3F3] focus:outline-none focus:border-[#FFFFFF] focus:ring-1 focus:ring-[#FFFFFF] transition-all"
-            />
+            <div className="relative">
+              <input
+                id="confirmPassword"
+                name="confirmPassword"
+                type={showConfirmPassword ? 'text' : 'password'}
+                required
+                value={confirmPasswordValue}
+                onChange={(e) => setConfirmPasswordValue(e.target.value)}
+                className="w-full bg-[#262626] border border-[#262626] rounded-md p-3 pr-10 text-sm text-[#F3F3F3] focus:outline-none focus:border-[#FFFFFF] focus:ring-1 focus:ring-[#FFFFFF] transition-all"
+              />
+              {confirmPasswordValue.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-[#FFFFFF] hover:opacity-80 transition-opacity focus:outline-none"
+                >
+                  {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
+              )}
+            </div>
           </div>
 
           <button
