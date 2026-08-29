@@ -86,6 +86,14 @@ function LoginForm() {
                 </button>
               )}
             </div>
+            <div className="flex justify-end mt-2">
+              <Link 
+                href={`/customer/forgot-password?shop=${shopSlug}`}
+                className="text-xs text-[#A3A3A3] hover:text-[#FFFFFF] transition-colors"
+              >
+                ลืมรหัสผ่าน?
+              </Link>
+            </div>
           </div>
 
           <button
