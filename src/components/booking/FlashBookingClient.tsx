@@ -444,26 +444,28 @@ export default function FlashBookingClient({
               />
             </div>
 
-            <div className="space-y-4">
-              <div>
-                <span className="text-[10px] uppercase tracking-wider text-amber-500 font-medium">ลายสัก Flash</span>
-                <h3 className="text-xl font-bold text-white mt-0.5">{flash.flash_code}</h3>
+            {/* BLOCK 1: CODE / ARTIST / STYLE — 3-column info bar */}
+            <div className="border border-[#262626] rounded-xl overflow-hidden">
+              <div className="grid grid-cols-3 divide-x divide-[#262626]">
+                <div className="px-3 py-3 text-center">
+                  <span className="block text-[9px] uppercase tracking-widest text-amber-500 font-semibold mb-1">Code</span>
+                  <span className="block text-sm font-bold text-white leading-tight">{flash.flash_code}</span>
+                </div>
+                <div className="px-3 py-3 text-center">
+                  <span className="block text-[9px] uppercase tracking-widest text-amber-500 font-semibold mb-1">Artist</span>
+                  <span className="block text-sm font-bold text-white leading-tight truncate">{artist.display_name}</span>
+                </div>
+                <div className="px-3 py-3 text-center">
+                  <span className="block text-[9px] uppercase tracking-widest text-amber-500 font-semibold mb-1">Style</span>
+                  <span className="block text-sm font-bold text-white leading-tight truncate">{styleName || '-'}</span>
+                </div>
               </div>
+            </div>
 
-              <div className="grid grid-cols-2 gap-y-4 gap-x-2 text-sm border-t border-[#1a1a1a] pt-4">
-                <div>
-                  <span className="text-[#737373] text-xs block">ช่างสัก</span>
-                  <span className="text-white font-medium">{artist.display_name}</span>
-                </div>
-                <div>
-                  <span className="text-[#737373] text-xs block">สไตล์</span>
-                  <span className="text-white font-medium">{styleName}</span>
-                </div>
-                <div className="col-span-2 border-t border-[#1a1a1a] pt-4">
-                  <span className="text-[#737373] text-xs block">ราคาเริ่มต้น</span>
-                  <span className="text-xl font-bold text-white">฿{price.toLocaleString()}</span>
-                </div>
-              </div>
+            {/* BLOCK 2: PRICE — full-width price card */}
+            <div className="border border-[#262626] rounded-xl px-4 py-3 flex items-center justify-between bg-[#0A0A0A]">
+              <span className="text-[10px] uppercase tracking-widest text-[#737373] font-semibold">Price</span>
+              <span className="text-lg font-bold text-amber-400">฿{price.toLocaleString()}</span>
             </div>
           </div>
 
