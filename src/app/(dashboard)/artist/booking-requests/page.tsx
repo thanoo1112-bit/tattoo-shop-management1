@@ -25,6 +25,7 @@ export default async function ArtistBookingRequestsPage() {
       confirmed_end_at,
       artist_id,
       flash_design_id,
+      flash_booking_mode,
       payments (
         id,
         status,
@@ -48,6 +49,7 @@ export default async function ArtistBookingRequestsPage() {
         agreed_price,
         flash_design_id,
         flash_variant_id,
+        flash_booking_mode,
         references:tattoo_project_references (
           id
         )

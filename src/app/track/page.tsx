@@ -33,6 +33,7 @@ interface BookingData {
   flash_style: string | null
   agreed_price: number | null
   shop_slug: string
+  flash_booking_mode?: string | null
 }
 
 function TrackingForm() {
@@ -100,6 +101,9 @@ function TrackingForm() {
   const mapStatus = (status: string) => {
     switch (status) {
       case 'pending_review':
+        if (selectedBooking?.flash_design_id && selectedBooking?.flash_booking_mode === 'price_review_required') {
+          return { text: 'รอช่างตรวจสอบและแจ้งราคา', color: 'text-amber-400 bg-amber-400/10 border-amber-400/20' }
+        }
         return { text: 'รอการตรวจสอบจากร้าน', color: 'text-amber-400 bg-amber-400/10 border-amber-400/20' }
       case 'pending_payment':
         return { text: 'รอชำระเงินมัดจำ', color: 'text-blue-400 bg-blue-400/10 border-blue-400/20' }
@@ -394,13 +398,15 @@ function TrackingForm() {
                   </h3>
 
                   <div className="bg-[#202020] rounded-xl p-4 space-y-3.5">
-                    {selectedBooking.flash_design_id && selectedBooking.agreed_price !== null && (
+                    {selectedBooking.flash_design_id && (
                       <div className="flex items-center gap-3">
                         <Scissors size={18} className="text-[#A3A3A3] shrink-0" />
                         <div>
                           <div className="text-xs text-[#737373]">ราคางานสัก</div>
                           <div className="text-base font-bold text-[#FFFFFF]">
-                            ฿{selectedBooking.agreed_price.toLocaleString('th-TH')}
+                            {selectedBooking.agreed_price !== null 
+                              ? `฿${selectedBooking.agreed_price.toLocaleString('th-TH')}`
+                              : 'รอช่างประเมินราคา'}
                           </div>
                         </div>
                       </div>
@@ -414,22 +420,28 @@ function TrackingForm() {
                           <div className="text-base font-bold text-[#FFFFFF]">
                             {selectedBooking.deposit_amount !== null
                               ? `฿${selectedBooking.deposit_amount.toLocaleString('th-TH')}`
-                              : 'รอแจ้งราคา'}
+                              : (selectedBooking.flash_design_id ? '฿500' : 'รอแจ้งราคา')}
                           </div>
                         </div>
                       </div>
 
                       <div className="flex flex-col sm:items-end">
                         <div className="text-xs text-[#737373]">สถานะการชำระเงิน</div>
-                        <span className={`text-sm ${mapPaymentStatus(selectedBooking.deposit_status).color}`}>
-                          {mapPaymentStatus(selectedBooking.deposit_status).text}
+                        <span className={`text-sm ${
+                          selectedBooking.flash_booking_mode === 'price_review_required' && selectedBooking.agreed_price === null
+                            ? 'text-amber-500'
+                            : mapPaymentStatus(selectedBooking.deposit_status).color
+                        }`}>
+                          {selectedBooking.flash_booking_mode === 'price_review_required' && selectedBooking.agreed_price === null
+                            ? 'รอแจ้งราคากลางก่อนชำระเงิน'
+                            : mapPaymentStatus(selectedBooking.deposit_status).text}
                         </span>
                       </div>
                     </div>
                   </div>
 
                   {/* Payment call-to-action button if pending_payment */}
-                  {selectedBooking.status === 'pending_payment' && (
+                  {selectedBooking.status === 'pending_payment' && selectedBooking.agreed_price !== null && (
                     <div className="pt-2">
                       <a
                         href={`/payment/${selectedBooking.public_token}`}

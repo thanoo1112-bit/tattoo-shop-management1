@@ -25,6 +25,7 @@ export default async function OwnerBookingRequestsPage() {
       confirmed_end_at,
       artist_id,
       flash_design_id,
+      flash_booking_mode,
       artist:profiles!booking_requests_artist_id_fkey(
         full_name,
         email
@@ -52,6 +53,7 @@ export default async function OwnerBookingRequestsPage() {
         agreed_price,
         flash_design_id,
         flash_variant_id,
+        flash_booking_mode,
         references:tattoo_project_references (
           id
         )
