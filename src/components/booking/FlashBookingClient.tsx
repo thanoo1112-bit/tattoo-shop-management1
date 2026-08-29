@@ -157,10 +157,7 @@ export default function FlashBookingClient({
   const selectedData = selectedDate ? availabilityMap.get(selectedDate) : null;
   const isDateValid = selectedData && selectedData.can_request;
 
-  // Flash booking: time is customer preferred time only.
-  // Calendar (daily availability) controls whether a day is bookable.
-  // Once a day is valid, all 24 hourly slots are available — no per-slot filtering.
-  const timeOptions = Array.from({ length: 24 }, (_, h) => `${String(h).padStart(2, '0')}:00`);
+  const timeOptions = Array.from({ length: 14 }, (_, i) => `${i + 10}:00`);
 
   // Prices and Deposits
   const price = useMemo(() => {
