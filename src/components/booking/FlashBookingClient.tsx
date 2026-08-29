@@ -423,26 +423,30 @@ export default function FlashBookingClient({
         <p className="text-sm sm:text-base text-[#A3A3A3]">จองแบบสักลายนี่ง่าย ๆ จบครบในหน้าเดียว</p>
       </div>
 
-      <form onSubmit={handleSubmitBooking} className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-start">
+      <form onSubmit={handleSubmitBooking} className="bg-[#121212] border border-[#262626] rounded-2xl p-6 lg:p-8 space-y-8 shadow-xl">
         
-        {/* LEFT COLUMN: Selected Flash & Sizing/Placement (lg:col-span-4) */}
-        <div className="lg:col-span-4 space-y-6">
-          {/* Flash card detail */}
-          <div className="bg-[#121212] border border-[#262626] rounded-2xl overflow-hidden">
-            <div className="relative aspect-square w-full bg-[#0A0A0A] flex items-center justify-center p-4 border-b border-[#262626]">
+        {/* The 3-column Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+          
+          {/* LEFT COLUMN: Selected Flash (lg:col-span-4) */}
+          <div className="lg:col-span-4 space-y-6">
+            <h3 className="text-base font-semibold text-white border-b border-[#262626] pb-2 uppercase tracking-wide">Selected Flash</h3>
+            
+            <div className="relative aspect-square w-full bg-[#0A0A0A] flex items-center justify-center p-4 rounded-xl border border-[#262626]">
               <img
                 src={flashImageUrl}
                 alt={flash.flash_code}
                 className="w-full h-full object-contain rounded-lg"
               />
             </div>
-            <div className="p-5 space-y-4">
+
+            <div className="space-y-4">
               <div>
                 <span className="text-[10px] uppercase tracking-wider text-amber-500 font-medium">ลายสัก Flash</span>
                 <h3 className="text-xl font-bold text-white mt-0.5">{flash.flash_code}</h3>
               </div>
 
-              <div className="grid grid-cols-2 gap-4 text-sm border-t border-[#1a1a1a] pt-4">
+              <div className="grid grid-cols-2 gap-y-4 gap-x-2 text-sm border-t border-[#1a1a1a] pt-4">
                 <div>
                   <span className="text-[#737373] text-xs block">ช่างสัก</span>
                   <span className="text-white font-medium">{artist.display_name}</span>
@@ -451,15 +455,20 @@ export default function FlashBookingClient({
                   <span className="text-[#737373] text-xs block">สไตล์</span>
                   <span className="text-white font-medium">{styleName}</span>
                 </div>
+                <div className="col-span-2 border-t border-[#1a1a1a] pt-4">
+                  <span className="text-[#737373] text-xs block">ราคาเริ่มต้น</span>
+                  <span className="text-xl font-bold text-white">฿{price.toLocaleString()}</span>
+                </div>
               </div>
             </div>
           </div>
 
-          {/* SECTION 1 & 2: ขนาดและตำแหน่ง */}
-          <div className="bg-[#121212] border border-[#262626] rounded-2xl p-5 sm:p-6 space-y-6">
-            {/* SECTION 1: Variants & Sizes */}
+          {/* CENTER COLUMN: Size, Placement, Date, Time (lg:col-span-5) */}
+          <div className="lg:col-span-5 space-y-6 lg:border-l lg:border-r lg:border-[#262626] lg:px-8">
+            
+            {/* Size Section */}
             <div className="space-y-4">
-              <h3 className="text-base font-semibold text-white border-b border-[#1a1a1a] pb-2">1. ขนาดงานสัก</h3>
+              <h3 className="text-base font-semibold text-white border-b border-[#262626] pb-2">ขนาดงานสัก</h3>
               
               {variants.length > 0 ? (
                 <div className="space-y-4">
@@ -559,9 +568,9 @@ export default function FlashBookingClient({
               )}
             </div>
 
-            {/* SECTION 2: Placement */}
+            {/* Placement Section */}
             <div className="space-y-3">
-              <h3 className="text-base font-semibold text-white border-b border-[#1a1a1a] pb-2">2. ตำแหน่งที่จะสัก</h3>
+              <h3 className="text-base font-semibold text-white border-b border-[#262626] pb-2">ตำแหน่งที่จะสัก</h3>
               <div>
                 <label className="block text-xs text-[#737373] mb-1">เลือกตำแหน่งร่างกาย *</label>
                 <select
@@ -581,243 +590,226 @@ export default function FlashBookingClient({
                 </select>
               </div>
             </div>
-          </div>
-        </div>
 
-        {/* CENTER COLUMN: Calendar & Contact Inputs (lg:col-span-5) */}
-        <div className="lg:col-span-5 space-y-6">
-          
-          {/* SECTION 3: Availability Date & Time Card */}
-          <div className="bg-[#121212] border border-[#262626] rounded-2xl p-5 sm:p-6 space-y-4">
-            <h3 className="text-base font-semibold text-white border-b border-[#1a1a1a] pb-2">3. วันที่และเวลาที่สะดวก</h3>
-            
-            {loadingAvailability ? (
-              <div className="text-center py-6 text-xs text-[#737373]">กำลังโหลดข้อมูลตารางคิว...</div>
-            ) : (
-              <div className="space-y-4">
-                {/* Date Picker Trigger Input */}
-                <div className="relative">
-                  <label className="block text-xs text-[#737373] mb-1.5">วันที่ต้องการจอง *</label>
-                  <div 
-                    onClick={() => {
-                      if (!loadingAvailability) {
-                        setShowDatePicker(!showDatePicker);
-                      }
-                    }}
-                    className="w-full bg-[#0A0A0A] border border-[#262626] rounded-xl px-3.5 py-3 text-sm text-white focus:outline-none focus:border-white flex items-center justify-between cursor-pointer select-none transition-colors hover:border-[#404040]"
-                  >
-                    <span className={selectedDate ? 'text-white font-medium' : 'text-[#737373]'}>
-                      {selectedDate ? formatThaiNumericDate(selectedDate) : 'วว/ดด/ปปปป'}
-                    </span>
-                    <CalendarIcon size={18} className="text-[#A3A3A3]" />
-                  </div>
+            {/* Date & Time Section */}
+            <div className="space-y-4">
+              <h3 className="text-base font-semibold text-white border-b border-[#262626] pb-2">วันที่และเวลา</h3>
+              
+              {loadingAvailability ? (
+                <div className="text-center py-6 text-xs text-[#737373]">กำลังโหลดข้อมูลตารางคิว...</div>
+              ) : (
+                <div className="space-y-4">
+                  {/* Date Picker Trigger Input */}
+                  <div className="relative">
+                    <label className="block text-xs text-[#737373] mb-1.5">วันที่ต้องการจอง *</label>
+                    <div 
+                      onClick={() => {
+                        if (!loadingAvailability) {
+                          setShowDatePicker(!showDatePicker);
+                        }
+                      }}
+                      className="w-full bg-[#0A0A0A] border border-[#262626] rounded-xl px-3.5 py-3 text-sm text-white focus:outline-none focus:border-white flex items-center justify-between cursor-pointer select-none transition-colors hover:border-[#404040]"
+                    >
+                      <span className={selectedDate ? 'text-white font-medium' : 'text-[#737373]'}>
+                        {selectedDate ? formatThaiNumericDate(selectedDate) : 'วว/ดด/ปปปป'}
+                      </span>
+                      <CalendarIcon size={18} className="text-[#A3A3A3]" />
+                    </div>
 
-                  {/* Date Picker Popover */}
-                  {showDatePicker && (
-                    <>
-                      {/* Invisible backdrop to close on click outside */}
-                      <div className="fixed inset-0 z-40" onClick={() => setShowDatePicker(false)} />
-                      
-                      <div className="absolute left-0 right-0 mt-2 bg-[#121212] border border-[#262626] rounded-2xl p-4 shadow-2xl z-50 animate-in fade-in slide-in-from-top-2 duration-150 max-w-sm sm:max-w-md mx-auto">
-                        <BookingCalendar
-                          availabilityMap={availabilityMap}
-                          selectedDateKey={selectedDate}
-                          onSelectDate={(dateKey) => {
-                            handleDateSelect(dateKey);
-                            setShowDatePicker(false);
-                          }}
-                        />
-                        <div className="flex justify-between items-center mt-3 pt-3 border-t border-[#262626] text-xs">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setSelectedDate('');
-                              setPreferredTime('');
+                    {/* Date Picker Popover */}
+                    {showDatePicker && (
+                      <>
+                        {/* Invisible backdrop to close on click outside */}
+                        <div className="fixed inset-0 z-40" onClick={() => setShowDatePicker(false)} />
+                        
+                        <div className="absolute left-0 right-0 mt-2 bg-[#121212] border border-[#262626] rounded-2xl p-4 shadow-2xl z-50 animate-in fade-in slide-in-from-top-2 duration-150 max-w-sm sm:max-w-md mx-auto">
+                          <BookingCalendar
+                            availabilityMap={availabilityMap}
+                            selectedDateKey={selectedDate}
+                            onSelectDate={(dateKey) => {
+                              handleDateSelect(dateKey);
                               setShowDatePicker(false);
                             }}
-                            className="text-[#737373] hover:text-white transition-colors"
-                          >
-                            ล้าง
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setShowDatePicker(false)}
-                            className="text-[#A3A3A3] hover:text-white transition-colors"
-                          >
-                            ปิด
-                          </button>
+                          />
+                          <div className="flex justify-between items-center mt-3 pt-3 border-t border-[#262626] text-xs">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSelectedDate('');
+                                setPreferredTime('');
+                                setShowDatePicker(false);
+                              }}
+                              className="text-[#737373] hover:text-white transition-colors"
+                            >
+                              ล้าง
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setShowDatePicker(false)}
+                              className="text-[#A3A3A3] hover:text-white transition-colors"
+                            >
+                              ปิด
+                            </button>
+                          </div>
                         </div>
-                      </div>
-                    </>
-                  )}
-                </div>
-
-                {/* Time Picker Dropdown */}
-                <div className="space-y-1.5">
-                  <label className="block text-xs text-[#737373] mb-1.5">เวลาที่ต้องการ *</label>
-                  <select
-                    required
-                    disabled={!selectedDate || !isDateValid || timeOptions.length === 0}
-                    value={preferredTime}
-                    onChange={e => setPreferredTime(e.target.value)}
-                    className="w-full bg-[#0A0A0A] border border-[#262626] rounded-xl px-3.5 py-3 text-sm text-white focus:outline-none focus:border-white disabled:opacity-60 disabled:cursor-not-allowed transition-all hover:border-[#404040] disabled:hover:border-[#262626]"
-                  >
-                    {!selectedDate ? (
-                      <option value="">กรุณาเลือกวันที่ก่อน</option>
-                    ) : !isDateValid ? (
-                      <option value="">วันที่เลือกไม่สามารถจองได้</option>
-                    ) : timeOptions.length === 0 ? (
-                      <option value="">ไม่มีเวลาว่างในวันนี้</option>
-                    ) : (
-                      <>
-                        <option value="">-- เลือกเวลา --</option>
-                        {timeOptions.map(time => (
-                          <option key={time} value={time}>
-                            {time} น.
-                          </option>
-                        ))}
                       </>
                     )}
-                  </select>
-                  
-                  {selectedDate && isDateValid && timeOptions.length === 0 && (
-                    <p className="text-xs text-amber-500 mt-1">ไม่มีเวลาว่างในวันนี้ กรุณาเลือกวันอื่น</p>
-                  )}
+                  </div>
+
+                  {/* Time Picker Dropdown */}
+                  <div className="space-y-1.5">
+                    <label className="block text-xs text-[#737373] mb-1.5">เวลาที่ต้องการ *</label>
+                    <select
+                      required
+                      disabled={!selectedDate || !isDateValid || timeOptions.length === 0}
+                      value={preferredTime}
+                      onChange={e => setPreferredTime(e.target.value)}
+                      className="w-full bg-[#0A0A0A] border border-[#262626] rounded-xl px-3.5 py-3 text-sm text-white focus:outline-none focus:border-white disabled:opacity-60 disabled:cursor-not-allowed transition-all hover:border-[#404040] disabled:hover:border-[#262626]"
+                    >
+                      {!selectedDate ? (
+                        <option value="">กรุณาเลือกวันที่ก่อน</option>
+                      ) : !isDateValid ? (
+                        <option value="">วันที่เลือกไม่สามารถจองได้</option>
+                      ) : timeOptions.length === 0 ? (
+                        <option value="">ไม่มีเวลาว่างในวันนี้</option>
+                      ) : (
+                        <>
+                          <option value="">-- เลือกเวลา --</option>
+                          {timeOptions.map(time => (
+                            <option key={time} value={time}>
+                              {time} น.
+                            </option>
+                          ))}
+                        </>
+                      )}
+                    </select>
+                    
+                    {selectedDate && isDateValid && timeOptions.length === 0 && (
+                      <p className="text-xs text-amber-500 mt-1">ไม่มีเวลาว่างในวันนี้ กรุณาเลือกวันอื่น</p>
+                    )}
+                  </div>
                 </div>
-              </div>
-            )}
-          </div>
-
-          {/* SECTION 4: Customer Details Card */}
-          <div className="bg-[#121212] border border-[#262626] rounded-2xl p-5 sm:p-6 space-y-4">
-            <h3 className="text-base font-semibold text-white border-b border-[#1a1a1a] pb-2">4. ข้อมูลผู้ติดต่อ</h3>
-            
-            <div className="space-y-3 text-sm">
-              <div>
-                <label className="block text-xs text-[#737373] mb-1">ชื่อ-นามสกุล *</label>
-                <input
-                  type="text"
-                  required
-                  value={fullName}
-                  onChange={e => setFullName(e.target.value)}
-                  className="w-full bg-[#0A0A0A] border border-[#262626] rounded-lg px-3.5 py-2.5 text-white focus:outline-none focus:border-white"
-                  placeholder="กรอกชื่อของคุณ"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs text-[#737373] mb-1">เบอร์โทรศัพท์ *</label>
-                <input
-                  type="tel"
-                  required
-                  value={phone}
-                  onChange={e => setPhone(e.target.value)}
-                  className="w-full bg-[#0A0A0A] border border-[#262626] rounded-lg px-3.5 py-2.5 text-white focus:outline-none focus:border-white"
-                  placeholder="เช่น 08XXXXXXXX"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs text-[#737373] mb-1">อีเมล (ถ้ามี)</label>
-                <input
-                  type="email"
-                  value={email}
-                  onChange={e => setEmail(e.target.value)}
-                  className="w-full bg-[#0A0A0A] border border-[#262626] rounded-lg px-3.5 py-2.5 text-white focus:outline-none focus:border-white"
-                  placeholder="name@example.com"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs text-[#737373] mb-1">หมายเหตุเพิ่มเติม</label>
-                <textarea
-                  rows={2}
-                  value={description}
-                  onChange={e => setDescription(e.target.value)}
-                  className="w-full bg-[#0A0A0A] border border-[#262626] rounded-lg px-3.5 py-2.5 text-white focus:outline-none focus:border-white resize-none"
-                  placeholder="ระบุข้อความถึงช่างสัก (ถ้ามี)"
-                />
-              </div>
+              )}
             </div>
           </div>
-        </div>
 
-        {/* RIGHT COLUMN: Summary & Operations (lg:col-span-3) */}
-        <div className="lg:col-span-3 space-y-6">
-          <div className="bg-[#121212] border border-[#262626] rounded-2xl p-5 space-y-5">
-            <h3 className="text-base font-semibold text-white border-b border-[#1a1a1a] pb-2">สรุปการจอง</h3>
+          {/* RIGHT COLUMN: Customer Details, Summary & Consent (lg:col-span-3) */}
+          <div className="lg:col-span-3 space-y-6">
             
-            <div className="space-y-3.5 text-xs text-[#A3A3A3]">
-              <div className="flex justify-between">
-                <span>งาน Flash</span>
-                <span className="text-white font-medium">{flash.flash_code}</span>
-              </div>
-              <div className="flex justify-between">
-                <span>ช่างสัก</span>
-                <span className="text-white font-medium">{artist.display_name}</span>
-              </div>
-              <div className="flex justify-between">
-                <span>ขนาดจริง</span>
-                <span className="text-white font-medium">
-                  {widthCm && heightCm ? `${widthCm} × ${heightCm} ซม.` : '-'}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span>ตำแหน่ง</span>
-                <span className="text-white font-medium">{placement || '-'}</span>
-              </div>
-              <div className="flex justify-between">
-                <span>วันจองคิว</span>
-                <span className="text-white font-medium">
-                  {selectedDate ? formatThaiDate(selectedDate, { longMonth: true }) : '-'}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span>เวลา</span>
-                <span className="text-white font-medium">{preferredTime ? `${preferredTime} น.` : '-'}</span>
-              </div>
-
-              <div className="border-t border-[#1a1a1a] pt-3.5 space-y-2.5">
-                <div className="flex justify-between text-sm">
-                  <span className="text-[#A3A3A3]">ราคางานสัก</span>
-                  <span className="text-white font-bold">฿{price.toLocaleString()}</span>
+            {/* Customer Details */}
+            <div className="space-y-4">
+              <h3 className="text-base font-semibold text-white border-b border-[#262626] pb-2">ข้อมูลผู้ติดต่อ</h3>
+              
+              <div className="space-y-3 text-sm">
+                <div>
+                  <label className="block text-xs text-[#737373] mb-1">ชื่อ-นามสกุล *</label>
+                  <input
+                    type="text"
+                    required
+                    value={fullName}
+                    onChange={e => setFullName(e.target.value)}
+                    className="w-full bg-[#0A0A0A] border border-[#262626] rounded-lg px-3.5 py-2 text-sm text-white focus:outline-none focus:border-white"
+                    placeholder="กรอกชื่อของคุณ"
+                  />
                 </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-[#A3A3A3]">ยอดมัดจำ</span>
-                  <span className="text-amber-500 font-bold">฿{deposit.toLocaleString()}</span>
+
+                <div>
+                  <label className="block text-xs text-[#737373] mb-1">เบอร์โทรศัพท์ *</label>
+                  <input
+                    type="tel"
+                    required
+                    value={phone}
+                    onChange={e => setPhone(e.target.value)}
+                    className="w-full bg-[#0A0A0A] border border-[#262626] rounded-lg px-3.5 py-2 text-sm text-white focus:outline-none focus:border-white"
+                    placeholder="เช่น 08XXXXXXXX"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs text-[#737373] mb-1">อีเมล (ถ้ามี)</label>
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={e => setEmail(e.target.value)}
+                    className="w-full bg-[#0A0A0A] border border-[#262626] rounded-lg px-3.5 py-2 text-sm text-white focus:outline-none focus:border-white"
+                    placeholder="name@example.com"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs text-[#737373] mb-1">หมายเหตุเพิ่มเติม</label>
+                  <textarea
+                    rows={2}
+                    value={description}
+                    onChange={e => setDescription(e.target.value)}
+                    className="w-full bg-[#0A0A0A] border border-[#262626] rounded-lg px-3.5 py-2 text-sm text-white focus:outline-none focus:border-white resize-none"
+                    placeholder="ระบุข้อความถึงช่างสัก (ถ้ามี)"
+                  />
                 </div>
               </div>
             </div>
 
+            {/* Booking Summary */}
+            <div className="space-y-4 pt-2">
+              <h3 className="text-base font-semibold text-white border-b border-[#262626] pb-2">สรุปการจอง</h3>
+              
+              <div className="space-y-3 text-xs text-[#A3A3A3]">
+                <div className="flex justify-between">
+                  <span>งาน Flash</span>
+                  <span className="text-white font-medium">{flash.flash_code}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>ช่างสัก</span>
+                  <span className="text-white font-medium">{artist.display_name}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>ขนาดจริง</span>
+                  <span className="text-white font-medium">
+                    {widthCm && heightCm ? `${widthCm} × ${heightCm} ซม.` : '-'}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span>ตำแหน่ง</span>
+                  <span className="text-white font-medium">{placement || '-'}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>วันจองคิว</span>
+                  <span className="text-white font-medium">
+                    {selectedDate ? formatThaiDate(selectedDate, { longMonth: true }) : '-'}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span>เวลา</span>
+                  <span className="text-white font-medium">{preferredTime ? `${preferredTime} น.` : '-'}</span>
+                </div>
+
+                <div className="border-t border-[#1a1a1a] pt-3.5 space-y-2.5">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-[#A3A3A3]">ราคางานสัก</span>
+                    <span className="text-white font-bold">฿{price.toLocaleString()}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-[#A3A3A3]">ยอดมัดจำ</span>
+                    <span className="text-amber-500 font-bold">฿{deposit.toLocaleString()}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Consent Box */}
             <div className="border-t border-[#1a1a1a] pt-4 space-y-3">
               <label className="flex items-start gap-2.5 cursor-pointer text-[11px] leading-relaxed text-[#737373] hover:text-[#A3A3A3] select-none">
                 <input
                   type="checkbox"
-                  checked={isFirstTattoo}
-                  onChange={e => setIsFirstTattoo(e.target.checked)}
+                  required
+                  checked={termsAccepted && safetyNoticeAcknowledged}
+                  onChange={e => {
+                    setTermsAccepted(e.target.checked);
+                    setSafetyNoticeAcknowledged(e.target.checked);
+                  }}
                   className="mt-0.5 rounded border-[#262626] bg-[#0A0A0A] text-white focus:ring-0 focus:ring-offset-0"
                 />
-                <span>นี่เป็นการสักครั้งแรกของฉัน</span>
-              </label>
-
-              <label className="flex items-start gap-2.5 cursor-pointer text-[11px] leading-relaxed text-[#737373] hover:text-[#A3A3A3] select-none">
-                <input
-                  type="checkbox"
-                  checked={safetyNoticeAcknowledged}
-                  onChange={e => setSafetyNoticeAcknowledged(e.target.checked)}
-                  className="mt-0.5 rounded border-[#262626] bg-[#0A0A0A] text-white focus:ring-0 focus:ring-offset-0"
-                />
-                <span className="text-red-400/90 font-medium">ฉันเข้าใจและยอมรับข้อกำหนดด้านความปลอดภัยสำหรับการสัก *</span>
-              </label>
-
-              <label className="flex items-start gap-2.5 cursor-pointer text-[11px] leading-relaxed text-[#737373] hover:text-[#A3A3A3] select-none">
-                <input
-                  type="checkbox"
-                  checked={termsAccepted}
-                  onChange={e => setTermsAccepted(e.target.checked)}
-                  className="mt-0.5 rounded border-[#262626] bg-[#0A0A0A] text-white focus:ring-0 focus:ring-offset-0"
-                />
-                <span>ฉันยอมรับ นโยบายการจองและชำระเงินมัดจำ ของทางร้าน *</span>
+                <span className="text-[#A3A3A3]">ข้าพเจ้านินยอมให้ทางร้านเก็บข้อมูลเพื่อใช้ติดต่อจองคิวและตรวจสอบการชำระเงิน *</span>
               </label>
             </div>
 
@@ -827,26 +819,26 @@ export default function FlashBookingClient({
                 <span>{submitError}</span>
               </div>
             )}
-
-            <div className="pt-2 space-y-2.5">
-              <button
-                type="submit"
-                disabled={!isFormValid || isSubmitting}
-                className="w-full py-3.5 bg-white hover:bg-neutral-200 text-black font-semibold rounded-xl text-sm transition-all active:scale-[0.98] disabled:bg-[#1a1a1a] disabled:text-[#404040] disabled:cursor-not-allowed flex items-center justify-center gap-1.5"
-              >
-                {isSubmitting ? 'กำลังส่งคำขอ...' : 'ส่งคำขอจองคิวสัก'}
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowCancelConfirm(true)}
-                className="w-full py-3 border border-[#262626] text-[#737373] hover:text-white hover:bg-[#1a1a1a] text-xs rounded-xl transition-all active:scale-[0.98]"
-              >
-                ยกเลิกการจอง
-              </button>
-            </div>
           </div>
         </div>
 
+        {/* BOTTOM ACTION BAR */}
+        <div className="flex flex-col sm:flex-row-reverse justify-end gap-3 pt-6 border-t border-[#262626]">
+          <button
+            type="submit"
+            disabled={!isFormValid || isSubmitting}
+            className="w-full sm:w-auto py-3 px-8 bg-white hover:bg-neutral-200 text-black font-semibold rounded-xl text-sm transition-all active:scale-[0.98] disabled:bg-[#1a1a1a] disabled:text-[#404040] disabled:cursor-not-allowed flex items-center justify-center gap-1.5"
+          >
+            {isSubmitting ? 'กำลังส่งคำขอ...' : 'ส่งคำขอจองคิวสัก'}
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowCancelConfirm(true)}
+            className="w-full sm:w-auto py-3 px-6 border border-[#262626] text-[#737373] hover:text-white hover:bg-[#171717] text-sm rounded-xl transition-all active:scale-[0.98]"
+          >
+            ยกเลิกการจอง
+          </button>
+        </div>
       </form>
 
       {/* CANCEL CONFIRM DIALOG */}
