@@ -40,7 +40,7 @@ export default async function FlashBookingPageRoute({ params, searchParams }: Pa
   // 3. Fetch Artist Profile
   const { data: artist } = await supabase
     .from('profiles')
-    .select('id, display_name, avatar_url')
+    .select('id, full_name, avatar_url')
     .eq('id', flash.artist_id)
     .maybeSingle();
 
@@ -83,6 +83,7 @@ export default async function FlashBookingPageRoute({ params, searchParams }: Pa
   const acceptsColor = memberSettings ? memberSettings.accepts_color : true;
   const acceptsBlackGrey = memberSettings ? memberSettings.accepts_black_grey : true;
 
+
   return (
     <main className="min-h-screen bg-[#0A0A0A] py-8 px-4 sm:px-6 lg:px-8">
       <div className="max-w-7xl mx-auto">
@@ -91,7 +92,7 @@ export default async function FlashBookingPageRoute({ params, searchParams }: Pa
           flash={flash}
           artist={{
             artist_id: artist.id,
-            display_name: artist.display_name,
+            display_name: artist.full_name,
             avatar_url: artist.avatar_url
           }}
           styleName={styleName}
