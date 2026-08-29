@@ -374,10 +374,10 @@ function TrackingForm() {
                       <div className="flex items-start gap-3">
                         <Clock size={16} className="text-[#A3A3A3] shrink-0 mt-0.5" />
                         <div>
-                          <div className="text-[11px] text-[#737373]">ขนาดงาน</div>
+                          <div className="text-[11px] text-[#737373]">ขนาด</div>
                           <div className="text-sm font-semibold">
                             {selectedBooking.width_cm && selectedBooking.height_cm 
-                              ? `${selectedBooking.width_cm} × ${selectedBooking.height_cm} ซม.`
+                              ? `กว้าง ${selectedBooking.width_cm} ซม. × ยาว ${selectedBooking.height_cm} ซม.`
                               : 'อิงตามขนาดดีไซน์'}
                           </div>
                         </div>

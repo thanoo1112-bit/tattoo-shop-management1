@@ -921,7 +921,7 @@ export default function ArtistBookingRequestsList({ initialRequests, isOwnerView
                         ขนาด: {request.flash_variant.size_name}
                         {project?.width_cm && project?.height_cm ? (
                           <>
-                            {' • '}{project.width_cm} × {project.height_cm} ซม.
+                            {' • '}กว้าง {project.width_cm} ซม. × ยาว {project.height_cm} ซม.
                           </>
                         ) : request.flash_variant.min_size_cm !== null ? (
                           <span className="text-[#737373]">
@@ -933,7 +933,7 @@ export default function ArtistBookingRequestsList({ initialRequests, isOwnerView
                         ) : null}
                       </span>
                     ) : (
-                      <span>ขนาด: {project?.width_cm && project?.height_cm ? `${project.width_cm} × ${project.height_cm} ซม.` : request.flash_designs?.size || 'อิงตามขนาดดีไซน์'}</span>
+                      <span>ขนาด: {project?.width_cm && project?.height_cm ? `กว้าง ${project.width_cm} ซม. × ยาว ${project.height_cm} ซม.` : request.flash_designs?.size || 'อิงตามขนาดดีไซน์'}</span>
                     )}
                   </div>
                   <div>
@@ -948,7 +948,7 @@ export default function ArtistBookingRequestsList({ initialRequests, isOwnerView
                   <div>
                     {project ? (
                       <>
-                        {project.width_cm && project.height_cm ? `ขนาด: กว้าง ${project.width_cm} ซม. × สูง ${project.height_cm} ซม.` : 'ขนาด: ไม่ระบุ'}
+                        {project.width_cm && project.height_cm ? `ขนาด: กว้าง ${project.width_cm} ซม. × ยาว ${project.height_cm} ซม.` : 'ขนาด: ไม่ระบุ'}
                         {' • '}
                         {project.body_placement || 'ไม่ระบุตำแหน่ง'}
                       </>
