@@ -472,22 +472,11 @@ export default function FlashBookingClient({
               </div>
             )}
 
-            {/* BLOCK 2: PRICE — full-width price card */}
-            <div className="border border-[#262626] rounded-xl px-4 py-3 flex items-center justify-between bg-[#0A0A0A]">
-              <span className="text-[10px] uppercase tracking-widest text-[#737373] font-semibold">Price</span>
-              <span className="text-lg font-bold text-amber-400">฿{price.toLocaleString()}</span>
-            </div>
-          </div>
-
-          {/* CENTER COLUMN: Size, Placement, Date, Time (lg:col-span-5) */}
-          <div className="lg:col-span-5 space-y-4 lg:border-l lg:border-r lg:border-[#262626] lg:px-8">
-            
-            {/* Size Inputs — shown only when a variant with size range is selected, or when no variants */}
+            {/* Size Inputs — moved from center column to left column, shown under size card */}
             {variants.length > 0 ? (
               selectedVariant && (selectedVariant.min_size_cm || selectedVariant.max_size_cm) && (
-                <div className="space-y-3">
-                  <h3 className="text-base font-semibold text-white border-b border-[#262626] pb-2">ระบุขนาดจริง</h3>
-                  <div className="grid grid-cols-2 gap-4 bg-[#0A0A0A] p-4 rounded-xl border border-[#262626]">
+                <div className="space-y-2 bg-[#0A0A0A] p-4 rounded-xl border border-[#262626]">
+                  <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="block text-xs text-[#737373] mb-1">ความกว้าง (ซม.) *</label>
                       <input
@@ -517,7 +506,7 @@ export default function FlashBookingClient({
               )
             ) : (
               <div className="space-y-3">
-                <h3 className="text-base font-semibold text-white border-b border-[#262626] pb-2">ขนาดงานสัก</h3>
+                <span className="text-[9px] uppercase tracking-widest text-[#737373] font-semibold block">ขนาดงานสัก</span>
                 <div className="grid grid-cols-2 gap-4 bg-[#0A0A0A] p-4 rounded-xl border border-[#262626]">
                   <div>
                     <label className="block text-xs text-[#A3A3A3] mb-1">ความกว้าง (ซม.) *</label>
@@ -546,6 +535,11 @@ export default function FlashBookingClient({
                 </div>
               </div>
             )}
+          </div>
+
+          {/* CENTER COLUMN: Size, Placement, Date, Time (lg:col-span-5) */}
+          <div className="lg:col-span-5 space-y-4 lg:border-l lg:border-r lg:border-[#262626] lg:px-8">
+            
 
             {/* Placement Section */}
             <div className="space-y-3">
