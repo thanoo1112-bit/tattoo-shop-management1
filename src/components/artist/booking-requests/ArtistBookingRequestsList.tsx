@@ -81,6 +81,7 @@ type BookingRequest = {
   } | null;
   flash_variant?: FlashVariant | null;
   flash_booking_mode?: string | null;
+  requested_end_at?: string | null;
 };
 
 type ArtistBookingRequestsListProps = {
@@ -217,7 +218,22 @@ export default function ArtistBookingRequestsList({ initialRequests, isOwnerView
   const [confirmInvalidRequest, setConfirmInvalidRequest] = useState<{request: BookingRequest, payment: Payment} | null>(null);
   const [verifySuccessMessage, setVerifySuccessMessage] = useState<{title: string; desc: string} | null>(null);
 
+  // Mode B Pricing States
+  const [modeBPricingRequest, setModeBPricingRequest] = useState<BookingRequest | null>(null);
+  const [modeBPriceInput, setModeBPriceInput] = useState<string>('');
+  const [modeBError, setModeBError] = useState<string | null>(null);
+  const [isSubmittingModeB, setIsSubmittingModeB] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+
   const supabase = createClient();
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      if (data?.user) {
+        setCurrentUserId(data.user.id);
+      }
+    });
+  }, [supabase]);
 
   useEffect(() => {
     setRequestsList(initialRequests);
@@ -252,6 +268,7 @@ export default function ArtistBookingRequestsList({ initialRequests, isOwnerView
         .select(`
           id,
           requested_start_at,
+          requested_end_at,
           status,
           submitted_full_name,
           submitted_email,
@@ -465,6 +482,53 @@ export default function ArtistBookingRequestsList({ initialRequests, isOwnerView
       }
     } finally {
       setIsSubmittingAccept(false);
+    }
+  };
+
+  const submitModeBPrice = async () => {
+    if (!modeBPricingRequest) return;
+
+    const cleanPrice = modeBPriceInput.trim();
+    if (!cleanPrice) {
+      setModeBError('กรุณากรอกราคางานสักที่กำหนด');
+      return;
+    }
+
+    const priceNum = Number(cleanPrice);
+    if (isNaN(priceNum) || priceNum <= 0) {
+      setModeBError('ราคางานสักต้องเป็นตัวเลขจำนวนบวกและมากกว่า 0');
+      return;
+    }
+
+    setIsSubmittingModeB(true);
+    setModeBError(null);
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
+
+      if (!isOwnerView && modeBPricingRequest.artist_id !== user.id) {
+        throw new Error('คุณไม่มีสิทธิ์กำหนดราคางานสำหรับคำขอของช่างท่านอื่น');
+      }
+
+      const { error } = await supabase.rpc('approve_booking_request_v2', {
+        p_booking_id: modeBPricingRequest.id,
+        p_agreed_price: priceNum,
+        p_deposit_amount: 500,
+        p_confirmed_start_at: modeBPricingRequest.requested_start_at,
+        p_confirmed_end_at: modeBPricingRequest.requested_end_at
+      });
+
+      if (error) throw error;
+
+      await fetchRequestsList();
+      setModeBPricingRequest(null);
+      setModeBPriceInput('');
+    } catch (err: any) {
+      console.error('Failed to set price for Mode B:', err);
+      setModeBError(err.message || 'เกิดข้อผิดพลาดในการบันทึกราคา');
+    } finally {
+      setIsSubmittingModeB(false);
     }
   };
 
@@ -914,9 +978,13 @@ export default function ArtistBookingRequestsList({ initialRequests, isOwnerView
               {isFlash ? (
                 <>
                   <div className="text-[#F5F5F5] font-semibold text-sm">
-                    {request.flash_booking_mode === 'price_review_required' 
-                      ? 'Flash — รอประเมินราคา' 
-                      : 'Flash — ราคาตามแบบ'}
+                    {request.status === 'pending_payment' ? (
+                      'Flash — รอชำระมัดจำ'
+                    ) : (
+                      request.flash_booking_mode === 'price_review_required' 
+                        ? 'Flash — รอประเมินราคา' 
+                        : 'Flash — ราคาตามแบบ'
+                    )}
                     {' • '}
                     {request.flash_designs?.flash_code || 'Flash Design'}
                   </div>
@@ -1218,13 +1286,27 @@ export default function ArtistBookingRequestsList({ initialRequests, isOwnerView
                 >
                   ปฏิเสธคำขอ
                 </button>
-                <button
-                  type="button"
-                  onClick={() => handleAcceptClick(request)}
-                  className="px-4 py-2 bg-[#F5F5F5] hover:bg-[#E5E5E5] text-black rounded-lg text-xs sm:text-sm font-semibold transition-all cursor-pointer"
-                >
-                  รับคำขอ
-                </button>
+                {request.flash_booking_mode === 'price_review_required' ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setModeBPricingRequest(request);
+                      setModeBPriceInput('');
+                      setModeBError(null);
+                    }}
+                    className="px-4 py-2 bg-white hover:bg-neutral-200 text-black rounded-lg text-xs sm:text-sm font-semibold transition-all cursor-pointer"
+                  >
+                    กำหนดราคา
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => handleAcceptClick(request)}
+                    className="px-4 py-2 bg-[#F5F5F5] hover:bg-[#E5E5E5] text-black rounded-lg text-xs sm:text-sm font-semibold transition-all cursor-pointer"
+                  >
+                    รับคำขอ
+                  </button>
+                )}
               </div>
             )}
           </div>
@@ -1785,6 +1867,102 @@ export default function ArtistBookingRequestsList({ initialRequests, isOwnerView
             >
               ตกลง
             </button>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* Mode B Pricing Modal */}
+      {mounted && modeBPricingRequest && createPortal(
+        <div className="fixed inset-0 z-[9998] flex items-center justify-center bg-black/80 p-4 animate-in fade-in duration-200" onClick={() => !isSubmittingModeB && setModeBPricingRequest(null)}>
+          <div className="bg-[#171717] border border-[#262626] rounded-xl w-full max-w-md overflow-hidden shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="p-6 border-b border-[#262626]">
+              <h3 className="text-lg font-bold text-[#F5F5F5]">กำหนดราคางานสัก</h3>
+              <p className="text-xs text-[#737373] mt-1">ตั้งราคางานสักสำหรับคำขอจองปรับขนาด/รายละเอียดเพิ่มเติม</p>
+            </div>
+
+            <div className="p-6 space-y-4 max-h-[60vh] overflow-y-auto">
+              <div className="space-y-2.5 text-xs text-[#A3A3A3] bg-[#121212] p-4 rounded-xl border border-[#262626]">
+                <div className="flex justify-between">
+                  <span>งาน Flash:</span>
+                  <span className="text-white font-medium">{modeBPricingRequest.flash_designs?.flash_code || 'ไม่ระบุ'}</span>
+                </div>
+                <div className="flex justify-between border-t border-[#1a1a1a] pt-2">
+                  <span>ขนาดตามแบบ:</span>
+                  <span className="text-white font-medium">
+                    {(() => {
+                      const v = modeBPricingRequest.flash_variant;
+                      if (v) {
+                        return `กว้าง ${v.min_size_cm || 0} × ยาว ${v.max_size_cm || 0} ซม.`;
+                      }
+                      return modeBPricingRequest.flash_designs?.size || 'ไม่ระบุ';
+                    })()}
+                  </span>
+                </div>
+                <div className="flex justify-between border-t border-[#1a1a1a] pt-2">
+                  <span>ขนาดที่ลูกค้าต้องการ:</span>
+                  <span className="text-white font-medium">
+                    กว้าง {modeBPricingRequest.project?.width_cm || 0} ซม. × ยาว {modeBPricingRequest.project?.height_cm || 0} ซม.
+                  </span>
+                </div>
+                <div className="flex justify-between border-t border-[#1a1a1a] pt-2">
+                  <span>ตำแหน่ง:</span>
+                  <span className="text-white font-medium">{modeBPricingRequest.project?.body_placement || 'ไม่ระบุ'}</span>
+                </div>
+                <div className="border-t border-[#1a1a1a] pt-2 space-y-1">
+                  <span>รายละเอียดที่ต้องการปรับ:</span>
+                  <p className="text-white font-medium leading-relaxed bg-[#171717] p-2.5 rounded-lg border border-[#262626] whitespace-pre-wrap">
+                    {modeBPricingRequest.project?.description || 'ไม่ได้ระบุ'}
+                  </p>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-[#A3A3A3] mb-1.5">ราคางานสักที่กำหนด *</label>
+                <div className="relative">
+                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-sm text-[#737373]">฿</span>
+                  <input
+                    type="text"
+                    required
+                    value={modeBPriceInput}
+                    onChange={e => {
+                      const val = e.target.value.replace(/\D/g, ''); // Filter out non-digits
+                      setModeBPriceInput(val);
+                    }}
+                    className="w-full bg-[#121212] border border-[#262626] rounded-lg pl-8 pr-4 py-2.5 text-sm text-white focus:outline-none focus:border-white"
+                    placeholder="เช่น 4500"
+                  />
+                </div>
+                {modeBPriceInput && !isNaN(Number(modeBPriceInput)) && (
+                  <p className="text-xs text-neutral-400 mt-1.5">
+                    ราคาที่กำหนด: ฿{Number(modeBPriceInput).toLocaleString()}
+                  </p>
+                )}
+              </div>
+            </div>
+
+            {modeBError && (
+              <div className="px-6 pb-2 text-xs text-red-400">{modeBError}</div>
+            )}
+
+            <div className="border-t border-[#262626] p-4 flex gap-3 bg-[#121212]">
+              <button
+                type="button"
+                disabled={isSubmittingModeB}
+                onClick={() => setModeBPricingRequest(null)}
+                className="flex-1 px-4 py-2.5 border border-[#262626] hover:bg-[#262626] text-[#A3A3A3] hover:text-[#F5F5F5] font-semibold rounded-lg text-sm transition-all disabled:opacity-50 cursor-pointer"
+              >
+                ยกเลิก
+              </button>
+              <button
+                type="button"
+                disabled={isSubmittingModeB}
+                onClick={submitModeBPrice}
+                className="flex-1 px-4 py-2.5 bg-white hover:bg-neutral-200 text-black font-semibold rounded-lg text-sm transition-all disabled:opacity-50 flex items-center justify-center cursor-pointer"
+              >
+                {isSubmittingModeB ? 'กำลังยืนยัน...' : 'ยืนยันราคา'}
+              </button>
+            </div>
           </div>
         </div>,
         document.body

@@ -12,6 +12,7 @@ export default async function ArtistBookingRequestsPage() {
     .select(`
       id,
       requested_start_at,
+      requested_end_at,
       status,
       submitted_full_name,
       submitted_email,
