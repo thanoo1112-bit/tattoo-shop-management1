@@ -196,7 +196,7 @@ export default function ArtistSelectionList({ artists, shopSlug, initialArtistId
                         src={artist.avatar_url} 
                         alt={artist.display_name} 
                         fill
-                        className="object-cover"
+                        className="object-cover grayscale group-hover:grayscale-0 transition-all duration-300"
                       />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center text-[#A3A3A3] font-medium text-lg">
@@ -255,7 +255,7 @@ export default function ArtistSelectionList({ artists, shopSlug, initialArtistId
                 <div className="flex items-start gap-3 md:gap-3.5 min-w-0">
                   <div className="w-[72px] h-[72px] rounded-[12px] overflow-hidden bg-[#171717] border border-[#262626] relative flex-shrink-0 mt-0.5">
                     {sa.avatar_url ? (
-                      <Image src={sa.avatar_url} alt={sa.display_name} fill className="object-cover" />
+                      <Image src={sa.avatar_url} alt={sa.display_name} fill className="object-cover grayscale transition-all duration-300" />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center text-[#A3A3A3] font-medium text-lg">
                         {sa.display_name.charAt(0).toUpperCase()}

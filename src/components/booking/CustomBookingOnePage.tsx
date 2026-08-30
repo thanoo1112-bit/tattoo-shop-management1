@@ -618,7 +618,7 @@ export default function CustomBookingOnePage({ artists, shop }: Props) {
                 >
                   <div className="w-16 h-16 rounded-[10px] overflow-hidden bg-[#121212] flex-shrink-0 border border-[#262626] relative">
                     {artist.avatar_url ? (
-                      <Image src={artist.avatar_url} alt={artist.display_name} fill className="object-cover" />
+                      <Image src={artist.avatar_url} alt={artist.display_name} fill className="object-cover grayscale group-hover:grayscale-0 transition-all duration-300" />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center text-[#A3A3A3] font-bold text-lg">
                         {artist.display_name.charAt(0).toUpperCase()}
@@ -649,7 +649,7 @@ export default function CustomBookingOnePage({ artists, shop }: Props) {
             <div className="flex items-center gap-4 p-4 rounded-xl border border-[#262626] bg-[#121212]">
               <div className="w-16 h-16 rounded-[10px] overflow-hidden bg-[#171717] border border-[#262626] relative flex-shrink-0">
                 {selectedArtist.avatar_url ? (
-                  <Image src={selectedArtist.avatar_url} alt={selectedArtist.display_name} fill className="object-cover" />
+                  <Image src={selectedArtist.avatar_url} alt={selectedArtist.display_name} fill className="object-cover grayscale transition-all duration-300" />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center text-[#A3A3A3] font-bold text-lg">
                     {selectedArtist.display_name.charAt(0).toUpperCase()}

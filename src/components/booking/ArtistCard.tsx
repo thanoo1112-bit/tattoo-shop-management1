@@ -22,7 +22,7 @@ export default function ArtistCard({ artist, shopSlug }: { artist: Artist, shopS
             src={artist.avatar_url} 
             alt={artist.display_name} 
             fill
-            className="object-cover"
+            className="object-cover grayscale group-hover:grayscale-0 transition-all duration-300"
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center text-[#A3A3A3] font-medium text-lg md:text-xl">
