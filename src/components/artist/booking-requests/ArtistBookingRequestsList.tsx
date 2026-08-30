@@ -102,6 +102,7 @@ const STATUS_TABS = [
   { id: 'all', name: 'ทั้งหมด' },
   { id: 'pending_review', name: 'รอตรวจสอบ' },
   { id: 'pending_payment', name: 'รอมัดจำ' },
+  { id: 'verification_pending', name: 'ส่งหลักฐานแล้ว' },
   { id: 'approved', name: 'รับแล้ว' },
   { id: 'rejected', name: 'ปฏิเสธ' },
 ];
@@ -268,14 +269,36 @@ export default function ArtistBookingRequestsList({ initialRequests, isOwnerView
     return () => setMounted(false);
   }, []);
 
+  const getTabForRequest = (req: BookingRequest) => {
+    const depositPay = req.payments?.find((p: any) => p.payment_type === 'deposit');
+    const isVerificationPending = req.status === 'verification_pending' || depositPay?.status === 'verification_pending';
+    
+    if (req.status === 'pending_review') {
+      return 'pending_review';
+    }
+    if (isVerificationPending) {
+      return 'verification_pending';
+    }
+    if (req.status === 'pending_payment') {
+      return 'pending_payment';
+    }
+    if (req.status === 'approved') {
+      return 'approved';
+    }
+    if (req.status === 'rejected' || req.status === 'cancelled') {
+      return 'rejected';
+    }
+    return req.status;
+  };
+
   const filteredRequests = requestsList.filter((req) => {
     if (activeTab === 'all') return true;
-    return req.status === activeTab;
+    return getTabForRequest(req) === activeTab;
   });
 
   const getTabCount = (tabId: string) => {
     if (tabId === 'all') return requestsList.length;
-    return requestsList.filter(r => r.status === tabId).length;
+    return requestsList.filter(req => getTabForRequest(req) === tabId).length;
   };
 
   const toggleCard = (requestId: string) => {
@@ -656,8 +679,27 @@ export default function ArtistBookingRequestsList({ initialRequests, isOwnerView
     }
   };
 
-  const getStatusBadge = (status: string) => {
-    switch (status) {
+  const getStatusBadge = (req: BookingRequest) => {
+    const depositPay = req.payments?.find((p: any) => p.payment_type === 'deposit');
+    const isVerificationPending = req.status === 'verification_pending' || depositPay?.status === 'verification_pending';
+
+    if (isVerificationPending) {
+      return (
+        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-500/10 text-blue-400 border border-blue-500/20">
+          ส่งหลักฐานแล้ว
+        </span>
+      );
+    }
+    
+    if (depositPay?.status === 'failed') {
+      return (
+        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-500/10 text-red-400 border border-red-500/20">
+          หลักฐานไม่ถูกต้อง
+        </span>
+      );
+    }
+
+    switch (req.status) {
       case 'pending_review':
         return (
           <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-[#262626] text-[#F5F5F5] border border-[#262626]">
@@ -691,7 +733,7 @@ export default function ArtistBookingRequestsList({ initialRequests, isOwnerView
       default:
         return (
           <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-[#262626] text-[#A3A3A3]">
-            {status}
+            {req.status}
           </span>
         );
     }
@@ -978,7 +1020,7 @@ export default function ArtistBookingRequestsList({ initialRequests, isOwnerView
                     </span>
                   )}
                 </div>
-              {getStatusBadge(request.status)}
+              {getStatusBadge(request)}
             </div>
             <div className="text-[11px] text-[#737373] flex items-center gap-1">
               <span>ส่งคำขอเมื่อ:</span>
@@ -1071,8 +1113,32 @@ export default function ArtistBookingRequestsList({ initialRequests, isOwnerView
           </div>
 
           {/* 3. Chevron Down/Up Rotator */}
-          <div className="flex justify-end pt-1">
-            <ChevronDown className={`h-4 w-4 text-[#737373] transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
+          <div className="flex items-center justify-between pt-2 border-t border-[#262626]/40 mt-1">
+            <span className="text-[11px] text-[#A3A3A3] font-medium">
+              {!isExpanded ? (
+                (() => {
+                  const depositPay = request.payments?.find((p: any) => p.payment_type === 'deposit');
+                  const isVerificationPending = request.status === 'verification_pending' || depositPay?.status === 'verification_pending';
+                  if (isVerificationPending) return <span className="text-blue-400 font-semibold">ตรวจสอบการชำระเงิน</span>;
+                  if (request.status === 'pending_review') return <span className="text-amber-500 font-semibold">รอประเมินรายละเอียด</span>;
+                  return <span>คลิกเพื่อดูรายละเอียด</span>;
+                })()
+              ) : (
+                <span>ย่อรายละเอียด</span>
+              )}
+            </span>
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs text-[#8A8A8A] font-semibold">
+                {!isExpanded ? (
+                  (() => {
+                    const depositPay = request.payments?.find((p: any) => p.payment_type === 'deposit');
+                    const isVerificationPending = request.status === 'verification_pending' || depositPay?.status === 'verification_pending';
+                    return isVerificationPending ? 'ตรวจสอบ' : 'ดูรายละเอียด';
+                  })()
+                ) : ''}
+              </span>
+              <ChevronDown className={`h-4 w-4 text-[#737373] transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
+            </div>
           </div>
         </div>
 
@@ -1357,6 +1423,11 @@ export default function ArtistBookingRequestsList({ initialRequests, isOwnerView
           title: 'ไม่มีคำขอที่รอมัดจำ',
           description: 'คำขอจองที่ผ่านการอนุมัติแล้วและอยู่ระหว่างรอชำระเงินมัดจำจะแสดงที่นี่'
         };
+      case 'verification_pending':
+        return {
+          title: 'ไม่มีคำขอที่ส่งหลักฐานแล้ว',
+          description: 'คำขอจองที่มีการส่งหลักฐานชำระเงินมัดจำและรอตรวจสอบจะแสดงที่นี่'
+        };
       case 'approved':
         return {
           title: 'ไม่มีคำขอที่รับแล้ว',
@@ -1380,7 +1451,7 @@ export default function ArtistBookingRequestsList({ initialRequests, isOwnerView
   return (
     <div className="space-y-6">
       {/* Tabs Filter */}
-      <div className="grid grid-cols-5 border-b border-[#262626] w-full md:flex md:w-auto">
+      <div className="grid grid-cols-6 border-b border-[#262626] w-full md:flex md:w-auto overflow-x-auto">
         {STATUS_TABS.map((tab) => {
           const isActive = activeTab === tab.id;
           const count = getTabCount(tab.id);
