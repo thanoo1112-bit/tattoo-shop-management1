@@ -534,12 +534,10 @@ export default function ArtistBookingRequestsList({ initialRequests, isOwnerView
         throw new Error('คุณไม่มีสิทธิ์กำหนดราคางานสำหรับคำขอของช่างท่านอื่น');
       }
 
-      const { error } = await supabase.rpc('approve_booking_request_v2', {
+      const { error } = await supabase.rpc('set_flash_booking_review_price', {
         p_booking_id: modeBPricingRequest.id,
         p_agreed_price: priceNum,
-        p_deposit_amount: modeBDepositAmount,
-        p_confirmed_start_at: modeBPricingRequest.requested_start_at,
-        p_confirmed_end_at: modeBPricingRequest.requested_end_at
+        p_deposit_amount: modeBDepositAmount
       });
 
       if (error) throw error;
