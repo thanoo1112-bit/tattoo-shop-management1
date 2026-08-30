@@ -3,7 +3,6 @@
 import React, { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { Menu, X, ArrowRight, MapPin, Phone, Clock, Calendar, Pencil, Layers, Plus, MessageSquare, UserRound, Images, CalendarCheck, Palette } from 'lucide-react'
-import { mockArtists } from '@/app/design-lab/customer-home-v2/_data/mockData'
 import { createClient } from '@/lib/supabase/client'
 
 export default function StorefrontHome() {
@@ -261,8 +260,8 @@ export default function StorefrontHome() {
     return 'open';
   };
 
-  // Resolve active artists and styles (falls back to mock if empty)
-  const displayArtists = artists.length > 0 ? artists : mockArtists
+  // Resolve active artists and styles
+  const displayArtists = artists
   const artistsList = ['ช่างทั้งหมด', ...displayArtists.map(a => a.name)]
 
   // Map real portfolio items and derive public URLs
@@ -1060,13 +1059,21 @@ export default function StorefrontHome() {
                     )}
                   </div>
                   
-                  {/* Spacer / button at bottom */}
-                  <button 
-                    onClick={() => router.push(`/shop/${slug}/portfolio?artist=${artist.id}`)}
-                    className="w-full mt-4 py-2 bg-[#171717] border border-[#404040] text-[#F5F5F5] hover:bg-[#262626] transition-colors text-xs font-semibold rounded-md cursor-pointer text-center"
-                  >
-                    ดูผลงานช่าง →
-                  </button>
+                  {/* Action CTAs */}
+                  <div className="space-y-2 mt-4">
+                    <button 
+                      onClick={() => router.push(`/book/${slug}?artist=${artist.id}`)}
+                      className="w-full py-2 bg-[#F5F5F5] hover:bg-white text-black transition-colors text-xs font-bold rounded-md cursor-pointer text-center"
+                    >
+                      จองคิวกับช่างนี้
+                    </button>
+                    <button 
+                      onClick={() => router.push(`/shop/${slug}/portfolio?artist=${artist.id}`)}
+                      className="w-full py-2 bg-[#171717] border border-[#404040] text-[#F5F5F5] hover:bg-[#262626] transition-colors text-xs font-semibold rounded-md cursor-pointer text-center"
+                    >
+                      ดูผลงานช่าง →
+                    </button>
+                  </div>
                 </div>
               </div>
             ))}
