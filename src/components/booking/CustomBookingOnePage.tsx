@@ -279,19 +279,13 @@ export default function CustomBookingOnePage({ artists, shop }: Props) {
     }
   }, [sizeCategory]);
 
-  const STORE_CLOSING_HOURS = 23;
-  const STORE_CLOSING_MINUTES = 30;
-  const closingTimeDecimal = STORE_CLOSING_HOURS + (STORE_CLOSING_MINUTES / 60);
-  const latestStartTimeDecimal = getLatestPreferredStartTime(sizeCategory || '', closingTimeDecimal);
-
   const timeOptions = useMemo(() => {
-    const options: string[] = [];
-    for (let h = 10; h <= 23; h++) {
-      if (h <= latestStartTimeDecimal) options.push(`${h}:00`);
-      if (h + 0.5 <= latestStartTimeDecimal) options.push(`${h}:30`);
-    }
-    return options;
-  }, [latestStartTimeDecimal]);
+    return [
+      '10:00', '11:00', '12:00', '13:00', '14:00', '15:00',
+      '16:00', '17:00', '18:00', '19:00', '20:00', '21:00',
+      '22:00', '23:00', '00:00'
+    ];
+  }, []);
 
   // Invalidate selected preferredTime if it's outside range of timeOptions
   useEffect(() => {
@@ -664,7 +658,7 @@ export default function CustomBookingOnePage({ artists, shop }: Props) {
               </div>
               <div className="flex-1 text-left">
                 <h3 className="text-sm font-semibold text-[#F5F5F5]">{selectedArtist.display_name}</h3>
-                <p className="text-xs text-[#A3A3A3] mt-0.5">ช่างสักประจำแบบ</p>
+                <p className="text-xs text-[#A3A3A3] mt-0.5">ช่างสัก</p>
               </div>
             </div>
 
@@ -1041,7 +1035,8 @@ export default function CustomBookingOnePage({ artists, shop }: Props) {
             {/* Time Slot Grid (Vertically stacked right below status information) */}
             {formData.selectedDate && isDateValid && (
               <div className="pt-4 border-t border-[#262626] animate-in fade-in duration-200">
-                <h4 className="text-sm font-semibold text-[#F5F5F5] mb-3">เลือกเวลาที่สะดวก *</h4>
+                <h4 className="text-sm font-semibold text-[#F5F5F5] mb-1">เลือกเวลาที่สะดวก *</h4>
+                <p className="text-xs text-[#A3A3A3] mb-3">เลือกเวลาเริ่มต้นที่คุณสะดวก ช่างจะตรวจสอบและยืนยันเวลานัดหมายอีกครั้ง</p>
                 <div className="bg-[#121212] border border-[#262626] p-4 rounded-xl">
                   {timeOptions.length === 0 ? (
                     <p className="text-xs text-amber-500 py-1">ขนาดงานสักและเวลาประเมินเกินขีดจำกัดเวลาทำการในวันนี้ กรุณาเปลี่ยนวัน</p>

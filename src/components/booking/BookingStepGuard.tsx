@@ -254,17 +254,22 @@ export default function BookingStepGuard({
     let validPreferredTime = false;
     
     if (isStep2Complete && (newFormData.selectedDate || '').trim() !== '' && (newFormData.preferredTime || '').trim() !== '') {
-      // Revalidate preferredTime against size category logic
-      const { sizeCategory } = newFormData.flashId 
-        ? { sizeCategory: '' }
-        : calculateTattooEstimate(newFormData.widthCm, newFormData.heightCm);
-      const latestStartDecimal = getLatestPreferredStartTime(sizeCategory || '', 23.5);
-      
-      const [hours, minutes] = newFormData.preferredTime.split(':').map(Number);
+      let [hours, minutes] = newFormData.preferredTime.split(':').map(Number);
+      if (hours === 0) hours = 24;
       const timeDecimal = hours + (minutes / 60);
-      
-      if (timeDecimal >= 10 && timeDecimal <= latestStartDecimal) {
-        validPreferredTime = true;
+
+      if (newFormData.flashId) {
+        // Flash Booking: Keep original size-based limit
+        const latestStartDecimal = getLatestPreferredStartTime('', 23.5);
+        if (timeDecimal >= 10 && timeDecimal <= latestStartDecimal) {
+          validPreferredTime = true;
+        }
+      } else {
+        // Custom Booking: Hourly start time 10:00–00:00 (24.0), no size filter
+        const isValidHour = minutes === 0;
+        if (timeDecimal >= 10 && timeDecimal <= 24 && isValidHour) {
+          validPreferredTime = true;
+        }
       }
       
       if (validPreferredTime) {

@@ -458,9 +458,9 @@ export default function OwnerFlashManager({ shopId, initialItems, artists }: Pro
           <Loader2 className="w-5 h-5 text-[#555] animate-spin" />
         </div>
       ) : (
-        <div className="rounded-xl border border-[#262626] overflow-hidden">
-          {/* Table Header */}
-          <div className="grid bg-[#0A0A0A] border-b border-[#1F1F1F] px-2 py-1.5"
+        <div className="space-y-3 sm:space-y-0 sm:rounded-xl sm:border sm:border-[#262626] sm:overflow-hidden">
+          {/* Table Header - Desktop Only */}
+          <div className="hidden sm:grid bg-[#0A0A0A] border-b border-[#1F1F1F] px-2 py-1.5"
             style={{ gridTemplateColumns: '1fr 64px 64px 80px 44px 24px' }}>
             <span className="text-[9px] text-[#555] font-medium uppercase tracking-wide">ชื่อขนาด</span>
             <span className="text-[9px] text-[#555] font-medium uppercase tracking-wide text-center">ต่ำสุด</span>
@@ -470,76 +470,168 @@ export default function OwnerFlashManager({ shopId, initialItems, artists }: Pro
             <span />
           </div>
 
-          {/* Table Rows */}
-          <div className="divide-y divide-[#1A1A1A]">
+          {/* Desktop Table Rows / Mobile Stacked Cards */}
+          <div className="divide-y divide-[#1A1A1A] space-y-3 sm:space-y-0">
             {variants.map((v, i) => (
-              <div
-                key={i}
-                className={`grid items-center gap-1.5 px-2 py-1.5 transition-colors ${
-                  v.is_enabled ? 'bg-[#0D0D0D] hover:bg-[#111]' : 'bg-[#080808] opacity-50'
-                }`}
-                style={{ gridTemplateColumns: '1fr 64px 64px 80px 44px 24px' }}
-              >
-                {/* Name */}
-                <input
-                  type="text"
-                  value={v.size_name}
-                  onChange={e => updateVariant(i, 'size_name', e.target.value)}
-                  placeholder="เช่น กลาง"
-                  className="w-full h-7 px-2 text-xs rounded-md bg-[#141414] border border-[#2A2A2A] text-[#F5F5F5] placeholder:text-[#444] focus:outline-none focus:border-[#555] transition-colors"
-                />
-                {/* Min */}
-                <input
-                  type="number"
-                  min="0"
-                  step="0.5"
-                  value={v.min_size_cm}
-                  onChange={e => updateVariant(i, 'min_size_cm', e.target.value)}
-                  placeholder="—"
-                  className="w-full h-7 px-1.5 text-xs text-center rounded-md bg-[#141414] border border-[#2A2A2A] text-[#F5F5F5] placeholder:text-[#444] focus:outline-none focus:border-[#555] transition-colors"
-                />
-                {/* Max */}
-                <input
-                  type="number"
-                  min="0"
-                  step="0.5"
-                  value={v.max_size_cm}
-                  onChange={e => updateVariant(i, 'max_size_cm', e.target.value)}
-                  placeholder="ขึ้นไป"
-                  className="w-full h-7 px-1.5 text-xs text-center rounded-md bg-[#141414] border border-[#2A2A2A] text-[#F5F5F5] placeholder:text-[#444] focus:outline-none focus:border-[#555] transition-colors"
-                />
-                {/* Price */}
-                <input
-                  type="number"
-                  min="0"
-                  step="100"
-                  value={v.price}
-                  onChange={e => updateVariant(i, 'price', e.target.value)}
-                  placeholder="2500"
-                  className="w-full h-7 px-1.5 text-xs text-center rounded-md bg-[#141414] border border-[#2A2A2A] text-[#F5F5F5] placeholder:text-[#444] focus:outline-none focus:border-[#555] transition-colors"
-                />
-                {/* Toggle */}
-                <button
-                  type="button"
-                  onClick={() => updateVariant(i, 'is_enabled', !v.is_enabled)}
-                  className={`h-7 w-full rounded-md text-[9px] font-semibold border transition-colors ${
-                    v.is_enabled
-                      ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20 hover:bg-emerald-500/20'
-                      : 'bg-[#1A1A1A] text-[#555] border-[#333] hover:border-[#555]'
+              <div key={i} className="contents">
+                {/* Desktop View */}
+                <div
+                  className={`hidden sm:grid items-center gap-1.5 px-2 py-1.5 transition-colors ${
+                    v.is_enabled ? 'bg-[#0D0D0D] hover:bg-[#111]' : 'bg-[#080808] opacity-50'
+                  }`}
+                  style={{ gridTemplateColumns: '1fr 64px 64px 80px 44px 24px' }}
+                >
+                  {/* Name */}
+                  <input
+                    type="text"
+                    value={v.size_name}
+                    onChange={e => updateVariant(i, 'size_name', e.target.value)}
+                    placeholder="เช่น กลาง"
+                    className="w-full h-7 px-2 text-xs rounded-md bg-[#141414] border border-[#2A2A2A] text-[#F5F5F5] placeholder:text-[#444] focus:outline-none focus:border-[#555] transition-colors"
+                  />
+                  {/* Min */}
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.5"
+                    value={v.min_size_cm}
+                    onChange={e => updateVariant(i, 'min_size_cm', e.target.value)}
+                    placeholder="—"
+                    className="w-full h-7 px-1.5 text-xs text-center rounded-md bg-[#141414] border border-[#2A2A2A] text-[#F5F5F5] placeholder:text-[#444] focus:outline-none focus:border-[#555] transition-colors"
+                  />
+                  {/* Max */}
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.5"
+                    value={v.max_size_cm}
+                    onChange={e => updateVariant(i, 'max_size_cm', e.target.value)}
+                    placeholder="ขึ้นไป"
+                    className="w-full h-7 px-1.5 text-xs text-center rounded-md bg-[#141414] border border-[#2A2A2A] text-[#F5F5F5] placeholder:text-[#444] focus:outline-none focus:border-[#555] transition-colors"
+                  />
+                  {/* Price */}
+                  <input
+                    type="number"
+                    min="0"
+                    step="100"
+                    value={v.price}
+                    onChange={e => updateVariant(i, 'price', e.target.value)}
+                    placeholder="2500"
+                    className="w-full h-7 px-1.5 text-xs text-center rounded-md bg-[#141414] border border-[#2A2A2A] text-[#F5F5F5] placeholder:text-[#444] focus:outline-none focus:border-[#555] transition-colors"
+                  />
+                  {/* Toggle */}
+                  <button
+                    type="button"
+                    onClick={() => updateVariant(i, 'is_enabled', !v.is_enabled)}
+                    className={`h-7 w-full rounded-md text-[9px] font-semibold border transition-colors ${
+                      v.is_enabled
+                        ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20 hover:bg-emerald-500/20'
+                        : 'bg-[#1A1A1A] text-[#555] border-[#333] hover:border-[#555]'
+                    }`}
+                  >
+                    {v.is_enabled ? 'เปิด' : 'ปิด'}
+                  </button>
+                  {/* Delete */}
+                  <button
+                    type="button"
+                    onClick={() => removeVariant(i)}
+                    disabled={variants.length <= 1}
+                    className="flex items-center justify-center h-7 w-6 text-[#444] hover:text-red-400 transition-colors disabled:opacity-20 disabled:cursor-not-allowed"
+                    title="ลบ"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </div>
+
+                {/* Mobile Card View */}
+                <div
+                  className={`sm:hidden p-3.5 space-y-3.5 transition-colors rounded-xl border border-[#262626] ${
+                    v.is_enabled ? 'bg-[#0D0D0D]' : 'bg-[#080808] opacity-60'
                   }`}
                 >
-                  {v.is_enabled ? 'เปิด' : 'ปิด'}
-                </button>
-                {/* Delete */}
-                <button
-                  type="button"
-                  onClick={() => removeVariant(i)}
-                  disabled={variants.length <= 1}
-                  className="flex items-center justify-center h-7 w-6 text-[#444] hover:text-red-400 transition-colors disabled:opacity-20 disabled:cursor-not-allowed"
-                  title="ลบ"
-                >
-                  <X className="w-3 h-3" />
-                </button>
+                  {/* Row 1: Name and Delete button */}
+                  <div className="flex gap-3 items-end justify-between">
+                    <div className="flex-1 min-w-0">
+                      <label className="text-[10px] text-[#A3A3A3] font-medium block mb-1">ชื่อขนาด</label>
+                      <input
+                        type="text"
+                        value={v.size_name}
+                        onChange={e => updateVariant(i, 'size_name', e.target.value)}
+                        placeholder="เช่น S, M, L"
+                        className="w-full h-8 px-2.5 text-xs rounded-lg bg-[#141414] border border-[#2A2A2A] text-[#F5F5F5] placeholder:text-[#444] focus:outline-none focus:border-[#555]"
+                      />
+                    </div>
+                    
+                    {/* Delete Button */}
+                    <button
+                      type="button"
+                      onClick={() => removeVariant(i)}
+                      disabled={variants.length <= 1}
+                      className="flex items-center justify-center h-8 w-8 rounded-lg bg-[#1A1A1A] border border-[#2A2A2A] text-[#737373] hover:text-red-400 disabled:opacity-20 disabled:cursor-not-allowed flex-shrink-0"
+                      title="ลบ"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+
+                  {/* Row 2: Min Size & Max Size */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="min-w-0">
+                      <label className="text-[10px] text-[#A3A3A3] font-medium block mb-1">ต่ำสุด (ซม.)</label>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.5"
+                        value={v.min_size_cm}
+                        onChange={e => updateVariant(i, 'min_size_cm', e.target.value)}
+                        placeholder="—"
+                        className="w-full h-8 px-2 text-xs text-center rounded-lg bg-[#141414] border border-[#2A2A2A] text-[#F5F5F5] focus:outline-none focus:border-[#555]"
+                      />
+                    </div>
+                    <div className="min-w-0">
+                      <label className="text-[10px] text-[#A3A3A3] font-medium block mb-1">สูงสุด (ซม.)</label>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.5"
+                        value={v.max_size_cm}
+                        onChange={e => updateVariant(i, 'max_size_cm', e.target.value)}
+                        placeholder="ขึ้นไป"
+                        className="w-full h-8 px-2 text-xs text-center rounded-lg bg-[#141414] border border-[#2A2A2A] text-[#F5F5F5] focus:outline-none focus:border-[#555]"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Row 3: Price and Status toggler */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="min-w-0">
+                      <label className="text-[10px] text-[#A3A3A3] font-medium block mb-1">ราคา (฿)</label>
+                      <input
+                        type="number"
+                        min="0"
+                        step="100"
+                        value={v.price}
+                        onChange={e => updateVariant(i, 'price', e.target.value)}
+                        placeholder="2500"
+                        className="w-full h-8 px-2 text-xs text-center rounded-lg bg-[#141414] border border-[#2A2A2A] text-[#F5F5F5] focus:outline-none focus:border-[#555]"
+                      />
+                    </div>
+                    <div className="min-w-0">
+                      <label className="text-[10px] text-[#A3A3A3] font-medium block mb-1">สถานะ</label>
+                      <button
+                        type="button"
+                        onClick={() => updateVariant(i, 'is_enabled', !v.is_enabled)}
+                        className={`h-8 w-full rounded-lg text-xs font-semibold border transition-colors ${
+                          v.is_enabled
+                            ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20 hover:bg-emerald-500/20'
+                            : 'bg-[#1A1A1A] text-[#555] border-[#333] hover:border-[#555]'
+                        }`}
+                      >
+                        {v.is_enabled ? 'เปิดรับจอง' : 'ปิดรับจอง'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
               </div>
             ))}
           </div>
@@ -711,18 +803,18 @@ export default function OwnerFlashManager({ shopId, initialItems, artists }: Pro
           )}
         </div>
       ) : (
-        <div className="grid grid-cols-2 md:flex md:flex-wrap justify-start gap-2 md:gap-6">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-6">
           {filteredItems.map(item => {
             const st = statusLabel(item.status)
             const isLocked = item.status === 'reserved' || item.status === 'sold'
             return (
-              <div key={item.id} className="bg-[#121212] border border-[#1F1F1F] rounded-xl sm:rounded-2xl overflow-hidden flex flex-col w-full md:w-[360px] md:max-w-[360px] group hover:border-[#404040] transition-colors">
+              <div key={item.id} className="bg-[#121212] border border-[#1F1F1F] rounded-xl sm:rounded-2xl overflow-hidden flex flex-col w-full min-w-0 group hover:border-[#404040] transition-colors">
                 {/* Image */}
-                <div className="relative aspect-[4/5] max-h-[220px] sm:max-h-[300px] md:max-h-[360px] bg-[#0A0A0A] w-full overflow-hidden">
+                <div className="relative aspect-[4/5] bg-[#0A0A0A] w-full overflow-hidden">
                   <img
                     src={getImageUrl(item.image_path)}
                     alt={item.flash_code}
-                    className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-300"
+                    className="w-full h-full object-contain group-hover:scale-[1.01] transition-transform duration-300"
                   />
                   <div className="absolute top-2 left-2">
                     <span className="bg-[#000]/70 backdrop-blur-sm text-[#F5F5F5] font-mono text-[10px] sm:text-xs px-1.5 py-0.5 sm:px-2 sm:py-1 rounded-md sm:rounded-lg font-semibold tracking-widest">
@@ -772,12 +864,12 @@ export default function OwnerFlashManager({ shopId, initialItems, artists }: Pro
                       </div>
                     )
                   ) : (
-                    <div className="flex gap-1.5 sm:gap-2 pt-0.5 sm:pt-1">
+                    <div className="flex gap-1 sm:gap-2 pt-0.5 sm:pt-1">
                       <button
                         onClick={() => handleToggleStatus(item)}
                         disabled={item.status === 'held'}
                         title={item.status === 'open' ? 'ปิดรับจอง' : 'เปิดรับจอง'}
-                        className="flex-1 flex items-center justify-center gap-1 sm:gap-1.5 py-1.5 sm:py-2 rounded-lg sm:rounded-xl text-[10px] sm:text-xs font-medium border border-[#262626] text-[#A3A3A3] hover:border-[#555] hover:text-[#F5F5F5] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="flex-1 flex items-center justify-center gap-0.5 sm:gap-1.5 py-1.5 sm:py-2 rounded-lg sm:rounded-xl text-[9px] xs:text-[10px] sm:text-xs font-medium border border-[#262626] text-[#A3A3A3] hover:border-[#555] hover:text-[#F5F5F5] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         {item.status === 'open'
                           ? <><ToggleRight className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-emerald-400" />เปิดอยู่</>
@@ -786,7 +878,7 @@ export default function OwnerFlashManager({ shopId, initialItems, artists }: Pro
                       </button>
                       <button
                         onClick={() => openEdit(item)}
-                        className="px-2 py-1.5 sm:px-3 sm:py-2 rounded-lg sm:rounded-xl text-[10px] sm:text-xs border border-[#262626] text-[#A3A3A3] hover:border-[#555] hover:text-[#F5F5F5] transition-colors"
+                        className="px-1.5 py-1.5 sm:px-3 sm:py-2 rounded-lg sm:rounded-xl text-[10px] sm:text-xs border border-[#262626] text-[#A3A3A3] hover:border-[#555] hover:text-[#F5F5F5] transition-colors flex-shrink-0"
                         title="แก้ไข"
                       >
                         <Pencil className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
@@ -794,7 +886,7 @@ export default function OwnerFlashManager({ shopId, initialItems, artists }: Pro
                       <button
                         onClick={() => { setError(null); setSuccess(null); setDeletingItem(item); }}
                         title="ลบ"
-                        className="px-2 py-1.5 sm:px-3 sm:py-2 rounded-lg sm:rounded-xl text-[10px] sm:text-xs border border-[#262626] text-[#737373] hover:border-red-500/40 hover:text-red-400 transition-colors"
+                        className="px-1.5 py-1.5 sm:px-3 sm:py-2 rounded-lg sm:rounded-xl text-[10px] sm:text-xs border border-[#262626] text-[#737373] hover:border-red-500/40 hover:text-red-400 transition-colors flex-shrink-0"
                       >
                         <Trash2 className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
                       </button>
@@ -811,7 +903,7 @@ export default function OwnerFlashManager({ shopId, initialItems, artists }: Pro
       {isCreateOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-3 pt-8 sm:p-4">
           <div className="absolute inset-0 bg-[#000]/80 backdrop-blur-sm" onClick={() => { setIsCreateOpen(false); resetForm() }} />
-          <div className="relative z-10 w-[calc(100%-24px)] sm:w-full sm:max-w-lg bg-[#121212] border border-[#1F1F1F] rounded-2xl flex flex-col max-h-[82dvh] sm:max-h-[90vh] overflow-hidden">
+          <div className="relative z-10 w-full max-w-[calc(100vw-24px)] sm:max-w-lg bg-[#121212] border border-[#1F1F1F] rounded-2xl flex flex-col max-h-[90dvh] sm:max-h-[90vh] overflow-hidden">
             <div className="flex items-center justify-between p-4 sm:px-6 sm:py-5 border-b border-[#1F1F1F] sticky top-0 bg-[#121212] z-20 rounded-t-2xl">
               <h2 className="text-base font-semibold text-[#F5F5F5]">เพิ่ม Flash ใหม่</h2>
               <button onClick={() => { setIsCreateOpen(false); resetForm() }} className="p-1.5 rounded-lg text-[#737373] hover:text-[#F5F5F5] hover:bg-[#1F1F1F] transition-colors">
@@ -839,7 +931,7 @@ export default function OwnerFlashManager({ shopId, initialItems, artists }: Pro
       {editingItem && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-3 pt-8 sm:p-4">
           <div className="absolute inset-0 bg-[#000]/80 backdrop-blur-sm" onClick={() => { setEditingItem(null); resetForm() }} />
-          <div className="relative z-10 w-[calc(100%-24px)] sm:w-full sm:max-w-lg bg-[#121212] border border-[#1F1F1F] rounded-2xl flex flex-col max-h-[82dvh] sm:max-h-[90vh] overflow-hidden">
+          <div className="relative z-10 w-full max-w-[calc(100vw-24px)] sm:max-w-lg bg-[#121212] border border-[#1F1F1F] rounded-2xl flex flex-col max-h-[90dvh] sm:max-h-[90vh] overflow-hidden">
             <div className="flex items-center justify-between p-4 sm:px-6 sm:py-5 border-b border-[#1F1F1F] sticky top-0 bg-[#121212] z-20 rounded-t-2xl">
               <h2 className="text-base font-semibold text-[#F5F5F5]">แก้ไข {editingItem.flash_code}</h2>
               <button onClick={() => { setEditingItem(null); resetForm() }} className="p-1.5 rounded-lg text-[#737373] hover:text-[#F5F5F5] hover:bg-[#1F1F1F] transition-colors">

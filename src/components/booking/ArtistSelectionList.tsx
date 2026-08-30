@@ -153,7 +153,7 @@ export default function ArtistSelectionList({ artists, shopSlug, initialArtistId
             <div className="bg-[#0A0A0A] border border-[#1F1F1F] p-3 rounded-xl">
               <span className="text-[10px] text-[#737373] block">ช่างสัก</span>
               <span className="text-sm font-semibold text-[#F5F5F5] mt-1 block">
-                {artists.find(a => a.artist_id === selectedArtistId)?.display_name || 'ช่างสักประจำแบบ'}
+                {artists.find(a => a.artist_id === selectedArtistId)?.display_name || 'ช่างสัก'}
               </span>
             </div>
             <div className="bg-[#0A0A0A] border border-[#1F1F1F] p-3 rounded-xl">
