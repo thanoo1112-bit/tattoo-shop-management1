@@ -22,12 +22,15 @@ interface PaymentDetails {
   // Optional fields that may not be returned by current RPC
   tattoo_price?: number
   customer_name?: string
+  customer_phone?: string
   style?: string
   color?: string
   work_type?: string
   placement?: string
   width_cm?: number
   height_cm?: number
+  flash_code?: string
+  flash_image_path?: string
   reference_images?: string[]
 }
 
@@ -47,6 +50,7 @@ export function PaymentPageClient({ token }: { token: string }) {
   const [timeLeft, setTimeLeft] = useState<string>('')
   const [isExpired, setIsExpired] = useState(false)
   const [qrUrl, setQrUrl] = useState<string | null>(null)
+  const [flashImageUrl, setFlashImageUrl] = useState<string | null>(null)
 
   const supabase = createClient()
 
@@ -71,6 +75,15 @@ export function PaymentPageClient({ token }: { token: string }) {
         setQrUrl(`${publicUrlData.publicUrl}${sep}v=${Date.now()}`)
       } else {
         setQrUrl(null)
+      }
+
+      if (typedData.flash_image_path) {
+        const { data: publicUrlData } = supabase.storage
+          .from('flash-images')
+          .getPublicUrl(typedData.flash_image_path)
+        setFlashImageUrl(publicUrlData.publicUrl)
+      } else {
+        setFlashImageUrl(null)
       }
     } catch (err: any) {
       console.log('Error fetching payment details:', err)
@@ -217,257 +230,324 @@ export function PaymentPageClient({ token }: { token: string }) {
 
   const isVerificationPending = details.payment_status === 'verification_pending'
 
-  const isPendingPayable = details.booking_status === 'pending_payment' && details.payment_status === 'pending' && details.can_upload_proof && !isExpiredState
-
-  const renderTerminalState = (title: string, message: string, icon: React.ReactNode) => (
-    <div className="bg-[#121212] border border-[#262626] rounded-xl p-8 text-center space-y-4">
-      <div className="flex justify-center">{icon}</div>
-      <h2 className="text-lg font-medium text-[#F5F5F5]">{title}</h2>
-      <p className="text-[#A3A3A3]">{message}</p>
-    </div>
-  )
-
-  if (isFailedTerminal) {
-    return renderTerminalState(
-      'การชำระเงินไม่ผ่าน หรือคำขอนี้ถูกยกเลิกแล้ว',
-      'คำขอนี้ไม่สามารถชำระเงินได้แล้ว กรุณาติดต่อช่างสักเพื่อตรวจสอบ',
-      <XCircle className="w-12 h-12 text-[#737373]" />
-    )
-  }
-
-  if (isExpiredState) {
-    return renderTerminalState(
-      'หมดเวลาชำระเงิน',
-      'เวลาสำหรับยืนยันคิวนี้หมดลงแล้ว กรุณาติดต่อร้านหรือช่างเพื่อจัดคิวใหม่',
-      <Clock className="w-12 h-12 text-[#737373]" />
-    )
-  }
+  // Header status display
+  let statusText = 'รอชำระมัดจำ'
+  let statusColor = 'text-amber-500 bg-amber-500/10 border-amber-500/20'
 
   if (isPaid) {
-    return renderTerminalState(
-      'ชำระเงินมัดจำแล้ว',
-      'คิวได้รับการยืนยันแล้ว',
-      <CheckCircle2 className="w-12 h-12 text-[#737373]" />
-    )
+    statusText = 'ชำระเงินยืนยันแล้ว'
+    statusColor = 'text-green-500 bg-green-500/10 border-green-500/20'
+  } else if (isVerificationPending) {
+    statusText = 'รอตรวจสอบการชำระเงิน'
+    statusColor = 'text-blue-500 bg-blue-500/10 border-blue-500/20'
+  } else if (isExpiredState) {
+    statusText = 'หมดเวลาชำระเงิน'
+    statusColor = 'text-red-500 bg-red-500/10 border-red-500/20'
+  } else if (isFailedTerminal) {
+    statusText = 'ชำระเงินไม่สำเร็จ/ยกเลิก'
+    statusColor = 'text-red-500 bg-red-500/10 border-red-500/20'
   }
-
-  if (isVerificationPending) {
-    return renderTerminalState(
-      'ส่งหลักฐานแล้ว',
-      'ร้านกำลังตรวจสอบการชำระเงินของคุณ',
-      <Clock className="w-12 h-12 text-[#737373]" />
-    )
-  }
-
-  if (!isPendingPayable) {
-    return renderTerminalState(
-      'สถานะไม่พร้อมชำระเงิน',
-      'รายการนี้ยังไม่พร้อมหรือถูกดำเนินการไปแล้ว',
-      <AlertCircle className="w-12 h-12 text-[#737373]" />
-    )
-  }
-
-  const workFormat = [details.style, details.color, details.work_type].filter(Boolean).join(' • ')
 
   return (
-    <div className="max-w-[720px] mx-auto w-full px-4 sm:px-0 py-6">
-      <div className="bg-[#121212] border border-[#262626] rounded-xl overflow-hidden w-full">
-        <div className="px-5 sm:px-6 py-5 border-b border-[#262626]">
-          <h1 className="text-xl font-medium text-[#F5F5F5]">รอชำระเงินมัดจำ</h1>
+    <div className="w-full space-y-6">
+      
+      {/* STATUS HEADER CARD */}
+      <div className="bg-[#121212] border border-[#262626] rounded-2xl p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-xl">
+        <div>
+          <h2 className="text-xs uppercase tracking-widest text-[#737373] font-semibold">สถานะการจอง</h2>
+          <div className="text-lg font-bold text-white mt-0.5">{details.shop_name}</div>
         </div>
+        <span className={`px-4 py-1.5 rounded-full text-xs font-semibold border ${statusColor}`}>
+          {statusText}
+        </span>
+      </div>
 
-        <div className="p-5 sm:p-6 space-y-6">
-          {/* Intro Message */}
-          <div className="bg-[#171717] border border-[#262626] rounded-lg p-4">
-            <p className="text-[#F5F5F5] text-sm sm:text-base leading-relaxed">
-              ช่างสักรับคำขอของคุณแล้ว กรุณาชำระเงินมัดจำเพื่อล็อกคิวและยืนยันนัดหมาย
-            </p>
-            {details.payment_deadline && (
-              <p className="text-[#737373] text-sm mt-3">
-                กำหนดชำระ: {formatThaiDate(details.payment_deadline)} เวลา {formatThaiTime(details.payment_deadline)} น.
-              </p>
-            )}
-          </div>
+      {/* MAIN 2-COLUMN GRID */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        
+        {/* LEFT COLUMN: Booking Details (lg:col-span-5) */}
+        <div className="lg:col-span-5 bg-[#121212] border border-[#262626] rounded-2xl p-6 space-y-6 shadow-xl">
+          <h3 className="text-base font-semibold text-white border-b border-[#262626] pb-2.5 uppercase tracking-wide">
+            รายละเอียดการจอง
+          </h3>
 
-          <hr className="border-[#262626]" />
+          {/* Flash Image */}
+          {flashImageUrl && (
+            <div className="relative aspect-square w-full bg-[#0A0A0A] flex items-center justify-center p-3 rounded-xl border border-[#262626]">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={flashImageUrl}
+                alt={details.flash_code || "Flash Design"}
+                className="w-full h-full object-contain rounded-lg"
+              />
+            </div>
+          )}
 
-          {/* Payment Summary */}
-          <div className="space-y-4">
-            {details.tattoo_price !== undefined && (
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-[#A3A3A3]">ราคางานสัก</span>
-                <span className="text-base text-[#F5F5F5]">฿{details.tattoo_price.toLocaleString()}</span>
+          {/* Booking Info List */}
+          <div className="space-y-4 text-sm text-[#A3A3A3]">
+            {details.flash_code && (
+              <div className="flex justify-between border-b border-[#1C1C1C] pb-2">
+                <span>รหัสแบบ</span>
+                <span className="text-white font-medium">{details.flash_code}</span>
               </div>
             )}
-            
-            <div className="flex justify-between items-center">
-              <span className="text-sm text-[#A3A3A3]">ยอดชำระมัดจำ</span>
-              <span className="text-lg font-semibold text-[#F5F5F5]">฿{details.deposit_amount.toLocaleString()}</span>
+            <div className="flex justify-between border-b border-[#1C1C1C] pb-2">
+              <span>ช่างสัก</span>
+              <span className="text-white font-medium">{details.artist_display_name}</span>
             </div>
-
-            <div className="flex justify-between items-center">
-              <span className="text-sm text-[#A3A3A3]">สถานะ</span>
-              <span className="text-sm text-[#F5F5F5] border border-[#262626] bg-[#171717] px-2.5 py-1 rounded-md">
-                รอการชำระเงิน
+            {details.style && (
+              <div className="flex justify-between border-b border-[#1C1C1C] pb-2">
+                <span>สไตล์</span>
+                <span className="text-white font-medium">{details.style}</span>
+              </div>
+            )}
+            <div className="flex justify-between border-b border-[#1C1C1C] pb-2">
+              <span>ขนาด</span>
+              <span className="text-white font-medium">
+                {details.width_cm && details.height_cm 
+                  ? `${details.width_cm} × ${details.height_cm} ซม.` 
+                  : 'ขนาดตามแบบเดิม'}
               </span>
             </div>
-          </div>
+            <div className="flex justify-between border-b border-[#1C1C1C] pb-2">
+              <span>ตำแหน่งที่สัก</span>
+              <span className="text-white font-medium">{details.placement || '-'}</span>
+            </div>
+            <div className="flex justify-between border-b border-[#1C1C1C] pb-2">
+              <span>วันที่จองคิว</span>
+              <span className="text-white font-medium">
+                {formatThaiDate(details.confirmed_start_at, { longMonth: true })}
+              </span>
+            </div>
+            <div className="flex justify-between border-b border-[#1C1C1C] pb-2">
+              <span>เวลา</span>
+              <span className="text-white font-medium">
+                {formatThaiTime(details.confirmed_start_at)} น.
+              </span>
+            </div>
+            
+            <div className="pt-2 space-y-2">
+              <div className="flex justify-between text-sm">
+                <span>ราคางานสักทั้งหมด</span>
+                <span className="text-white font-semibold">
+                  {details.tattoo_price ? `฿${details.tattoo_price.toLocaleString()}` : '-'}
+                </span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span>ยอดเงินมัดจำ</span>
+                <span className="text-amber-500 font-bold">
+                  ฿{details.deposit_amount.toLocaleString()}
+                </span>
+              </div>
+            </div>
 
-          {/* QR Code Section */}
-          <div className="pt-2 pb-2">
-            {qrUrl ? (
-              <div className="flex flex-col items-center gap-4">
-                <div className="rounded-xl border border-[#262626] overflow-hidden w-fit">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img 
-                    src={qrUrl} 
-                    alt={`${details.shop_name} Payment QR Code`} 
-                    className="block w-auto h-auto max-w-[280px] max-h-[320px] sm:max-w-[300px] sm:max-h-[340px]"
-                  />
-                </div>
+            <hr className="border-[#262626]" />
+
+            <div className="space-y-3 pt-2">
+              <div className="flex justify-between">
+                <span>ผู้จอง</span>
+                <span className="text-white font-medium">{details.customer_name || '-'}</span>
               </div>
-            ) : (
-              <div className="text-center py-6 space-y-2 border border-[#262626] rounded-lg bg-[#171717]">
-                <AlertCircle className="w-8 h-8 text-[#737373] mx-auto" />
-                <p className="text-[#F5F5F5] font-medium text-sm">ร้านยังไม่ได้ตั้งค่า QR รับเงิน</p>
-                <p className="text-xs text-[#A3A3A3]">กรุณาติดต่อร้านก่อนชำระเงิน</p>
+              <div className="flex justify-between">
+                <span>เบอร์โทรศัพท์</span>
+                <span className="text-white font-medium">{details.customer_phone || '-'}</span>
               </div>
+            </div>
+          </div>
+        </div>
+
+        {/* RIGHT COLUMN: Payment section (lg:col-span-7) */}
+        <div className="lg:col-span-7 bg-[#121212] border border-[#262626] rounded-2xl p-6 space-y-6 shadow-xl text-center">
+          <h3 className="text-base font-semibold text-white border-b border-[#262626] pb-2.5 uppercase tracking-wide text-left">
+            ชำระเงินมัดจำ
+          </h3>
+
+          {/* Amount Box */}
+          <div className="bg-[#171717] border border-[#262626] rounded-xl py-5 px-6 space-y-1">
+            <span className="text-xs text-[#737373] uppercase tracking-wider block">ยอดที่ต้องชำระ</span>
+            <span className="text-3xl font-extrabold text-amber-500 block">
+              ฿{details.deposit_amount.toLocaleString()}
+            </span>
+            {details.payment_deadline && !isPaid && !isVerificationPending && (
+              <span className="text-xs text-red-400 block pt-1 animate-pulse">
+                {timeLeft}
+              </span>
             )}
           </div>
 
-          {/* Upload Section */}
-          <div className="space-y-4">
-            <input
-              type="file"
-              accept="image/jpeg, image/png, image/webp"
-              className="hidden"
-              ref={fileInputRef}
-              onChange={handleFileSelect}
-              disabled={isSubmitting || !qrUrl}
-            />
-
-            {!file ? (
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                disabled={isSubmitting || !qrUrl}
-                className="w-full border border-dashed border-[#262626] rounded-lg p-6 flex flex-col items-center justify-center text-[#A3A3A3] hover:text-[#F5F5F5] hover:border-[#404040] hover:bg-[#171717] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <UploadCloud className="w-6 h-6 mb-2" />
-                <span className="font-medium text-sm">แนบสลิปการชำระเงิน</span>
-              </button>
-            ) : (
-              <div className="space-y-4">
-                <div className="relative rounded-lg border border-[#262626] bg-[#171717] p-2 flex items-center gap-4">
-                  <div className="w-12 h-12 rounded overflow-hidden bg-[#121212] flex-shrink-0 flex items-center justify-center">
-                    {previewUrl ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={previewUrl} alt="Slip preview" className="w-full h-full object-cover" />
-                    ) : (
-                      <ImageIcon className="w-5 h-5 text-[#737373]" />
-                    )}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm text-[#F5F5F5] truncate">{file.name}</p>
-                    <p className="text-xs text-[#737373]">{(file.size / 1024 / 1024).toFixed(2)} MB</p>
-                  </div>
-                  <div className="flex flex-col gap-1 pr-2">
-                    <button
-                      onClick={() => fileInputRef.current?.click()}
-                      disabled={isSubmitting || !qrUrl}
-                      className="text-xs text-[#A3A3A3] hover:text-[#F5F5F5] disabled:opacity-50"
-                    >
-                      เปลี่ยน
-                    </button>
-                    <button
-                      onClick={clearFile}
-                      disabled={isSubmitting || !qrUrl}
-                      className="text-xs text-[#A3A3A3] hover:text-[#F5F5F5] disabled:opacity-50"
-                    >
-                      ลบ
-                    </button>
-                  </div>
-                </div>
-
-                {submitError && (
-                  <div className="p-3 bg-[#171717] border border-[#262626] rounded-lg text-[#F5F5F5] text-sm flex gap-2 items-start">
-                    <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5 text-[#737373]" />
-                    <span>{submitError}</span>
+          {/* DYNAMIC PAYMENT VIEW BASED ON STATE */}
+          {isPaid ? (
+            <div className="py-8 space-y-4">
+              <div className="w-16 h-16 bg-green-500/10 border border-green-500/20 rounded-full flex items-center justify-center mx-auto text-green-500">
+                <CheckCircle2 size={36} />
+              </div>
+              <div className="space-y-2">
+                <h4 className="text-lg font-bold text-white">ชำระเงินมัดจำเรียบร้อยแล้ว</h4>
+                <p className="text-xs text-[#A3A3A3] max-w-sm mx-auto">
+                  ระบบได้รับการยืนยันการชำระเงินมัดจำเรียบร้อยแล้ว คิวของคุณได้รับการยืนยันการสักแล้ว!
+                </p>
+              </div>
+              <div className="pt-4">
+                <a
+                  href="/track"
+                  className="inline-block py-3 px-8 bg-white hover:bg-neutral-200 text-black font-semibold rounded-xl text-sm transition-all"
+                >
+                  ติดตามสถานะ
+                </a>
+              </div>
+            </div>
+          ) : isVerificationPending ? (
+            <div className="py-8 space-y-4">
+              <div className="w-16 h-16 bg-blue-500/10 border border-blue-500/20 rounded-full flex items-center justify-center mx-auto text-blue-500 animate-pulse">
+                <Clock size={36} />
+              </div>
+              <div className="space-y-2">
+                <h4 className="text-lg font-bold text-white">ส่งหลักฐานการชำระเงินเรียบร้อยแล้ว</h4>
+                <p className="text-xs text-[#A3A3A3] max-w-sm mx-auto">
+                  ร้านกำลังดำเนินการตรวจสอบสลิปการโอนเงินมัดจำของคุณ กรุณาร้านตรวจสอบ
+                </p>
+              </div>
+              <div className="pt-4">
+                <a
+                  href="/track"
+                  className="inline-block py-3 px-8 bg-white hover:bg-neutral-200 text-black font-semibold rounded-xl text-sm transition-all animate-in fade-in duration-200"
+                >
+                  ติดตามสถานะ
+                </a>
+              </div>
+            </div>
+          ) : isExpiredState ? (
+            <div className="py-8 space-y-4">
+              <div className="w-16 h-16 bg-red-500/10 border border-red-500/20 rounded-full flex items-center justify-center mx-auto text-red-500">
+                <Clock size={36} />
+              </div>
+              <div className="space-y-2">
+                <h4 className="text-lg font-bold text-white">หมดเวลาชำระเงิน</h4>
+                <p className="text-xs text-[#A3A3A3] max-w-sm mx-auto">
+                  ระยะเวลาชำระมัดจำ 24 ชั่วโมงของคำขอนี้หมดอายุแล้ว กรุณาติดต่อช่างสักหรือสาขาเพื่อจัดนัดหมายใหม่
+                </p>
+              </div>
+            </div>
+          ) : isFailedTerminal ? (
+            <div className="py-8 space-y-4">
+              <div className="w-16 h-16 bg-red-500/10 border border-red-500/20 rounded-full flex items-center justify-center mx-auto text-red-500">
+                <XCircle size={36} />
+              </div>
+              <div className="space-y-2">
+                <h4 className="text-lg font-bold text-white">การจองถูกปฏิเสธหรือยกเลิก</h4>
+                <p className="text-xs text-[#A3A3A3] max-w-sm mx-auto">
+                  คำขอจองคิวนี้ไม่สามารถทำรายการชำระเงินได้แล้วเนื่องจากถูกปฏิเสธหรือยกเลิก
+                </p>
+              </div>
+            </div>
+          ) : (
+            /* ACTIVE QR CODE + SLIP UPLOAD VIEW */
+            <div className="space-y-6">
+              
+              {/* QR Code */}
+              <div className="flex flex-col items-center justify-center space-y-3">
+                {qrUrl ? (
+                  <>
+                    <div className="rounded-2xl border border-[#262626] bg-white p-3 overflow-hidden shadow-xl max-w-[260px] w-full">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={qrUrl}
+                        alt={`${details.shop_name} Payment QR Code`}
+                        className="w-full h-auto object-contain aspect-square"
+                      />
+                    </div>
+                    <p className="text-xs text-[#A3A3A3] max-w-xs leading-relaxed">
+                      กรุณาสแกน QR Code เพื่อชำระเงินมัดจำตามยอดที่ระบุ
+                    </p>
+                  </>
+                ) : (
+                  <div className="w-full py-8 space-y-2 border border-[#262626] rounded-xl bg-[#171717]">
+                    <AlertCircle className="w-8 h-8 text-[#737373] mx-auto" />
+                    <p className="text-[#F5F5F5] font-semibold text-sm">ยังไม่ได้ตั้งค่า QR Code รับเงิน</p>
+                    <p className="text-xs text-[#737373]">กรุณาติดต่อสาขาโดยตรงเพื่อชำระเงิน</p>
                   </div>
                 )}
               </div>
-            )}
 
-            <button
-              onClick={handleSubmit}
-              disabled={isSubmitting || !qrUrl || !file}
-              className="w-full py-3 h-[48px] bg-[#F5F5F5] text-[#0A0A0A] font-medium rounded-md hover:bg-[#E5E5E5] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-              {isSubmitting ? 'กำลังดำเนินการ...' : 'ชำระเงินมัดจำ'}
-            </button>
-          </div>
+              <hr className="border-[#262626]" />
 
-          <hr className="border-[#262626]" />
+              {/* Upload area */}
+              <div className="space-y-4 text-left">
+                <h4 className="text-xs uppercase tracking-widest text-[#737373] font-semibold">
+                  แนบหลักฐานการชำระเงิน
+                </h4>
 
-          {/* Booking Details Section */}
-          <div className="space-y-4">
-            <h3 className="text-base font-semibold text-[#F5F5F5]">รายละเอียดคำขอจอง</h3>
-            
-            <div className="space-y-3">
-              {details.customer_name && (
-                <div>
-                  <p className="text-xs text-[#A3A3A3] mb-1">ผู้จอง</p>
-                  <p className="text-sm text-[#F5F5F5]">{details.customer_name}</p>
-                </div>
-              )}
+                <input
+                  type="file"
+                  accept="image/jpeg, image/png, image/webp"
+                  className="hidden"
+                  ref={fileInputRef}
+                  onChange={handleFileSelect}
+                  disabled={isSubmitting || !qrUrl}
+                />
 
-              <div>
-                <p className="text-xs text-[#A3A3A3] mb-1">ช่างสัก</p>
-                <p className="text-sm text-[#F5F5F5]">{details.artist_display_name}</p>
-              </div>
-
-              {workFormat && (
-                <div>
-                  <p className="text-xs text-[#A3A3A3] mb-1">รูปแบบงาน</p>
-                  <p className="text-sm text-[#F5F5F5]">{workFormat}</p>
-                </div>
-              )}
-
-              {details.placement && (
-                <div>
-                  <p className="text-xs text-[#A3A3A3] mb-1">ตำแหน่ง</p>
-                  <p className="text-sm text-[#F5F5F5]">{details.placement}</p>
-                </div>
-              )}
-
-              {(details.width_cm !== undefined || details.height_cm !== undefined) && (
-                <div className="grid grid-cols-2 gap-4">
-                  {details.width_cm !== undefined && (
-                    <div>
-                      <p className="text-xs text-[#A3A3A3] mb-1">ความกว้าง</p>
-                      <p className="text-sm text-[#F5F5F5]">{details.width_cm} ซม.</p>
+                {!file ? (
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={isSubmitting || !qrUrl}
+                    className="w-full border border-dashed border-[#262626] rounded-xl p-8 flex flex-col items-center justify-center text-[#A3A3A3] hover:text-[#F5F5F5] hover:border-[#404040] hover:bg-[#171717] transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                  >
+                    <UploadCloud className="w-6 h-6 mb-2 text-amber-500" />
+                    <span className="font-semibold text-sm">คลิกเพื่ออัปโหลดสลิป</span>
+                    <span className="text-[10px] text-[#737373] mt-1">ไฟล์ JPG, PNG หรือ WebP เท่านั้น</span>
+                  </button>
+                ) : (
+                  <div className="space-y-3">
+                    <div className="relative rounded-xl border border-[#262626] bg-[#171717] p-3 flex items-center gap-4">
+                      <div className="w-12 h-12 rounded overflow-hidden bg-[#121212] flex-shrink-0 flex items-center justify-center">
+                        {previewUrl ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={previewUrl} alt="Slip preview" className="w-full h-full object-cover" />
+                        ) : (
+                          <ImageIcon className="w-5 h-5 text-[#737373]" />
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm text-white font-medium truncate">{file.name}</p>
+                        <p className="text-xs text-[#737373]">{(file.size / 1024 / 1024).toFixed(2)} MB</p>
+                      </div>
+                      <div className="flex items-center gap-3 pr-1 text-xs font-semibold">
+                        <button
+                          onClick={() => fileInputRef.current?.click()}
+                          disabled={isSubmitting || !qrUrl}
+                          className="text-amber-500 hover:underline disabled:opacity-50"
+                        >
+                          เปลี่ยน
+                        </button>
+                        <button
+                          onClick={clearFile}
+                          disabled={isSubmitting || !qrUrl}
+                          className="text-[#737373] hover:text-white disabled:opacity-50"
+                        >
+                          ลบ
+                        </button>
+                      </div>
                     </div>
-                  )}
-                  {details.height_cm !== undefined && (
-                    <div>
-                      <p className="text-xs text-[#A3A3A3] mb-1">ความยาว</p>
-                      <p className="text-sm text-[#F5F5F5]">{details.height_cm} ซม.</p>
-                    </div>
-                  )}
-                </div>
-              )}
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-xs text-[#A3A3A3] mb-1">วันที่สะดวก</p>
-                  <p className="text-sm text-[#F5F5F5]">{formatThaiDate(details.confirmed_start_at)}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-[#A3A3A3] mb-1">เวลาที่สะดวก</p>
-                  <p className="text-sm text-[#F5F5F5]">{formatThaiTime(details.confirmed_start_at)} น.</p>
-                </div>
+                    {submitError && (
+                      <div className="p-3 bg-red-500/10 border border-red-500/20 text-red-400 rounded-lg text-xs flex gap-2 items-start">
+                        <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                        <span>{submitError}</span>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                <button
+                  onClick={handleSubmit}
+                  disabled={isSubmitting || !qrUrl || !file}
+                  className="w-full py-3 h-[48px] bg-white text-black font-semibold rounded-xl hover:bg-neutral-200 disabled:bg-[#1C1C1C] disabled:text-[#404040] disabled:cursor-not-allowed transition-all shadow-[0_4px_15px_rgba(255,255,255,0.05)] cursor-pointer flex items-center justify-center"
+                >
+                  {isSubmitting ? 'กำลังดำเนินการ...' : 'ส่งหลักฐานการชำระเงิน'}
+                </button>
               </div>
             </div>
-          </div>
+          )}
         </div>
       </div>
     </div>
