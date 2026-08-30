@@ -111,11 +111,11 @@ export function ArtistMobileNav({ artistName, avatarUrl, isOwner }: { artistName
         <div className="flex-shrink-0 border-t border-[#262626] p-4 bg-[#121212]">
           <div className="flex items-center w-full mb-4 px-2">
             {avatarUrl ? (
-              <div className="relative w-10 h-10 rounded-full overflow-hidden border border-[#262626] flex-shrink-0">
+              <div className="relative w-10 h-10 rounded-xl overflow-hidden border border-[#262626] flex-shrink-0">
                 <Image src={avatarUrl} alt={artistName} fill className="object-cover" />
               </div>
             ) : (
-              <div className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-[#171717] border border-[#262626] flex-shrink-0">
+              <div className="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-[#171717] border border-[#262626] flex-shrink-0">
                 <User className="h-5 w-5 text-[#B9C0C8]" />
               </div>
             )}

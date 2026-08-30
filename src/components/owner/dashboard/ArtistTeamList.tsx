@@ -94,11 +94,11 @@ export function ArtistTeamList({ artists, shopId, todayApptsCountByArtist = {} }
                 <div key={artist.id} className="p-4 flex flex-row items-center justify-between gap-3 sm:gap-4 hover:bg-[#1E1E1E] transition-colors w-full overflow-hidden">
                   <div className="flex items-center gap-3 sm:gap-4 min-w-0 flex-1">
                     {artist.profiles?.avatar_url ? (
-                      <div className="relative w-10 h-10 rounded-full overflow-hidden border border-[#262626] flex-shrink-0">
+                      <div className="relative w-10 h-10 rounded-xl overflow-hidden border border-[#262626] flex-shrink-0">
                         <Image src={artist.profiles.avatar_url} alt={artist.profiles.full_name || 'Artist'} fill className="object-cover" />
                       </div>
                     ) : (
-                      <div className="w-10 h-10 rounded-full bg-[#262626] border border-[#333333] flex items-center justify-center flex-shrink-0">
+                      <div className="w-10 h-10 rounded-xl bg-[#262626] border border-[#333333] flex items-center justify-center flex-shrink-0">
                         <User className="w-5 h-5 text-[#9CA3AB]" />
                       </div>
                     )}

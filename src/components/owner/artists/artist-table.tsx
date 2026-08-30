@@ -64,7 +64,7 @@ export function ArtistTable({ artists, shopId }: { artists: Artist[], shopId: st
                   <tr key={artist.id} className={`hover:bg-[#262626]/50 transition-colors ${!isActive ? 'opacity-70' : ''}`}>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-[#262626] border border-[#333] flex items-center justify-center overflow-hidden flex-shrink-0">
+                        <div className="w-10 h-10 rounded-xl bg-[#262626] border border-[#333] flex items-center justify-center overflow-hidden flex-shrink-0">
                           {artist.profiles?.avatar_url ? (
                             <img src={artist.profiles.avatar_url} alt={artist.profiles.full_name || 'Profile'} className="w-full h-full object-cover" />
                           ) : (
@@ -122,7 +122,7 @@ export function ArtistTable({ artists, shopId }: { artists: Artist[], shopId: st
                 <div key={artist.id} className={`p-4 flex flex-col gap-4 ${!isActive ? 'opacity-70' : ''}`}>
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex items-center gap-3 overflow-hidden">
-                      <div className="w-10 h-10 rounded-full bg-[#262626] border border-[#333] flex items-center justify-center overflow-hidden flex-shrink-0">
+                      <div className="w-10 h-10 rounded-xl bg-[#262626] border border-[#333] flex items-center justify-center overflow-hidden flex-shrink-0">
                         {artist.profiles?.avatar_url ? (
                           <img src={artist.profiles.avatar_url} alt={artist.profiles.full_name || 'Profile'} className="w-full h-full object-cover" />
                         ) : (

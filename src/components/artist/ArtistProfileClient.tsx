@@ -205,7 +205,7 @@ export function ArtistProfileClient({ initialData, initialSpecialties, catalog }
         {/* Profile Header */}
         <div className="bg-[#171717] border border-[#262626] rounded-xl p-6 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
           <div className="flex items-center gap-5">
-            <div className="w-16 h-16 bg-[#262626] rounded-full flex items-center justify-center text-[#F5F5F5] font-medium text-2xl shrink-0 overflow-hidden border border-[#333]">
+            <div className="w-16 h-16 bg-[#262626] rounded-xl flex items-center justify-center text-[#F5F5F5] font-medium text-2xl shrink-0 overflow-hidden border border-[#333]">
               {formData.avatarUrl ? (
                 <img src={formData.avatarUrl} alt={formData.displayName} className="w-full h-full object-cover" />
               ) : (
