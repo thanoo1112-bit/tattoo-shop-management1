@@ -1,8 +1,8 @@
 'use client'
 
-import { Bell } from 'lucide-react'
 import { usePathname } from 'next/navigation'
 import { ownerNavigation } from '@/lib/navigation/owner-nav'
+import { NotificationBell } from '@/components/shared/NotificationBell'
 
 export function OwnerTopbar() {
   const pathname = usePathname()
@@ -19,13 +19,7 @@ export function OwnerTopbar() {
       </div>
       
       <div className="flex items-center space-x-6">
-        <button 
-          type="button" 
-          className="text-[#9CA3AB] hover:text-[#F3F3F3] transition-colors relative"
-          aria-label="Notifications"
-        >
-          <Bell className="h-5 w-5" />
-        </button>
+        <NotificationBell role="owner" />
       </div>
     </header>
   )

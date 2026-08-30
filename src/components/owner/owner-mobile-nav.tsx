@@ -4,9 +4,10 @@ import { useState, useTransition } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { ownerNavigation } from '@/lib/navigation/owner-nav'
-import { Menu, X, LogOut, User, Bell, PenTool } from 'lucide-react'
+import { Menu, X, LogOut, User, PenTool } from 'lucide-react'
 import { logout } from '@/app/(auth)/login/actions'
 import { BrandLogo } from '@/components/brand-logo'
+import { NotificationBell } from '@/components/shared/NotificationBell'
 
 type OwnerMobileNavProps = {
   ownerName: string
@@ -31,13 +32,7 @@ export function OwnerMobileNav({ ownerName }: OwnerMobileNavProps) {
         <div className="absolute left-1/2 -translate-x-1/2">
           <BrandLogo showText={false} className="scale-90" />
         </div>
-        <button 
-          className="inline-flex items-center justify-center p-2 rounded-md text-[#9CA3AB] hover:text-[#F3F3F3] hover:bg-[#171717] relative focus:outline-none"
-          aria-label="Notifications"
-        >
-          <Bell className="w-5 h-5" />
-          <span className="absolute top-2 right-2.5 w-2 h-2 bg-[#8E232B] rounded-full ring-2 ring-[#121212]"></span>
-        </button>
+        <NotificationBell role="owner" />
       </div>
 
       {isOpen && (

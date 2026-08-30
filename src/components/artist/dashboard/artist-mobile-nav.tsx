@@ -4,8 +4,9 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { BrandLogo } from '@/components/brand-logo'
-import { LayoutDashboard, Inbox, CalendarDays, PenTool, Users, DollarSign, User, LogOut, Menu, X, Bell, Shield } from 'lucide-react'
+import { LayoutDashboard, Inbox, CalendarDays, PenTool, Users, DollarSign, User, LogOut, Menu, X, Shield } from 'lucide-react'
 import { logout } from '@/app/(auth)/login/actions'
+import { NotificationBell } from '@/components/shared/NotificationBell'
 
 const MENU_ITEMS = [
   { name: 'ภาพรวม', href: '/artist/dashboard', icon: LayoutDashboard },
@@ -37,13 +38,7 @@ export function ArtistMobileNav({ artistName, avatarUrl, isOwner }: { artistName
         <div className="absolute left-1/2 -translate-x-1/2">
           <BrandLogo showText={false} className="scale-90" />
         </div>
-        <button 
-          className="inline-flex items-center justify-center p-2 rounded-md text-[#9CA3AB] hover:text-[#F3F3F3] hover:bg-[#171717] relative focus:outline-none"
-          aria-label="Notifications"
-        >
-          <Bell className="w-5 h-5" />
-          <span className="absolute top-2 right-2.5 w-2 h-2 bg-[#8E232B] rounded-full ring-2 ring-[#121212]"></span>
-        </button>
+        <NotificationBell role="artist" />
       </div>
 
       {isOpen && (

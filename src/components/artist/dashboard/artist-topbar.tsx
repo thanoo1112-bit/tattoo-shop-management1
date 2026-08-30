@@ -1,7 +1,7 @@
 'use client'
 
-import { Bell } from 'lucide-react'
 import { usePathname } from 'next/navigation'
+import { NotificationBell } from '@/components/shared/NotificationBell'
 
 const ROUTE_NAMES: Record<string, { title: string, subtitle: string }> = {
   '/artist/dashboard': { title: 'ภาพรวม', subtitle: 'ข้อมูลและงานสำคัญของคุณ' },
@@ -28,14 +28,7 @@ export function ArtistTopbar() {
       </div>
 
       <div className="flex items-center space-x-6">
-        <button 
-          type="button"
-          className="text-[#9CA3AB] hover:text-[#F3F3F3] transition-colors relative"
-        >
-          <Bell className="w-5 h-5" />
-          {/* Mock notification badge */}
-          <span className="absolute top-0 right-0 block h-2 w-2 rounded-full bg-[#8E232B] ring-2 ring-[#121212]" />
-        </button>
+        <NotificationBell role="artist" />
       </div>
     </header>
   )
