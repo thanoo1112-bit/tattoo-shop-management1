@@ -1037,7 +1037,7 @@ export default function StorefrontHome() {
                   <img 
                     src={artist.avatar} 
                     alt={artist.name}
-                    className="w-full h-full object-cover group-hover:scale-[1.03] transition-all duration-300"
+                    className="w-full h-full object-cover grayscale group-hover:grayscale-0 group-hover:scale-[1.03] transition-all duration-300"
                   />
                 </div>
                 
