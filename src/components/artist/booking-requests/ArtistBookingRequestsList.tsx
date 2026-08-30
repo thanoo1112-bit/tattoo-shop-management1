@@ -60,6 +60,7 @@ type BookingRequest = {
   health_note: string | null;
   is_first_tattoo: boolean | null;
   safety_notice_acknowledged: boolean | null;
+  terms_accepted_at?: string | null;
   created_at: string;
   project_id?: string | null;
   project: TattooProject | null;
@@ -299,6 +300,7 @@ export default function ArtistBookingRequestsList({ initialRequests, isOwnerView
           health_note,
           is_first_tattoo,
           safety_notice_acknowledged,
+          terms_accepted_at,
           created_at,
           project_id,
           confirmed_start_at,
@@ -1132,7 +1134,7 @@ export default function ArtistBookingRequestsList({ initialRequests, isOwnerView
             )}
 
             {/* Health Note */}
-            {request.health_note && (
+            {!isFlash && request.health_note && (
               <div className="pt-3 border-t border-[#262626]/50 text-sm bg-red-500/5 px-3 py-2.5 rounded-lg border border-red-500/10">
                 <span className="text-xs text-red-400 uppercase tracking-wider block font-semibold mb-1">ข้อมูลที่แจ้งช่างเพิ่มเติม</span>
                 <p className="text-[#F5F5F5] whitespace-pre-wrap leading-relaxed font-medium">
@@ -1142,23 +1144,30 @@ export default function ArtistBookingRequestsList({ initialRequests, isOwnerView
             )}
 
             {/* Health / First Timer */}
-            {(request.is_first_tattoo !== null || request.safety_notice_acknowledged !== null) && (
+            {!isFlash && (request.is_first_tattoo !== null || request.safety_notice_acknowledged !== null) && (
               <div className="pt-3 border-t border-[#262626]/50 text-sm">
                 <span className="text-xs text-[#737373] uppercase tracking-wider block font-medium mb-2">ข้อมูลสุขภาพและการสัก</span>
                 <div className="space-y-1">
-                  {request.is_first_tattoo !== null && (
-                    <div className="flex items-center gap-2">
-                      <span className="text-[#A3A3A3] text-xs">สักครั้งแรก:</span>
-                      <span className="text-[#F5F5F5] text-xs font-medium">{request.is_first_tattoo ? 'ใช่' : 'ไม่ใช่'}</span>
-                    </div>
-                  )}
-                  {request.safety_notice_acknowledged && (
-                    <div className="flex items-center gap-2">
-                      <span className="text-[#A3A3A3] text-xs">ข้อมูลด้านความปลอดภัย:</span>
-                      <span className="text-[#F5F5F5] text-xs font-medium">รับทราบข้อมูลด้านความปลอดภัยแล้ว</span>
-                    </div>
-                  )}
+                  <div className="flex items-center gap-2">
+                    <span className="text-[#A3A3A3] text-xs">สักครั้งแรก:</span>
+                    <span className="text-[#F5F5F5] text-xs font-medium">
+                      {request.is_first_tattoo === null ? 'ไม่มีข้อมูล' : (request.is_first_tattoo ? 'ใช่' : 'ไม่ใช่')}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[#A3A3A3] text-xs">ข้อมูลด้านความปลอดภัย:</span>
+                    <span className="text-[#F5F5F5] text-xs font-medium">
+                      {request.safety_notice_acknowledged === null ? 'ไม่มีข้อมูล' : (request.safety_notice_acknowledged ? 'รับทราบข้อมูลด้านความปลอดภัยแล้ว' : 'ไม่ได้รับทราบ')}
+                    </span>
+                  </div>
                 </div>
+              </div>
+            )}
+
+            {isFlash && request.terms_accepted_at && (
+              <div className="pt-3 border-t border-[#262626]/50 text-sm">
+                <span className="text-[#A3A3A3] text-xs">ความยินยอมในการใช้ข้อมูล:</span>{' '}
+                <span className="text-[#F5F5F5] text-xs font-medium">ยินยอมแล้ว</span>
               </div>
             )}
 

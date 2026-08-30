@@ -21,6 +21,7 @@ export default async function ArtistBookingRequestsPage() {
       health_note,
       is_first_tattoo,
       safety_notice_acknowledged,
+      terms_accepted_at,
       created_at,
       project_id,
       confirmed_start_at,
