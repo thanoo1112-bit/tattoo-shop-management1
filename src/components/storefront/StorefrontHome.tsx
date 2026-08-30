@@ -918,7 +918,7 @@ export default function StorefrontHome() {
                           let sizeRangeText = '';
                           if (v.min_size_cm !== null && v.min_size_cm !== undefined) {
                             if (v.max_size_cm !== null && v.max_size_cm !== undefined) {
-                              sizeRangeText = ` (${v.min_size_cm}–${v.max_size_cm} ซม.)`;
+                              sizeRangeText = ` (${v.min_size_cm} × ${v.max_size_cm} ซม.)`;
                             } else {
                               sizeRangeText = ` (${v.min_size_cm} ซม. ขึ้นไป)`;
                             }

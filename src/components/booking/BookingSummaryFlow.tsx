@@ -349,7 +349,7 @@ export default function BookingSummaryFlow({ artist, shopSlug, artistStyles, sel
                       <span className="text-[#737373] text-xs ml-1">
                         ({formData.flashMinSize}
                         {(formData.flashMaxSize !== null && formData.flashMaxSize !== undefined)
-                          ? `–${formData.flashMaxSize} ซม.`
+                          ? ` × ${formData.flashMaxSize} ซม.`
                           : ' ซม. ขึ้นไป'}
                         )
                       </span>
