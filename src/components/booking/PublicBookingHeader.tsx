@@ -1,7 +1,13 @@
 import Link from 'next/link';
 import Image from 'next/image';
 
-export default function PublicBookingHeader({ shopSlug }: { shopSlug?: string }) {
+export default function PublicBookingHeader({
+  shopSlug,
+  hideTrackButton = false,
+}: {
+  shopSlug?: string;
+  hideTrackButton?: boolean;
+}) {
   const homeHref = shopSlug ? `/shop/${shopSlug}` : '/shop/157-tattoo';
   return (
     <header className="h-[64px] md:h-[72px] flex items-center border-b border-[#262626] bg-[#0A0A0A] px-4 sm:px-5 md:px-8 lg:px-10 sticky top-0 z-50">
@@ -22,13 +28,15 @@ export default function PublicBookingHeader({ shopSlug }: { shopSlug?: string })
           </span>
         </Link>
         
-        {/* RIGHT: TRACK STATUS */}
-        <button 
-          className="px-4 py-2 bg-[#171717] border border-[#404040] text-[#F5F5F5] hover:bg-[#262626] transition-colors rounded-md text-xs font-semibold cursor-not-allowed"
-          title="ติดตามสถานะ"
-        >
-          ติดตามสถานะ
-        </button>
+        {/* RIGHT: TRACK STATUS — hidden on pages that are already part of the tracking flow */}
+        {!hideTrackButton && (
+          <button 
+            className="px-4 py-2 bg-[#171717] border border-[#404040] text-[#F5F5F5] hover:bg-[#262626] transition-colors rounded-md text-xs font-semibold cursor-not-allowed"
+            title="ติดตามสถานะ"
+          >
+            ติดตามสถานะ
+          </button>
+        )}
 
       </div>
     </header>

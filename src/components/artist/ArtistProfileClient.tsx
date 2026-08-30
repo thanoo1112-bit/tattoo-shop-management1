@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef } from 'react';
-import { User, Plus, X, Image as ImageIcon, Check, Loader2 } from 'lucide-react';
+import { User, Plus, X, Check, Loader2 } from 'lucide-react';
 import { EmptyState } from '@/components/owner/empty-state';
 import { updateArtistProfile, addArtistSpecialty, removeArtistSpecialty, updateArtistAvatar } from '@/app/(dashboard)/artist/profile/actions';
 import { createClient } from '@/lib/supabase/client';
@@ -497,29 +497,7 @@ export function ArtistProfileClient({ initialData, initialSpecialties, catalog }
           </div>
         </section>
 
-        {/* ผลงานของฉัน */}
-        <section>
-          <div className="flex items-center justify-between mb-5">
-            <div className="flex items-center gap-3">
-              <div className="w-1 h-5 bg-[#FFFFFF] rounded-full" />
-              <h2 className="text-lg font-medium text-[#F3F3F3] tracking-wide">ผลงานของฉัน</h2>
-            </div>
-            <button type="button" className="text-xs text-[#9CA3AB] hover:text-[#FFFFFF] flex items-center gap-1 transition-colors border border-[#262626] rounded-md px-3 py-1.5 hover:bg-[#262626]">
-              <Plus className="h-3 w-3" /> เพิ่มผลงาน
-            </button>
-          </div>
-          <div className="bg-[#171717] border border-[#262626] rounded-xl shadow-sm overflow-hidden">
-            <div className="p-8">
-              <EmptyState 
-                icon={ImageIcon}
-                title="ยังไม่มีผลงาน"
-                description="เพิ่มผลงานเพื่อให้ลูกค้าดูตัวอย่างงานก่อนเลือกจอง ผลงานที่เพิ่มจะแสดงให้ลูกค้าเห็นในโปรไฟล์ช่าง"
-                actionLabel="+ เพิ่มผลงาน"
-                actionHref="#"
-              />
-            </div>
-          </div>
-        </section>
+
 
         {/* Save Button */}
         <div className="pt-6 flex flex-col md:flex-row items-center justify-end gap-4 border-t border-[#262626]">

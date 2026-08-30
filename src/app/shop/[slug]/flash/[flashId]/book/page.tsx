@@ -32,8 +32,21 @@ export default async function FlashBookingPageRoute({ params, searchParams }: Pa
     .eq('id', flashId)
     .maybeSingle();
 
-  if (!flash) {
-    notFound();
+  if (!flash || flash.status !== 'open') {
+    return (
+      <main className="min-h-screen bg-[#0A0A0A] py-8 px-4 flex items-center justify-center">
+        <div className="max-w-md w-full bg-[#121212] border border-[#262626] rounded-2xl p-6 text-center space-y-4">
+          <div className="text-red-400 font-semibold text-lg">ลาย Flash นี้ไม่เปิดรับจองแล้ว</div>
+          <p className="text-sm text-[#737373]">ขออภัย ลายสักนี้ถูกจองหรือขายเรียบร้อยแล้ว หรือร้านค้าได้ทำการปิดการขายลายนี้แล้ว</p>
+          <a
+            href={`/shop/${slug}`}
+            className="inline-block w-full py-3 bg-[#1A1A1A] border border-[#262626] text-white hover:bg-[#262626] text-sm font-semibold rounded-xl transition-all"
+          >
+            กลับสู่หน้าร้าน
+          </a>
+        </div>
+      </main>
+    );
   }
 
   // 3. Fetch Artist Profile and work settings via public secure RPC

@@ -200,10 +200,34 @@ export default function ArtistBookingRequestDetail({ request }: ArtistBookingReq
                 <p className="text-xs text-[#737373] uppercase tracking-wider mb-1 font-medium">เบอร์โทรศัพท์</p>
                 <p className="text-sm sm:text-base text-[#F5F5F5] font-medium">{request.submitted_phone}</p>
               </div>
-              <div className="sm:col-span-2">
-                <p className="text-xs text-[#737373] uppercase tracking-wider mb-1 font-medium">อีเมล</p>
-                <p className="text-sm sm:text-base text-[#F5F5F5] font-medium">{request.submitted_email || 'ไม่ได้ระบุ'}</p>
-              </div>
+              {(() => {
+                const description = project?.description || '';
+                const hasAdditionalContact = /^ช่องทางติดต่อเพิ่มเติม:\s*(.+)$/m.test(description);
+                const showEmailLabel = isFlash && request.submitted_email && !hasAdditionalContact;
+                
+                if (showEmailLabel) {
+                  return (
+                    <div className="sm:col-span-2">
+                      <p className="text-xs text-[#737373] uppercase tracking-wider mb-1 font-medium">อีเมล</p>
+                      <p className="text-sm sm:text-base text-[#F5F5F5] font-medium">{request.submitted_email || 'ไม่ได้ระบุ'}</p>
+                    </div>
+                  );
+                } else {
+                  return (
+                    <div className="sm:col-span-2">
+                      <p className="text-xs text-[#737373] uppercase tracking-wider mb-1 font-medium">ช่องทางติดต่อเพิ่มเติม</p>
+                      <p className="text-sm sm:text-base text-[#F5F5F5] font-medium">
+                        {(() => {
+                          const match = description.match(/^ช่องทางติดต่อเพิ่มเติม:\s*(.+)$/m);
+                          if (match && match[1].trim()) return match[1].trim();
+                          if (request.submitted_email) return `${request.submitted_email} (อีเมลเดิม)`;
+                          return 'ไม่ได้ระบุ';
+                        })()}
+                      </p>
+                    </div>
+                  );
+                }
+              })()}
               
               {isFlash && request.terms_accepted_at && (
                 <div className="sm:col-span-2 pt-3 border-t border-[#262626] flex items-center gap-2">
@@ -222,9 +246,9 @@ export default function ArtistBookingRequestDetail({ request }: ArtistBookingReq
               </div>
             )}
 
-            {!isFlash && (request.is_first_tattoo !== null || request.safety_notice_acknowledged !== null) && (
+            {(request.is_first_tattoo !== null || request.safety_notice_acknowledged !== null) && (
               <div className="pt-3 border-t border-[#262626]">
-                <p className="text-xs text-[#737373] uppercase tracking-wider mb-2 font-medium">ข้อมูลสุขภาพและการสัก</p>
+                <p className="text-xs text-[#737373] uppercase tracking-wider mb-2 font-medium">ข้อมูลการสักและความปลอดภัย</p>
                 <div className="space-y-2">
                   <div className="flex items-center gap-2">
                     <span className="text-[#A3A3A3] text-sm">สักครั้งแรก:</span>
@@ -235,7 +259,7 @@ export default function ArtistBookingRequestDetail({ request }: ArtistBookingReq
                   <div className="flex items-center gap-2">
                     <span className="text-[#A3A3A3] text-sm">ข้อมูลด้านความปลอดภัย:</span>
                     <span className="text-[#F5F5F5] text-sm">
-                      {request.safety_notice_acknowledged === null ? 'ไม่มีข้อมูล' : (request.safety_notice_acknowledged ? 'รับทราบข้อมูลด้านความปลอดภัยแล้ว' : 'ไม่ได้รับทราบ')}
+                      {request.safety_notice_acknowledged === null ? 'ไม่มีข้อมูล' : (request.safety_notice_acknowledged ? 'รับทราบแล้ว' : 'ไม่ได้รับทราบ')}
                     </span>
                   </div>
                 </div>
@@ -329,7 +353,11 @@ export default function ArtistBookingRequestDetail({ request }: ArtistBookingReq
             <div className="pt-3 border-t border-[#262626]">
               <p className="text-xs text-[#737373] uppercase tracking-wider mb-1.5 font-medium">รายละเอียด/แนวคิดงาน</p>
               <p className="text-sm sm:text-base text-[#F5F5F5] whitespace-pre-wrap leading-relaxed font-medium">
-                {project.description || 'ไม่มีรายละเอียดเพิ่มเติม'}
+                {(() => {
+                  const rawDesc = project.description || '';
+                  const sanitized = rawDesc.replace(/^ช่องทางติดต่อเพิ่มเติม:.*$/m, '').trim();
+                  return sanitized || 'ไม่มีรายละเอียดเพิ่มเติม';
+                })()}
               </p>
             </div>
           </div>

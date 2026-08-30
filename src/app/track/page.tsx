@@ -7,7 +7,7 @@ import { useSearchParams, useRouter } from 'next/navigation'
 import { Suspense } from 'react'
 import { 
   Search, Calendar, User, Clock, CreditCard, ArrowLeft, 
-  CheckCircle, AlertCircle, ExternalLink, Scissors, ChevronRight, Phone
+  CheckCircle, AlertCircle, ExternalLink, PenLine, ChevronRight, Phone
 } from 'lucide-react'
 
 interface BookingData {
@@ -98,7 +98,7 @@ function TrackingForm() {
     })
   }
 
-  const mapStatus = (status: string) => {
+  const mapStatus = (status: string, depositStatus?: string | null) => {
     switch (status) {
       case 'pending_review':
         if (selectedBooking?.flash_design_id && selectedBooking?.flash_booking_mode === 'price_review_required') {
@@ -106,6 +106,12 @@ function TrackingForm() {
         }
         return { text: 'รอการตรวจสอบจากร้าน', color: 'text-amber-400 bg-amber-400/10 border-amber-400/20' }
       case 'pending_payment':
+        if (depositStatus === 'verification_pending') {
+          return { text: 'รอตรวจสอบการชำระเงิน', color: 'text-amber-400 bg-amber-400/10 border-amber-400/20' }
+        }
+        if (depositStatus === 'failed') {
+          return { text: 'หลักฐานการชำระเงินไม่ถูกต้อง', color: 'text-red-400 bg-red-500/10 border-red-500/20' }
+        }
         return { text: 'รอชำระเงินมัดจำ', color: 'text-blue-400 bg-blue-400/10 border-blue-400/20' }
       case 'changes_requested':
         return { text: 'ร้านขอให้แก้ไขข้อมูล', color: 'text-orange-400 bg-orange-400/10 border-orange-400/20' }
@@ -116,7 +122,7 @@ function TrackingForm() {
       case 'cancelled':
         return { text: 'ยกเลิกแล้ว', color: 'text-neutral-400 bg-neutral-400/10 border-neutral-400/20' }
       case 'expired':
-        return { text: 'คำขอหมดอายุ', color: 'text-neutral-400 bg-neutral-400/10 border-neutral-400/20' }
+        return { text: 'หมดเวลาชำระเงิน', color: 'text-red-400 bg-red-500/10 border-red-500/20' }
       default:
         return { text: status, color: 'text-neutral-300 bg-neutral-300/10 border-neutral-300/20' }
     }
@@ -232,7 +238,7 @@ function TrackingForm() {
             </h2>
             <div className="bg-[#171717] border border-[#262626] rounded-xl overflow-hidden divide-y divide-[#262626]">
               {bookings.map((b) => {
-                const statusMeta = mapStatus(b.status)
+                const statusMeta = mapStatus(b.status, b.deposit_status)
                 return (
                   <button
                     key={b.booking_id}
@@ -245,7 +251,10 @@ function TrackingForm() {
                         {formatDate(b.requested_start_at)}
                       </div>
                       <div className="text-sm font-bold text-[#F3F3F3]">
-                        ช่าง: {b.artist_name || 'ไม่ระบุช่าง'} ({b.project_name || 'งานสัก'})
+                        ช่าง: {b.artist_name || 'ไม่ระบุช่าง'}
+                      </div>
+                      <div className="text-xs text-[#A3A3A3] font-medium">
+                        {b.flash_design_id ? 'จอง Flash' : 'จองคิวสัก'}
                       </div>
                       <div className="text-[11px] text-[#A3A3A3]">
                         รหัสอ้างอิง: {b.tracking_code}
@@ -268,16 +277,14 @@ function TrackingForm() {
         {/* Selected Booking Detail Display */}
         {selectedBooking && (
           <div className="space-y-6 animate-in fade-in duration-200">
-            {/* Back Button if multiple bookings found */}
-            {bookings.length > 1 && (
-              <button
-                onClick={() => setSelectedBooking(null)}
-                className="flex items-center gap-1.5 text-xs text-[#A3A3A3] hover:text-[#FFFFFF] transition-colors font-medium cursor-pointer"
-              >
-                <ArrowLeft size={14} />
-                กลับไปเลือกรายการจอง
-              </button>
-            )}
+            {/* Back to list button — always visible in detail view */}
+            <button
+              onClick={() => setSelectedBooking(null)}
+              className="flex items-center gap-1.5 text-xs text-[#A3A3A3] hover:text-[#FFFFFF] transition-colors font-medium cursor-pointer"
+            >
+              <ArrowLeft size={14} />
+              กลับไปรายการการจอง
+            </button>
 
             <div className="bg-[#171717] border border-[#262626] rounded-xl shadow-md overflow-hidden">
               {/* Header Box */}
@@ -285,8 +292,8 @@ function TrackingForm() {
                 <div>
                   <div className="text-xs text-[#A3A3A3] font-semibold tracking-wider uppercase mb-1">สถานะการจองล่าสุด</div>
                   <div className="flex items-center gap-2">
-                    <span className={`text-xs px-3 py-1.5 rounded-full border ${mapStatus(selectedBooking.status).color} font-bold`}>
-                      {mapStatus(selectedBooking.status).text}
+                    <span className={`text-xs px-3 py-1.5 rounded-full border ${mapStatus(selectedBooking.status, selectedBooking.deposit_status).color} font-bold`}>
+                      {mapStatus(selectedBooking.status, selectedBooking.deposit_status).text}
                     </span>
                   </div>
                 </div>
@@ -334,7 +341,7 @@ function TrackingForm() {
                       {selectedBooking.flash_design_id ? (
                         <>
                           <div className="flex items-start gap-3">
-                            <Scissors size={16} className="text-[#A3A3A3] shrink-0 mt-0.5" />
+                          <PenLine size={16} className="text-[#A3A3A3] shrink-0 mt-0.5" />
                             <div>
                               <div className="text-[11px] text-[#737373]">งาน Flash</div>
                               <div className="text-sm font-semibold">{selectedBooking.flash_code}</div>
@@ -361,11 +368,15 @@ function TrackingForm() {
                         </>
                       ) : (
                         <div className="flex items-start gap-3">
-                          <Scissors size={16} className="text-[#A3A3A3] shrink-0 mt-0.5" />
+                          <PenLine size={16} className="text-[#A3A3A3] shrink-0 mt-0.5" />
                           <div>
                             <div className="text-[11px] text-[#737373]">ข้อมูลงาน / ลายสัก</div>
                             <div className="text-sm font-semibold">
-                              {selectedBooking.project_name} 
+                              {selectedBooking.project_name === 'Public Tattoo Booking Request' 
+                                ? 'จองคิวสัก' 
+                                : (selectedBooking.project_name === 'Public Flash Booking Request' 
+                                    ? 'จอง Flash' 
+                                    : selectedBooking.project_name)}
                               {selectedBooking.tattoo_style && ` (${selectedBooking.tattoo_style})`}
                             </div>
                             <div className="text-[11px] text-[#A3A3A3] mt-0.5">
@@ -400,7 +411,7 @@ function TrackingForm() {
                   <div className="bg-[#202020] rounded-xl p-4 space-y-3.5">
                     {selectedBooking.flash_design_id && (
                       <div className="flex items-center gap-3">
-                        <Scissors size={18} className="text-[#A3A3A3] shrink-0" />
+                        <PenLine size={18} className="text-[#A3A3A3] shrink-0" />
                         <div>
                           <div className="text-xs text-[#737373]">ราคางานสัก</div>
                           <div className="text-base font-bold text-[#FFFFFF]">
@@ -445,16 +456,39 @@ function TrackingForm() {
                   {/* Payment call-to-action button if pending_payment */}
                   {selectedBooking.status === 'pending_payment' && selectedBooking.agreed_price !== null && (
                     <div className="pt-2">
-                      <a
-                        href={`/payment/${selectedBooking.public_token}`}
-                        className="w-full py-3 bg-[#FFFFFF] hover:bg-[#E5E5E5] text-black font-semibold text-sm rounded-md transition-all flex items-center justify-center gap-2 shadow-[0_4px_15px_rgba(255,255,255,0.15)]"
-                      >
-                        แนบหลักฐานการชำระเงินมัดจำ
-                        <ExternalLink size={14} />
-                      </a>
-                      <p className="text-[11px] text-[#A3A3A3] text-center mt-2 leading-relaxed">
-                        *กรุณาโอนเงินมัดจำและส่งหลักฐานเพื่อจองคิวให้สมบูรณ์
-                      </p>
+                      {selectedBooking.deposit_status === 'failed' ? (
+                        <>
+                          <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-4 mb-4">
+                            <h4 className="text-sm font-bold text-red-400 mb-1 flex items-center gap-1.5">
+                              <AlertCircle size={16} />
+                              หลักฐานการชำระเงินไม่ถูกต้อง
+                            </h4>
+                            <p className="text-xs text-[#A3A3A3] leading-relaxed">
+                              กรุณาตรวจสอบข้อมูลการโอนและส่งหลักฐานการชำระเงินใหม่
+                            </p>
+                          </div>
+                          <a
+                            href={`/payment/${selectedBooking.public_token}`}
+                            className="w-full py-3 bg-[#FFFFFF] hover:bg-[#E5E5E5] text-black font-semibold text-sm rounded-md transition-all flex items-center justify-center gap-2 shadow-[0_4px_15px_rgba(255,255,255,0.15)]"
+                          >
+                            ส่งหลักฐานใหม่
+                            <ExternalLink size={14} />
+                          </a>
+                        </>
+                      ) : (
+                        <>
+                          <a
+                            href={`/payment/${selectedBooking.public_token}`}
+                            className="w-full py-3 bg-[#FFFFFF] hover:bg-[#E5E5E5] text-black font-semibold text-sm rounded-md transition-all flex items-center justify-center gap-2 shadow-[0_4px_15px_rgba(255,255,255,0.15)]"
+                          >
+                            แนบหลักฐานการชำระเงินมัดจำ
+                            <ExternalLink size={14} />
+                          </a>
+                          <p className="text-[11px] text-[#A3A3A3] text-center mt-2 leading-relaxed">
+                            *กรุณาโอนเงินมัดจำและส่งหลักฐานเพื่อจองคิวให้สมบูรณ์
+                          </p>
+                        </>
+                      )}
                     </div>
                   )}
                 </div>

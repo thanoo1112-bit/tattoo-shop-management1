@@ -3,14 +3,10 @@ import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
 import ShopHero from '@/components/booking/ShopHero';
-import BookingProgress from '@/components/booking/BookingProgress';
-import ArtistSelectionList from '@/components/booking/ArtistSelectionList';
 import { BookingErrorState } from '@/components/booking/BookingStates';
-import BookingCalendarFlow from '@/components/booking/BookingCalendarFlow';
-import BookingDetailsFlow from '@/components/booking/BookingDetailsFlow';
+import CustomBookingOnePage from '@/components/booking/CustomBookingOnePage';
 import BookingSuccessState from '@/components/booking/BookingSuccessState';
 import { BookingStateProvider } from '@/components/booking/BookingStateProvider';
-import BookingSummaryFlow from '@/components/booking/BookingSummaryFlow';
 import BookingStepGuard from '@/components/booking/BookingStepGuard';
 
 // Using Supabase directly without Auth
@@ -223,42 +219,11 @@ export default async function PublicBookingPage({ params, searchParams }: PagePr
             </p>
           </div>
 
-          {/* Progress Indicator */}
-          <BookingProgress currentStep={currentStep} />
-
           {/* Main Content Area */}
-          {currentStep === 1 && (
-            <ArtistSelectionList 
-              artists={artistsData} 
-              shopSlug={slug} 
-              initialArtistId={artistParam} 
-              initialStyleId={styleParam} 
-            />
-          )}
-
-          {currentStep === 2 && selectedArtist && (
-            <BookingDetailsFlow shopSlug={slug} />
-          )}
-
-          {currentStep === 3 && selectedArtist && (
-            <BookingCalendarFlow 
-              artist={selectedArtist} 
-              shopSlug={slug} 
-              availability={availability} 
-            />
-          )}
-
-          {currentStep === 4 && selectedArtist && (
-            <BookingSummaryFlow 
-              artist={selectedArtist}
-              shopSlug={slug}
-              artistStyles={selectedArtist.styles || []}
-              selectedStyleId={styleParam}
-            />
-          )}
-
-          {currentStep === 5 && (
+          {currentStep === 5 ? (
             <BookingSuccessState shopSlug={slug} />
+          ) : (
+            <CustomBookingOnePage artists={artistsData} shop={shop} />
           )}
         </div>
       </BookingStepGuard>

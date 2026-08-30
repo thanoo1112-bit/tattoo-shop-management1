@@ -82,8 +82,7 @@ export default function FlashBookingClient({
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
   const [phoneTouched, setPhoneTouched] = useState(false);
-  const [email, setEmail] = useState('');
-  const [emailTouched, setEmailTouched] = useState(false);
+  const [contactInfoAdditional, setContactInfoAdditional] = useState('');
   const [description, setDescription] = useState('');
   const [isFirstTattoo, setIsFirstTattoo] = useState(false);
   const [safetyNoticeAcknowledged, setSafetyNoticeAcknowledged] = useState(false);
@@ -174,13 +173,34 @@ export default function FlashBookingClient({
     return map;
   }, [availability]);
 
+  const todayStr = useMemo(() => {
+    const parts = new Intl.DateTimeFormat('en-US', { 
+      timeZone: 'Asia/Bangkok', 
+      year: 'numeric', month: '2-digit', day: '2-digit' 
+    }).formatToParts(new Date());
+    const y = parts.find(p => p.type === 'year')!.value;
+    const m = parts.find(p => p.type === 'month')!.value;
+    const d = parts.find(p => p.type === 'day')!.value;
+    return `${y}-${m}-${d}`;
+  }, []);
+
+  // Clear stale cached selectedDate if it's today or in the past
+  useEffect(() => {
+    if (selectedDate && selectedDate <= todayStr) {
+      setSelectedDate('');
+      setPreferredTime('');
+    }
+  }, [selectedDate, todayStr]);
+
   const handleDateSelect = (dateKey: string) => {
-    setSelectedDate(dateKey);
-    setPreferredTime(''); // reset time on date change
+    if (dateKey > todayStr) {
+      setSelectedDate(dateKey);
+      setPreferredTime(''); // reset time on date change
+    }
   };
 
   const selectedData = selectedDate ? availabilityMap.get(selectedDate) : null;
-  const isDateValid = selectedData && selectedData.can_request;
+  const isDateValid = selectedData && selectedData.can_request && selectedDate > todayStr;
 
   const timeOptions = [...Array.from({ length: 14 }, (_, i) => `${i + 10}:00`), '00:00'];
 
@@ -208,15 +228,7 @@ export default function FlashBookingClient({
     return '';
   }, [phone, phoneTouched]);
 
-  const emailError = useMemo(() => {
-    if (!emailTouched) return '';
-    const trimmed = email.trim();
-    if (trimmed.length === 0) return 'กรุณากรอกอีเมล';
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(trimmed)) return 'กรุณากรอกอีเมลให้ถูกต้อง';
-    if (!trimmed.toLowerCase().endsWith('@gmail.com')) return 'กรุณาใช้อีเมล @gmail.com';
-    return '';
-  }, [email, emailTouched]);
+
 
   // Validation
   const isFormValid = useMemo(() => {
@@ -231,10 +243,6 @@ export default function FlashBookingClient({
     const trimmedPhone = phone.trim();
     const isPhoneValid = trimmedPhone.length === 10 && trimmedPhone.startsWith('0') && /^\d+$/.test(trimmedPhone);
 
-    const trimmedEmail = email.trim().toLowerCase();
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    const isEmailValid = emailRegex.test(trimmedEmail) && trimmedEmail.endsWith('@gmail.com');
-
     const isPlacementValid = placement.trim().length > 0 && (placement !== 'อื่น ๆ' || customPlacement.trim().length > 0);
 
     return (
@@ -242,10 +250,7 @@ export default function FlashBookingClient({
       selectedDate.trim().length > 0 &&
       preferredTime.trim().length > 0 &&
       fullName.trim().length > 0 &&
-      isPhoneValid &&
-      isEmailValid &&
-      safetyNoticeAcknowledged &&
-      termsAccepted
+      isPhoneValid
     );
   }, [
     variants,
@@ -258,9 +263,7 @@ export default function FlashBookingClient({
     preferredTime,
     fullName,
     phone,
-    email,
-    safetyNoticeAcknowledged,
-    termsAccepted
+    contactInfoAdditional
   ]);
 
   // Cancel Hold and release
@@ -274,12 +277,20 @@ export default function FlashBookingClient({
     e.preventDefault();
     if (!isFormValid || isSubmitting) return;
 
+    if (!safetyNoticeAcknowledged) {
+      setSubmitError('กรุณารับทราบข้อมูลด้านความปลอดภัยก่อนการสัก');
+      return;
+    }
+    if (!termsAccepted) {
+      setSubmitError('กรุณายินยอมให้ทางร้านเก็บข้อมูลเพื่อใช้ติดต่อจองคิวและตรวจสอบการชำระเงิน');
+      return;
+    }
+
     setIsSubmitting(true);
     setSubmitError(null);
 
     // Normalize inputs
     const normPhone = phone.trim().replace(/\D/g, '');
-    const normEmail = email.trim().toLowerCase();
 
     // Re-validate phone number
     if (normPhone.length === 0) {
@@ -294,24 +305,6 @@ export default function FlashBookingClient({
     }
     if (!normPhone.startsWith('0')) {
       setSubmitError('กรุณากรอกเบอร์โทรศัพท์ให้ถูกต้อง');
-      setIsSubmitting(false);
-      return;
-    }
-
-    // Re-validate email
-    if (normEmail.length === 0) {
-      setSubmitError('กรุณากรอกอีเมล');
-      setIsSubmitting(false);
-      return;
-    }
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(normEmail)) {
-      setSubmitError('กรุณากรอกอีเมลให้ถูกต้อง');
-      setIsSubmitting(false);
-      return;
-    }
-    if (!normEmail.endsWith('@gmail.com')) {
-      setSubmitError('กรุณาใช้อีเมล @gmail.com');
       setIsSubmitting(false);
       return;
     }
@@ -358,9 +351,14 @@ export default function FlashBookingClient({
         : (selectedVariant?.max_size_cm ?? 10);
 
       const finalPlacement = placement === 'อื่น ๆ' ? customPlacement.trim() : placement.trim();
-      const finalDescription = flashBookingMode === 'price_review_required' 
+      
+      const rawDescription = flashBookingMode === 'price_review_required' 
         ? (description.trim() || 'ขอปรับขนาด/ปรับแบบสัก') 
-        : (notes.trim() || null);
+        : (notes.trim() || '');
+
+      const finalDescription = contactInfoAdditional.trim()
+        ? `ช่องทางติดต่อเพิ่มเติม: ${contactInfoAdditional.trim()}\n\n${rawDescription}`
+        : (rawDescription || null);
 
       // 3. Finalize booking request
       const { data: publicToken, error: finalError } = await supabase.rpc('finalize_public_booking', {
@@ -371,7 +369,7 @@ export default function FlashBookingClient({
         p_description: finalDescription,
         p_full_name: fullName,
         p_phone: normPhone,
-        p_email: normEmail,
+        p_email: null,
         p_health_note: null,
         p_requested_date: selectedDate,
         p_requested_time: preferredTime,
@@ -796,22 +794,14 @@ export default function FlashBookingClient({
                 </div>
 
                 <div>
-                  <label className="block text-xs text-[#737373] mb-1">อีเมล *</label>
+                  <label className="block text-xs text-[#737373] mb-1">ช่องทางติดต่อเพิ่มเติม (ถ้ามี)</label>
                   <input
-                    type="email"
-                    required
-                    value={email}
-                    onChange={e => {
-                      setEmail(e.target.value);
-                      setEmailTouched(true);
-                    }}
-                    onBlur={() => setEmailTouched(true)}
+                    type="text"
+                    value={contactInfoAdditional}
+                    onChange={e => setContactInfoAdditional(e.target.value)}
                     className="w-full bg-[#0A0A0A] border border-[#262626] rounded-lg px-3.5 py-2 text-sm text-white focus:outline-none focus:border-white"
-                    placeholder="example@gmail.com"
+                    placeholder="เช่น Line: armmee / IG: tattoo.studio / Facebook: ..."
                   />
-                  {emailError && (
-                    <p className="text-xs text-red-400 mt-1">{emailError}</p>
-                  )}
                 </div>
 
                 <div>
@@ -897,20 +887,62 @@ export default function FlashBookingClient({
               </div>
             </div>
 
-            {/* Consent Box */}
+            {/* Checkboxes: First Tattoo, Safety Acknowledgement, Consent */}
             <div className="border-t border-[#1a1a1a] pt-4 space-y-3">
-              <label className="flex items-start gap-2.5 cursor-pointer text-[11px] leading-relaxed text-[#737373] hover:text-[#A3A3A3] select-none">
-                <input
-                  type="checkbox"
-                  required
-                  checked={termsAccepted && safetyNoticeAcknowledged}
-                  onChange={e => {
-                    setTermsAccepted(e.target.checked);
-                    setSafetyNoticeAcknowledged(e.target.checked);
-                  }}
-                  className="mt-0.5 rounded border-[#262626] bg-[#0A0A0A] text-white focus:ring-0 focus:ring-offset-0"
-                />
-                <span className="text-[#A3A3A3]">ข้าพเจ้านินยอมให้ทางร้านเก็บข้อมูลเพื่อใช้ติดต่อจองคิวและตรวจสอบการชำระเงิน *</span>
+              {/* First Tattoo Checkbox */}
+              <label className="flex items-start gap-3 cursor-pointer group bg-[#121212] border border-[#262626] rounded-xl p-4 transition-colors hover:border-[#404040]">
+                <div className="relative flex items-center justify-center mt-0.5 shrink-0">
+                  <input
+                    type="checkbox"
+                    checked={isFirstTattoo}
+                    onChange={(e) => setIsFirstTattoo(e.target.checked)}
+                    className="peer appearance-none w-[20px] h-[20px] border-2 border-[#404040] rounded bg-transparent checked:bg-[#FFFFFF] checked:border-[#FFFFFF] transition-colors cursor-pointer"
+                  />
+                  <svg className="absolute w-3 h-3 text-black pointer-events-none opacity-0 peer-checked:opacity-100 transition-opacity" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                  </svg>
+                </div>
+                <div className="flex flex-col flex-1">
+                  <span className="text-[#F5F5F5] text-xs font-medium mt-0.5">นี่เป็นการสักครั้งแรกของฉัน</span>
+                  <span className="text-[#737373] text-[11px] leading-relaxed mt-1">เพื่อให้ช่างทราบล่วงหน้าเพื่อเตรียมตัวและขั้นตอนการดูแลที่เหมาะสมให้คุณ</span>
+                </div>
+              </label>
+
+              {/* Safety Acknowledgement Checkbox */}
+              <label className="flex items-start gap-3 cursor-pointer group bg-[#121212] border border-[#262626] rounded-xl p-4 transition-colors hover:border-[#404040]">
+                <div className="relative flex items-center justify-center mt-0.5 shrink-0">
+                  <input
+                    type="checkbox"
+                    checked={safetyNoticeAcknowledged}
+                    onChange={(e) => setSafetyNoticeAcknowledged(e.target.checked)}
+                    className="peer appearance-none w-[20px] h-[20px] border-2 border-[#404040] rounded bg-transparent checked:bg-[#FFFFFF] checked:border-[#FFFFFF] transition-colors cursor-pointer"
+                  />
+                  <svg className="absolute w-3 h-3 text-black pointer-events-none opacity-0 peer-checked:opacity-100 transition-opacity" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                  </svg>
+                </div>
+                <div className="flex flex-col flex-1">
+                  <span className="text-[#F5F5F5] text-xs font-medium mt-0.5">ฉันรับทราบข้อมูลด้านความปลอดภัยก่อนการสัก *</span>
+                  <span className="text-[#737373] text-[11px] leading-relaxed mt-1">หากคุณอยู่ระหว่างตั้งครรภ์ มีโรคประจำตัวร้ายแรง หรือมีการใช้ยาต้านการแข็งตัวของเลือด กรุณาปรึกษาแพทย์และช่างก่อนรับคิวสัก</span>
+                </div>
+              </label>
+
+              {/* Consent Checkbox */}
+              <label className="flex items-start gap-3 cursor-pointer group bg-[#121212] border border-[#262626] rounded-xl p-4 transition-colors hover:border-[#404040]">
+                <div className="relative flex items-center justify-center mt-0.5 shrink-0">
+                  <input
+                    type="checkbox"
+                    checked={termsAccepted}
+                    onChange={(e) => setTermsAccepted(e.target.checked)}
+                    className="peer appearance-none w-[20px] h-[20px] border-2 border-[#404040] rounded bg-transparent checked:bg-[#FFFFFF] checked:border-[#FFFFFF] transition-colors cursor-pointer"
+                  />
+                  <svg className="absolute w-3 h-3 text-black pointer-events-none opacity-0 peer-checked:opacity-100 transition-opacity" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                  </svg>
+                </div>
+                <div className="flex flex-col flex-1">
+                  <span className="text-[#A3A3A3] text-xs font-medium mt-0.5">ข้าพเจ้ายินยอมให้ทางร้านเก็บข้อมูลเพื่อใช้ติดต่อจองคิวและตรวจสอบการชำระเงิน *</span>
+                </div>
               </label>
             </div>
 

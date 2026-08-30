@@ -275,29 +275,15 @@ export default function BookingStepGuard({
       }
     }
 
-    // Calculate highest allowed step
-    let highestAllowedStep = 1;
-    if (isStep1Complete) highestAllowedStep = 2;
-    if (isStep2Complete) highestAllowedStep = 3;
-    if (isStep3Complete) highestAllowedStep = 4;
-
-    // Exception for success step (5)
-    if (currentStep === 5) {
-      highestAllowedStep = 5;
-    }
-
-    if (targetStep > highestAllowedStep) {
-      targetStep = highestAllowedStep;
-    }
+    // In One-Page layout:
+    // If not success step (5), target step is always 1 (One-Page Form)
+    targetStep = currentStep === 5 ? 5 : 1;
 
     if (shouldUpdateFormData) {
       setFormData(newFormData);
     }
 
-    // Artist and Style are required in URL for Step 2, 3, and 4
-    const urlNeedsParams = targetStep > 1 && (!artistId || !styleId);
-    
-    if (targetStep !== currentStep || (urlNeedsParams && currentStep !== 5)) {
+    if (targetStep !== currentStep) {
       let redirectUrl = `/book/${shopSlug}`;
       const queryParams = new URLSearchParams();
       queryParams.set('step', targetStep.toString());

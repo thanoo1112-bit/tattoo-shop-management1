@@ -25,6 +25,7 @@ export interface BookingFormData {
   flashMinSize?: number | null;
   flashMaxSize?: number | null;
   flashImagePath?: string;
+  contactInfoAdditional?: string;
 }
 
 interface ImageObject {
@@ -77,7 +78,8 @@ export function BookingStateProvider({ children }: { children: ReactNode }) {
     flashStyle: '',
     flashVariantId: '',
     flashMinSize: null,
-    flashMaxSize: null
+    flashMaxSize: null,
+    contactInfoAdditional: ''
   });
   const [isFirstTattoo, setIsFirstTattoo] = useState<boolean>(false);
   const [safetyNoticeAcknowledged, setSafetyNoticeAcknowledged] = useState<boolean>(false);
@@ -119,7 +121,8 @@ export function BookingStateProvider({ children }: { children: ReactNode }) {
           flashStyle: parsed.flashStyle || '',
           flashVariantId: parsed.flashVariantId || '',
           flashMinSize: parsed.flashMinSize !== undefined ? parsed.flashMinSize : null,
-          flashMaxSize: parsed.flashMaxSize !== undefined ? parsed.flashMaxSize : null
+          flashMaxSize: parsed.flashMaxSize !== undefined ? parsed.flashMaxSize : null,
+          contactInfoAdditional: parsed.contactInfoAdditional || ''
         }));
       }
     } catch (e) {
@@ -158,7 +161,8 @@ export function BookingStateProvider({ children }: { children: ReactNode }) {
       flashStyle: '',
       flashVariantId: '',
       flashMinSize: null,
-      flashMaxSize: null
+      flashMaxSize: null,
+      contactInfoAdditional: ''
     });
     setIsFirstTattoo(false);
     setSafetyNoticeAcknowledged(false);

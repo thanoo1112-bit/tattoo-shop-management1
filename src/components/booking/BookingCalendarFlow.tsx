@@ -62,12 +62,32 @@ export default function BookingCalendarFlow({ artist, shopSlug, availability }: 
     return map;
   }, [availability]);
 
+  const todayStr = useMemo(() => {
+    const parts = new Intl.DateTimeFormat('en-US', { 
+      timeZone: 'Asia/Bangkok', 
+      year: 'numeric', month: '2-digit', day: '2-digit' 
+    }).formatToParts(new Date());
+    const y = parts.find(p => p.type === 'year')!.value;
+    const m = parts.find(p => p.type === 'month')!.value;
+    const d = parts.find(p => p.type === 'day')!.value;
+    return `${y}-${m}-${d}`;
+  }, []);
+
+  // Clear stale cached selectedDate if it's today or in the past
+  useEffect(() => {
+    if (formData.selectedDate && formData.selectedDate <= todayStr) {
+      setFormData(prev => ({ ...prev, selectedDate: '', preferredTime: '' }));
+    }
+  }, [formData.selectedDate, todayStr, setFormData]);
+
   const handleDateSelect = (dateKey: string) => {
-    setFormData(prev => ({ ...prev, selectedDate: dateKey }));
+    if (dateKey > todayStr) {
+      setFormData(prev => ({ ...prev, selectedDate: dateKey }));
+    }
   };
 
   const selectedData = formData.selectedDate ? availabilityMap.get(formData.selectedDate) : null;
-  const isDateValid = selectedData && selectedData.can_request;
+  const isDateValid = selectedData && selectedData.can_request && formData.selectedDate > todayStr;
 
   const { sizeCategory } = formData.flashId
     ? { sizeCategory: '' }

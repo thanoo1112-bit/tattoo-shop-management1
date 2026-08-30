@@ -221,7 +221,7 @@ export function PaymentPageClient({ token }: { token: string }) {
     isExpired
 
   const isFailedTerminal =
-    details.payment_status === 'failed' ||
+    (details.payment_status === 'failed' && details.booking_status !== 'pending_payment') ||
     details.booking_status === 'rejected' ||
     details.booking_status === 'cancelled'
 
@@ -240,6 +240,9 @@ export function PaymentPageClient({ token }: { token: string }) {
   } else if (isVerificationPending) {
     statusText = 'รอตรวจสอบการชำระเงิน'
     statusColor = 'text-blue-500 bg-blue-500/10 border-blue-500/20'
+  } else if (details.payment_status === 'failed' && details.booking_status === 'pending_payment') {
+    statusText = 'หลักฐานการชำระเงินไม่ถูกต้อง'
+    statusColor = 'text-red-500 bg-red-500/10 border-red-500/20'
   } else if (isExpiredState) {
     statusText = 'หมดเวลาชำระเงิน'
     statusColor = 'text-red-500 bg-red-500/10 border-red-500/20'
@@ -392,7 +395,7 @@ export function PaymentPageClient({ token }: { token: string }) {
                   href="/track"
                   className="inline-block py-3 px-8 bg-white hover:bg-neutral-200 text-black font-semibold rounded-xl text-sm transition-all"
                 >
-                  ติดตามสถานะ
+                  ดูสถานะการจอง
                 </a>
               </div>
             </div>
@@ -412,7 +415,7 @@ export function PaymentPageClient({ token }: { token: string }) {
                   href="/track"
                   className="inline-block py-3 px-8 bg-white hover:bg-neutral-200 text-black font-semibold rounded-xl text-sm transition-all animate-in fade-in duration-200"
                 >
-                  ติดตามสถานะ
+                  ดูสถานะการจอง
                 </a>
               </div>
             </div>
@@ -443,6 +446,17 @@ export function PaymentPageClient({ token }: { token: string }) {
           ) : (
             /* ACTIVE QR CODE + SLIP UPLOAD VIEW */
             <div className="space-y-6">
+              {details.payment_status === 'failed' && (
+                <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-4 text-left">
+                  <h4 className="text-sm font-bold text-red-400 mb-1 flex items-center gap-1.5">
+                    <AlertCircle size={16} />
+                    หลักฐานการชำระเงินไม่ถูกต้อง
+                  </h4>
+                  <p className="text-xs text-[#A3A3A3] leading-relaxed">
+                    กรุณาตรวจสอบข้อมูลการโอนและส่งหลักฐานการชำระเงินใหม่
+                  </p>
+                </div>
+              )}
               
               {/* QR Code */}
               <div className="flex flex-col items-center justify-center space-y-3">

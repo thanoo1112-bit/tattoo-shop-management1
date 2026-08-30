@@ -646,7 +646,7 @@ export default function ArtistBookingRequestsList({ initialRequests, isOwnerView
         code: err?.code ?? null,
         message: err?.message ?? null,
       });
-      setPaymentError('ไม่สามารถตรวจสอบการชำระเงินได้ กรุณาลองใหม่อีกครั้ง');
+      setPaymentError(err?.message || 'ไม่สามารถตรวจสอบการชำระเงินได้ กรุณาลองใหม่อีกครั้ง');
     } finally {
       setIsVerifyingPayment(false);
     }
@@ -673,7 +673,7 @@ export default function ArtistBookingRequestsList({ initialRequests, isOwnerView
         code: err?.code ?? null,
         message: err?.message ?? null,
       });
-      setPaymentError('ไม่สามารถตรวจสอบการชำระเงินได้ กรุณาลองใหม่อีกครั้ง');
+      setPaymentError(err?.message || 'ไม่สามารถตรวจสอบการชำระเงินได้ กรุณาลองใหม่อีกครั้ง');
     } finally {
       setIsVerifyingPayment(false);
     }
@@ -1072,7 +1072,11 @@ export default function ArtistBookingRequestsList({ initialRequests, isOwnerView
                         ขนาดที่ลูกค้าต้องการ: กว้าง {project?.width_cm || 0} ซม. × ยาว {project?.height_cm || 0} ซม.
                       </div>
                       <div className="text-amber-500 font-medium mt-1">
-                        รายละเอียดที่ต้องการปรับ: {project?.description || 'ไม่ได้ระบุ'}
+                        รายละเอียดที่ต้องการปรับ: {(() => {
+                          const rawDesc = project?.description || '';
+                          const sanitized = rawDesc.replace(/^ช่องทางติดต่อเพิ่มเติม:.*$/m, '').trim();
+                          return sanitized || 'ไม่ได้ระบุ';
+                        })()}
                       </div>
                     </>
                   ) : (
@@ -1155,10 +1159,34 @@ export default function ArtistBookingRequestsList({ initialRequests, isOwnerView
                   <span className="text-xs text-[#737373] block mb-0.5">เบอร์โทรศัพท์</span>
                   <span className="font-semibold text-xs sm:text-sm">{request.submitted_phone}</span>
                 </div>
-                <div>
-                  <span className="text-xs text-[#737373] block mb-0.5">อีเมล</span>
-                  <span className="font-semibold text-xs sm:text-sm">{request.submitted_email || 'ไม่ได้ระบุ'}</span>
-                </div>
+                {(() => {
+                  const description = project?.description || '';
+                  const hasAdditionalContact = /^ช่องทางติดต่อเพิ่มเติม:\s*(.+)$/m.test(description);
+                  const showEmailLabel = isFlash && request.submitted_email && !hasAdditionalContact;
+                  
+                  if (showEmailLabel) {
+                    return (
+                      <div>
+                        <span className="text-xs text-[#737373] block mb-0.5">อีเมล</span>
+                        <span className="font-semibold text-xs sm:text-sm">{request.submitted_email || 'ไม่ได้ระบุ'}</span>
+                      </div>
+                    );
+                  } else {
+                    return (
+                      <div>
+                        <span className="text-xs text-[#737373] block mb-0.5">ช่องทางติดต่อเพิ่มเติม</span>
+                        <span className="font-semibold text-xs sm:text-sm">
+                          {(() => {
+                            const match = description.match(/^ช่องทางติดต่อเพิ่มเติม:\s*(.+)$/m);
+                            if (match && match[1].trim()) return match[1].trim();
+                            if (request.submitted_email) return `${request.submitted_email} (อีเมลเดิม)`;
+                            return 'ไม่ได้ระบุ';
+                          })()}
+                        </span>
+                      </div>
+                    );
+                  }
+                })()}
               </div>
             </div>
 
@@ -1194,7 +1222,11 @@ export default function ArtistBookingRequestsList({ initialRequests, isOwnerView
               <div className="pt-3 border-t border-[#262626]/50 text-sm">
                 <span className="text-xs text-[#737373] uppercase tracking-wider block font-medium mb-1">รายละเอียด / แนวคิดงาน</span>
                 <p className="text-[#F5F5F5] whitespace-pre-wrap leading-relaxed font-medium">
-                  {project?.description || 'ไม่ได้ระบุ'}
+                  {(() => {
+                    const rawDesc = project?.description || '';
+                    const sanitized = rawDesc.replace(/^ช่องทางติดต่อเพิ่มเติม:.*$/m, '').trim();
+                    return sanitized || 'ไม่ได้ระบุ';
+                  })()}
                 </p>
               </div>
             )}
@@ -1209,10 +1241,9 @@ export default function ArtistBookingRequestsList({ initialRequests, isOwnerView
               </div>
             )}
 
-            {/* Health / First Timer */}
-            {!isFlash && (request.is_first_tattoo !== null || request.safety_notice_acknowledged !== null) && (
+            {(request.is_first_tattoo !== null || request.safety_notice_acknowledged !== null) && (
               <div className="pt-3 border-t border-[#262626]/50 text-sm">
-                <span className="text-xs text-[#737373] uppercase tracking-wider block font-medium mb-2">ข้อมูลสุขภาพและการสัก</span>
+                <span className="text-xs text-[#737373] uppercase tracking-wider block font-medium mb-2">ข้อมูลการสักและความปลอดภัย</span>
                 <div className="space-y-1">
                   <div className="flex items-center gap-2">
                     <span className="text-[#A3A3A3] text-xs">สักครั้งแรก:</span>
@@ -1223,7 +1254,7 @@ export default function ArtistBookingRequestsList({ initialRequests, isOwnerView
                   <div className="flex items-center gap-2">
                     <span className="text-[#A3A3A3] text-xs">ข้อมูลด้านความปลอดภัย:</span>
                     <span className="text-[#F5F5F5] text-xs font-medium">
-                      {request.safety_notice_acknowledged === null ? 'ไม่มีข้อมูล' : (request.safety_notice_acknowledged ? 'รับทราบข้อมูลด้านความปลอดภัยแล้ว' : 'ไม่ได้รับทราบ')}
+                      {request.safety_notice_acknowledged === null ? 'ไม่มีข้อมูล' : (request.safety_notice_acknowledged ? 'รับทราบแล้ว' : 'ไม่ได้รับทราบ')}
                     </span>
                   </div>
                 </div>
@@ -1333,7 +1364,7 @@ export default function ArtistBookingRequestsList({ initialRequests, isOwnerView
                         </div>
                       )}
                       
-                      {isOwnerView && (
+                      {(isOwnerView || request.artist_id === currentUserId) && (
                         <div className="flex items-center justify-end gap-3 mt-4 pt-4 border-t border-[#262626]/50" onClick={(e) => e.stopPropagation()}>
                           <button
                             type="button"
@@ -2013,7 +2044,11 @@ export default function ArtistBookingRequestsList({ initialRequests, isOwnerView
                 <div className="border-t border-[#1a1a1a] pt-2 space-y-1">
                   <span>รายละเอียดที่ต้องการปรับ:</span>
                   <p className="text-white font-medium leading-relaxed bg-[#171717] p-2.5 rounded-lg border border-[#262626] whitespace-pre-wrap">
-                    {modeBPricingRequest.project?.description || 'ไม่ได้ระบุ'}
+                    {(() => {
+                      const rawDesc = modeBPricingRequest.project?.description || '';
+                      const sanitized = rawDesc.replace(/^ช่องทางติดต่อเพิ่มเติม:.*$/m, '').trim();
+                      return sanitized || 'ไม่ได้ระบุ';
+                    })()}
                   </p>
                 </div>
               </div>

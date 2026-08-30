@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useMemo } from 'react'
 import { Plus, X, Pencil, Trash2, Zap, Loader2, Image as ImageIcon, ToggleLeft, ToggleRight, AlertTriangle, ChevronDown, ChevronUp } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { optimizeImage } from '@/lib/images/optimize-image'
@@ -88,6 +88,19 @@ export default function OwnerFlashManager({ shopId, initialItems, artists }: Pro
   const [isCreateOpen, setIsCreateOpen] = useState(false)
   const [editingItem, setEditingItem] = useState<FlashItem | null>(null)
   const [deletingItem, setDeletingItem] = useState<FlashItem | null>(null)
+  const [relistingItem, setRelistingItem] = useState<FlashItem | null>(null)
+  const [activeTab, setActiveTab] = useState<'active' | 'sold'>('active')
+
+  const filteredItems = useMemo(() => {
+    if (activeTab === 'active') {
+      return items.filter(item => item.status === 'open')
+    } else {
+      return items.filter(item => item.status === 'sold')
+    }
+  }, [items, activeTab])
+
+  const activeCount = useMemo(() => items.filter(item => item.status === 'open').length, [items])
+  const soldCount = useMemo(() => items.filter(item => item.status === 'sold').length, [items])
 
   const [form, setForm] = useState({ ...EMPTY_FORM })
   const [variants, setVariants] = useState<FlashVariant[]>([])
@@ -386,6 +399,44 @@ export default function OwnerFlashManager({ shopId, initialItems, artists }: Pro
     }
   }
 
+  const handleRelist = async () => {
+    if (!relistingItem) return
+    setLoading(true)
+    setError(null)
+    try {
+      const { data: newFlashId, error: relistErr } = await supabase.rpc('relist_sold_flash_design', {
+        p_flash_id: relistingItem.id,
+        p_shop_id: shopId
+      })
+      if (relistErr || !newFlashId) {
+        throw new Error(relistErr?.message || 'ไม่สามารถเปิดขายอีกครั้งได้')
+      }
+
+      // Fetch the newly created flash to display in list
+      const { data: inserted } = await supabase
+        .from('flash_designs')
+        .select(`*, profiles(full_name)`)
+        .eq('id', newFlashId)
+        .single()
+
+      if (inserted) {
+        const newItem: FlashItem = {
+          ...inserted,
+          artist_name: (inserted as any).profiles?.full_name || 'ช่างนิรนาม',
+          style_name: inserted.style_name,
+        }
+        setItems(prev => [newItem, ...prev])
+      }
+      setSuccess('เปิดขายลายนี้อีกครั้งเรียบร้อยแล้ว')
+      setRelistingItem(null)
+      setTimeout(() => setSuccess(null), 3000)
+    } catch (e: any) {
+      setError(e.message || 'เกิดข้อผิดพลาด')
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const renderVariantsEditor = () => (
     <div className="space-y-2">
       <div className="flex items-center justify-between">
@@ -624,16 +675,44 @@ export default function OwnerFlashManager({ shopId, initialItems, artists }: Pro
         <div className="mb-4 px-4 py-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm">{error}</div>
       )}
 
+      {/* Tabs */}
+      <div className="flex gap-4 mb-6 border-b border-[#1F1F1F] pb-px">
+        <button
+          onClick={() => setActiveTab('active')}
+          className={`pb-2.5 text-xs sm:text-sm font-semibold border-b-2 transition-all relative ${
+            activeTab === 'active'
+              ? 'border-white text-white'
+              : 'border-transparent text-[#737373] hover:text-[#A3A3A3]'
+          }`}
+        >
+          กำลังขาย <span className="text-[10px] ml-1 bg-[#1A1A1A] border border-[#262626] px-1.5 py-0.5 rounded-full text-[#A3A3A3] font-medium">{activeCount}</span>
+        </button>
+        <button
+          onClick={() => setActiveTab('sold')}
+          className={`pb-2.5 text-xs sm:text-sm font-semibold border-b-2 transition-all relative ${
+            activeTab === 'sold'
+              ? 'border-white text-white'
+              : 'border-transparent text-[#737373] hover:text-[#A3A3A3]'
+          }`}
+        >
+          ขายแล้ว <span className="text-[10px] ml-1 bg-[#1A1A1A] border border-[#262626] px-1.5 py-0.5 rounded-full text-[#A3A3A3] font-medium">{soldCount}</span>
+        </button>
+      </div>
+
       {/* Flash Grid */}
-      {items.length === 0 ? (
+      {filteredItems.length === 0 ? (
         <div className="text-center py-20 border border-dashed border-[#262626] rounded-2xl">
           <Zap className="w-10 h-10 text-[#333] mx-auto mb-4" />
-          <p className="text-[#555] text-sm">ยังไม่มี Flash</p>
-          <p className="text-[#444] text-xs mt-1">กด &quot;+ เพิ่ม Flash&quot; เพื่อเริ่มต้น</p>
+          <p className="text-[#555] text-sm">
+            {activeTab === 'active' ? 'ยังไม่มี Flash ที่กำลังขาย' : 'ยังไม่มี Flash ที่ขายแล้ว'}
+          </p>
+          {activeTab === 'active' && (
+            <p className="text-[#444] text-xs mt-1">กด &quot;+ เพิ่ม Flash&quot; เพื่อเริ่มต้น</p>
+          )}
         </div>
       ) : (
         <div className="grid grid-cols-2 md:flex md:flex-wrap justify-start gap-2 md:gap-6">
-          {items.map(item => {
+          {filteredItems.map(item => {
             const st = statusLabel(item.status)
             const isLocked = item.status === 'reserved' || item.status === 'sold'
             return (
@@ -673,11 +752,25 @@ export default function OwnerFlashManager({ shopId, initialItems, artists }: Pro
                     </span>
                   </div>
 
-                  {/* Actions */}
                   {isLocked ? (
-                    <div className="pt-0.5 sm:pt-1 text-center text-[9px] sm:text-xs text-[#555] bg-[#0A0A0A] rounded-lg sm:rounded-xl py-2 sm:py-2.5 border border-[#1F1F1F]">
-                      {item.status === 'sold' ? 'ขายแล้ว — ไม่สามารถแก้ไขได้' : 'ถูกจองแล้ว — ไม่สามารถแก้ไขได้'}
-                    </div>
+                    item.status === 'sold' ? (
+                      <div className="flex flex-col gap-2 pt-0.5 sm:pt-1">
+                        <button
+                          onClick={() => { setError(null); setSuccess(null); setRelistingItem(item); }}
+                          className="w-full py-2 rounded-lg sm:rounded-xl text-[10px] sm:text-xs font-semibold bg-[#171717] border border-[#262626] text-[#F5F5F5] hover:border-[#555] hover:bg-[#1f1f1f] transition-all flex items-center justify-center gap-1.5"
+                        >
+                          <Zap className="w-3 h-3 text-emerald-400" />
+                          เปิดขายอีกครั้ง
+                        </button>
+                        <span className="text-[9px] text-[#555] text-center block">
+                          สร้างรายการใหม่จากลายนี้ โดยเก็บประวัติการขายเดิมไว้
+                        </span>
+                      </div>
+                    ) : (
+                      <div className="pt-0.5 sm:pt-1 text-center text-[9px] sm:text-xs text-[#555] bg-[#0A0A0A] rounded-lg sm:rounded-xl py-2 sm:py-2.5 border border-[#1F1F1F]">
+                        ถูกจองแล้ว — ไม่สามารถแก้ไขได้
+                      </div>
+                    )
                   ) : (
                     <div className="flex gap-1.5 sm:gap-2 pt-0.5 sm:pt-1">
                       <button
@@ -806,6 +899,42 @@ export default function OwnerFlashManager({ shopId, initialItems, artists }: Pro
                   ลบ
                 </button>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* RELIST CONFIRM MODAL */}
+      {relistingItem && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-[#000]/80 backdrop-blur-sm" onClick={() => setRelistingItem(null)} />
+          <div className="relative z-10 w-full max-w-sm bg-[#121212] border border-[#1F1F1F] rounded-2xl p-6 text-center">
+            <Zap className="w-10 h-10 text-emerald-400 mx-auto mb-4 animate-pulse" />
+            <h3 className="text-base font-semibold text-[#F5F5F5] mb-2">เปิดขายลายนี้อีกครั้ง?</h3>
+            <p className="text-sm text-[#737373] mb-6">
+              ระบบจะสร้างรายการ Flash ใหม่จากลายนี้ โดยไม่แก้ไขประวัติการขายเดิม
+            </p>
+            {error && (
+              <div className="mb-4 px-4 py-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm text-left">
+                {error}
+              </div>
+            )}
+            <div className="flex gap-3">
+              <button 
+                onClick={() => setRelistingItem(null)} 
+                disabled={loading}
+                className="flex-1 py-3 rounded-xl text-sm border border-[#262626] text-[#737373] hover:text-[#F5F5F5] hover:border-[#555] transition-colors"
+              >
+                ยกเลิก
+              </button>
+              <button 
+                onClick={handleRelist} 
+                disabled={loading}
+                className="flex-1 py-3 rounded-xl text-sm font-semibold bg-emerald-500 text-black hover:bg-emerald-400 transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+              >
+                {loading && <Loader2 className="w-4 h-4 animate-spin text-black" />}
+                เปิดขายอีกครั้ง
+              </button>
             </div>
           </div>
         </div>

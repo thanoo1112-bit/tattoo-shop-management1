@@ -122,7 +122,7 @@ export default function BookingCalendar({ availabilityMap, selectedDateKey, onSe
             
             let Indicator = null;
 
-            if (isPast) {
+            if (isPast || isToday) {
               cellClass += "cursor-default";
             } else if (dayData) {
                if (isSelected) {
@@ -148,8 +148,11 @@ export default function BookingCalendar({ availabilityMap, selectedDateKey, onSe
 
             let numClass = "flex items-center justify-center w-7 h-7 rounded-full z-10 relative text-xs transition-colors ";
             
-            if (isPast) {
+            if (isPast || isToday) {
               numClass += "text-[#404040]";
+              if (isToday && !isSelected) {
+                numClass += " border border-[#404040]/30";
+              }
             } else if (dayData) {
                if (isSelected) {
                  numClass += "bg-[#F5F5F5] text-[#0A0A0A] font-semibold drop-shadow-md";
@@ -162,10 +165,6 @@ export default function BookingCalendar({ availabilityMap, selectedDateKey, onSe
                    numClass += "text-[#525252]";
                  }
                }
-  
-               if (isToday && !isSelected) {
-                 numClass += " border border-[#525252]";
-               }
             } else {
               numClass += "text-[#404040]";
             }
@@ -173,7 +172,7 @@ export default function BookingCalendar({ availabilityMap, selectedDateKey, onSe
             return (
               <button
                 key={day}
-                disabled={isPast || !dayData || dayData.status === 'FULL' || dayData.status === 'CLOSED'}
+                disabled={isPast || isToday || !dayData || dayData.status === 'FULL' || dayData.status === 'CLOSED'}
                 onClick={() => onSelectDate(dateKey)}
                 className={cellClass}
               >

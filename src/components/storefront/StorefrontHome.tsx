@@ -166,7 +166,7 @@ export default function StorefrontHome() {
               id, flash_code, artist_id, style_id, image_path, size, price, status, style_name, held_expires_at,
               profiles ( full_name )
             `)
-            .in('status', ['open', 'held', 'reserved', 'sold'])
+            .eq('status', 'open')
             .order('created_at', { ascending: false })
           setFlashDesigns(
             (flashData || []).map((f: any) => ({

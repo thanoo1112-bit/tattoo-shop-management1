@@ -4,10 +4,12 @@ import Link from 'next/link'
 import { Inbox, ArrowRight, User, CalendarDays, ClipboardCheck, Wallet, Clock } from 'lucide-react'
 import { DashboardStatCard } from '@/components/owner/dashboard-stat-card'
 import { EmptyState } from '@/components/owner/empty-state'
+import { getCurrentArtistOnboardingStatus } from '@/lib/auth/onboarding'
 
 export default async function ArtistDashboard() {
-  const { user } = await requireArtist()
+  const { user, membership } = await requireArtist()
   const supabase = await createClient()
+  const isComplete = await getCurrentArtistOnboardingStatus(membership.shop_id)
 
   const { data: profile } = await supabase
     .from('profiles')
@@ -355,18 +357,20 @@ export default async function ArtistDashboard() {
           </section>
           
           {/* Profile setup CTA (static, P3 for dynamic) */}
-          <div className="bg-[#171717] border border-[#262626] rounded-xl p-5 shadow-sm">
-            <h3 className="text-sm font-medium text-[#F3F3F3] mb-1">ตั้งค่าโปรไฟล์</h3>
-            <p className="text-xs text-[#9CA3AB] mb-4">
-              เพิ่มข้อมูลและสไตล์งานที่รับ เพื่อให้ลูกค้าสามารถเลือกคุณได้อย่างมั่นใจ
-            </p>
-            <Link 
-              href="/artist/onboarding" 
-              className="text-xs font-medium text-[#F3F3F3] underline hover:text-[#FFFFFF]"
-            >
-              ตั้งค่าโปรไฟล์
-            </Link>
-          </div>
+          {!isComplete && (
+            <div className="bg-[#171717] border border-[#262626] rounded-xl p-5 shadow-sm">
+              <h3 className="text-sm font-medium text-[#F3F3F3] mb-1">ตั้งค่าโปรไฟล์</h3>
+              <p className="text-xs text-[#9CA3AB] mb-4">
+                เพิ่มข้อมูลและสไตล์งานที่รับ เพื่อให้ลูกค้าสามารถเลือกคุณได้อย่างมั่นใจ
+              </p>
+              <Link 
+                href="/artist/onboarding" 
+                className="text-xs font-medium text-[#F3F3F3] underline hover:text-[#FFFFFF]"
+              >
+                ตั้งค่าโปรไฟล์
+              </Link>
+            </div>
+          )}
 
         </div>
       </div>
