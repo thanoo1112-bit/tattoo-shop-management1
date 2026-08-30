@@ -213,13 +213,6 @@ export default function StorefrontHome() {
   }
 
   const openFlashModal = async (flash: any) => {
-    const { data: { session } } = await supabase.auth.getSession()
-    if (!session) {
-      const returnTo = `/shop/${slug}?flash_id=${flash.id}`
-      window.location.href = `/customer/login?shop=${slug}&returnTo=${encodeURIComponent(returnTo)}`
-      return
-    }
-
     setSelectedFlash(flash)
     setSelectedFlashVariants([])
     setSelectedVariantId(null)
