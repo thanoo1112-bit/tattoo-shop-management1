@@ -1,18 +1,28 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import { useParams, useRouter } from 'next/navigation'
+import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { ArrowLeft, X } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 
 export default function StorefrontPortfolio() {
   const params = useParams()
   const router = useRouter()
+  const searchParams = useSearchParams()
   const slug = (params?.slug as string) || '157-tattoo'
   const supabase = createClient()
   const [selectedStyle, setSelectedStyle] = useState<string>('ทั้งหมด')
-  const [selectedArtist, setSelectedArtist] = useState<string>('ช่างทั้งหมด')
+  const [selectedArtistId, setSelectedArtistId] = useState<string>('all')
   const [selectedItem, setSelectedItem] = useState<any | null>(null)
+
+  useEffect(() => {
+    const artistParam = searchParams ? searchParams.get('artist') : null
+    if (artistParam) {
+      setSelectedArtistId(artistParam)
+    } else {
+      setSelectedArtistId('all')
+    }
+  }, [searchParams])
 
   // Real data state
   const [shopName, setShopName] = useState<string>('157 TATTOO')
@@ -89,8 +99,6 @@ export default function StorefrontPortfolio() {
     initData()
   }, [slug])
 
-  const artistsList = ['ช่างทั้งหมด', ...artists.map(a => a.name)]
-
   // Map real portfolio items and derive public URLs
   const displayPortfolio = portfolio.map(item => {
     const { data: urlData } = supabase.storage.from('portfolio-images').getPublicUrl(item.image_path)
@@ -99,6 +107,7 @@ export default function StorefrontPortfolio() {
       name: item.title,
       style: item.style_name || 'ไม่ระบุสไตล์',
       artist: item.artist_name || 'ไม่ระบุช่าง',
+      artistId: item.artist_id || null,
       image: urlData.publicUrl,
       concept: item.concept || null,
       placement: item.placement || null,
@@ -109,7 +118,7 @@ export default function StorefrontPortfolio() {
   // Filter logic
   const filteredPortfolio = displayPortfolio.filter(item => {
     const matchesStyle = selectedStyle === 'ทั้งหมด' || item.style === selectedStyle
-    const matchesArtist = selectedArtist === 'ช่างทั้งหมด' || item.artist === selectedArtist
+    const matchesArtist = selectedArtistId === 'all' || item.artistId === selectedArtistId
     return matchesStyle && matchesArtist
   })
 
@@ -168,12 +177,22 @@ export default function StorefrontPortfolio() {
             <div className="space-y-1.5 max-w-xs">
               <label className="text-[11px] font-medium text-[#737373] uppercase tracking-wider block">ผลงานโดย</label>
               <select
-                value={selectedArtist}
-                onChange={(e) => setSelectedArtist(e.target.value)}
+                value={selectedArtistId}
+                onChange={(e) => {
+                  setSelectedArtistId(e.target.value)
+                  const url = new URL(window.location.href)
+                  if (e.target.value === 'all') {
+                    url.searchParams.delete('artist')
+                  } else {
+                    url.searchParams.set('artist', e.target.value)
+                  }
+                  router.replace(url.pathname + url.search)
+                }}
                 className="w-full h-11 bg-[#121212] border border-[#262626] text-[#F5F5F5] rounded-md text-xs font-semibold px-3 focus:outline-none focus:border-[#404040] cursor-pointer"
               >
-                {artistsList.map((a) => (
-                  <option key={a} value={a}>{a}</option>
+                <option value="all">ช่างทั้งหมด</option>
+                {artists.map((a) => (
+                  <option key={a.id} value={a.id}>{a.name}</option>
                 ))}
               </select>
             </div>

@@ -1,13 +1,14 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import { useParams } from 'next/navigation'
+import { useParams, useRouter } from 'next/navigation'
 import { Menu, X, ArrowRight, MapPin, Phone, Clock, Calendar, Pencil, Layers, Plus, MessageSquare, UserRound, Images, CalendarCheck, Palette } from 'lucide-react'
 import { mockArtists } from '@/app/design-lab/customer-home-v2/_data/mockData'
 import { createClient } from '@/lib/supabase/client'
 
 export default function StorefrontHome() {
   const params = useParams()
+  const router = useRouter()
   const slug = (params?.slug as string) || '157-tattoo'
   const supabase = createClient()
   const [selectedStyle, setSelectedStyle] = useState<string>('ทั้งหมด')
@@ -129,6 +130,7 @@ export default function StorefrontHome() {
                 id: art.artist_id,
                 name: art.display_name,
                 avatar: art.avatar_url || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=300&auto=format&fit=crop&q=80',
+                bio: art.bio || null,
                 specialties
               }
             })
@@ -1024,54 +1026,47 @@ export default function StorefrontHome() {
             <h2 className="text-lg md:text-xl font-bold text-[#F5F5F5]">ช่างสักของเรา</h2>
           </div>
 
-          {/* Desktop Layout (>= 768px) */}
-          <div className="hidden md:grid grid-cols-3 min-[1440px]:grid-cols-4 gap-6 min-[1440px]:gap-8">
+          {/* Responsive Unified Grid Layout */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 lg:gap-8">
             {displayArtists.map((artist) => (
               <div 
                 key={artist.id}
-                className="bg-[#171717] border border-[#262626] rounded-xl overflow-hidden flex flex-col group hover:border-[#404040] transition-colors w-full min-[1440px]:max-w-[360px] mx-0"
+                className="bg-[#171717] border border-[#262626] rounded-xl overflow-hidden flex flex-col group hover:border-[#404040] transition-colors w-full h-full"
               >
-                <div className="aspect-[4/5] md:aspect-auto md:h-[340px] bg-[#121212] overflow-hidden relative">
+                {/* Image aspect-ratio 4:5 */}
+                <div className="relative aspect-[4/5] bg-[#121212] overflow-hidden">
                   <img 
                     src={artist.avatar} 
                     alt={artist.name}
                     className="w-full h-full object-cover grayscale group-hover:grayscale-0 group-hover:scale-[1.03] transition-all duration-300"
                   />
                 </div>
-                <div className="p-6 md:p-7 flex flex-col justify-between gap-5 flex-1">
-                  <div className="space-y-1.5">
-                    <h3 className="text-base md:text-lg font-bold text-[#F5F5F5]">{artist.name}</h3>
-                    <p className="text-xs md:text-[13px] text-[#A3A3A3] font-medium">
+                
+                {/* Card Content - flex flex-col flex-1 */}
+                <div className="p-4 md:p-6 flex flex-col flex-1">
+                  <div className="space-y-2 flex-1 flex flex-col justify-start">
+                    <h3 className="text-sm md:text-base font-bold text-[#F5F5F5] truncate">{artist.name}</h3>
+                    
+                    {/* Styles / Specialties */}
+                    <p className="text-[11px] md:text-xs text-[#A3A3A3] font-medium line-clamp-2 min-h-[2rem] md:min-h-[2.5rem]">
                       {artist.specialties.join(' • ')}
                     </p>
+                    
+                    {/* Bio */}
+                    {artist.bio && (
+                      <p className="text-[10px] md:text-xs text-[#737373] leading-relaxed line-clamp-2 min-h-[1.75rem] md:min-h-[2.25rem]">
+                        {artist.bio}
+                      </p>
+                    )}
                   </div>
-                  <button className="w-full py-2.5 md:py-3 bg-[#171717] border border-[#404040] text-[#F5F5F5] hover:bg-[#262626] transition-colors text-xs font-semibold rounded-md cursor-pointer">
+                  
+                  {/* Spacer / button at bottom */}
+                  <button 
+                    onClick={() => router.push(`/shop/${slug}/portfolio?artist=${artist.id}`)}
+                    className="w-full mt-4 py-2 bg-[#171717] border border-[#404040] text-[#F5F5F5] hover:bg-[#262626] transition-colors text-xs font-semibold rounded-md cursor-pointer text-center"
+                  >
                     ดูผลงานช่าง →
                   </button>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {/* Mobile Layout (< 768px Horizontal Scroll) */}
-          <div className="md:hidden flex gap-4 overflow-x-auto pb-2 scrollbar-none snap-x">
-            {displayArtists.map((artist) => (
-              <div 
-                key={artist.id}
-                className="bg-[#171717] border border-[#262626] rounded-xl overflow-hidden w-[160px] flex-shrink-0 snap-align-start group"
-              >
-                <div className="aspect-square bg-[#121212] overflow-hidden">
-                  <img 
-                    src={artist.avatar} 
-                    alt={artist.name}
-                    className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-300"
-                  />
-                </div>
-                <div className="p-3 space-y-1">
-                  <h4 className="text-xs font-bold text-[#F5F5F5]">{artist.name}</h4>
-                  <p className="text-[10px] text-[#A3A3A3] truncate">
-                    {artist.specialties.join(' • ')}
-                  </p>
                 </div>
               </div>
             ))}
