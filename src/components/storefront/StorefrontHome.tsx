@@ -37,6 +37,7 @@ export default function StorefrontHome() {
   const [selectedFlash, setSelectedFlash] = useState<any | null>(null)
   const [selectedFlashVariants, setSelectedFlashVariants] = useState<any[]>([])
   const [selectedVariantId, setSelectedVariantId] = useState<string | null>(null)
+  const [visibleFlashCount, setVisibleFlashCount] = useState<number>(4)
 
   // Check user session and customer role
   useEffect(() => {
@@ -773,18 +774,18 @@ export default function StorefrontHome() {
                 ))}
               </div>
             ) : (
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-                {flashDesigns.map(flash => (
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
+                {flashDesigns.slice(0, visibleFlashCount).map(flash => (
                   <div
                     key={flash.id}
                     className="bg-[#171717] border border-[#262626] rounded-xl overflow-hidden flex flex-col group hover:border-[#404040] transition-colors cursor-pointer"
                     onClick={() => openFlashModal(flash)}
                   >
-                    <div className="relative aspect-square bg-[#121212] overflow-hidden">
+                    <div className="relative aspect-[4/5] bg-[#0A0A0A] overflow-hidden flex items-center justify-center">
                       <img
                         src={getFlashImageUrl(flash.image_path)}
                         alt={flash.flash_code}
-                        className="w-full h-full object-cover grayscale group-hover:scale-[1.03] transition-transform duration-300"
+                        className="max-w-full max-h-full object-contain grayscale group-hover:scale-[1.03] transition-transform duration-300"
                       />
                       <div className="absolute top-2 left-2">
                         <span className="bg-[#000]/70 backdrop-blur-sm text-[#F5F5F5] font-mono text-[10px] px-1.5 py-0.5 rounded-md font-semibold tracking-widest">
@@ -834,6 +835,17 @@ export default function StorefrontHome() {
                 ))}
               </div>
             )}
+            
+            {flashDesigns.length > visibleFlashCount && (
+              <div className="flex justify-center mt-8">
+                <button
+                  onClick={() => setVisibleFlashCount(prev => prev + 4)}
+                  className="px-6 py-2.5 rounded-xl border border-[#262626] text-xs font-semibold text-[#A3A3A3] bg-[#121212] hover:bg-[#171717] hover:border-[#404040] hover:text-[#F5F5F5] transition-all cursor-pointer"
+                >
+                  ดูเพิ่มเติม
+                </button>
+              </div>
+            )}
           </section>
         )}
 
@@ -841,91 +853,120 @@ export default function StorefrontHome() {
         {selectedFlash && (
           <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
             <div className="absolute inset-0 bg-[#000]/80 backdrop-blur-sm" onClick={() => setSelectedFlash(null)} />
-            <div className="relative z-10 w-full sm:max-w-md bg-[#121212] border border-[#1F1F1F] rounded-t-2xl sm:rounded-2xl overflow-hidden flex flex-col max-h-[90vh]">
-              <div className="relative aspect-square bg-[#0A0A0A]">
+            
+            <div className="relative z-10 w-full bg-[#121212] border border-[#1F1F1F] rounded-t-2xl sm:rounded-2xl overflow-hidden flex flex-col max-h-[90vh] md:flex-row md:max-w-4xl md:h-[80vh] md:max-h-[80vh]">
+              
+              {/* Close button - visible on desktop top-right */}
+              <button
+                onClick={() => setSelectedFlash(null)}
+                className="hidden md:flex absolute top-4 right-4 z-20 bg-[#000]/60 backdrop-blur-sm p-2 rounded-full text-[#F5F5F5] hover:bg-[#000]/80 transition-colors"
+                aria-label="Close modal"
+              >
+                <X size={18} />
+              </button>
+
+              {/* Mobile Header (Hidden on Desktop) */}
+              <div className="flex md:hidden items-center justify-between p-4 border-b border-[#1F1F1F]">
+                <span className="bg-[#000]/70 text-[#F5F5F5] font-mono text-xs px-2 py-1 rounded-lg font-semibold tracking-widest">
+                  {selectedFlash.flash_code}
+                </span>
+                <button
+                  onClick={() => setSelectedFlash(null)}
+                  className="p-1.5 rounded-full text-[#F5F5F5] hover:bg-[#1F1F1F] transition-colors"
+                  aria-label="Close modal"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+
+              {/* Image Area - Left Column on Desktop, Middle Row on Mobile */}
+              <div className="relative w-full bg-[#0A0A0A] h-[35vh] md:h-full md:w-[58%] flex items-center justify-center border-b md:border-b-0 md:border-r border-[#1F1F1F]">
                 <img
                   src={getFlashImageUrl(selectedFlash.image_path)}
                   alt={selectedFlash.flash_code}
-                  className="w-full h-full object-cover"
+                  className="w-full h-full object-contain p-2"
                 />
-                <button
-                  onClick={() => setSelectedFlash(null)}
-                  className="absolute top-3 right-3 bg-[#000]/60 backdrop-blur-sm p-2 rounded-full text-[#F5F5F5] hover:bg-[#000]/80 transition-colors"
-                >
-                  <X size={16} />
-                </button>
-                <div className="absolute top-3 left-3">
-                  <span className="bg-[#000]/70 backdrop-blur-sm text-[#F5F5F5] font-mono text-xs px-2 py-1 rounded-lg font-semibold tracking-widest">
+                {/* Desktop Code Badge (Hidden on Mobile) */}
+                <div className="hidden md:block absolute top-4 left-4 z-20">
+                  <span className="bg-[#000]/70 backdrop-blur-sm text-[#F5F5F5] font-mono text-xs px-2.5 py-1 rounded-lg font-semibold tracking-widest">
                     {selectedFlash.flash_code}
                   </span>
                 </div>
               </div>
-              <div className="p-5 space-y-4 overflow-y-auto max-h-[45vh]">
-                <div>
+
+              {/* Detail Area - Right Column on Desktop, Bottom Row on Mobile */}
+              <div className="flex-1 flex flex-col p-5 md:p-6 overflow-hidden md:w-[42%]">
+                
+                {/* Header Info */}
+                <div className="mb-4">
                   <p className="text-sm font-semibold text-[#F5F5F5]">{selectedFlash.artist_name}</p>
                   <p className="text-xs text-[#737373]">{selectedFlash.style_name}</p>
                 </div>
 
-                {selectedFlashVariants.length > 0 ? (
-                  <div className="space-y-3">
-                    <p className="text-xs font-semibold text-[#A3A3A3] uppercase tracking-wider">เลือกขนาด</p>
-                    <p className="text-[10px] text-[#737373] italic -mt-1">
-                      * ขนาดวัดจากด้านที่ยาวที่สุดของลาย
-                    </p>
-                    <div className="space-y-2 max-h-[200px] overflow-y-auto pr-1">
-                      {selectedFlashVariants.map(v => {
-                        const isSelected = selectedVariantId === v.id;
-                        let sizeRangeText = '';
-                        if (v.min_size_cm !== null && v.min_size_cm !== undefined) {
-                          if (v.max_size_cm !== null && v.max_size_cm !== undefined) {
-                            sizeRangeText = ` (${v.min_size_cm}–${v.max_size_cm} ซม.)`;
-                          } else {
-                            sizeRangeText = ` (${v.min_size_cm} ซม. ขึ้นไป)`;
+                {/* Scrollable details */}
+                <div className="flex-1 overflow-y-auto space-y-4 pr-1 mb-4">
+                  {selectedFlashVariants.length > 0 ? (
+                    <div className="space-y-3">
+                      <p className="text-xs font-semibold text-[#A3A3A3] uppercase tracking-wider">เลือกขนาด</p>
+                      <p className="text-[10px] text-[#737373] italic -mt-1">
+                        * ขนาดวัดจากด้านที่ยาวที่สุดของลาย
+                      </p>
+                      <div className="space-y-2">
+                        {selectedFlashVariants.map(v => {
+                          const isSelected = selectedVariantId === v.id;
+                          let sizeRangeText = '';
+                          if (v.min_size_cm !== null && v.min_size_cm !== undefined) {
+                            if (v.max_size_cm !== null && v.max_size_cm !== undefined) {
+                              sizeRangeText = ` (${v.min_size_cm}–${v.max_size_cm} ซม.)`;
+                            } else {
+                              sizeRangeText = ` (${v.min_size_cm} ซม. ขึ้นไป)`;
+                            }
                           }
-                        }
-                        return (
-                          <label
-                            key={v.id}
-                            className={`flex items-center justify-between p-3 rounded-xl border cursor-pointer transition-all ${
-                              isSelected
-                                ? 'bg-white/5 border-white/20 text-[#F5F5F5]'
-                                : 'bg-[#171717] border-[#262626] text-[#A3A3A3] hover:border-[#404040]'
-                            }`}
-                          >
-                            <div className="flex items-center gap-3">
-                              <input
-                                type="radio"
-                                name="flash_size_variant"
-                                value={v.id}
-                                checked={isSelected}
-                                onChange={() => setSelectedVariantId(v.id)}
-                                className="w-4 h-4 accent-white"
-                              />
-                              <span className="text-xs font-semibold">
-                                {v.size_name}
-                                <span className="text-[10px] font-normal text-[#737373] block sm:inline sm:ml-1">
-                                  {sizeRangeText}
+                          return (
+                            <label
+                              key={v.id}
+                              className={`flex items-center justify-between p-3 rounded-xl border cursor-pointer transition-all ${
+                                isSelected
+                                  ? 'bg-white/5 border-white/20 text-[#F5F5F5]'
+                                  : 'bg-[#171717] border-[#262626] text-[#A3A3A3] hover:border-[#404040]'
+                              }`}
+                            >
+                              <div className="flex items-center gap-3">
+                                <input
+                                  type="radio"
+                                  name="flash_size_variant"
+                                  value={v.id}
+                                  checked={isSelected}
+                                  onChange={() => setSelectedVariantId(v.id)}
+                                  className="w-4 h-4 accent-white"
+                                />
+                                <span className="text-xs font-semibold">
+                                  {v.size_name}
+                                  <span className="text-[10px] font-normal text-[#737373] block sm:inline sm:ml-1">
+                                    {sizeRangeText}
+                                  </span>
                                 </span>
-                              </span>
-                            </div>
-                            <span className="text-xs font-bold">฿{Number(v.price).toLocaleString()}</span>
-                          </label>
-                        );
-                      })}
+                              </div>
+                              <span className="text-xs font-bold">฿{Number(v.price).toLocaleString()}</span>
+                            </label>
+                          );
+                        })}
+                      </div>
                     </div>
-                  </div>
-                ) : (
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-semibold border border-[#262626] px-2.5 py-1 rounded-lg text-[#A3A3A3]">
-                      ขนาด {selectedFlash.size}
-                    </span>
-                    <span className="text-sm font-bold text-[#F5F5F5]">
-                      ฿{Number(selectedFlash.price).toLocaleString()}
-                    </span>
-                  </div>
-                )}
+                  ) : (
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-semibold border border-[#262626] px-2.5 py-1 rounded-lg text-[#A3A3A3]">
+                        ขนาด {selectedFlash.size}
+                      </span>
+                      <span className="text-sm font-bold text-[#F5F5F5]">
+                        ฿{Number(selectedFlash.price).toLocaleString()}
+                      </span>
+                    </div>
+                  )}
+                </div>
 
-                <div className="flex items-center justify-between border-t border-[#1F1F1F] pt-4">
+                {/* Bottom Bar / Action CTA */}
+                <div className="border-t border-[#1F1F1F] pt-4 flex items-center justify-between mt-auto">
                   {selectedFlashVariants.length > 0 && selectedVariantId ? (
                     (() => {
                       const activeVariant = selectedFlashVariants.find(v => v.id === selectedVariantId);
@@ -969,7 +1010,7 @@ export default function StorefrontHome() {
                   })()}
                 </div>
                 {flashHoldError && (
-                  <p className="text-xs text-red-400 text-center">{flashHoldError}</p>
+                  <p className="text-xs text-red-400 text-center mt-2">{flashHoldError}</p>
                 )}
               </div>
             </div>
