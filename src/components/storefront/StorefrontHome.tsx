@@ -724,7 +724,7 @@ export default function StorefrontHome() {
                       <img 
                         src={item.image} 
                         alt={item.name}
-                        className="w-full h-full object-cover grayscale group-hover:grayscale-0 group-hover:scale-[1.02] transition-all duration-300"
+                        className="w-full h-full object-cover group-hover:scale-[1.02] transition-all duration-300"
                       />
                     </div>
                     <div className="p-4 md:p-[18px] flex-1 flex flex-col justify-center">
@@ -1037,7 +1037,7 @@ export default function StorefrontHome() {
                   <img 
                     src={artist.avatar} 
                     alt={artist.name}
-                    className="w-full h-full object-cover grayscale group-hover:grayscale-0 group-hover:scale-[1.03] transition-all duration-300"
+                    className="w-full h-full object-cover group-hover:scale-[1.03] transition-all duration-300"
                   />
                 </div>
                 
