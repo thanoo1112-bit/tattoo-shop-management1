@@ -420,7 +420,9 @@ function TrackingForm() {
                           <div className="text-base font-bold text-[#FFFFFF]">
                             {selectedBooking.deposit_amount !== null
                               ? `฿${selectedBooking.deposit_amount.toLocaleString('th-TH')}`
-                              : (selectedBooking.flash_design_id ? '฿500' : 'รอแจ้งราคา')}
+                              : (selectedBooking.flash_booking_mode === 'price_review_required' && selectedBooking.agreed_price === null
+                                  ? 'รอกำหนดราคา'
+                                  : (selectedBooking.flash_design_id ? '฿500' : 'รอแจ้งราคา'))}
                           </div>
                         </div>
                       </div>
