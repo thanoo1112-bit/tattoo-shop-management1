@@ -186,7 +186,7 @@ export default async function OwnerDashboardPage() {
     const artistName = req.artist?.full_name || 'ไม่ระบุ'
     const depositPay = req.payments?.find((p: any) => p.payment_type === 'deposit')
     
-    let type: 'new' | 'verification' | 'payment' = 'new'
+    let type: 'new' | 'verification' | 'payment' | 'rejected_payment' = 'new'
     let label = 'คำขอใหม่'
     let actionLabel = 'ดูรายละเอียด'
     
@@ -196,12 +196,16 @@ export default async function OwnerDashboardPage() {
       actionLabel = 'ดูรายละเอียด'
     } else if (depositPay?.status === 'verification_pending') {
       type = 'verification'
-      label = 'ส่งหลักฐานมัดจำแล้ว'
+      label = 'ส่งหลักฐานแล้ว'
       actionLabel = 'ตรวจสอบ'
+    } else if (depositPay?.status === 'failed') {
+      type = 'rejected_payment'
+      label = 'หลักฐานไม่ถูกต้อง'
+      actionLabel = 'ดูรายละเอียด'
     } else {
       type = 'payment'
-      label = 'รอยืนยันคิว'
-      actionLabel = 'จัดการ'
+      label = 'รอชำระมัดจำ'
+      actionLabel = 'ดูรายละเอียด'
     }
 
     return {
@@ -281,12 +285,17 @@ export default async function OwnerDashboardPage() {
                         )}
                         {task.type === 'verification' && (
                           <span className="text-blue-400 bg-blue-500/10 border border-blue-500/20 px-2.5 py-0.5 rounded-full text-[10px] font-semibold">
-                            ส่งหลักฐานมัดจำแล้ว
+                            ส่งหลักฐานแล้ว
                           </span>
                         )}
                         {task.type === 'payment' && (
                           <span className="text-amber-500 bg-amber-500/10 border border-amber-500/20 px-2.5 py-0.5 rounded-full text-[10px] font-semibold">
-                            รอยืนยันคิว
+                            รอชำระมัดจำ
+                          </span>
+                        )}
+                        {task.type === 'rejected_payment' && (
+                          <span className="text-red-500 bg-red-500/10 border border-red-500/20 px-2.5 py-0.5 rounded-full text-[10px] font-semibold">
+                            หลักฐานไม่ถูกต้อง
                           </span>
                         )}
                       </div>
