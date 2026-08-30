@@ -75,6 +75,7 @@ export default function FlashBookingClient({
   const [flashBookingMode, setFlashBookingMode] = useState<'fixed_price' | 'price_review_required'>('fixed_price');
   const [notes, setNotes] = useState('');
   const [placement, setPlacement] = useState('');
+  const [customPlacement, setCustomPlacement] = useState('');
   const [placementTouched, setPlacementTouched] = useState(false);
   const [selectedDate, setSelectedDate] = useState('');
   const [preferredTime, setPreferredTime] = useState('');
@@ -87,6 +88,25 @@ export default function FlashBookingClient({
   const [isFirstTattoo, setIsFirstTattoo] = useState(false);
   const [safetyNoticeAcknowledged, setSafetyNoticeAcknowledged] = useState(false);
   const [termsAccepted, setTermsAccepted] = useState(false);
+
+  // Synchronize booking mode and size inputs when variant changes
+  useEffect(() => {
+    if (selectedVariantId === 'custom') {
+      setFlashBookingMode('price_review_required');
+      setWidthCm('');
+      setHeightCm('');
+    } else {
+      setFlashBookingMode('fixed_price');
+      const variant = variants.find(v => v.id === selectedVariantId);
+      if (variant) {
+        setWidthCm(variant.min_size_cm ? String(variant.min_size_cm) : '');
+        setHeightCm(variant.max_size_cm ? String(variant.max_size_cm) : '');
+      } else {
+        setWidthCm('');
+        setHeightCm('');
+      }
+    }
+  }, [selectedVariantId, variants]);
 
   // Availability & Hold count-down states
   const [availability, setAvailability] = useState<DailyAvailability[]>([]);
@@ -202,11 +222,10 @@ export default function FlashBookingClient({
   const isFormValid = useMemo(() => {
     if (variants.length > 0 && !selectedVariantId) return false;
 
-    if (flashBookingMode === 'price_review_required') {
+    if (selectedVariantId === 'custom') {
       const w = parseFloat(widthCm);
       const h = parseFloat(heightCm);
       if (isNaN(w) || w <= 0 || isNaN(h) || h <= 0) return false;
-      if (description.trim().length === 0) return false;
     }
 
     const trimmedPhone = phone.trim();
@@ -216,8 +235,10 @@ export default function FlashBookingClient({
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     const isEmailValid = emailRegex.test(trimmedEmail) && trimmedEmail.endsWith('@gmail.com');
 
+    const isPlacementValid = placement.trim().length > 0 && (placement !== 'อื่น ๆ' || customPlacement.trim().length > 0);
+
     return (
-      placement.trim().length > 0 &&
+      isPlacementValid &&
       selectedDate.trim().length > 0 &&
       preferredTime.trim().length > 0 &&
       fullName.trim().length > 0 &&
@@ -229,10 +250,10 @@ export default function FlashBookingClient({
   }, [
     variants,
     selectedVariantId,
-    selectedVariant,
     widthCm,
     heightCm,
     placement,
+    customPlacement,
     selectedDate,
     preferredTime,
     fullName,
@@ -336,13 +357,18 @@ export default function FlashBookingClient({
         ? parseFloat(heightCm) 
         : (selectedVariant?.max_size_cm ?? 10);
 
+      const finalPlacement = placement === 'อื่น ๆ' ? customPlacement.trim() : placement.trim();
+      const finalDescription = flashBookingMode === 'price_review_required' 
+        ? (description.trim() || 'ขอปรับขนาด/ปรับแบบสัก') 
+        : (notes.trim() || null);
+
       // 3. Finalize booking request
       const { data: publicToken, error: finalError } = await supabase.rpc('finalize_public_booking', {
         p_session_id: session_id,
         p_width_cm: finalWidth,
         p_height_cm: finalHeight,
-        p_placement: placement,
-        p_description: flashBookingMode === 'price_review_required' ? description : (notes.trim() || null),
+        p_placement: finalPlacement,
+        p_description: finalDescription,
         p_full_name: fullName,
         p_phone: normPhone,
         p_email: normEmail,
@@ -356,7 +382,7 @@ export default function FlashBookingClient({
         p_safety_notice_acknowledged: safetyNoticeAcknowledged,
         p_flash_design_id: flash.id,
         p_hold_session_id: null,
-        p_flash_variant_id: selectedVariantId || null,
+        p_flash_variant_id: selectedVariantId === 'custom' ? null : (selectedVariantId || null),
         p_flash_booking_mode: flashBookingMode
       });
 
@@ -534,8 +560,6 @@ export default function FlashBookingClient({
                       type="button"
                       onClick={() => {
                         setSelectedVariantId(variant.id);
-                        if (variant.min_size_cm) setWidthCm(String(variant.min_size_cm));
-                        if (variant.max_size_cm) setHeightCm(String(variant.max_size_cm));
                       }}
                       className={`p-2.5 rounded-xl border text-left transition-all ${
                         selectedVariantId === variant.id
@@ -546,54 +570,42 @@ export default function FlashBookingClient({
                       <div className="font-semibold text-xs">{variant.size_name}</div>
                       <div className="text-[10px] text-[#737373] mt-0.5">
                         {variant.min_size_cm && variant.max_size_cm
-                          ? `${variant.min_size_cm}–${variant.max_size_cm} ซม.`
+                          ? `${variant.min_size_cm} × ${variant.max_size_cm} ซม.`
                           : 'ขนาดคงตัว'}
                       </div>
                       <div className="text-xs font-bold text-white mt-1">฿{Number(variant.price).toLocaleString()}</div>
                     </button>
                   ))}
+
+                  {/* 5th Card: Custom Size Option */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedVariantId('custom');
+                    }}
+                    className={`p-2.5 rounded-xl border text-left transition-all col-span-2 ${
+                      selectedVariantId === 'custom'
+                        ? 'border-white bg-[#1a1a1a] text-white'
+                        : 'border-[#262626] bg-[#0A0A0A] text-[#A3A3A3] hover:border-[#404040]'
+                    }`}
+                  >
+                    <div className="font-semibold text-xs text-white">กำหนดขนาดเอง / ขอปรับแบบ</div>
+                    <div className="text-[10px] text-[#737373] mt-0.5">
+                      ระบุขนาดและรายละเอียดที่ต้องการปรับแบบเอง
+                    </div>
+                  </button>
                 </div>
               </div>
             )}
 
-            {/* Mode-based Size and Price Information */}
-            {flashBookingMode === 'fixed_price' ? (
-              <div className="space-y-3 bg-[#0A0A0A] p-4 rounded-xl border border-[#262626] text-xs text-[#A3A3A3]">
-                <div>
-                  <span className="block text-[10px] text-[#737373] uppercase tracking-wider font-semibold">ขนาด</span>
-                  <span className="text-sm font-bold text-white">
-                    {selectedVariant
-                      ? `กว้าง ${selectedVariant.min_size_cm || 0} ซม. × ยาว ${selectedVariant.max_size_cm || 0} ซม.`
-                      : `ขนาด: ${flash.size}`
-                    }
-                  </span>
-                </div>
-                <div className="pt-2.5 border-t border-[#1a1a1a]">
-                  <span className="block text-[10px] text-[#737373] uppercase tracking-wider font-semibold">ราคา</span>
-                  <span className="text-sm font-bold text-white">฿{price.toLocaleString()}</span>
-                </div>
-              </div>
-            ) : (
-              <div className="space-y-4 bg-[#0A0A0A] p-4 rounded-xl border border-[#262626] text-xs text-[#A3A3A3]">
-                <div>
-                  <span className="block text-[10px] text-[#737373] uppercase tracking-wider font-semibold">ขนาดตามแบบเดิม</span>
-                  <span className="text-sm font-bold text-white">
-                    {selectedVariant
-                      ? `กว้าง ${selectedVariant.min_size_cm || 0} × ยาว ${selectedVariant.max_size_cm || 0} ซม.`
-                      : `ขนาด: ${flash.size}`
-                    }
-                  </span>
-                </div>
-                <div>
-                  <span className="block text-[10px] text-[#737373] uppercase tracking-wider font-semibold">ราคาเดิม</span>
-                  <span className="text-sm font-bold text-white">฿{price.toLocaleString()}</span>
-                </div>
-                <div className="text-[10px] text-amber-500/90 leading-relaxed pt-2.5 border-t border-[#1a1a1a]">
-                  *ราคานี้เป็นราคาตามแบบเดิม ราคาสำหรับขนาด/รายละเอียดที่ปรับ จะได้รับการยืนยันจากช่างอีกครั้ง
-                </div>
-
-                {/* Form Inputs for Width/Height */}
-                <div className="space-y-3 pt-2">
+            {/* Custom Adjustments Inputs (only visible when 'custom' is selected) */}
+            {selectedVariantId === 'custom' && (
+              <div className="space-y-4 bg-[#0A0A0A] p-4 rounded-xl border border-[#262626] text-xs text-[#A3A3A3] animate-in fade-in slide-in-from-top-2 duration-200">
+                <h4 className="text-white font-semibold text-xs border-b border-[#1a1a1a] pb-1.5 uppercase tracking-wide">
+                  ระบุรายละเอียดการปรับแบบ
+                </h4>
+                
+                <div className="space-y-3">
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <label className="block text-[10px] text-[#737373] mb-1">ความกว้าง (ซม.) *</label>
@@ -603,33 +615,32 @@ export default function FlashBookingClient({
                         required
                         value={widthCm}
                         onChange={e => setWidthCm(e.target.value)}
-                        className="w-full bg-[#121212] border border-[#262626] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-white animate-in fade-in"
+                        className="w-full bg-[#121212] border border-[#262626] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-white"
                         placeholder="กว้าง"
                       />
                     </div>
                     <div>
-                      <label className="block text-[10px] text-[#737373] mb-1">ความยาว (ซม.) *</label>
+                      <label className="block text-[10px] text-[#737373] mb-1">ความสูง (ซม.) *</label>
                       <input
                         type="number"
                         step="0.1"
                         required
                         value={heightCm}
                         onChange={e => setHeightCm(e.target.value)}
-                        className="w-full bg-[#121212] border border-[#262626] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-white animate-in fade-in"
+                        className="w-full bg-[#121212] border border-[#262626] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-white"
                         placeholder="ยาว"
                       />
                     </div>
                   </div>
 
                   <div>
-                    <label className="block text-[10px] text-[#737373] mb-1">รายละเอียดที่ต้องการปรับ *</label>
+                    <label className="block text-[10px] text-[#737373] mb-1">รายละเอียดที่ต้องการปรับ (ถ้ามี)</label>
                     <textarea
                       rows={3}
-                      required
                       value={description}
                       onChange={e => setDescription(e.target.value)}
-                      className="w-full bg-[#121212] border border-[#262626] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-white resize-none animate-in fade-in"
-                      placeholder="เช่น ต้องการเพิ่มขนาดลายและปรับรายละเอียดบริเวณด้านข้าง"
+                      className="w-full bg-[#121212] border border-[#262626] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-white resize-none"
+                      placeholder="เช่น ต้องการขยายลายเพิ่มเล็กน้อย, ต้องการปรับองค์ประกอบบางส่วน"
                     />
                     <p className="text-[10px] text-[#737373] mt-1">ช่างจะตรวจสอบรายละเอียดและแจ้งราคาก่อนชำระมัดจำ</p>
                   </div>
@@ -641,68 +652,12 @@ export default function FlashBookingClient({
           {/* CENTER COLUMN: Size, Placement, Date, Time (lg:col-span-5) */}
           <div className="lg:col-span-5 space-y-6 lg:border-l lg:border-r lg:border-[#262626] lg:px-8">
             
-            {/* Booking Mode Selection */}
-            <div className="space-y-3">
-              <h3 className="text-base font-semibold text-white border-b border-[#262626] pb-2 uppercase tracking-wide">รูปแบบการจอง Flash</h3>
-              <div className="space-y-3">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setFlashBookingMode('fixed_price');
-                    if (selectedVariant) {
-                      setWidthCm(selectedVariant.min_size_cm ? String(selectedVariant.min_size_cm) : '');
-                      setHeightCm(selectedVariant.max_size_cm ? String(selectedVariant.max_size_cm) : '');
-                    } else {
-                      setWidthCm('');
-                      setHeightCm('');
-                    }
-                  }}
-                  className={`w-full p-4 rounded-xl border text-left transition-all flex items-start gap-3 cursor-pointer ${
-                    flashBookingMode === 'fixed_price'
-                      ? 'border-white bg-[#171717] text-white'
-                      : 'border-[#262626] bg-[#0A0A0A] text-[#A3A3A3] hover:border-[#404040]'
-                  }`}
-                >
-                  <div className="h-5 w-5 rounded-full border-2 flex items-center justify-center shrink-0 mt-0.5 border-white">
-                    {flashBookingMode === 'fixed_price' && <div className="h-2.5 w-2.5 rounded-full bg-white" />}
-                  </div>
-                  <div>
-                    <div className="font-semibold text-sm text-white">จองตามขนาดและราคานี้</div>
-                    <div className="text-xs text-[#737373] mt-1 leading-relaxed">
-                      ใช้ขนาดและราคาตามที่ร้านกำหนด สามารถชำระเงินมัดจำได้ทันที
-                    </div>
-                  </div>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setFlashBookingMode('price_review_required')}
-                  className={`w-full p-4 rounded-xl border text-left transition-all flex items-start gap-3 cursor-pointer ${
-                    flashBookingMode === 'price_review_required'
-                      ? 'border-white bg-[#171717] text-white'
-                      : 'border-[#262626] bg-[#0A0A0A] text-[#A3A3A3] hover:border-[#404040]'
-                  }`}
-                >
-                  <div className="h-5 w-5 rounded-full border-2 flex items-center justify-center shrink-0 mt-0.5 border-white">
-                    {flashBookingMode === 'price_review_required' && <div className="h-2.5 w-2.5 rounded-full bg-white" />}
-                  </div>
-                  <div>
-                    <div className="font-semibold text-sm text-white">ต้องการปรับขนาด / รายละเอียด</div>
-                    <div className="text-xs text-[#737373] mt-1 leading-relaxed">
-                      ระบุขนาดหรือรายละเอียดเพิ่มเติม ช่างจะแจ้งราคาก่อนชำระมัดจำ
-                    </div>
-                  </div>
-                </button>
-              </div>
-            </div>
-
             {/* Placement Section */}
             <div className="space-y-3">
               <h3 className="text-base font-semibold text-white border-b border-[#262626] pb-2">ตำแหน่งที่จะสัก</h3>
               <div>
                 <label className="block text-xs text-[#737373] mb-1">ตำแหน่งที่จะสัก *</label>
-                <input
-                  type="text"
+                <select
                   required
                   value={placement}
                   onChange={e => {
@@ -710,11 +665,40 @@ export default function FlashBookingClient({
                     setPlacementTouched(true);
                   }}
                   onBlur={() => setPlacementTouched(true)}
-                  placeholder="เช่น ต้นแขนด้านในข้างซ้าย, หลังใบหู, ซี่โครงขวา"
                   className="w-full bg-[#0A0A0A] border border-[#262626] rounded-xl px-3.5 py-3 text-sm text-white focus:outline-none focus:border-white"
-                />
-                {placementTouched && placement.trim() === '' && (
+                >
+                  <option value="">-- เลือกตำแหน่ง --</option>
+                  <option value="ต้นแขน">ต้นแขน</option>
+                  <option value="ท่อนแขน">ท่อนแขน</option>
+                  <option value="ข้อมือ">ข้อมือ</option>
+                  <option value="หน้าอก">หน้าอก</option>
+                  <option value="หลัง">หลัง</option>
+                  <option value="สะบัก">สะบัก</option>
+                  <option value="หน้าท้อง">หน้าท้อง</option>
+                  <option value="ต้นขา">ต้นขา</option>
+                  <option value="น่อง">น่อง</option>
+                  <option value="หน้าแข้ง">หน้าแข้ง</option>
+                  <option value="อื่น ๆ">อื่น ๆ</option>
+                </select>
+
+                {placement === 'อื่น ๆ' && (
+                  <div className="mt-2 animate-in fade-in slide-in-from-top-1 duration-150">
+                    <input
+                      type="text"
+                      required
+                      placeholder="ระบุตำแหน่งอื่น ๆ (เช่น ใบหู, ลำคอ) *"
+                      value={customPlacement}
+                      onChange={e => setCustomPlacement(e.target.value)}
+                      className="w-full bg-[#0A0A0A] border border-[#262626] rounded-xl px-3.5 py-3 text-sm text-white focus:outline-none focus:border-white"
+                    />
+                  </div>
+                )}
+
+                {placementTouched && placement === '' && (
                   <p className="text-xs text-red-400 mt-1">กรุณาระบุตำแหน่งที่ต้องการสัก</p>
+                )}
+                {placementTouched && placement === 'อื่น ๆ' && customPlacement.trim() === '' && (
+                  <p className="text-xs text-red-400 mt-1">กรุณาระบุรายละเอียดตำแหน่งอื่น ๆ</p>
                 )}
               </div>
             </div>
@@ -830,18 +814,16 @@ export default function FlashBookingClient({
                   )}
                 </div>
 
-                {flashBookingMode === 'fixed_price' && (
-                  <div>
-                    <label className="block text-xs text-[#737373] mb-1">หมายเหตุเพิ่มเติม</label>
-                    <textarea
-                      rows={2}
-                      value={notes}
-                      onChange={e => setNotes(e.target.value)}
-                      className="w-full bg-[#0A0A0A] border border-[#262626] rounded-lg px-3.5 py-2 text-sm text-white focus:outline-none focus:border-white resize-none"
-                      placeholder="ระบุข้อความถึงช่างสัก (ถ้ามี)"
-                    />
-                  </div>
-                )}
+                <div>
+                  <label className="block text-xs text-[#737373] mb-1">หมายเหตุเพิ่มเติม</label>
+                  <textarea
+                    rows={2}
+                    value={notes}
+                    onChange={e => setNotes(e.target.value)}
+                    className="w-full bg-[#0A0A0A] border border-[#262626] rounded-lg px-3.5 py-2 text-sm text-white focus:outline-none focus:border-white resize-none"
+                    placeholder="ระบุข้อความถึงช่างสัก (ถ้ามี)"
+                  />
+                </div>
               </div>
             </div>
 
@@ -861,17 +843,19 @@ export default function FlashBookingClient({
                 <div className="flex justify-between">
                   <span>ขนาด</span>
                   <span className="text-white font-medium">
-                    {flashBookingMode === 'price_review_required' 
-                      ? (widthCm && heightCm ? `กว้าง ${widthCm} ซม. × ยาว ${heightCm} ซม.` : '-')
+                    {selectedVariantId === 'custom'
+                      ? (widthCm && heightCm ? `${widthCm} × ${heightCm} ซม.` : '-')
                       : (selectedVariant 
-                          ? `กว้าง ${selectedVariant.min_size_cm || 0} ซม. × ยาว ${selectedVariant.max_size_cm || 0} ซม.`
+                          ? `${selectedVariant.min_size_cm || 0} × ${selectedVariant.max_size_cm || 0} ซม.`
                           : `ขนาด: ${flash.size}`)
                     }
                   </span>
                 </div>
                 <div className="flex justify-between">
                   <span>ตำแหน่ง</span>
-                  <span className="text-white font-medium">{placement || '-'}</span>
+                  <span className="text-white font-medium">
+                    {placement === 'อื่น ๆ' ? (customPlacement || 'อื่น ๆ') : (placement || '-')}
+                  </span>
                 </div>
                 <div className="flex justify-between">
                   <span>วันจองคิว</span>
@@ -888,7 +872,7 @@ export default function FlashBookingClient({
                   <div className="flex justify-between text-sm">
                     <span className="text-[#A3A3A3]">ราคางานสัก</span>
                     <span className="text-white font-bold">
-                      {flashBookingMode === 'price_review_required' 
+                      {selectedVariantId === 'custom'
                         ? 'รอช่างประเมินราคา' 
                         : `฿${price.toLocaleString()}`}
                     </span>
@@ -896,7 +880,9 @@ export default function FlashBookingClient({
                   <div className="flex justify-between text-sm">
                     <span className="text-[#A3A3A3]">ยอดมัดจำ</span>
                     <span className="text-amber-500 font-bold">
-                      {settings ? (
+                      {selectedVariantId === 'custom' ? (
+                        'รอกำหนดราคา'
+                      ) : settings ? (
                         settings.deposit_required ? (
                           `฿${deposit.toLocaleString()}`
                         ) : (
