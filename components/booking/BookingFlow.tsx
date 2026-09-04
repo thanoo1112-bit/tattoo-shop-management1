@@ -47,7 +47,8 @@ export default function BookingFlow({
 
   // Multi-step state: 1 = Artist/Artwork selection, 2 = Date, 3 = Time Slot, 4 = Summary, 5 = Success
   const [step, setStep] = useState(1);
-  const [selectedArtist, setSelectedArtist] = useState<Artist | null>(preselectedArtist || artists[0] || null);
+  const activeArtists = React.useMemo(() => artists.filter(a => a.is_active === true), [artists]);
+  const [selectedArtist, setSelectedArtist] = useState<Artist | null>(preselectedArtist || activeArtists[0] || null);
   const [selectedArtwork, setSelectedArtwork] = useState<BookingArtworkReference | null>(preselectedArtwork || null);
   const [estimateReqId, setEstimateReqId] = useState<string | undefined>(estimateRequestId);
 
@@ -208,7 +209,7 @@ export default function BookingFlow({
               </div>
             ) : (
               <div className="grid grid-cols-1 gap-2">
-                {artists.map((artist) => {
+                {activeArtists.map((artist) => {
                   const isSelected = selectedArtist?.id === artist.id;
                   const specLabel = artist.specialties && artist.specialties.length > 0
                     ? artist.specialties.join(' / ')

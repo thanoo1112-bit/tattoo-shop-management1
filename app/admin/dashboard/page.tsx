@@ -59,10 +59,11 @@ export default function AdminDashboardPage() {
   console.log('[ADMIN-AUTH 12] Admin guard rendered dashboard');
 
   // Calculate Metrics
+  const activeStudioArtists = artists.filter(a => a.is_active === true);
   const confirmedToday = bookings.filter(b => b.status === 'CONFIRMED').length;
   const pendingRequests = bookings.filter(b => b.status === 'PENDING').length + estimateRequests.filter(e => e.status === 'PENDING').length;
   const pendingDeposits = bookingPayments.filter(p => p.paymentType === 'DEPOSIT' && p.status === 'SUBMITTED').length;
-  const tattooingCount = artists.filter(a => a.status === 'Tattooing').length;
+  const tattooingCount = activeStudioArtists.filter(a => a.status === 'Tattooing' || a.status === 'TATTOOING').length;
 
   const verifiedDepositTotal = bookingPayments
     .filter(p => p.paymentType === 'DEPOSIT' && p.status === 'VERIFIED')
@@ -122,7 +123,7 @@ export default function AdminDashboardPage() {
             title="ช่างกำลังทำงาน"
             value={`${tattooingCount} คน`}
             icon={Clock}
-            change="จากช่างทั้งหมด 4 คน"
+            change={`จากช่างทั้งหมด ${activeStudioArtists.length} คน`}
             changeType="neutral"
           />
           <div className="col-span-2 sm:col-span-1">

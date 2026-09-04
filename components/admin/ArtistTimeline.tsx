@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useApp } from '../AppContext';
 import { Booking } from '@/data/mockBookings';
 import { Artist } from '@/data/mockArtists';
@@ -27,9 +27,22 @@ export default function ArtistTimeline({ singleArtistId = null }: ArtistTimeline
 
   const [selectedDate, setSelectedDate] = useState(todayStr);
 
+  // Normalize: Exactly one row per active studio artist (ช่างบอม, ช่างบาส)
+  const uniqueActiveArtists = useMemo(() => {
+    const seen = new Set<string>();
+    return artists
+      .filter((a) => {
+        if (!a || !a.id) return false;
+        if (seen.has(a.id)) return false;
+        seen.add(a.id);
+        return a.is_active === true;
+      })
+      .sort((a, b) => (a.sort_order ?? 99) - (b.sort_order ?? 99));
+  }, [artists]);
+
   const displayedArtists = singleArtistId 
-    ? artists.filter(a => a.id === singleArtistId)
-    : artists;
+    ? uniqueActiveArtists.filter(a => a.id === singleArtistId)
+    : uniqueActiveArtists;
 
   const timeToDecimal = (timeStr: string): number => {
     if (!timeStr) return startDayHour;

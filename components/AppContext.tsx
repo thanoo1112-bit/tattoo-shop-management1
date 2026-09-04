@@ -13,7 +13,7 @@ interface Profile {
   user_id: string;
   display_name: string;
   email: string;
-  role: 'customer' | 'admin';
+  role: 'customer' | 'admin' | 'artist';
   phone?: string;
   avatar_url?: string;
   is_active?: boolean;
@@ -30,8 +30,9 @@ interface AppContextType {
   isCustomerProfileComplete: boolean;
   
   isStaffLoggedIn: boolean;
-  staffRole: 'ADMIN' | null;
+  staffRole: 'ADMIN' | 'ARTIST' | null;
   staffArtistId: string | null;
+  staffArtistRecord: any | null;
   
   user: User | null;
   profile: Profile | null;
@@ -53,7 +54,7 @@ interface AppContextType {
   completeCustomerProfile: (displayName: string, phone: string, eligibilityConfirmed: boolean) => Promise<{ success: boolean; error?: string }>;
   logoutCustomer: () => Promise<void>;
   
-  loginStaff: (email: string, password?: string) => Promise<{ success: boolean; role: 'ADMIN' | null; error?: string }>;
+  loginStaff: (email: string, password?: string) => Promise<{ success: boolean; role: 'ADMIN' | 'ARTIST' | null; error?: string }>;
   logoutStaff: () => Promise<void>;
   
   setBookingDraft: (draft: Partial<Booking> | null) => void;
@@ -140,6 +141,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [customerProfileCompletedAt, setCustomerProfileCompletedAt] = useState<string | null>(null);
   const [customerEligibilityConfirmedAt, setCustomerEligibilityConfirmedAt] = useState<string | null>(null);
 
+  // Artist Staff Identity State
+  const [staffArtistRecord, setStaffArtistRecord] = useState<any | null>(null);
+  const [staffArtistIdState, setStaffArtistIdState] = useState<string | null>(null);
+
   // Fetch artists from Supabase
   const fetchArtists = useCallback(async () => {
     try {
@@ -150,26 +155,34 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         .order('created_at', { ascending: true });
 
       if (!error && data) {
-        const mapped: Artist[] = data.map((item: any) => ({
-          id: item.id,
-          name: item.name,
-          nickname: item.nickname || undefined,
-          slug: item.slug || undefined,
-          specialty: (item.specialties && item.specialties.length > 0) ? item.specialties.join(' / ') : '',
-          specialties: item.specialties || [],
-          bio: item.bio || '',
-          avatar: item.avatar_url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=500',
-          avatar_url: item.avatar_url || undefined,
-          portfolio: [],
-          availability: item.working_days || [],
-          working_days: item.working_days || [],
-          status: item.status || 'AVAILABLE',
-          is_active: item.is_active,
-          is_visible: item.is_visible,
-          sort_order: item.sort_order,
-          created_at: item.created_at,
-          updated_at: item.updated_at,
-        }));
+        const seen = new Set<string>();
+        const mapped: Artist[] = data
+          .filter((item: any) => {
+            if (!item || !item.id) return false;
+            if (seen.has(item.id)) return false;
+            seen.add(item.id);
+            return true;
+          })
+          .map((item: any) => ({
+            id: item.id,
+            name: item.name,
+            nickname: item.nickname || undefined,
+            slug: item.slug || undefined,
+            specialty: (item.specialties && item.specialties.length > 0) ? item.specialties.join(' / ') : '',
+            specialties: item.specialties || [],
+            bio: item.bio || '',
+            avatar: item.avatar_url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=500',
+            avatar_url: item.avatar_url || undefined,
+            portfolio: [],
+            availability: item.working_days || [],
+            working_days: item.working_days || [],
+            status: item.status || 'AVAILABLE',
+            is_active: item.is_active,
+            is_visible: item.is_visible,
+            sort_order: item.sort_order,
+            created_at: item.created_at,
+            updated_at: item.updated_at,
+          }));
         setArtists(mapped);
         return mapped;
       }
@@ -475,6 +488,31 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
               }
               if (prof.role === 'admin') {
                 console.log('[ADMIN-AUTH 08] role verified admin');
+                try {
+                  const { data: artistRec } = await supabase
+                    .from('artists')
+                    .select('*')
+                    .eq('user_id', session.user.id)
+                    .eq('is_active', true)
+                    .maybeSingle();
+                  if (artistRec && isMountedLocal) {
+                    setStaffArtistRecord(artistRec);
+                    setStaffArtistIdState(artistRec.id);
+                  }
+                } catch (_) {}
+              } else if (prof.role === 'artist' && prof.is_active !== false) {
+                try {
+                  const { data: artistRec } = await supabase
+                    .from('artists')
+                    .select('*')
+                    .eq('user_id', session.user.id)
+                    .eq('is_active', true)
+                    .maybeSingle();
+                  if (artistRec && isMountedLocal) {
+                    setStaffArtistRecord(artistRec);
+                    setStaffArtistIdState(artistRec.id);
+                  }
+                } catch (_) {}
               }
               console.log('[ADMIN-AUTH 09] auth state updated');
               // Asynchronously load operational data in background - NEVER block Auth loading!
@@ -489,10 +527,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           if (typeof window !== 'undefined') {
             document.cookie = '157_staff_role=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax';
             document.cookie = '157_staff_email=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax';
+            document.cookie = '157_artist_id=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax';
             localStorage.removeItem('157_staff_session');
           }
           setUser(null);
           setProfile(null);
+          setStaffArtistRecord(null);
+          setStaffArtistIdState(null);
         }
       } catch (err) {
         console.error('[ADMIN-AUTH] Auth initialization error:', err);
@@ -545,6 +586,32 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
                     }
                   }
                 } catch (_) {}
+              } else if (prof.role === 'admin') {
+                try {
+                  const { data: artistRec } = await supabase
+                    .from('artists')
+                    .select('*')
+                    .eq('user_id', session.user.id)
+                    .eq('is_active', true)
+                    .maybeSingle();
+                  if (artistRec && isMountedLocal) {
+                    setStaffArtistRecord(artistRec);
+                    setStaffArtistIdState(artistRec.id);
+                  }
+                } catch (_) {}
+              } else if (prof.role === 'artist' && prof.is_active !== false) {
+                try {
+                  const { data: artistRec } = await supabase
+                    .from('artists')
+                    .select('*')
+                    .eq('user_id', session.user.id)
+                    .eq('is_active', true)
+                    .maybeSingle();
+                  if (artistRec && isMountedLocal) {
+                    setStaffArtistRecord(artistRec);
+                    setStaffArtistIdState(artistRec.id);
+                  }
+                } catch (_) {}
               }
               loadUserData(session.user, prof.role).catch(() => {});
             }
@@ -557,6 +624,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         if (!storedStaff && !storedCustomer) {
           setUser(null);
           setProfile(null);
+          setStaffArtistRecord(null);
+          setStaffArtistIdState(null);
           setEstimateRequests([]);
           setBookings([]);
           setBookingPayments([]);
@@ -911,7 +980,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const loginStaff = async (
     email: string, 
     password?: string
-  ): Promise<{ success: boolean; role: 'ADMIN' | null; error?: string }> => {
+  ): Promise<{ success: boolean; role: 'ADMIN' | 'ARTIST' | null; error?: string }> => {
     console.log('[STAFF-LOGIN 04] loginStaff entered');
     const lowerEmail = email.toLowerCase().trim();
     if (!password || password.trim() === '') {
@@ -938,39 +1007,115 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           .from('profiles')
           .select('*')
           .eq('user_id', data.user.id)
-          .single();
+          .maybeSingle();
         console.log('[STAFF-LOGIN 08] profile query returned. Role:', prof?.role);
 
-        if (prof) {
-          if (prof.role !== 'admin' || prof.is_active === false) {
-            await supabase.auth.signOut();
-            return { success: false, role: null, error: 'บัญชีนี้ไม่มีสิทธิ์เข้าระบบผู้ดูแล' };
-          }
+        if (!prof) {
+          await supabase.auth.signOut();
+          return { success: false, role: null, error: 'ไม่พบข้อมูลโปรไฟล์พนักงานในระบบ' };
+        }
+
+        if (prof.is_active === false) {
+          await supabase.auth.signOut();
+          return { success: false, role: null, error: 'บัญชีนี้ไม่สามารถเข้าใช้งานระบบพนักงานได้' };
+        }
+
+        if (prof.role === 'customer') {
+          await supabase.auth.signOut();
+          return { success: false, role: null, error: 'บัญชีนี้เป็นบัญชีลูกค้า กรุณาเข้าสู่ระบบผ่านหน้าลูกค้า' };
+        }
+
+        if (prof.role === 'admin') {
           console.log('[STAFF-LOGIN 09] admin verified');
           setUser(data.user);
           setProfile(prof);
+
+          let linkedArtist: any = null;
+          try {
+            const { data: artistRec } = await supabase
+              .from('artists')
+              .select('*')
+              .eq('user_id', data.user.id)
+              .eq('is_active', true)
+              .maybeSingle();
+            if (artistRec) {
+              linkedArtist = artistRec;
+              setStaffArtistRecord(artistRec);
+              setStaffArtistIdState(artistRec.id);
+            } else {
+              setStaffArtistRecord(null);
+              setStaffArtistIdState(null);
+            }
+          } catch (_) {
+            setStaffArtistRecord(null);
+            setStaffArtistIdState(null);
+          }
+
           if (typeof document !== 'undefined') {
             document.cookie = `157_staff_role=admin; path=/; max-age=86400; SameSite=Lax`;
             document.cookie = `157_staff_email=${lowerEmail}; path=/; max-age=86400; SameSite=Lax`;
+            if (linkedArtist) {
+              document.cookie = `157_artist_id=${linkedArtist.id}; path=/; max-age=86400; SameSite=Lax`;
+            } else {
+              document.cookie = '157_artist_id=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax';
+            }
             document.cookie = '157_customer_role=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax';
             localStorage.removeItem('157_customer_session');
           }
-          saveToStorage('157_staff_session', { user: data.user, profile: prof });
+          saveToStorage('157_staff_session', { user: data.user, profile: prof, artist: linkedArtist });
           loadUserData(data.user, 'admin').catch(() => {});
           setAuthLoading(false);
-          console.log('[STAFF-LOGIN 10] loginStaff returning success');
+          console.log('[STAFF-LOGIN 10] loginStaff returning success (ADMIN)');
           return { success: true, role: 'ADMIN' as const };
-        } else {
-          await supabase.auth.signOut();
-          return { success: false, role: null, error: 'ไม่พบข้อมูลโปรไฟล์ผู้ดูแลในระบบ' };
         }
+
+        if (prof.role === 'artist') {
+          console.log('[STAFF-LOGIN 09] validating artist record linkage');
+          const { data: artistRec, error: artErr } = await supabase
+            .from('artists')
+            .select('*')
+            .eq('user_id', data.user.id)
+            .eq('is_active', true)
+            .maybeSingle();
+
+          if (artErr || !artistRec || artistRec.is_active === false) {
+            console.warn('[STAFF-LOGIN] artist profile exists but no active linked artists row');
+            await supabase.auth.signOut();
+            return {
+              success: false,
+              role: null,
+              error: 'บัญชีช่างยังไม่ได้เชื่อมกับข้อมูลช่างในระบบ กรุณาติดต่อผู้ดูแลร้าน'
+            };
+          }
+
+          console.log('[STAFF-LOGIN 09] artist verified:', artistRec.name, 'ID:', artistRec.id);
+          setUser(data.user);
+          setProfile(prof);
+          setStaffArtistRecord(artistRec);
+          setStaffArtistIdState(artistRec.id);
+          if (typeof document !== 'undefined') {
+            document.cookie = `157_staff_role=artist; path=/; max-age=86400; SameSite=Lax`;
+            document.cookie = `157_staff_email=${lowerEmail}; path=/; max-age=86400; SameSite=Lax`;
+            document.cookie = `157_artist_id=${artistRec.id}; path=/; max-age=86400; SameSite=Lax`;
+            document.cookie = '157_customer_role=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax';
+            localStorage.removeItem('157_customer_session');
+          }
+          saveToStorage('157_staff_session', { user: data.user, profile: prof, artist: artistRec });
+          loadUserData(data.user, 'artist').catch(() => {});
+          setAuthLoading(false);
+          console.log('[STAFF-LOGIN 10] loginStaff returning success (ARTIST)');
+          return { success: true, role: 'ARTIST' as const };
+        }
+
+        await supabase.auth.signOut();
+        return { success: false, role: null, error: 'บัญชีนี้ไม่สามารถเข้าใช้งานระบบพนักงานได้' };
       }
 
       if (error) {
         return { success: false, role: null, error: error.message || 'อีเมลหรือรหัสผ่านไม่ถูกต้อง' };
       }
 
-      return { success: false, role: null, error: 'ไม่พบผู้ใช้ในระบบ หรืออีเมลและรหัสผ่านไม่ถูกต้อง (สำหรับผู้ดูแลเท่านั้น)' };
+      return { success: false, role: null, error: 'ไม่พบผู้ใช้ในระบบ หรืออีเมลและรหัสผ่านไม่ถูกต้อง (สำหรับพนักงานเท่านั้น)' };
     } catch (e: any) {
       return { success: false, role: null, error: e?.message || 'เกิดข้อผิดพลาดในการตรวจสอบสิทธิ์' };
     }
@@ -982,12 +1127,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     } catch (_) {}
     setUser(null);
     setProfile(null);
+    setStaffArtistRecord(null);
+    setStaffArtistIdState(null);
     setEstimateRequests([]);
     setBookings([]);
     setBookingPayments([]);
     if (typeof window !== 'undefined') {
       document.cookie = '157_staff_role=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
       document.cookie = '157_staff_email=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+      document.cookie = '157_artist_id=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
       localStorage.removeItem('157_staff_session');
       window.location.href = '/staff/login';
     }
@@ -1322,9 +1470,24 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   };
 
   const isLoggedIn = user !== null;
-  const isStaffLoggedIn = profile?.role === 'admin';
-  const staffRole = profile?.role === 'admin' ? ('ADMIN' as const) : null;
-  const staffArtistId = null;
+  const isStaffLoggedIn = Boolean(
+    profile &&
+    profile.is_active !== false &&
+    (
+      profile.role === 'admin' ||
+      (profile.role === 'artist' && staffArtistRecord && staffArtistRecord.is_active !== false)
+    )
+  );
+
+  const staffRole: 'ADMIN' | 'ARTIST' | null = (
+    profile?.is_active !== false && profile?.role === 'admin'
+      ? ('ADMIN' as const)
+      : (profile?.is_active !== false && profile?.role === 'artist' && staffArtistRecord && staffArtistRecord.is_active !== false)
+        ? ('ARTIST' as const)
+        : null
+  );
+
+  const staffArtistId = staffArtistIdState || staffArtistRecord?.id || null;
 
   const effectiveCustomerPhone = (profile?.phone || customerMasterPhone || user?.phone || '').trim();
 
@@ -1349,6 +1512,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       isStaffLoggedIn,
       staffRole,
       staffArtistId,
+      staffArtistRecord,
       user,
       profile,
       authLoading,

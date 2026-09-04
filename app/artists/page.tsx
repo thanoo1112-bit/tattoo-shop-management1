@@ -33,6 +33,7 @@ function ArtistsContent() {
       const { data, error } = await supabase
         .from('artists')
         .select('*')
+        .eq('is_active', true)
         .order('sort_order', { ascending: true })
         .order('created_at', { ascending: true });
 
