@@ -151,6 +151,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const { data, error } = await supabase
         .from('artists')
         .select('*')
+        .eq('is_active', true)
         .order('sort_order', { ascending: true })
         .order('created_at', { ascending: true });
 
