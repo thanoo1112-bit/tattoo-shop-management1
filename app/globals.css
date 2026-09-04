@@ -1,0 +1,55 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --ink: #0E0D0C;
+  --ink-secondary: #171512;
+  --paper: #ECE4D3;
+  --tattoo-red: #9C2F2F;
+  --line: #4A443A;
+}
+
+body {
+  background-color: #0E0D0C;
+  color: #ECE4D3;
+  margin: 0;
+  padding: 0;
+  overflow-x: hidden;
+  font-family: var(--font-prompt), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+h1, h2, h3, .font-heading {
+  font-family: var(--font-bebas), var(--font-prompt), sans-serif;
+  letter-spacing: 0.04em;
+}
+
+/* Custom scrollbars for Ink & Aged Paper aesthetic */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #0E0D0C;
+}
+::-webkit-scrollbar-thumb {
+  background: #4A443A;
+  border-radius: 2px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #9C2F2F;
+}
+
+/* Flash Sheet border texture accent */
+.flash-paper {
+  background-color: #ECE4D3;
+  color: #171512;
+  border: 1px solid #4A443A;
+}
+
+/* Hide default browser password reveal and clear buttons (Microsoft Edge / IE) */
+input::-ms-reveal,
+input::-ms-clear {
+  display: none;
+}
+

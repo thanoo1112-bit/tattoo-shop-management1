@@ -1,0 +1,1072 @@
+<USER_REQUEST>
+โปรเจกต์: 157 TATTOO
+ประเภทระบบ: Web Application สำหรับร้านสัก
+เครื่องมือและระบบที่ใช้:
+
+* Next.js / React
+* Tailwind CSS
+* Lucide Icons
+* Supabase
+* GitHub
+* Vercel
+* Antigravity
+
+ภารกิจรอบนี้:
+ออกแบบและพัฒนาเฉพาะ Frontend UI/UX สำหรับมุมมอง Mobile และ Desktop ก่อน
+
+IMPORTANT:
+รอบนี้ห้ามแก้ Database Schema
+ห้ามสร้าง Supabase Table ใหม่
+ห้ามแก้ Authentication
+ห้ามทำ Payment Gateway จริง
+ห้ามแก้ Environment Variables
+ห้ามเปลี่ยน Deployment Configuration ของ Vercel
+ห้ามแก้ GitHub Workflow
+ห้ามลบหรือเปลี่ยนโครงสร้าง Backend เดิม
+
+ให้ใช้ Mock Data และ Local State สำหรับทดสอบ UI Flow ก่อน
+
+เป้าหมายคือให้หน้าเว็บสามารถ Run ได้จริง และกดทดสอบ Flow ได้จริง แต่ยังไม่บันทึกข้อมูลลงฐานข้อมูล
+
+━━━━━━━━━━━━━━━━━━━━━━
+
+1. BRAND
+   ━━━━━━━━━━━━━━━━━━━━━━
+
+ชื่อร้าน:
+157 TATTOO
+
+Style:
+Dark Luxury Tattoo Studio
+
+Mood:
+
+* Dark
+* Premium
+* Artistic
+* Modern
+* Minimal
+* Industrial
+* Professional
+
+Color Palette:
+
+Main Background:
+#121212
+
+Secondary Background:
+#1A1A1A
+
+Card / Surface:
+#1E1E1E
+
+Border:
+#333333
+
+Primary Accent:
+#B87333
+Aged Copper / Burnished Copper
+
+Primary Text:
+#F5F5F5
+
+Secondary Text:
+#A0A0A0
+
+Muted Text:
+#737373
+
+UI Design Rules:
+
+* ไม่ใช้สีสดหลายสี
+* ไม่ใช้ Gradient มากเกินไป
+* Card radius เล็กประมาณ 4–8px
+* ปุ่มดูแข็งแรงและเรียบ
+* ใช้ Border บาง
+* ใช้ Copper Accent เฉพาะ CTA, Active State และข้อมูลสำคัญ
+* เน้นภาพผลงานสักเป็น Visual หลัก
+* ใช้ Typography แบบ Modern Sans-serif
+* ให้ความรู้สึกเหมือนระบบจริง ไม่ใช่ Landing Page Template สำเร็จรูป
+
+━━━━━━━━━━━━━━━━━━━━━━
+2. CUSTOMER SYSTEM STRUCTURE
+━━━━━━━━━━━━━━━━━━━━━━
+
+ฝั่งลูกค้าแบ่งระบบออกเป็น 3 เรื่องอย่างชัดเจน:
+
+A. ขอประเมินราคา
+B. จองเลย
+C. มัดจำ
+
+ห้ามรวม 3 Flow นี้เป็นขั้นตอนเดียวกัน
+
+ความหมาย:
+
+ขอประเมินราคา
+= ลูกค้าส่งรายละเอียดงานให้ช่างพิจารณา
+ยังไม่ถือว่าเป็นการจอง
+
+จองเลย
+= ใช้กับงานที่ราคาและเงื่อนไขพร้อมแล้ว
+ลูกค้าสามารถเลือกวันและเวลาเพื่อส่งคำขอจองได้
+
+มัดจำ
+= เป็นขั้นตอนหลังจากคำขอจองได้รับอนุมัติแล้ว
+ใช้สำหรับยืนยันคิว
+
+━━━━━━━━━━━━━━━━━━━━━━
+3. PUBLIC CUSTOMER EXPERIENCE
+━━━━━━━━━━━━━━━━━━━━━━
+
+ลูกค้าต้องสามารถใช้งานส่วนต่อไปนี้โดยไม่ Login:
+
+* หน้าแรก
+* Portfolio
+* Flash
+* ดูช่างสัก
+* ดูโปรไฟล์ช่าง
+* ดูผลงานของช่าง
+* ดูรายละเอียดบริการ
+* ดูราคาที่ประกาศไว้
+* ขอประเมินราคา
+* เริ่มขั้นตอนจอง
+* เลือกช่าง
+* เลือกวันที่
+* เลือกช่วงเวลา
+* อัปโหลด Reference
+* ดู Booking Summary
+
+ยังไม่บังคับ Login ตั้งแต่หน้าแรก
+
+ใช้แนวคิด:
+Lazy Registration / Just-In-Time Login
+
+ให้บังคับ Login เฉพาะก่อนส่งข้อมูลจริงหรือยืนยันรายการ
+
+━━━━━━━━━━━━━━━━━━━━━━
+4. MOBILE CUSTOMER UI
+━━━━━━━━━━━━━━━━━━━━━━
+
+ออกแบบ Mobile First
+
+Target Width:
+ประมาณ 360px – 430px
+
+Navigation:
+ใช้ Fixed Bottom Navigation
+
+ห้ามใช้ Permanent Sidebar
+ห้ามใช้ Hamburger Menu เป็น Navigation หลัก
+
+Bottom Navigation มี 4 เมนู:
+
+1. หน้าแรก
+2. ผลงาน
+3. การจอง
+4. โปรไฟล์
+
+ใช้:
+Icon + Label สั้น
+
+Tap Target ต้องใหญ่และใช้งานนิ้วง่าย
+
+━━━━━━━━━━━━━━━━━━━━━━
+5. MOBILE HOME
+━━━━━━━━━━━━━━━━━━━━━━
+
+สร้างหน้า Home สำหรับ 157 TATTOO
+
+ส่วนบน:
+
+* Logo 157 TATTOO
+* Hero Artwork
+* Headline
+* CTA
+
+CTA หลัก:
+
+[ ดูผลงาน ]
+[ เริ่มจอง ]
+
+ด้านล่างแสดง:
+
+Featured Flash
+Featured Artists
+Tattoo Styles
+Latest Works
+
+ใช้ภาพใหญ่
+ไม่ทำ Card เล็กจำนวนมากจนรก
+
+━━━━━━━━━━━━━━━━━━━━━━
+6. MOBILE PORTFOLIO
+━━━━━━━━━━━━━━━━━━━━━━
+
+Portfolio Page
+
+มี Filter:
+
+* All
+* Fine Line
+* Blackwork
+* Japanese
+* Traditional
+* Minimal
+* Realism
+
+แสดงผลงานแบบ:
+Masonry Grid
+
+เมื่อกด Artwork:
+เปิด Detail View
+
+แสดง:
+
+* รูปใหญ่
+* ชื่อผลงาน
+* Artist
+* Style
+* ขนาดโดยประมาณ
+* ปุ่มดูผลงานช่าง
+
+CTA:
+
+[ ขอประเมินงานแบบนี้ ]
+
+หรือ
+
+[ จองเลย ]
+
+ขึ้นอยู่กับประเภทงาน
+
+━━━━━━━━━━━━━━━━━━━━━━
+7. MOBILE ARTIST PAGE
+━━━━━━━━━━━━━━━━━━━━━━
+
+Artist Listing
+
+Artist Card:
+
+* รูปช่าง
+* ชื่อ
+* Specialty
+* Portfolio Preview
+* จำนวนผลงาน
+* CTA
+
+[ ดู Portfolio ]
+
+Artist Detail:
+
+* Hero Profile
+* ชื่อ
+* Specialty
+* Bio
+* Portfolio Masonry
+* Availability Preview
+
+CTA:
+
+[ ขอประเมินราคา ]
+[ จองกับช่างคนนี้ ]
+
+━━━━━━━━━━━━━━━━━━━━━━
+8. FLOW A — ขอประเมินราคา
+━━━━━━━━━━━━━━━━━━━━━━
+
+สร้างหน้า:
+
+Price Estimate Request
+
+Header:
+ขอประเมินราคา
+
+ข้อความ:
+ส่งรายละเอียดงานให้ช่างตรวจสอบก่อนตัดสินใจจอง
+
+Form:
+
+1. เลือกช่าง
+2. Upload Reference Image
+3. ขนาดงาน
+
+Width:
+__ cm
+
+Height:
+__ cm
+
+4. ตำแหน่งที่จะสัก
+
+ตัวเลือกเช่น:
+
+* แขน
+* ท่อนแขน
+* ต้นแขน
+* หน้าอก
+* หลัง
+* ต้นขา
+* น่อง
+* อื่น ๆ
+
+5. Style
+
+6. รายละเอียดเพิ่มเติม
+
+7. วันที่ที่สนใจ
+   เป็น Optional
+
+CTA:
+
+[ ส่งคำขอประเมินราคา ]
+
+ก่อน Submit จริง:
+ถ้ายังไม่ Login
+ให้เปิด Login Modal
+
+หลัง Login สำเร็จ:
+ข้อมูล Form ต้องไม่หาย
+
+Mock Status:
+
+รอช่างประเมิน
+
+━━━━━━━━━━━━━━━━━━━━━━
+9. FLOW B — จองเลย
+━━━━━━━━━━━━━━━━━━━━━━
+
+ใช้กับงานที่มีราคาและรายละเอียดพร้อมแล้ว เช่น Flash
+
+แสดง:
+
+Artwork
+Artist
+Price
+Estimated Duration
+Required Deposit
+
+CTA:
+
+[ จองลายนี้ ]
+
+Booking Flow:
+
+Step 1
+เลือกช่าง
+ถ้างานล็อกช่างไว้แล้ว ให้ข้าม Step นี้
+
+Step 2
+เลือกวันที่
+
+Step 3
+เลือก Time Slot
+
+ตัวอย่าง:
+
+10:00–12:00
+13:00–17:00
+17:30–20:30
+
+Time Slot ต้องรองรับงานหลายชั่วโมง
+
+Step 4
+Booking Summary
+
+แสดง:
+
+* Artwork
+* Artist
+* ราคา
+* วันที่
+* เวลาเริ่ม
+* เวลาสิ้นสุด
+* Duration
+* Deposit
+
+CTA:
+
+[ ส่งคำขอจอง ]
+
+IMPORTANT:
+การกดปุ่มนี้ยังไม่ถือว่าคิว Confirmed
+
+Status หลัง Submit:
+
+รอช่างอนุมัติ
+
+━━━━━━━━━━━━━━━━━━━━━━
+10. FLOW C — มัดจำ
+━━━━━━━━━━━━━━━━━━━━━━
+
+มัดจำต้องไม่แสดงเป็น Flow แรกในการจอง
+
+ให้แสดงเมื่อ Booking ถูกอนุมัติแล้วเท่านั้น
+
+สร้างหน้า:
+
+Booking Detail
+
+Status Banner:
+
+ช่างอนุมัติคำขอแล้ว
+
+รายละเอียด:
+
+Artist
+Artwork
+Appointment Date
+Start Time
+End Time
+Tattoo Price
+Deposit Required
+
+CTA หลัก:
+
+[ ชำระมัดจำ ]
+
+ในรอบนี้ให้เป็น Mock Payment UI เท่านั้น
+
+ห้ามเชื่อม Payment Gateway จริง
+
+เมื่อกด Mock Payment:
+
+เปลี่ยน Local State จาก:
+
+WAITING_DEPOSIT
+
+เป็น:
+
+DEPOSIT_PAID
+
+และ Booking Status:
+
+CONFIRMED
+
+━━━━━━━━━━━━━━━━━━━━━━
+11. LOGIN UX
+━━━━━━━━━━━━━━━━━━━━━━
+
+Customer Login และ Staff Login ต้องแยก UI ออกจากกัน
+
+Customer Login:
+
+/login
+
+ให้มี:
+
+157 TATTOO
+เข้าสู่ระบบ
+
+ตัวเลือก UI:
+
+[ Continue with Google ]
+[ Continue with LINE ]
+
+หรือ
+
+Email
+Password
+
+[ เข้าสู่ระบบ ]
+
+ด้านล่าง:
+
+ยังไม่มีบัญชี?
+[ สมัครสมาชิก ]
+
+IMPORTANT:
+
+ห้ามบังคับ Login ตอนเปิดเว็บไซต์
+
+Login จะเกิดเมื่อ:
+
+* ส่งคำขอประเมิน
+* ส่งคำขอจอง
+* ดูข้อมูลส่วนตัว
+* ดูการจองของฉัน
+
+ถ้าเปิด Login จาก Booking Flow:
+เมื่อ Login สำเร็จต้องกลับไปหน้าที่เดิมพร้อมข้อมูลเดิม
+
+━━━━━━━━━━━━━━━━━━━━━━
+12. MOBILE CUSTOMER PORTAL
+━━━━━━━━━━━━━━━━━━━━━━
+
+สร้างหน้า:
+
+การจองของฉัน
+
+ใช้ Card List
+
+Card แสดง:
+
+Artist
+Date
+Time
+Booking Type
+Status
+
+Status เช่น:
+
+รอประเมิน
+เสนอราคาแล้ว
+รออนุมัติ
+รอมัดจำ
+ยืนยันคิวแล้ว
+กำลังดำเนินการ
+เสร็จสิ้น
+ยกเลิก
+
+เมื่อกด Card:
+เปิด Booking Detail
+
+━━━━━━━━━━━━━━━━━━━━━━
+13. DESKTOP CUSTOMER VIEW
+━━━━━━━━━━━━━━━━━━━━━━
+
+Desktop Target:
+
+1440px
+1600px
+1920×1080
+
+Desktop Navigation:
+
+ใช้ Top Header Navigation
+
+โครงสร้าง:
+
+Logo 157 TATTOO ด้านซ้าย
+
+Menu:
+
+หน้าแรก
+ผลงาน
+Flash
+ช่างสัก
+จองคิว
+
+ด้านขวา:
+
+ค้นหา
+การจองของฉัน
+Login / Profile
+
+ห้ามใช้ Permanent Sidebar
+
+━━━━━━━━━━━━━━━━━━━━━━
+14. DESKTOP PORTFOLIO + BOOKING
+━━━━━━━━━━━━━━━━━━━━━━
+
+ใช้ Split Screen Layout
+
+Left:
+ประมาณ 60–65%
+
+Right:
+ประมาณ 35–40%
+
+LEFT AREA:
+
+Portfolio
+
+Filter Bar:
+
+* All
+* Fine Line
+* Traditional
+* Blackwork
+* Japanese
+* Realism
+
+Masonry Grid
+
+Artist Cards อยู่ด้านล่าง
+
+RIGHT AREA:
+
+Sticky Action Panel
+
+Panel นี้ไม่จำเป็นต้องเปิด Form ทั้งหมดพร้อมกัน
+
+ค่าเริ่มต้นให้แสดง:
+
+Selected Artwork
+Selected Artist
+
+และ CTA:
+
+[ ขอประเมินราคา ]
+
+[ จองเลย ]
+
+เมื่อเลือก "ขอประเมินราคา":
+แสดง Estimate Form
+
+เมื่อเลือก "จองเลย":
+แสดง Booking Flow
+
+━━━━━━━━━━━━━━━━━━━━━━
+15. DESKTOP PRICE ESTIMATE UI
+━━━━━━━━━━━━━━━━━━━━━━
+
+ใช้ Two Column Form
+
+ด้านซ้าย:
+Reference Image Upload
+
+ด้านขวา:
+
+* Artist
+* Size
+* Placement
+* Style
+* Description
+* Preferred Date
+
+Bottom Sticky Action:
+
+[ ส่งคำขอประเมินราคา ]
+
+━━━━━━━━━━━━━━━━━━━━━━
+16. DESKTOP BOOKING UI
+━━━━━━━━━━━━━━━━━━━━━━
+
+สร้าง Booking Panel แบบ Step-by-Step
+
+Step 1:
+Artist / Artwork
+
+Step 2:
+Date
+
+Step 3:
+Time Slot
+
+Step 4:
+Summary
+
+Calendar ต้องมีพื้นที่มากกว่าบน Mobile
+
+Time Slots ใช้ Grid
+
+แสดง Duration ชัดเจน
+
+ตัวอย่าง:
+
+10:00 → 13:00
+3 ชั่วโมง
+
+13:30 → 17:30
+4 ชั่วโมง
+
+━━━━━━━━━━━━━━━━━━━━━━
+17. STAFF LOGIN
+━━━━━━━━━━━━━━━━━━━━━━
+
+สร้าง UI แยกที่:
+
+/staff/login
+
+ห้ามใช้ Customer Login Component เดียวกันแบบหน้าตาเหมือนกันทั้งหมด
+
+Staff Login:
+
+157 TATTOO
+Staff Portal
+
+Fields:
+
+Email
+Password
+
+[ เข้าสู่ระบบหลังบ้าน ]
+
+มีข้อความ:
+
+สำหรับเจ้าของร้านและช่างสักเท่านั้น
+
+ไม่ต้องแสดง Google / LINE ใน UI นี้
+
+รอบนี้เป็น UI Mockup เท่านั้น
+ยังไม่เปลี่ยน Authentication จริง
+
+━━━━━━━━━━━━━━━━━━━━━━
+18. DESKTOP ADMIN DASHBOARD
+━━━━━━━━━━━━━━━━━━━━━━
+
+ใช้ Top Header
+
+ห้ามใช้ Sidebar
+
+Navigation:
+
+ภาพรวม
+ปฏิทิน
+คำขอ
+ลูกค้า
+ช่างสัก
+รายได้
+
+Dashboard Top:
+
+KPI Cards:
+
+* คิววันนี้
+* คำขอใหม่
+* ช่างกำลังทำงาน
+* รายได้วันนี้
+* รายได้เดือนนี้
+
+━━━━━━━━━━━━━━━━━━━━━━
+19. ARTIST SCHEDULE
+━━━━━━━━━━━━━━━━━━━━━━
+
+ให้ Schedule เป็นจุดเด่นหลักของ Admin Dashboard
+
+ใช้:
+
+Timeline / Gantt-style Calendar
+
+Rows:
+ช่างแต่ละคน
+
+Columns:
+เวลา
+
+ตัวอย่าง:
+
+09:00
+10:00
+11:00
+12:00
+13:00
+14:00
+15:00
+16:00
+17:00
+18:00
+19:00
+
+Appointment Block ต้องสัมพันธ์กับระยะเวลาจริง
+
+ตัวอย่าง:
+
+10:00–12:00
+ต้องยาว 2 ชั่วโมง
+
+13:00–17:00
+ต้องยาว 4 ชั่วโมง
+
+ไม่ทำ Event ทุกอันขนาดเท่ากัน
+
+Artist Status:
+
+Available
+Tattooing
+Break
+Off Duty
+
+━━━━━━━━━━━━━━━━━━━━━━
+20. ADMIN REQUEST QUEUES
+━━━━━━━━━━━━━━━━━━━━━━
+
+แยก Queue เป็น 2 ประเภท
+
+A. Price Estimate Requests
+
+Card / Table แสดง:
+
+Customer
+Artist
+Reference
+Placement
+Size
+Submitted Date
+Status
+
+Status:
+
+รอประเมิน
+เสนอราคาแล้ว
+ลูกค้ายอมรับ
+ปฏิเสธ
+
+B. Booking Requests
+
+แสดง:
+
+Customer
+Artist
+Artwork
+Preferred Date
+Time
+Deposit
+Status
+
+Status:
+
+รออนุมัติ
+อนุมัติแล้ว
+รอมัดจำ
+ยืนยันแล้ว
+ปฏิเสธ
+
+อย่ารวม Estimate Request และ Booking Request ใน Queue เดียวโดยไม่มีประเภทกำกับ
+
+━━━━━━━━━━━━━━━━━━━━━━
+21. RESPONSIVE RULES
+━━━━━━━━━━━━━━━━━━━━━━
+
+Desktop:
+
+Top Navigation
+Grid
+Multi-column layout
+
+Tablet:
+
+ลดจำนวน Column
+รักษา Header Navigation เท่าที่พื้นที่พอ
+
+Mobile:
+
+Fixed Bottom Navigation
+Single Column
+Full-width cards
+
+Breakpoints:
+
+sm
+md
+lg
+xl
+2xl
+
+ต้องไม่มี Horizontal Overflow โดยไม่จำเป็น
+
+━━━━━━━━━━━━━━━━━━━━━━
+22. COMPONENT STRUCTURE
+━━━━━━━━━━━━━━━━━━━━━━
+
+แยก Component อย่างน้อยดังนี้:
+
+components/
+customer/
+CustomerHeader.tsx
+MobileBottomNav.tsx
+HeroSection.tsx
+PortfolioGrid.tsx
+PortfolioFilter.tsx
+ArtworkCard.tsx
+ArtistCard.tsx
+ArtistProfile.tsx
+
+estimate/
+EstimateForm.tsx
+ReferenceUploader.tsx
+TattooSizeInput.tsx
+PlacementSelector.tsx
+EstimateSummary.tsx
+
+booking/
+BookingFlow.tsx
+BookingStepper.tsx
+BookingCalendar.tsx
+TimeSlotPicker.tsx
+BookingSummary.tsx
+DepositCard.tsx
+
+auth/
+CustomerLoginModal.tsx
+CustomerLoginPage.tsx
+StaffLoginPage.tsx
+
+portal/
+CustomerBookingCard.tsx
+BookingStatusBadge.tsx
+CustomerBookingDetail.tsx
+
+admin/
+AdminHeader.tsx
+KPICard.tsx
+ArtistTimeline.tsx
+ArtistStatus.tsx
+EstimateRequestQueue.tsx
+BookingRequestQueue.tsx
+
+━━━━━━━━━━━━━━━━━━━━━━
+23. MOCK STATE
+━━━━━━━━━━━━━━━━━━━━━━
+
+ใช้ Local State / Mock Data
+
+ตัวอย่าง:
+
+estimateDraft = {
+artist,
+referenceImages,
+width,
+height,
+placement,
+style,
+description,
+preferredDate
+}
+
+bookingDraft = {
+bookingType,
+artwork,
+artist,
+date,
+startTime,
+endTime,
+duration,
+price,
+deposit
+}
+
+authMock = {
+isLoggedIn,
+role
+}
+
+ห้ามใช้ข้อมูลจริงจาก Supabase ในรอบนี้
+
+━━━━━━━━━━━━━━━━━━━━━━
+24. IMPORTANT BUSINESS RULE
+━━━━━━━━━━━━━━━━━━━━━━
+
+ต้องทำ UI ให้ผู้ใช้เข้าใจว่า:
+
+ประเมินราคา
+≠
+จองคิว
+
+จองคิว
+≠
+ยืนยันคิว
+
+อนุมัติคิว
+≠
+ชำระมัดจำแล้ว
+
+คิวจะถือว่า Confirmed หลังผ่านเงื่อนไขที่กำหนดเท่านั้น
+
+ตัวอย่าง:
+
+Estimate:
+PENDING
+→ QUOTED
+→ ACCEPTED
+
+Booking:
+PENDING
+→ APPROVED
+→ WAITING_DEPOSIT
+→ CONFIRMED
+
+Payment:
+UNPAID
+→ DEPOSIT_PAID
+
+━━━━━━━━━━━━━━━━━━━━━━
+25. CODE QUALITY
+━━━━━━━━━━━━━━━━━━━━━━
+
+ใช้:
+
+React Functional Components
+TypeScript
+Tailwind CSS
+Lucide React
+
+หลีกเลี่ยง:
+
+* Inline Style จำนวนมาก
+* Component ขนาดใหญ่มากไฟล์เดียว
+* Duplicate UI
+* Hardcode ซ้ำหลายที่
+
+สร้าง Mock Data แยกไฟล์
+
+เช่น:
+
+data/
+mockArtists.ts
+mockPortfolio.ts
+mockBookings.ts
+mockEstimateRequests.ts
+
+━━━━━━━━━━━━━━━━━━━━━━
+26. DO NOT TOUCH
+━━━━━━━━━━━━━━━━━━━━━━
+
+รอบนี้ห้าม:
+
+* ALTER TABLE
+* CREATE TABLE
+* DROP TABLE
+* Migration
+* RLS Changes
+* Supabase Auth Changes
+* OAuth Setup
+* Google Login Configuration
+* LINE Login Configuration
+* Payment Gateway
+* Storage Bucket Changes
+* Vercel Environment Variables
+* GitHub Actions
+* Production Database
+
+หากพบว่าจำเป็นต้องแก้ส่วนเหล่านี้:
+ให้หยุดและรายงานก่อน
+
+ห้ามดำเนินการเอง
+
+━━━━━━━━━━━━━━━━━━━━━━
+27. ACCEPTANCE CRITERIA
+━━━━━━━━━━━━━━━━━━━━━━
+
+ก่อนจบงานต้องตรวจว่า:
+
+1. Mobile Customer UI เปิดได้
+2. Desktop Customer UI เปิดได้
+3. Mobile Bottom Navigation ใช้งานได้
+4. Desktop Top Navigation ใช้งานได้
+5. Portfolio Filter กดได้
+6. Artist Selection กดได้
+7. ขอประเมินราคา Flow กดได้
+8. จองเลย Flow กดได้
+9. Calendar เลือกวันได้
+10. Time Slot เลือกได้
+11. Booking Summary เปลี่ยนตาม State
+12. Login Modal เปิดก่อน Submit ได้
+13. Login Mock แล้วข้อมูล Draft ไม่หาย
+14. Customer Portal เปิดได้
+15. Staff Login UI แยกออกจาก Customer
+16. Admin Dashboard Desktop เปิดได้
+17. Timeline แสดงคิวหลายชั่วโมงได้
+18. Estimate Queue และ Booking Queue แยกกัน
+19. Responsive ไม่มี Layout พัง
+20. npm build / next build ผ่าน
+
+สุดท้ายให้รายงาน:
+
+* ไฟล์ที่สร้างใหม่
+* ไฟล์ที่แก้ไข
+* Route ที่เพิ่ม
+* Component ที่เพิ่ม
+* Mock Data ที่เพิ่ม
+* ผล build
+* สิ่งที่ยังไม่ได้เชื่อม Backend
+
+อย่าเชื่อม Supabase จริงจนกว่าจะได้รับคำสั่งรอบถัดไป
+
+</USER_REQUEST>
+<ADDITIONAL_METADATA>
+The current local time is: 2026-08-31T22:46:18+07:00.
+</ADDITIONAL_METADATA>
+<USER_SETTINGS_CHANGE>
+The user changed setting `Model Selection` from None to Gemini 3.5 Flash (Medium). No need to comment on this change if the user doesn't ask about it. If reporting what model you are, please use a human readable name instead of the exact string.
+</USER_SETTINGS_CHANGE>
