@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { useApp, checkIsCustomerProfileComplete } from '@/components/AppContext';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { 
   User, 
   Phone, 
@@ -13,7 +13,7 @@ import {
   ArrowRight
 } from 'lucide-react';
 
-export default function CompleteProfilePage() {
+function CompleteProfileContent() {
   const { 
     supabase,
     user, 
@@ -30,6 +30,20 @@ export default function CompleteProfilePage() {
   } = useApp();
   
   const router = useRouter();
+  const searchParams = useSearchParams();
+
+  const rawNext = searchParams.get('next') || searchParams.get('redirect') || '';
+  const getSafeReturnUrl = (urlParam: string | null): string => {
+    if (!urlParam) return '/portal';
+    try {
+      const decoded = decodeURIComponent(urlParam);
+      if (decoded.startsWith('/') && !decoded.startsWith('//') && !decoded.includes('://')) {
+        return decoded;
+      }
+    } catch (_) {}
+    return '/portal';
+  };
+  const returnTargetUrl = getSafeReturnUrl(rawNext);
 
   const [displayName, setDisplayName] = useState('');
   const [phone, setPhone] = useState('');
@@ -37,24 +51,41 @@ export default function CompleteProfilePage() {
 
   const [nameError, setNameError] = useState('');
   const [phoneError, setPhoneError] = useState('');
+  const [disclaimerError, setDisclaimerError] = useState('');
   const [serverError, setServerError] = useState('');
   const [loading, setLoading] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
 
   // 1. Final Complete Profile Guard:
   // - If not logged in -> redirect to /login
-  // - If profile is already complete -> redirect to /portal immediately
+  // - If staff (admin / artist) -> redirect to staff dashboard immediately (NEVER show customer onboarding)
+  // - If customer profile is already complete -> redirect to target URL immediately
   useEffect(() => {
     let isCancelled = false;
 
     async function checkLiveStatus() {
       if (!isLoggedIn || !user) {
-        router.replace('/login');
+        router.replace(`/login?next=${encodeURIComponent(returnTargetUrl)}`);
+        return;
+      }
+
+      if (profile?.role === 'admin') {
+        router.replace('/admin/dashboard');
+        return;
+      }
+
+      if (profile?.role === 'artist') {
+        router.replace('/artist/dashboard');
+        return;
+      }
+
+      if (profile && profile.role !== 'customer') {
+        router.replace('/admin/dashboard');
         return;
       }
 
       if (isCustomerProfileComplete) {
-        router.replace('/portal');
+        router.replace(returnTargetUrl);
         return;
       }
 
@@ -72,6 +103,15 @@ export default function CompleteProfilePage() {
           .maybeSingle();
 
         if (isCancelled) return;
+
+        if (pData?.role === 'admin') {
+          router.replace('/admin/dashboard');
+          return;
+        }
+        if (pData?.role === 'artist') {
+          router.replace('/artist/dashboard');
+          return;
+        }
 
         const effectivePhone = pData?.phone || cData?.phone || '';
         const isComplete = checkIsCustomerProfileComplete(
@@ -142,15 +182,13 @@ export default function CompleteProfilePage() {
     }
 
     const trimmedPhone = phone.trim();
-    if (!trimmedPhone) {
-      setPhoneError('กรุณากรอกเบอร์โทรศัพท์');
-      hasError = true;
-    } else if (!/^0[0-9]{9}$/.test(trimmedPhone)) {
-      setPhoneError('กรุณากรอกเบอร์โทรศัพท์ 10 หลัก');
+    if (!trimmedPhone || !/^0[0-9]{9}$/.test(trimmedPhone)) {
+      setPhoneError('กรุณากรอกเบอร์โทรศัพท์ให้ถูกต้อง 10 หลัก');
       hasError = true;
     }
 
     if (!disclaimerAccepted) {
+      setDisclaimerError('กรุณายืนยันเงื่อนไขก่อนรับบริการ');
       hasError = true;
     }
 
@@ -165,7 +203,7 @@ export default function CompleteProfilePage() {
     if (res.success) {
       setIsSuccess(true);
       setTimeout(() => {
-        router.replace('/portal');
+        router.replace(returnTargetUrl);
       }, 500);
     } else {
       setServerError(res.error || 'เกิดข้อผิดพลาดในการบันทึกข้อมูล กรุณาลองใหม่อีกครั้ง');
@@ -283,22 +321,31 @@ export default function CompleteProfilePage() {
               <input
                 type="checkbox"
                 checked={disclaimerAccepted}
-                onChange={(e) => setDisclaimerAccepted(e.target.checked)}
+                onChange={(e) => {
+                  setDisclaimerAccepted(e.target.checked);
+                  if (disclaimerError) setDisclaimerError('');
+                }}
                 className="mt-0.5 w-4 h-4 rounded border-[#4A443A] bg-[#0E0D0C] text-[#9C2F2F] focus:ring-[#9C2F2F] focus:ring-offset-0 transition-colors shrink-0 accent-[#9C2F2F]"
               />
               <span className="text-xs text-[#A89F91] leading-relaxed group-hover:text-[#ECE4D3] transition-colors">
-                ฉันยืนยันว่ามีอายุ 18 ปีบริบูรณ์ขึ้นไป และได้แจ้งข้อมูลสุขภาพที่อาจเกี่ยวข้องกับการรับบริการสักอย่างถูกต้อง
+                ฉันยืนยันว่ามีอายุ 18 ปีบริบูรณ์ขึ้นไป และไม่มีภาวะสุขภาพที่ทราบว่าอาจส่งผลต่อความปลอดภัยในการสัก หากมีข้อมูลสุขภาพที่เกี่ยวข้อง ฉันจะแจ้งร้านก่อนรับบริการ
               </span>
             </label>
+            {disclaimerError && (
+              <p className="text-[11px] text-[#9C2F2F] mt-1.5 flex items-center space-x-1 font-medium">
+                <AlertCircle size={12} className="shrink-0" />
+                <span>{disclaimerError}</span>
+              </p>
+            )}
           </div>
 
           {/* Submit Button */}
           <div className="pt-3">
             <button
               type="submit"
-              disabled={!disclaimerAccepted || loading || isSuccess}
+              disabled={loading || isSuccess}
               className={`w-full h-11 rounded-[6px] text-xs font-semibold uppercase tracking-wider flex items-center justify-center space-x-2 transition-all ${
-                !disclaimerAccepted || loading || isSuccess
+                loading || isSuccess
                   ? 'bg-[#1C1A16] border border-[#4A443A] text-[#7A7265] cursor-not-allowed'
                   : 'bg-[#9C2F2F] hover:bg-[#852525] border border-[#9C2F2F] text-[#ECE4D3] shadow-lg shadow-[#9C2F2F]/20'
               }`}
@@ -331,5 +378,17 @@ export default function CompleteProfilePage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function CompleteProfilePage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-[#0E0D0C] flex flex-col justify-center items-center font-prompt">
+        <span className="text-sm text-[#A89F91] animate-pulse">กำลังโหลด...</span>
+      </div>
+    }>
+      <CompleteProfileContent />
+    </Suspense>
   );
 }

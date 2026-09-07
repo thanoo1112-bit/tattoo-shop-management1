@@ -19,6 +19,7 @@ import {
   ExternalLink,
 } from 'lucide-react';
 import Link from 'next/link';
+import CustomerReferenceImage from '@/components/common/CustomerReferenceImage';
 
 export interface CustomerFlashReservationRecord {
   id: string;
@@ -291,11 +292,13 @@ export default function CustomerFlashReservations() {
 
                 {/* Content Body */}
                 <div className="flex gap-3.5 items-start">
-                  {design?.image_url && (
-                    <div className="w-16 h-20 sm:w-20 sm:h-24 bg-studio-main rounded overflow-hidden shrink-0 border border-studio-border/60">
-                      <img src={design.image_url} alt={design.title} className="w-full h-full object-cover" />
-                    </div>
-                  )}
+                  <div className="w-16 h-20 sm:w-20 sm:h-24 bg-studio-main rounded overflow-hidden shrink-0 border border-studio-border/60">
+                    <CustomerReferenceImage
+                      src={design?.image_url}
+                      alt={design?.title || ''}
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
 
                   <div className="flex-1 min-w-0 space-y-1.5 text-xs">
                     <div className="flex justify-between items-start">

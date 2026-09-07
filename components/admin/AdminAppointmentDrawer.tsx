@@ -292,7 +292,7 @@ export default function AdminAppointmentDrawer({
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="p-2.5 rounded bg-[#171512] border border-[#4A443A]/50">
-                <span className="text-[10px] text-[#7A7265] block uppercase">ราคารวมประเมิน:</span>
+                <span className="text-[10px] text-[#7A7265] block uppercase">ราคางานสัก:</span>
                 <strong className="text-sm text-[#ECE4D3] font-mono">
                   ฿{booking.price?.toLocaleString() || '0'}
                 </strong>

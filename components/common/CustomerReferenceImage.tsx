@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { getCustomerReferenceSignedUrl } from '@/lib/utils/storageUploader';
-import { Image as ImageIcon, Loader2 } from 'lucide-react';
+import { Image as ImageIcon, Sparkles, Loader2 } from 'lucide-react';
 
 interface CustomerReferenceImageProps {
   src?: string | null;
@@ -17,7 +17,7 @@ export default function CustomerReferenceImage({
   src,
   alt = 'Reference Image',
   className = 'w-full h-full object-cover',
-  fallbackSrc = 'https://images.unsplash.com/photo-1598440947619-2c35fc9aa908?w=500',
+  fallbackSrc = '',
   onResolvedUrl,
   showSkeleton = true,
 }: CustomerReferenceImageProps) {
@@ -30,9 +30,9 @@ export default function CustomerReferenceImage({
 
     async function resolve() {
       if (!src) {
-        setResolvedUrl(fallbackSrc);
+        setResolvedUrl(fallbackSrc || '');
         setLoading(false);
-        if (onResolvedUrl) onResolvedUrl(fallbackSrc);
+        if (onResolvedUrl) onResolvedUrl(fallbackSrc || '');
         return;
       }
 
@@ -50,7 +50,7 @@ export default function CustomerReferenceImage({
       try {
         const signedUrl = await getCustomerReferenceSignedUrl(src, 3600);
         if (isMounted) {
-          const finalUrl = signedUrl || fallbackSrc;
+          const finalUrl = signedUrl || fallbackSrc || '';
           setResolvedUrl(finalUrl);
           if (!signedUrl) setHasError(true);
           if (onResolvedUrl) onResolvedUrl(finalUrl);
@@ -58,9 +58,9 @@ export default function CustomerReferenceImage({
       } catch (err) {
         console.error('[CustomerReferenceImage] Failed to resolve signed URL:', err);
         if (isMounted) {
-          setResolvedUrl(fallbackSrc);
+          setResolvedUrl(fallbackSrc || '');
           setHasError(true);
-          if (onResolvedUrl) onResolvedUrl(fallbackSrc);
+          if (onResolvedUrl) onResolvedUrl(fallbackSrc || '');
         }
       } finally {
         if (isMounted) {
@@ -84,11 +84,17 @@ export default function CustomerReferenceImage({
     );
   }
 
-  if (hasError && !resolvedUrl) {
+  // Dark Charcoal Minimal Tattoo Icon Placeholder when no reference image exists
+  if (!src || hasError || (!resolvedUrl && !fallbackSrc)) {
     return (
-      <div className="w-full h-full flex items-center justify-center bg-[#171512] text-[#7A7265] text-[10px] p-2 text-center">
-        <ImageIcon size={16} className="mb-1 block opacity-60" />
-        <span>ไม่สามารถโหลดรูปได้</span>
+      <div className="w-full h-full flex flex-col items-center justify-center bg-[#181614] border border-[#38332E]/60 text-[#8C8275] p-1 text-center select-none rounded-[4px] font-prompt">
+        <div className="flex items-center justify-center space-x-1 opacity-70 mb-0.5">
+          <Sparkles size={11} className="text-studio-red/80" />
+          <ImageIcon size={13} className="text-[#A3998E]" />
+        </div>
+        <span className="text-[9px] font-medium tracking-tight text-[#8C8275] leading-none">
+          {!src ? 'ไม่มีรูปอ้างอิง' : 'ไม่สามารถโหลดรูปภาพอ้างอิง'}
+        </span>
       </div>
     );
   }
@@ -99,9 +105,7 @@ export default function CustomerReferenceImage({
       alt={alt}
       className={className}
       onError={() => {
-        if (resolvedUrl !== fallbackSrc) {
-          setResolvedUrl(fallbackSrc);
-        }
+        setHasError(true);
       }}
     />
   );

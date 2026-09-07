@@ -4,8 +4,9 @@ import React, { useState } from 'react';
 import { useApp } from '../AppContext';
 import { EstimateRequest } from '@/data/mockEstimateRequests';
 import BookingStatusBadge from '../portal/BookingStatusBadge';
-import { Mail, Check, X, DollarSign, Calendar, MapPin, Ruler, Loader2, AlertCircle } from 'lucide-react';
+import { Mail, Check, X, Calendar, MapPin, Ruler, Loader2, AlertCircle, CheckCircle2 } from 'lucide-react';
 import CustomerReferenceImage from '@/components/common/CustomerReferenceImage';
+import { createClient } from '@/lib/supabase/client';
 
 interface EstimateRequestQueueProps {
   singleArtistId?: string | null;
@@ -14,11 +15,13 @@ interface EstimateRequestQueueProps {
 export default function EstimateRequestQueue({ singleArtistId = null }: EstimateRequestQueueProps) {
   const { estimateRequests, updateEstimateStatus } = useApp();
   
-  // Local state for active quote submission
-  const [activeQuoteId, setActiveQuoteId] = useState<string | null>(null);
-  const [priceInput, setPriceInput] = useState('');
-  const [depositInput, setDepositInput] = useState('');
-  const [durationInput, setDurationInput] = useState('2');
+  // Local state for active confirm submission
+  const [activeConfirmId, setActiveConfirmId] = useState<string | null>(null);
+  const [appointmentDate, setAppointmentDate] = useState('');
+  const [startTime, setStartTime] = useState('13:00');
+  const [endTime, setEndTime] = useState('16:00');
+  const [priceInput, setPriceInput] = useState('0');
+  const [depositInput, setDepositInput] = useState('0');
   const [noteInput, setNoteInput] = useState('');
   
   const [loading, setLoading] = useState(false);
@@ -29,51 +32,90 @@ export default function EstimateRequestQueue({ singleArtistId = null }: Estimate
     ? estimateRequests.filter(req => req.artistId === singleArtistId)
     : estimateRequests;
 
-  const handleOpenQuoteForm = (req: EstimateRequest) => {
-    setActiveQuoteId(req.id);
-    setPriceInput('5000');
-    setDepositInput('1500');
-    setDurationInput('3');
-    setNoteInput('งานสไตล์ ' + req.style + ' ขนาด ' + req.width + 'x' + req.height + ' ซม. แนะนำมัดจำเพื่อล็อคคิวครับ');
+  const handleOpenConfirmForm = (req: EstimateRequest) => {
+    setActiveConfirmId(req.id);
+    setAppointmentDate(new Date().toISOString().split('T')[0]);
+    setStartTime('13:00');
+    setEndTime('16:00');
+    setPriceInput(req.quotedPrice ? String(req.quotedPrice) : '0');
+    setDepositInput('0');
+    setNoteInput('');
     setError('');
   };
 
-  const handleSubmitQuote = async (id: string) => {
+  const handleConfirmSubmit = async (id: string) => {
     setError('');
-    const priceVal = Number(priceInput);
-    const depositVal = Number(depositInput);
-    const durationVal = Number(durationInput);
+    if (!appointmentDate) {
+      setError('กรุณาระบุวันนัดจริง');
+      return;
+    }
+    if (!startTime || !endTime) {
+      setError('กรุณาระบุเวลาเริ่มและเวลาสิ้นสุด');
+      return;
+    }
+    if (endTime <= startTime) {
+      setError('เวลาสิ้นสุดต้องอยู่หลังเวลาเริ่ม');
+      return;
+    }
 
+    const priceVal = Number(priceInput);
     if (isNaN(priceVal) || priceVal < 0) {
-      setError('กรุณากรอกราคาค่าสักที่ถูกต้อง');
+      setError('กรุณากรอกราคางานสักที่ถูกต้อง (ใส่ 0 หากยังไม่กำหนดราคา)');
       return;
     }
+
+    const depositVal = Number(depositInput);
     if (isNaN(depositVal) || depositVal < 0) {
-      setError('กรุณากรอกค่ามัดจำที่ถูกต้อง');
-      return;
-    }
-    if (depositVal > priceVal) {
-      setError('เงินมัดจำต้องไม่เกินราคาค่าสัก');
-      return;
-    }
-    if (isNaN(durationVal) || durationVal <= 0) {
-      setError('กรุณากรอกระยะเวลาชั่วโมงที่มากกว่า 0');
+      setError('กรุณากรอกค่ามัดจำที่ถูกต้อง (ใส่ 0 หากไม่ต้องมัดจำ)');
       return;
     }
 
     setLoading(true);
     try {
-      await updateEstimateStatus(id, 'QUOTED', priceVal, depositVal, durationVal, noteInput);
-      setActiveQuoteId(null);
+      const supabase = createClient();
+      const formattedStartTime = startTime.length === 5 ? `${startTime}:00` : startTime;
+      const formattedEndTime = endTime.length === 5 ? `${endTime}:00` : endTime;
+
+      if (!isNaN(priceVal)) {
+        await supabase
+          .from('estimate_requests')
+          .update({ quoted_price: priceVal })
+          .eq('id', id);
+      }
+
+      const { data, error: rpcErr } = await supabase.rpc('admin_confirm_booking_request', {
+        p_estimate_request_id: id,
+        p_appointment_date: appointmentDate,
+        p_start_time: formattedStartTime,
+        p_end_time: formattedEndTime,
+        p_deposit_required: depositVal,
+        p_admin_note: noteInput.trim() || null,
+      });
+
+      if (rpcErr) {
+        if (rpcErr.code === '23P01' || rpcErr.message?.includes('no_artist_double_booking')) {
+          setError('ช่วงเวลานี้มีคิวของช่างอยู่แล้ว กรุณาเลือกเวลาอื่น');
+        } else if (rpcErr.code === '42501') {
+          setError('คุณไม่มีสิทธิ์ยืนยันคำขอนี้');
+        } else {
+          setError(rpcErr.message || 'เกิดข้อผิดพลาดในการยืนยันคิวสัก');
+        }
+        return;
+      }
+
+      setActiveConfirmId(null);
+      if (typeof window !== 'undefined') {
+        window.location.reload();
+      }
     } catch (err: any) {
-      setError(err.message || 'ไม่สามารถบันทึกข้อมูลราคาประเมินลงฐานข้อมูลได้');
+      setError(err.message || 'ไม่สามารถบันทึกข้อมูลการยืนยันคิวได้');
     } finally {
       setLoading(false);
     }
   };
 
   const handleReject = async (id: string) => {
-    if (!window.confirm('คุณต้องการปฏิเสธคำขอประเมินราคานี้ใช่หรือไม่?')) return;
+    if (!window.confirm('คุณต้องการปฏิเสธคำขอจองนี้ใช่หรือไม่?')) return;
     setError('');
     try {
       await updateEstimateStatus(id, 'REJECTED');
@@ -83,10 +125,10 @@ export default function EstimateRequestQueue({ singleArtistId = null }: Estimate
   };
 
   return (
-    <div className="bg-studio-card border border-studio-border rounded-[8px] overflow-hidden w-full">
+    <div className="bg-studio-card border border-studio-border rounded-[8px] overflow-hidden w-full font-prompt">
       <div className="p-4 border-b border-studio-border bg-studio-sec/40 flex justify-between items-center">
         <h3 className="text-xs font-bold uppercase tracking-wider text-studio-primary">
-          คำขอประเมินราคา (Price Estimate Requests Queue) — REAL DATABASE
+          คำขอจองคิวสัก (Booking Requests Queue)
         </h3>
         <span className="text-[9px] bg-studio-red/10 text-studio-red border border-studio-red/30 px-2 py-0.5 rounded font-mono font-bold uppercase">
           Database Active
@@ -140,19 +182,14 @@ export default function EstimateRequestQueue({ singleArtistId = null }: Estimate
                 </td>
                 <td className="p-4">
                   <BookingStatusBadge status={req.status} type="estimate" />
-                  {req.quotedPrice && (
-                    <div className="text-[10px] text-studio-red font-semibold mt-1">
-                      ฿{req.quotedPrice.toLocaleString()} (มัดจำ ฿{req.quotedDeposit?.toLocaleString()})
-                    </div>
-                  )}
                 </td>
                 <td className="p-4 text-right">
                   {req.status === 'PENDING' && (
                     <div className="flex items-center justify-end space-x-2">
-                      {activeQuoteId === req.id ? (
-                        <div className="bg-studio-main border border-studio-border p-4 rounded-[6px] shadow-2xl flex flex-col space-y-2 text-left z-20 w-56 animate-fadeIn">
-                          <span className="text-[10px] font-bold text-studio-red border-b border-studio-border pb-1 mb-1 block uppercase">
-                            ส่งราคาประเมิน
+                      {activeConfirmId === req.id ? (
+                        <div className="bg-studio-main border border-studio-border p-4 rounded-[6px] shadow-2xl flex flex-col space-y-2 text-left z-20 w-64 animate-fadeIn">
+                          <span className="text-[10px] font-bold text-emerald-400 border-b border-studio-border pb-1 mb-1 block uppercase">
+                            จัดการคำขอจองคิวสัก
                           </span>
                           
                           {error && (
@@ -163,52 +200,83 @@ export default function EstimateRequestQueue({ singleArtistId = null }: Estimate
                           )}
 
                           <div>
-                            <label className="text-[9px] uppercase tracking-wider text-studio-secondary block mb-1">ราคาค่าสัก (บาท)</label>
+                            <label className="text-[9px] uppercase tracking-wider text-studio-secondary block mb-1">วันนัดจริง</label>
                             <input
-                              type="number"
-                              value={priceInput}
-                              onChange={(e) => setPriceInput(e.target.value)}
-                              className="bg-studio-card border border-studio-border focus:border-studio-red text-xs px-2 py-1.5 outline-none rounded-[3px] w-full"
+                              type="date"
+                              value={appointmentDate}
+                              onChange={(e) => setAppointmentDate(e.target.value)}
+                              className="bg-studio-card border border-studio-border focus:border-emerald-400 text-xs px-2 py-1.5 outline-none rounded-[3px] w-full"
                             />
                           </div>
-                          <div>
-                            <label className="text-[9px] uppercase tracking-wider text-studio-secondary block mb-1">มัดจำที่ต้องชำระ (บาท)</label>
-                            <input
-                              type="number"
-                              value={depositInput}
-                              onChange={(e) => setDepositInput(e.target.value)}
-                              className="bg-studio-card border border-studio-border focus:border-studio-red text-xs px-2 py-1.5 outline-none rounded-[3px] w-full"
-                            />
+
+                          <div className="grid grid-cols-2 gap-2">
+                            <div>
+                              <label className="text-[9px] uppercase tracking-wider text-studio-secondary block mb-1">เวลาเริ่ม</label>
+                              <input
+                                type="time"
+                                value={startTime}
+                                onChange={(e) => setStartTime(e.target.value)}
+                                className="bg-studio-card border border-studio-border focus:border-emerald-400 text-xs px-2 py-1.5 outline-none rounded-[3px] w-full"
+                              />
+                            </div>
+                            <div>
+                              <label className="text-[9px] uppercase tracking-wider text-studio-secondary block mb-1">เวลาสิ้นสุด</label>
+                              <input
+                                type="time"
+                                value={endTime}
+                                onChange={(e) => setEndTime(e.target.value)}
+                                className="bg-studio-card border border-studio-border focus:border-emerald-400 text-xs px-2 py-1.5 outline-none rounded-[3px] w-full"
+                              />
+                            </div>
                           </div>
-                          <div>
-                            <label className="text-[9px] uppercase tracking-wider text-studio-secondary block mb-1">เวลาสักโดยประมาณ (ชั่วโมง)</label>
-                            <input
-                              type="number"
-                              value={durationInput}
-                              onChange={(e) => setDurationInput(e.target.value)}
-                              className="bg-studio-card border border-studio-border focus:border-studio-red text-xs px-2 py-1.5 outline-none rounded-[3px] w-full"
-                            />
+
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            <div>
+                              <label className="text-[9px] uppercase tracking-wider text-studio-secondary block mb-1">ราคางานสัก (บาท)</label>
+                              <input
+                                type="number"
+                                min="0"
+                                value={priceInput}
+                                onChange={(e) => setPriceInput(e.target.value)}
+                                placeholder="0"
+                                className="bg-studio-card border border-studio-border focus:border-emerald-400 text-xs px-2 py-1.5 outline-none rounded-[3px] w-full"
+                              />
+                            </div>
+                            <div>
+                              <label className="text-[9px] uppercase tracking-wider text-studio-secondary block mb-1">เงินมัดจำ (บาท)</label>
+                              <input
+                                type="number"
+                                min="0"
+                                value={depositInput}
+                                onChange={(e) => setDepositInput(e.target.value)}
+                                placeholder="0"
+                                className="bg-studio-card border border-studio-border focus:border-emerald-400 text-xs px-2 py-1.5 outline-none rounded-[3px] w-full"
+                              />
+                            </div>
                           </div>
+
                           <div>
-                            <label className="text-[9px] uppercase tracking-wider text-studio-secondary block mb-1">หมายเหตุจากช่าง</label>
+                            <label className="text-[9px] uppercase tracking-wider text-studio-secondary block mb-1">หมายเหตุของร้าน</label>
                             <textarea
                               value={noteInput}
                               onChange={(e) => setNoteInput(e.target.value)}
                               rows={2}
-                              className="bg-studio-card border border-studio-border focus:border-studio-red text-[10px] p-1.5 outline-none rounded-[3px] w-full resize-none"
+                              placeholder="บันทึกเพิ่มเติม..."
+                              className="bg-studio-card border border-studio-border focus:border-emerald-400 text-[10px] p-1.5 outline-none rounded-[3px] w-full resize-none"
                             />
                           </div>
+
                           <div className="flex gap-1.5 pt-1.5">
                             <button
-                              onClick={() => handleSubmitQuote(req.id)}
+                              onClick={() => handleConfirmSubmit(req.id)}
                               disabled={loading}
-                              className="bg-studio-red text-studio-primary px-3 py-1.5 text-[10px] font-bold rounded-[3px] hover:bg-studio-red/80 transition-colors flex-1 flex items-center justify-center"
+                              className="bg-emerald-600 text-white px-3 py-1.5 text-[10px] font-bold rounded-[3px] hover:bg-emerald-500 transition-colors flex-1 flex items-center justify-center gap-1"
                             >
-                              {loading ? <Loader2 size={12} className="animate-spin" /> : 'ส่งใบเสนอราคา'}
+                              {loading ? <Loader2 size={12} className="animate-spin" /> : <><CheckCircle2 size={11} /><span>ยืนยันคิว</span></>}
                             </button>
                             <button
                               onClick={() => {
-                                setActiveQuoteId(null);
+                                setActiveConfirmId(null);
                                 setError('');
                               }}
                               disabled={loading}
@@ -221,11 +289,11 @@ export default function EstimateRequestQueue({ singleArtistId = null }: Estimate
                       ) : (
                         <>
                           <button
-                            onClick={() => handleOpenQuoteForm(req)}
-                            className="bg-studio-red text-studio-primary hover:bg-studio-red/80 text-[10px] font-bold tracking-wide uppercase px-2.5 py-1.5 rounded-[3px] transition-colors flex items-center space-x-1"
+                            onClick={() => handleOpenConfirmForm(req)}
+                            className="bg-emerald-600 text-white hover:bg-emerald-500 text-[10px] font-bold tracking-wide uppercase px-2.5 py-1.5 rounded-[3px] transition-colors flex items-center space-x-1 shadow"
                           >
-                            <DollarSign size={10} />
-                            <span>เสนอราคา</span>
+                            <Calendar size={10} />
+                            <span>จัดการคำขอจอง</span>
                           </button>
                           <button
                             onClick={() => handleReject(req.id)}
@@ -239,14 +307,11 @@ export default function EstimateRequestQueue({ singleArtistId = null }: Estimate
                     </div>
                   )}
 
-                  {req.status === 'QUOTED' && (
-                    <span className="text-[10px] text-studio-muted italic">ส่งใบเสนอราคาแล้ว</span>
-                  )}
                   {req.status === 'ACCEPTED' && (
-                    <span className="text-[10px] text-studio-red font-bold uppercase tracking-wider">ลูกค้ายอมรับแล้ว</span>
+                    <span className="text-[10px] text-emerald-400 font-bold uppercase tracking-wider">ยืนยันคำขอแล้ว</span>
                   )}
                   {req.status === 'REJECTED' && (
-                    <span className="text-[10px] text-red-500 font-semibold italic">ยกเลิกแล้ว</span>
+                    <span className="text-[10px] text-red-500 font-semibold italic">ปฏิเสธแล้ว</span>
                   )}
                 </td>
               </tr>
@@ -255,7 +320,7 @@ export default function EstimateRequestQueue({ singleArtistId = null }: Estimate
             {displayedRequests.length === 0 && (
               <tr>
                 <td colSpan={6} className="p-8 text-center text-studio-secondary italic">
-                  ไม่มีรายการคำขอประเมินราคาเข้ามาในขณะนี้
+                  ไม่มีรายการคำขอจองคิวสักเข้ามาในขณะนี้
                 </td>
               </tr>
             )}

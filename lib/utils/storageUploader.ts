@@ -23,7 +23,8 @@ export interface UploadOptions {
   outputFormat?: 'image/webp' | 'image/jpeg' | 'image/png';
 }
 
-const CLIENT_MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
+const CLIENT_MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB for Studio Assets (artists, flash, portfolio)
+const CUSTOMER_REF_MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB for Customer References
 const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/jpg'];
 
 /**
@@ -125,8 +126,8 @@ export async function uploadCustomerReference(
     throw new Error('กรุณาเข้าสู่ระบบก่อนอัปโหลดรูปภาพอ้างอิง');
   }
 
-  // 2. Validate file size and MIME
-  validateImageFile(file, CLIENT_MAX_FILE_SIZE);
+  // 2. Validate file size and MIME (up to 10 MB for Customer References)
+  validateImageFile(file, CUSTOMER_REF_MAX_FILE_SIZE);
 
   const originalSize = file.size;
 

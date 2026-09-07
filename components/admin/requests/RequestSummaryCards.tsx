@@ -28,7 +28,7 @@ export default function RequestSummaryCards({
       >
         <div className="flex items-center justify-between">
           <span className="text-[11px] sm:text-xs text-[#A89F91] font-medium tracking-wide">
-            คำขอประเมินใหม่
+            คำขอใหม่
           </span>
           <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-blue-950/40 border border-blue-800/40 flex items-center justify-center text-blue-400">
             <FileText size={15} />
@@ -40,12 +40,12 @@ export default function RequestSummaryCards({
             {counts.newEstimatesCount}
           </p>
           <p className="text-[10px] sm:text-[11px] text-[#7A7265] mt-1">
-            คำขอที่รอการประเมินราคา
+            คำขอที่รอการตรวจสอบและลงคิว
           </p>
         </div>
       </div>
 
-      {/* CARD 2: รอมัดจำ */}
+      {/* CARD 2: สลิปรอตรวจ */}
       <div
         onClick={() => onTabChange('bookings')}
         className={`bg-[#171512] border rounded-xl p-4 sm:p-5 shadow-lg relative overflow-hidden cursor-pointer transition-all duration-200 ${
@@ -56,7 +56,7 @@ export default function RequestSummaryCards({
       >
         <div className="flex items-center justify-between">
           <span className="text-[11px] sm:text-xs text-amber-300/90 font-medium tracking-wide">
-            รอมัดจำ
+            สลิปรอตรวจ
           </span>
           <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-amber-950/40 border border-amber-800/40 flex items-center justify-center text-amber-400">
             <Clock size={15} />
@@ -68,7 +68,7 @@ export default function RequestSummaryCards({
             {counts.waitingDepositCount}
           </p>
           <p className="text-[10px] sm:text-[11px] text-[#7A7265] mt-1">
-            คิวงานที่รอชำระเงินมัดจำ
+            สลิปโอนมัดจำที่รอการตรวจสอบ
           </p>
         </div>
       </div>

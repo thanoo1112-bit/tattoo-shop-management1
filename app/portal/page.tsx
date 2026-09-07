@@ -6,7 +6,6 @@ import CustomerHeader from '@/components/customer/CustomerHeader';
 import MobileBottomNav from '@/components/customer/MobileBottomNav';
 import CustomerBookingCard from '@/components/portal/CustomerBookingCard';
 import CustomerBookingDetail from '@/components/portal/CustomerBookingDetail';
-import CustomerBookingCreateModal from '@/components/portal/CustomerBookingCreateModal';
 import CustomerFlashReservations from '@/components/portal/CustomerFlashReservations';
 import { useApp, checkIsCustomerProfileComplete } from '@/components/AppContext';
 import {
@@ -34,6 +33,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { formatThaiPhoneForDisplay, sanitizeDigitsOnly } from '@/lib/phoneUtils';
+import CustomerReferenceImage from '@/components/common/CustomerReferenceImage';
 
 function CustomerPortalContent() {
   const {
@@ -52,12 +52,29 @@ function CustomerPortalContent() {
   const router = useRouter();
 
   // Guard: Verify profile completion before redirecting to /complete-profile
+  const { profile } = useApp();
+
   useEffect(() => {
     let isCancelled = false;
 
     async function verifyAndGuard() {
       if (!isLoggedIn || !user) {
         router.replace('/login');
+        return;
+      }
+
+      if (profile?.role === 'admin') {
+        router.replace('/admin/dashboard');
+        return;
+      }
+
+      if (profile?.role === 'artist') {
+        router.replace('/artist/dashboard');
+        return;
+      }
+
+      if (profile && profile.role !== 'customer') {
+        router.replace('/admin/dashboard');
         return;
       }
 
@@ -79,6 +96,15 @@ function CustomerPortalContent() {
           .maybeSingle();
 
         if (isCancelled) return;
+
+        if (pData?.role === 'admin') {
+          router.replace('/admin/dashboard');
+          return;
+        }
+        if (pData?.role === 'artist') {
+          router.replace('/artist/dashboard');
+          return;
+        }
 
         const effectivePhone = pData?.phone || cData?.phone || '';
         const isComplete = checkIsCustomerProfileComplete(
@@ -134,9 +160,6 @@ function CustomerPortalContent() {
   const [phoneError, setPhoneError] = useState('');
   const [phoneSuccess, setPhoneSuccess] = useState('');
   const [phoneLoading, setPhoneLoading] = useState(false);
-
-  // Transition Modal State: Quoted Estimate to Booking
-  const [transitionalEstimate, setTransitionalEstimate] = useState<CustomerPortalEstimate | null>(null);
 
   // Core Live Data Fetcher Scoped to Customer Auth UUID
   const fetchPortalData = useCallback(async () => {
@@ -237,6 +260,10 @@ function CustomerPortalContent() {
 
         const bFinancial = rawFinancials.find((f) => f.booking_id === b.id) || null;
         const bArtist = artistsList.find((a) => a.id === b.artist_id) || null;
+        const matchingEst = rawEstimates.find((e: any) => e.id === b.estimate_request_id);
+        const refImages: string[] = (matchingEst?.reference_images && matchingEst.reference_images.length > 0)
+          ? matchingEst.reference_images
+          : (b.artwork_image_url ? [b.artwork_image_url] : []);
 
         return {
           id: b.id,
@@ -247,6 +274,7 @@ function CustomerPortalContent() {
           source_ref: b.source_ref,
           artwork_title: b.artwork_title,
           artwork_image_url: b.artwork_image_url,
+          reference_images: refImages,
           placement: b.placement,
           width_cm: b.width_cm ? Number(b.width_cm) : null,
           height_cm: b.height_cm ? Number(b.height_cm) : null,
@@ -357,6 +385,17 @@ function CustomerPortalContent() {
     );
   }
 
+  // 1. Pending estimate requests (only requests that are PENDING and not yet accepted/converted to a booking)
+  const pendingEstimates = liveEstimates.filter(
+    (e) => e.status === 'PENDING' && !e.booking_id && !liveBookings.some((b) => b.estimate_request_id === e.id)
+  );
+
+  // 2. Combine all unique jobs for the "ทั้งหมด" tab (1 Request = 1 Job throughout lifecycle)
+  const allVisibleJobs = [
+    ...liveBookings.map((b) => ({ item: b, type: 'booking' as const, sortTime: new Date(b.created_at || 0).getTime() })),
+    ...pendingEstimates.map((e) => ({ item: e, type: 'estimate' as const, sortTime: new Date(e.created_at || 0).getTime() })),
+  ].sort((a, b) => b.sortTime - a.sortTime);
+
   // Financial Status Aggregations directly from live booking_payment_summary
   const verifiedDepositsTotal = liveBookings.reduce((sum, b) => {
     if (!b.financial) return sum;
@@ -384,11 +423,6 @@ function CustomerPortalContent() {
     setSelectedType(type);
   };
 
-  const handleTransitionToBooking = (estimate: CustomerPortalEstimate) => {
-    setTransitionalEstimate(estimate);
-    setSelectedItem(null);
-  };
-
   return (
     <div className="min-h-screen bg-studio-main pb-28 md:pb-16 text-studio-primary font-prompt">
       {/* Top Header Navigation */}
@@ -408,7 +442,7 @@ function CustomerPortalContent() {
                 ยินดีต้อนรับ, {customerName}
               </h1>
               <p className="text-xs text-studio-secondary mt-1 font-light">
-                ศูนย์รวมรายการนัดหมาย คิวสัก และติดตามสถานะการประเมินราคาของคุณ
+                ศูนย์รวมรายการนัดหมาย คิวสัก และติดตามสถานะคำขอจองคิวของคุณ
               </p>
             </div>
 
@@ -444,14 +478,17 @@ function CustomerPortalContent() {
 
                 <div className="flex flex-col sm:flex-row gap-5 items-start sm:items-center justify-between">
                   <div className="flex items-center space-x-4">
-                    <img
-                      src={
-                        nextAppointment.booking.artwork_image_url ||
-                        'https://images.unsplash.com/photo-1598440947619-2c35fc9aa908?w=200'
-                      }
-                      alt=""
-                      className="w-20 h-20 object-cover rounded-[4px] border border-studio-border/60 bg-studio-main shrink-0"
-                    />
+                    <div className="w-20 h-20 rounded-[4px] border border-studio-border/60 bg-studio-main shrink-0 overflow-hidden">
+                      <CustomerReferenceImage
+                        src={
+                          nextAppointment.booking.reference_images?.[0] ||
+                          nextAppointment.booking.artwork_image_url ||
+                          null
+                        }
+                        alt="Tattoo Reference"
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
                     <div className="space-y-1">
                       <h3 className="text-lg font-heading font-normal text-studio-sec tracking-wide">
                         {nextAppointment.booking.artwork_title || 'งานสัก Custom'}
@@ -493,14 +530,11 @@ function CustomerPortalContent() {
                   </div>
 
                   <div className="text-right shrink-0 w-full sm:w-auto pt-3 sm:pt-0 border-t sm:border-none border-studio-border/30 flex sm:flex-col justify-between items-center sm:items-end">
-                    <span className="text-xs text-studio-muted">
-                      ราคาค่าสัก ฿{formatCurrency(nextAppointment.booking.financial?.quoted_price)}
-                    </span>
                     <span className="text-base font-bold text-studio-red">
                       {nextAppointment.booking.status === 'CONFIRMED'
-                        ? `คงเหลือชำระหน้าร้าน ฿${formatCurrency(
-                            nextAppointment.booking.financial?.remaining_balance
-                          )}`
+                        ? (Number(nextAppointment.booking.financial?.remaining_balance ?? 0) > 0
+                            ? `คงเหลือชำระหน้าร้าน ฿${formatCurrency(nextAppointment.booking.financial?.remaining_balance)}`
+                            : 'ยืนยันคิวเรียบร้อย')
                         : `มัดจำที่ต้องชำระ ฿${formatCurrency(
                             nextAppointment.booking.financial?.deposit_required
                           )}`}
@@ -518,7 +552,7 @@ function CustomerPortalContent() {
                   ยังไม่มีนัดหมายที่กำลังจะมาถึง
                 </h4>
                 <p className="text-xs text-studio-secondary max-w-sm mx-auto">
-                  คุณสามารถเลือกชมแบบลายสักว่างในแกลเลอรี หรือส่งคำขอประเมินราคาเพื่อเริ่มจองคิวใหม่
+                  คุณสามารถเลือกชมแบบลายสักว่างในแกลเลอรี หรือส่งคำขอจองคิวเพื่อเริ่มนัดหมายใหม่
                 </p>
                 <div className="pt-2 flex justify-center gap-3">
                   <Link
@@ -528,10 +562,10 @@ function CustomerPortalContent() {
                     ดูลาย Flash ว่าง
                   </Link>
                   <Link
-                    href="/portfolio"
+                    href="/booking"
                     className="min-h-[44px] bg-transparent border border-studio-border text-studio-primary px-4 py-2.5 rounded-[4px] text-xs font-medium uppercase tracking-wider hover:bg-studio-sec transition-all flex items-center"
                   >
-                    ขอประเมินราคา
+                    จองคิวสักทั่วไป
                   </Link>
                 </div>
               </div>
@@ -542,10 +576,10 @@ function CustomerPortalContent() {
               {[
                 {
                   key: 'all',
-                  label: `ทั้งหมด (${liveBookings.length + liveEstimates.length})`,
+                  label: `ทั้งหมด (${allVisibleJobs.length})`,
                 },
                 { key: 'bookings', label: `คิวจองสัก (${liveBookings.length})` },
-                { key: 'estimates', label: `คำขอประเมินราคา (${liveEstimates.length})` },
+                { key: 'estimates', label: `คำขอรอพิจารณา (${pendingEstimates.length})` },
                 { key: 'flash', label: 'Flash ของฉัน' },
                 { key: 'profile', label: 'โปรไฟล์' },
               ].map((t) => (
@@ -569,68 +603,21 @@ function CustomerPortalContent() {
 
             {/* TAB CONTENTS */}
             {activeTab === 'all' && (
-              <div className="space-y-6">
-                {/* Bookings block */}
-                <div className="space-y-3">
-                  <div className="flex justify-between items-center">
-                    <span className="text-xs uppercase font-heading tracking-wider text-studio-secondary">
-                      รายการจองคิวสักล่าสุด
-                    </span>
-                    <Link
-                      href="/flash"
-                      className="text-xs text-studio-primary hover:text-studio-red hover:underline"
-                    >
-                      + จองลายเพิ่ม
-                    </Link>
-                  </div>
-                  {liveBookings.length === 0 ? (
-                    <p className="text-xs text-studio-muted py-6 bg-studio-card border border-studio-border rounded-[6px] text-center">
-                      ไม่มีประวัติการจองคิวสัก
-                    </p>
-                  ) : (
-                    <div className="space-y-3">
-                      {liveBookings.map((b) => (
-                        <CustomerBookingCard
-                          key={b.id}
-                          item={b}
-                          type="booking"
-                          onClick={() => handleCardClick(b, 'booking')}
-                        />
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                {/* Estimates block */}
-                <div className="space-y-3 pt-4">
-                  <div className="flex justify-between items-center">
-                    <span className="text-xs uppercase font-heading tracking-wider text-studio-secondary">
-                      คำขอประเมินราคาล่าสุด
-                    </span>
-                    <Link
-                      href="/portfolio"
-                      className="text-xs text-studio-primary hover:text-studio-red hover:underline"
-                    >
-                      + ส่งคำขอใหม่
-                    </Link>
-                  </div>
-                  {liveEstimates.length === 0 ? (
-                    <p className="text-xs text-studio-muted py-6 bg-studio-card border border-studio-border rounded-[6px] text-center">
-                      ไม่มีประวัติการขอประเมินราคา
-                    </p>
-                  ) : (
-                    <div className="space-y-3">
-                      {liveEstimates.map((e) => (
-                        <CustomerBookingCard
-                          key={e.id}
-                          item={e}
-                          type="estimate"
-                          onClick={() => handleCardClick(e, 'estimate')}
-                        />
-                      ))}
-                    </div>
-                  )}
-                </div>
+              <div className="space-y-3">
+                {allVisibleJobs.length === 0 ? (
+                  <p className="text-xs text-studio-muted py-12 bg-studio-card border border-studio-border rounded-[6px] text-center">
+                    ยังไม่มีรายการงานสักในระบบ
+                  </p>
+                ) : (
+                  allVisibleJobs.map(({ item, type }) => (
+                    <CustomerBookingCard
+                      key={`${type}-${item.id}`}
+                      item={item}
+                      type={type}
+                      onClick={() => handleCardClick(item, type)}
+                    />
+                  ))
+                )}
               </div>
             )}
 
@@ -655,12 +642,12 @@ function CustomerPortalContent() {
 
             {activeTab === 'estimates' && (
               <div className="space-y-3">
-                {liveEstimates.length === 0 ? (
+                {pendingEstimates.length === 0 ? (
                   <p className="text-xs text-studio-muted py-12 bg-studio-card border border-studio-border rounded-[6px] text-center">
-                    ยังไม่มีรายการคำขอประเมินราคาในระบบ
+                    ยังไม่มีรายการคำขอรอพิจารณาในระบบ
                   </p>
                 ) : (
-                  liveEstimates.map((e) => (
+                  pendingEstimates.map((e) => (
                     <CustomerBookingCard
                       key={e.id}
                       item={e}
@@ -802,12 +789,12 @@ function CustomerPortalContent() {
                 </Link>
 
                 <Link
-                  href="/portfolio"
+                  href="/booking"
                   className="min-h-[46px] w-full bg-studio-sec hover:bg-studio-main border border-studio-border hover:border-studio-red/60 text-studio-primary p-3 rounded-[4px] text-xs font-semibold flex items-center justify-between transition-colors"
                 >
                   <span className="flex items-center gap-2">
                     <Compass size={14} className="text-studio-red" />
-                    <span>ส่งขอประเมินราคาใหม่ (Custom)</span>
+                    <span>จองคิวสักทั่วไป (Custom)</span>
                   </span>
                   <ArrowUpRight size={14} className="text-studio-muted" />
                 </Link>
@@ -856,19 +843,6 @@ function CustomerPortalContent() {
           type={selectedType || 'booking'}
           onClose={() => setSelectedItem(null)}
           onRefresh={fetchPortalData}
-          onTransitionToBooking={handleTransitionToBooking}
-        />
-      )}
-
-      {/* Transition Modal: Quoted Estimate to Booking */}
-      {transitionalEstimate && (
-        <CustomerBookingCreateModal
-          estimate={transitionalEstimate}
-          onClose={() => setTransitionalEstimate(null)}
-          onSuccess={() => {
-            setTransitionalEstimate(null);
-            fetchPortalData();
-          }}
         />
       )}
 

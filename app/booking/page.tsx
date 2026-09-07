@@ -1,7 +1,7 @@
 'use client';
 
 import React, { Suspense, useState, useEffect } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import CustomerHeader from '@/components/customer/CustomerHeader';
 import MobileBottomNav from '@/components/customer/MobileBottomNav';
 import EstimateForm from '@/components/estimate/EstimateForm';
@@ -9,14 +9,28 @@ import { useApp } from '@/components/AppContext';
 
 function BookingContent() {
   const searchParams = useSearchParams();
-  const { supabase } = useApp();
+  const router = useRouter();
+  const { supabase, isLoggedIn, authLoading, user } = useApp();
 
   const artistParam = searchParams.get('artist');
   const artworkParam = searchParams.get('artwork');
+  const flashParam = searchParams.get('flash');
 
   const [preselectedArtworkImage, setPreselectedArtworkImage] = useState<string | undefined>(undefined);
   const [preselectedStyle, setPreselectedStyle] = useState<string | undefined>(undefined);
   const [preselectedArtistId, setPreselectedArtistId] = useState<string | undefined>(artistParam || undefined);
+
+  // 1. Mandatory Customer Auth Guard: Redirect unauthenticated users to /login with full return path
+  useEffect(() => {
+    if (!authLoading) {
+      if (!isLoggedIn || !user) {
+        const fullPath = typeof window !== 'undefined' 
+          ? window.location.pathname + window.location.search
+          : '/booking';
+        router.replace(`/login?next=${encodeURIComponent(fullPath)}`);
+      }
+    }
+  }, [authLoading, isLoggedIn, user, router]);
 
   useEffect(() => {
     if (artistParam) {
@@ -44,6 +58,16 @@ function BookingContent() {
     };
   }, [artworkParam, supabase]);
 
+  // If loading auth state or unauthenticated, show clean loading spinner while redirecting
+  if (authLoading || !isLoggedIn || !user) {
+    return (
+      <div className="min-h-screen bg-studio-main flex flex-col items-center justify-center font-prompt text-studio-secondary text-xs space-y-3">
+        <div className="w-6 h-6 border-2 border-studio-red border-t-transparent rounded-full animate-spin" />
+        <p>กำลังตรวจสอบสิทธิ์การเข้าสู่ระบบ...</p>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-studio-main pb-28 md:pb-16 text-studio-primary font-prompt">
       <CustomerHeader />
@@ -52,15 +76,18 @@ function BookingContent() {
         <div className="border-b border-studio-border pb-4 mb-6 md:mb-8">
           <span className="text-[10px] uppercase tracking-widest text-studio-red font-bold">157 TATTOO STUDIO</span>
           <h1 className="text-xl md:text-3xl font-bold tracking-wider text-studio-primary mt-0.5">
-            ส่งคำขอประเมินราคาและจองคิวงานสัก
+            {flashParam ? 'ส่งคำขอจองแบบลายสัก Flash' : 'ส่งคำขอจองคิวงานสัก'}
           </h1>
           <p className="text-xs text-studio-secondary mt-1 font-light">
-            เลือกช่างสัก กรอกรายละเอียดงาน แนบรูปภาพอ้างอิง และระบุวันที่สะดวก เพื่อให้ทางร้านประเมินราคาและแจ้งคิวงาน
+            {flashParam 
+              ? 'จองแบบลายสักพร้อมสักราคาคงที่ ระบุวันที่และตำแหน่งที่ต้องการสักเพื่อส่งคำขอจองคิวงาน' 
+              : 'ส่งรายละเอียดงาน รูปอ้างอิง ขนาด ตำแหน่ง และวันที่สะดวก เพื่อส่งคำขอจองกับช่างที่คุณเลือก'}
           </p>
         </div>
 
         <div className="bg-studio-card border border-studio-border p-4 sm:p-6 rounded-[8px] shadow-xl">
           <EstimateForm
+            flashId={flashParam || undefined}
             preselectedArtistId={preselectedArtistId}
             preselectedArtworkImage={preselectedArtworkImage}
             preselectedStyle={preselectedStyle}

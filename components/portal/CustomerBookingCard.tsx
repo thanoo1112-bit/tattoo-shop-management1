@@ -24,8 +24,8 @@ export default function CustomerBookingCard({ item, type, onClick }: CustomerBoo
 
   // Preview Image
   const previewImage = isBooking
-    ? booking.artwork_image_url || 'https://images.unsplash.com/photo-1598440947619-2c35fc9aa908?w=100'
-    : estimate.reference_images?.[0] || 'https://images.unsplash.com/photo-1598440947619-2c35fc9aa908?w=100';
+    ? (booking.reference_images?.[0] || booking.artwork_image_url || null)
+    : (estimate.reference_images?.[0] || null);
 
   // Title
   const title = isBooking
@@ -35,16 +35,26 @@ export default function CustomerBookingCard({ item, type, onClick }: CustomerBoo
   // Tag
   const tagLabel = isBooking
     ? `งานสัก ${booking.booking_source === 'FLASH' ? 'Flash' : 'Custom'}`
-    : 'ขอประเมินราคา';
+    : 'คำขอจองคิว';
 
   // Booking Session date summary
   const nextSession = isBooking && booking.sessions && booking.sessions.length > 0
-    ? booking.sessions.find(s => s.status === 'SCHEDULED' || s.status === 'IN_PROGRESS') || booking.sessions[0]
+    ? booking.sessions.find((s) => s.status === 'SCHEDULED' || s.status === 'IN_PROGRESS') || booking.sessions[0]
     : null;
 
   const displayDate = isBooking
-    ? (nextSession ? formatThaiDate(nextSession.start_at) : formatThaiDate(booking.requested_date))
-    : formatThaiDate(estimate.created_at);
+    ? (nextSession
+        ? `${formatThaiDate(nextSession.start_at)} (${formatTimeBangkok(nextSession.start_at)} - ${formatTimeBangkok(nextSession.end_at)})`
+        : formatThaiDate(booking.requested_date))
+    : (estimate.preferred_date ? formatThaiDate(estimate.preferred_date) : formatThaiDate(estimate.created_at));
+
+  const dateLabel = isBooking
+    ? (nextSession ? 'เวลานัดหมาย:' : 'วันที่ระบุในคำขอ:')
+    : (estimate.preferred_date ? 'วันที่สะดวก:' : 'วันที่ส่งคำขอ:');
+
+  const depositRequired = isBooking
+    ? booking.financial?.deposit_required
+    : estimate.deposit_required;
 
   return (
     <div
@@ -63,11 +73,19 @@ export default function CustomerBookingCard({ item, type, onClick }: CustomerBoo
 
         {/* Details */}
         <div className="min-w-0 flex-1">
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center space-x-2 flex-wrap gap-y-1">
             <span className="text-[10px] uppercase tracking-wider text-studio-red font-semibold">
               {tagLabel}
             </span>
+            <span className="text-[10px] text-studio-muted font-mono">
+              #{item.id.slice(0, 8)}
+            </span>
             <BookingStatusBadge status={item.status as any} type={type} />
+            {item.status === 'WAITING_DEPOSIT' && depositRequired && depositRequired > 0 && (
+              <span className="text-[10px] bg-studio-red/10 border border-studio-red/30 text-studio-red px-1.5 py-0.2 rounded font-semibold">
+                มัดจำ ฿{depositRequired.toLocaleString()}
+              </span>
+            )}
           </div>
 
           <h4 className="text-xs font-bold text-studio-primary mt-1 truncate">
@@ -82,7 +100,7 @@ export default function CustomerBookingCard({ item, type, onClick }: CustomerBoo
 
             <span className="flex items-center space-x-1">
               <Calendar size={12} className="text-studio-red" />
-              <span>{isBooking ? `นัดหมาย: ${displayDate}` : `วันที่ส่ง: ${displayDate}`}</span>
+              <span>{dateLabel} {displayDate}</span>
             </span>
 
             {isBooking && booking.sessions && booking.sessions.length > 1 && (

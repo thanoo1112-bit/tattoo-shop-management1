@@ -342,6 +342,22 @@ function FlashContent() {
                             ฿{item.price.toLocaleString()}
                           </span>
                         </div>
+                        <div className="pt-2 mt-2 border-t border-studio-border/50 flex justify-between items-center">
+                          <span className="text-[9px] text-studio-muted">มัดจำ ฿{item.deposit_amount.toLocaleString()}</span>
+                          {item.status === 'AVAILABLE' ? (
+                            <Link
+                              href={`/booking?flash=${item.id}`}
+                              onClick={(e) => e.stopPropagation()}
+                              className="bg-studio-red text-studio-paper hover:bg-tattoo-red-dark px-2.5 py-1 rounded text-[10px] font-semibold tracking-wider uppercase transition-colors"
+                            >
+                              จองลายนี้
+                            </Link>
+                          ) : (
+                            <span className="text-[10px] text-studio-muted">
+                              {item.status === 'HELD' ? 'รอการยืนยัน' : item.status === 'RESERVED' ? 'จองแล้ว' : 'ปิดจอง'}
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
                   );
@@ -482,12 +498,12 @@ function FlashContent() {
                 {/* Progressive Action CTAs */}
                 <div className="space-y-3 pt-2">
                   {selectedArtwork.status === 'AVAILABLE' ? (
-                    <button
-                      onClick={() => setIsModalOpen(true)}
-                      className="w-full bg-studio-red text-studio-primary hover:bg-studio-red/80 py-3.5 px-4 rounded-[4px] text-xs font-bold uppercase tracking-widest transition-all shadow-lg shadow-studio-red/10"
+                    <Link
+                      href={`/booking?flash=${selectedArtwork.id}`}
+                      className="w-full bg-studio-red text-studio-primary hover:bg-tattoo-red-dark active:scale-[0.99] py-3.5 px-4 rounded-[4px] text-xs font-bold uppercase tracking-widest transition-all shadow-lg shadow-studio-red/10 flex items-center justify-center text-center"
                     >
-                      ส่งคำขอจองลายนี้ (มัดจำ ฿{selectedArtwork.deposit_amount.toLocaleString()})
-                    </button>
+                      จองลายนี้ (มัดจำ ฿{selectedArtwork.deposit_amount.toLocaleString()})
+                    </Link>
                   ) : (
                     <button
                       disabled
@@ -580,15 +596,12 @@ function FlashContent() {
               <span className="text-studio-muted">มัดจำ: <strong className="text-studio-primary">฿{selectedArtwork.deposit_amount.toLocaleString()}</strong></span>
             </div>
             {selectedArtwork.status === 'AVAILABLE' ? (
-              <button
-                onClick={() => {
-                  setShowMobileDetail(false);
-                  setIsModalOpen(true);
-                }}
-                className="w-full bg-studio-red text-studio-primary py-3 rounded text-xs font-bold uppercase tracking-wider"
+              <Link
+                href={`/booking?flash=${selectedArtwork.id}`}
+                className="w-full bg-studio-red text-studio-primary py-3 rounded text-xs font-bold uppercase tracking-wider block text-center"
               >
-                ส่งคำขอจองลายนี้
-              </button>
+                จองลายนี้ (มัดจำ ฿{selectedArtwork.deposit_amount.toLocaleString()})
+              </Link>
             ) : (
               <button disabled className="w-full bg-studio-main border border-studio-border text-studio-muted py-3 rounded text-xs font-bold cursor-not-allowed">
                 ไม่สามารถจองได้ในขณะนี้

@@ -5,6 +5,7 @@ export interface EstimateRequest {
   artistId: string;
   artistName: string;
   referenceImage: string;
+  referenceImages?: string[];
   width: number;
   height: number;
   placement: string;

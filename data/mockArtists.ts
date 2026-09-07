@@ -1,5 +1,6 @@
 export interface Artist {
   id: string;
+  user_id?: string | null;
   name: string;
   nickname?: string;
   slug?: string;

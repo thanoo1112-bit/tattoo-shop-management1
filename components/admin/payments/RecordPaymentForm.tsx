@@ -40,10 +40,11 @@ export default function RecordPaymentForm({
 
   const summary = booking.summary;
   const depositRemaining = Math.max(0, summary.deposit_required - summary.paid_total);
-  const remainingTotal = summary.remaining_balance;
+  const amountDue = Math.max(0, (summary.quoted_price || 0) - summary.paid_total);
 
-  const handleQuickAmount = (val: number) => {
+  const handleQuickAmount = (val: number, type?: 'DEPOSIT' | 'BALANCE' | 'FULL_PAYMENT' | 'OTHER') => {
     setAmount(val.toString());
+    if (type) setPaymentType(type);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -126,22 +127,32 @@ export default function RecordPaymentForm({
         </div>
 
         {/* Current Financial Context Quick Info */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 bg-[#0E0D0C] border border-[#4A443A]/60 rounded-lg p-3 text-center text-xs">
-          <div>
-            <span className="text-[10px] text-[#7A7265]">ราคางาน</span>
-            <p className="font-medium text-[#ECE4D3] mt-0.5">฿{summary.quoted_price.toLocaleString('th-TH')}</p>
-          </div>
+        <div className="grid grid-cols-3 gap-2 bg-[#0E0D0C] border border-[#4A443A]/60 rounded-lg p-3 text-center text-xs">
           <div>
             <span className="text-[10px] text-amber-400/80">มัดจำที่กำหนด</span>
-            <p className="font-medium text-amber-300 mt-0.5">฿{summary.deposit_required.toLocaleString('th-TH')}</p>
+            <p className="font-medium text-amber-300 mt-0.5">
+              {summary.deposit_required > 0 ? `฿${summary.deposit_required.toLocaleString('th-TH')}` : 'ไม่มีมัดจำ'}
+            </p>
           </div>
           <div>
-            <span className="text-[10px] text-emerald-400/80">รับเงินแล้ว</span>
+            <span className="text-[10px] text-emerald-400/80">รับเงินจริงแล้ว</span>
             <p className="font-semibold text-emerald-400 mt-0.5">฿{summary.paid_total.toLocaleString('th-TH')}</p>
           </div>
           <div>
-            <span className="text-[10px] text-red-400/80">คงเหลือ</span>
-            <p className="font-semibold text-red-400 mt-0.5">฿{summary.remaining_balance.toLocaleString('th-TH')}</p>
+            <span className="text-[10px] text-[#7A7265]">ยอดที่ต้องจ่าย</span>
+            <p className="font-semibold mt-0.5">
+              {summary.quoted_price > 0 ? (
+                amountDue > 0 ? (
+                  <span className="text-[#ECE4D3]">฿{amountDue.toLocaleString('th-TH')}</span>
+                ) : (
+                  <span className="text-emerald-400 text-[11px]">ชำระครบแล้ว</span>
+                )
+              ) : depositRemaining > 0 ? (
+                <span className="text-amber-400">฿{depositRemaining.toLocaleString('th-TH')}</span>
+              ) : (
+                <span className="text-emerald-400 text-[11px]">รับมัดจำแล้ว</span>
+              )}
+            </p>
           </div>
         </div>
 
@@ -162,7 +173,15 @@ export default function RecordPaymentForm({
                 <button
                   key={opt.value}
                   type="button"
-                  onClick={() => setPaymentType(opt.value as any)}
+                  onClick={() => {
+                    const newType = opt.value as any;
+                    setPaymentType(newType);
+                    if (newType === 'DEPOSIT' && depositRemaining > 0) {
+                      setAmount(depositRemaining.toString());
+                    } else if ((newType === 'BALANCE' || newType === 'FULL_PAYMENT') && amountDue > 0) {
+                      setAmount(amountDue.toString());
+                    }
+                  }}
                   className={`py-1.5 px-2 text-xs rounded-md border font-medium transition-colors ${
                     paymentType === opt.value
                       ? 'bg-[#ECE4D3] text-[#0E0D0C] border-[#ECE4D3]'
@@ -182,23 +201,23 @@ export default function RecordPaymentForm({
                 จำนวนเงิน (บาท) <span className="text-red-400">*</span>
               </label>
               {/* Quick Amount Pills */}
-              <div className="flex items-center gap-1.5 text-[11px]">
-                {depositRemaining > 0 && (
+              <div className="flex items-center gap-2 text-[11px]">
+                {paymentType === 'DEPOSIT' && depositRemaining > 0 && (
                   <button
                     type="button"
                     onClick={() => handleQuickAmount(depositRemaining)}
-                    className="text-amber-400 hover:text-amber-300 underline"
+                    className="text-amber-400 hover:text-amber-300 underline font-medium"
                   >
-                    มัดจำ (฿{depositRemaining.toLocaleString('th-TH')})
+                    จำนวนมัดจำที่ยังขาด (฿{depositRemaining.toLocaleString('th-TH')})
                   </button>
                 )}
-                {remainingTotal > 0 && (
+                {(paymentType === 'BALANCE' || paymentType === 'FULL_PAYMENT') && amountDue > 0 && (
                   <button
                     type="button"
-                    onClick={() => handleQuickAmount(remainingTotal)}
-                    className="text-emerald-400 hover:text-emerald-300 underline"
+                    onClick={() => handleQuickAmount(amountDue)}
+                    className="text-emerald-400 hover:text-emerald-300 underline font-medium"
                   >
-                    ยอดคงเหลือ (฿{remainingTotal.toLocaleString('th-TH')})
+                    ยอดที่ต้องจ่าย (฿{amountDue.toLocaleString('th-TH')})
                   </button>
                 )}
               </div>

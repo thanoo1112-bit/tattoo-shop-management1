@@ -54,17 +54,13 @@ export interface ActiveArtist {
   nickname: string | null;
   avatar_url: string | null;
   is_active: boolean;
+  specialties?: string[] | null;
 }
 
-const STYLE_OPTIONS = [
-  'Fine Line',
-  'Blackwork',
-  'Traditional',
-  'Japanese',
-  'Minimal',
-  'Realism',
-  'Custom',
-];
+const getArtistSpecialties = (artist?: ActiveArtist | null): string[] => {
+  if (!artist || !Array.isArray(artist.specialties)) return [];
+  return artist.specialties.map((s: string) => s.trim()).filter(Boolean);
+};
 
 export default function AdminPortfolioManagement() {
   const { supabase } = useApp();
@@ -121,7 +117,7 @@ export default function AdminPortfolioManagement() {
     artist_id: '',
     title: '',
     description: '',
-    style: 'Fine Line',
+    style: '',
     size_label: '',
     duration_hours: '',
     duration_minutes: '',
@@ -133,6 +129,45 @@ export default function AdminPortfolioManagement() {
   // Delete Confirmation Modal State
   const [deleteTarget, setDeleteTarget] = useState<AdminPortfolioArtwork | null>(null);
   const [deleting, setDeleting] = useState(false);
+
+  // Selected Artist for Modal Form & Specialties
+  const selectedArtistForForm = useMemo(() => {
+    if (!formData.artist_id) return null;
+    return artists.find((a) => a.id === formData.artist_id) || null;
+  }, [formData.artist_id, artists]);
+
+  const selectedArtistSpecialties = useMemo(() => {
+    return getArtistSpecialties(selectedArtistForForm);
+  }, [selectedArtistForForm]);
+
+  // Handle Artist Change in Modal Form
+  const handleArtistChange = (newArtistId: string) => {
+    const newArtist = artists.find((a) => a.id === newArtistId);
+    const newSpecs = getArtistSpecialties(newArtist);
+
+    let updatedStyle = formData.style;
+    if (!formData.style || !newSpecs.includes(formData.style)) {
+      updatedStyle = '';
+    }
+
+    setFormData((prev) => ({
+      ...prev,
+      artist_id: newArtistId,
+      style: updatedStyle,
+    }));
+  };
+
+  // Dynamic filter style options across artists & artworks
+  const availableFilterStyles = useMemo(() => {
+    const set = new Set<string>();
+    artists.forEach((artist) => {
+      getArtistSpecialties(artist).forEach((s) => set.add(s));
+    });
+    artworks.forEach((art) => {
+      if (art.style) set.add(art.style.trim());
+    });
+    return Array.from(set).sort();
+  }, [artists, artworks]);
 
   // 1. Fetch Artworks and Active Artists
   const fetchData = useCallback(async () => {
@@ -173,7 +208,7 @@ export default function AdminPortfolioManagement() {
         artist_id: item.artist_id,
         title: item.title,
         description: item.description || null,
-        style: item.style || 'Fine Line',
+        style: item.style || '',
         size_label: item.size_label || null,
         estimated_duration_minutes: item.estimated_duration_minutes || null,
         image_url: item.image_url,
@@ -189,7 +224,7 @@ export default function AdminPortfolioManagement() {
       // Fetch Active Artists for dropdown
       const { data: artistData, error: artistErr } = await supabase
         .from('artists')
-        .select('id, name, nickname, avatar_url, is_active')
+        .select('id, name, nickname, avatar_url, is_active, specialties')
         .order('sort_order', { ascending: true })
         .order('name', { ascending: true });
 
@@ -218,12 +253,15 @@ export default function AdminPortfolioManagement() {
   // 2. Open Create Modal
   const handleOpenCreateModal = () => {
     const defaultArtistId = artists.find((a) => a.is_active)?.id || artists[0]?.id || '';
+    const defaultArtist = artists.find((a) => a.id === defaultArtistId);
+    const defaultSpecs = getArtistSpecialties(defaultArtist);
+
     setEditingArtwork(null);
     setFormData({
       artist_id: defaultArtistId,
       title: '',
       description: '',
-      style: 'Fine Line',
+      style: defaultSpecs.length > 0 ? defaultSpecs[0] : '',
       size_label: '',
       duration_hours: '',
       duration_minutes: '',
@@ -245,11 +283,15 @@ export default function AdminPortfolioManagement() {
     const hours = totalMinutes > 0 ? Math.floor(totalMinutes / 60) : '';
     const mins = totalMinutes > 0 && totalMinutes % 60 > 0 ? (totalMinutes % 60).toString() : '';
 
+    const currentArtist = artists.find((a) => a.id === artwork.artist_id);
+    const currentSpecs = getArtistSpecialties(currentArtist);
+    const initialStyle = artwork.style && currentSpecs.includes(artwork.style) ? artwork.style : '';
+
     setFormData({
       artist_id: artwork.artist_id,
       title: artwork.title,
       description: artwork.description || '',
-      style: artwork.style || 'Fine Line',
+      style: initialStyle,
       size_label: artwork.size_label || '',
       duration_hours: hours ? hours.toString() : '',
       duration_minutes: mins,
@@ -276,6 +318,10 @@ export default function AdminPortfolioManagement() {
     }
     if (!formData.artist_id) {
       setFormError('กรุณาเลือกช่างสักประจำผลงาน');
+      return;
+    }
+    if (!formData.style) {
+      setFormError('กรุณาเลือกสไตล์ผลงาน');
       return;
     }
     if (!formData.title.trim()) {
@@ -518,7 +564,7 @@ export default function AdminPortfolioManagement() {
             className="bg-[#0E0D0C] border border-[#3E372C] rounded-[4px] px-3 py-2 text-xs text-[#ECE4D3] focus:outline-none focus:border-[#9C2F2F] cursor-pointer"
           >
             <option value="ALL">สไตล์ทั้งหมด</option>
-            {STYLE_OPTIONS.map((style) => (
+            {availableFilterStyles.map((style) => (
               <option key={style} value={style}>
                 {style}
               </option>
@@ -751,7 +797,7 @@ export default function AdminPortfolioManagement() {
                 </label>
                 <select
                   value={formData.artist_id}
-                  onChange={(e) => setFormData({ ...formData, artist_id: e.target.value })}
+                  onChange={(e) => handleArtistChange(e.target.value)}
                   required
                   className="w-full bg-[#0E0D0C] border border-[#3E372C] rounded-[4px] px-3 py-2 text-xs text-[#ECE4D3] focus:outline-none focus:border-[#9C2F2F] cursor-pointer"
                 >
@@ -790,13 +836,23 @@ export default function AdminPortfolioManagement() {
                     value={formData.style}
                     onChange={(e) => setFormData({ ...formData, style: e.target.value })}
                     required
-                    className="w-full bg-[#0E0D0C] border border-[#3E372C] rounded-[4px] px-3 py-2 text-xs text-[#ECE4D3] focus:outline-none focus:border-[#9C2F2F] cursor-pointer"
+                    disabled={!formData.artist_id || selectedArtistSpecialties.length === 0}
+                    className="w-full bg-[#0E0D0C] border border-[#3E372C] rounded-[4px] px-3 py-2 text-xs text-[#ECE4D3] focus:outline-none focus:border-[#9C2F2F] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    {STYLE_OPTIONS.map((style) => (
-                      <option key={style} value={style}>
-                        {style}
-                      </option>
-                    ))}
+                    {!formData.artist_id ? (
+                      <option value="">กรุณาเลือกช่างก่อน</option>
+                    ) : selectedArtistSpecialties.length === 0 ? (
+                      <option value="">ช่างคนนี้ยังไม่ได้ตั้งค่าสไตล์ความถนัด</option>
+                    ) : (
+                      <>
+                        <option value="">-- เลือกสไตล์ผลงาน --</option>
+                        {selectedArtistSpecialties.map((style) => (
+                          <option key={style} value={style}>
+                            {style}
+                          </option>
+                        ))}
+                      </>
+                    )}
                   </select>
                 </div>
 

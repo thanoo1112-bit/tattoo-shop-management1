@@ -31,6 +31,31 @@ export const THAI_MONTHS_FULL = [
 ];
 
 /**
+ * Returns current Thailand (Asia/Bangkok) date string in YYYY-MM-DD format
+ */
+export function getThailandTodayStr(): string {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: TIMEZONE,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(new Date());
+}
+
+/**
+ * Returns earliest bookable Thailand date string (tomorrow) in YYYY-MM-DD format
+ */
+export function getThailandTomorrowStr(): string {
+  const todayStr = getThailandTodayStr();
+  const [year, month, day] = todayStr.split('-').map(Number);
+  const tomorrow = new Date(Date.UTC(year, month - 1, day + 1));
+  const yStr = tomorrow.getUTCFullYear();
+  const mStr = String(tomorrow.getUTCMonth() + 1).padStart(2, '0');
+  const dStr = String(tomorrow.getUTCDate()).padStart(2, '0');
+  return `${yStr}-${mStr}-${dStr}`;
+}
+
+/**
  * Formats ISO date or date string (YYYY-MM-DD) to "21 ก.ย. 2569" or "21 กันยายน 2569"
  */
 export function formatThaiDate(dateStr?: string | null, fullMonth = false): string {

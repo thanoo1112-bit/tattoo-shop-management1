@@ -15,7 +15,7 @@ export default function BookingStatusBadge({ status, type = 'booking' }: Booking
   // Label and dot + border styling lookup (No blue/indigo or rainbow background fills)
   const config: Record<StatusType, { label: string; dot: string; container: string; text: string }> = {
     PENDING: {
-      label: type === 'estimate' ? 'รอช่างประเมิน' : 'รอช่างอนุมัติ',
+      label: 'รอตรวจสอบ',
       dot: 'bg-[#9C2F2F] animate-pulse',
       container: 'bg-[#171512] border-[#4A443A]',
       text: 'text-[#ECE4D3]',
@@ -27,9 +27,9 @@ export default function BookingStatusBadge({ status, type = 'booking' }: Booking
       text: 'text-[#ECE4D3]',
     },
     ACCEPTED: {
-      label: 'ลูกค้ายอมรับแล้ว',
-      dot: 'bg-[#9C2F2F]',
-      container: 'bg-[#171512] border-[#9C2F2F]/40',
+      label: 'ยืนยันคำขอแล้ว',
+      dot: 'bg-[#4E9F6E]',
+      container: 'bg-[#171512] border-emerald-800/40',
       text: 'text-[#ECE4D3]',
     },
     REJECTED: {
@@ -39,7 +39,7 @@ export default function BookingStatusBadge({ status, type = 'booking' }: Booking
       text: 'text-[#A89F91]',
     },
     APPROVED: {
-      label: 'ช่างอนุมัติแล้ว',
+      label: 'ยืนยันคิวแล้ว',
       dot: 'bg-[#4E9F6E]',
       container: 'bg-[#171512] border-emerald-800/40',
       text: 'text-[#ECE4D3]',

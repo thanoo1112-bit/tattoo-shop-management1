@@ -1,70 +1,106 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import { Search, Filter, FileText, ChevronRight, User, Calendar, Image as ImageIcon } from 'lucide-react';
-import { EstimateRequestItem, EstimateStatus, formatDateTimeBangkok, formatCurrency } from './types';
+import { Search, Filter, FileText, ChevronRight, User, Calendar, Image as ImageIcon, CreditCard } from 'lucide-react';
+import { EstimateRequestItem, EstimateStatus, formatDateTimeBangkok } from './types';
+import CustomerReferenceImage from '@/components/common/CustomerReferenceImage';
 
 interface EstimateRequestListProps {
   estimates: EstimateRequestItem[];
   selectedEstimate: EstimateRequestItem | null;
   onSelectEstimate: (estimate: EstimateRequestItem) => void;
+  onCheckSlip?: (bookingId: string) => void;
 }
 
 export default function EstimateRequestList({
   estimates,
   selectedEstimate,
   onSelectEstimate,
+  onCheckSlip,
 }: EstimateRequestListProps) {
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
 
   const filterPills: Array<{ id: string; label: string }> = [
     { id: 'ALL', label: 'ทั้งหมด' },
-    { id: 'PENDING', label: 'รอประเมิน' },
-    { id: 'QUOTED', label: 'เสนอราคาแล้ว' },
-    { id: 'ACCEPTED', label: 'ลูกค้ายอมรับ' },
+    { id: 'PENDING', label: 'รอตรวจสอบ' },
+    { id: 'ACCEPTED', label: 'ยืนยันแล้ว' },
     { id: 'REJECTED', label: 'ปฏิเสธ' },
   ];
 
   const filteredEstimates = useMemo(() => {
     return estimates.filter((e) => {
-      if (statusFilter !== 'ALL' && e.status !== statusFilter) return false;
+      const opKey = e.operational_status?.key || e.status;
+      if (statusFilter !== 'ALL') {
+        if (statusFilter === 'PENDING' && opKey !== 'PENDING') return false;
+        if (statusFilter === 'REJECTED' && opKey !== 'REJECTED') return false;
+        if (statusFilter === 'ACCEPTED' && (opKey === 'PENDING' || opKey === 'REJECTED')) return false;
+      }
       if (searchQuery.trim()) {
         const query = searchQuery.toLowerCase();
         const matchesCustomer = e.customer_name?.toLowerCase().includes(query);
         const matchesArtist = e.artist_name?.toLowerCase().includes(query);
         const matchesPlacement = e.placement?.toLowerCase().includes(query);
         const matchesDesc = e.description?.toLowerCase().includes(query);
-        if (!matchesCustomer && !matchesArtist && !matchesPlacement && !matchesDesc) return false;
+        const matchesStatusLabel = e.operational_status?.label?.toLowerCase().includes(query);
+        if (!matchesCustomer && !matchesArtist && !matchesPlacement && !matchesDesc && !matchesStatusLabel) return false;
       }
       return true;
     });
   }, [estimates, statusFilter, searchQuery]);
 
-  const getStatusBadge = (status: EstimateStatus) => {
-    switch (status) {
+  const renderStatusBadge = (est: EstimateRequestItem) => {
+    if (
+      (est.operational_status?.key === 'WAITING_SLIP_VERIFICATION' || est.has_pending_payment_submission) &&
+      est.linked_booking?.id &&
+      onCheckSlip
+    ) {
+      return (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onCheckSlip(est.linked_booking!.id);
+          }}
+          title="กดเพื่อตรวจสลิป"
+          className="bg-amber-950/80 hover:bg-amber-900 text-amber-300 border border-amber-800/80 px-2 py-0.5 rounded text-[10px] font-semibold inline-flex items-center animate-pulse transition-colors cursor-pointer shadow-sm"
+        >
+          <span>สลิปรอตรวจ</span>
+        </button>
+      );
+    }
+
+    if (est.operational_status) {
+      return (
+        <span className={`${est.operational_status.badgeClass} px-2 py-0.5 rounded text-[10px] font-semibold`}>
+          {est.operational_status.label}
+        </span>
+      );
+    }
+
+    switch (est.status) {
       case 'PENDING':
         return (
           <span className="bg-blue-950/60 text-blue-400 border border-blue-800/60 px-2 py-0.5 rounded text-[10px] font-semibold">
-            รอประเมิน
-          </span>
-        );
-      case 'QUOTED':
-        return (
-          <span className="bg-amber-950/60 text-amber-400 border border-amber-800/60 px-2 py-0.5 rounded text-[10px] font-semibold">
-            เสนอราคาแล้ว
+            รอตรวจสอบ
           </span>
         );
       case 'ACCEPTED':
         return (
           <span className="bg-emerald-950/60 text-emerald-400 border border-emerald-800/60 px-2 py-0.5 rounded text-[10px] font-semibold">
-            ลูกค้ายอมรับ
+            ยืนยันแล้ว
           </span>
         );
       case 'REJECTED':
         return (
           <span className="bg-red-950/60 text-red-400 border border-red-800/60 px-2 py-0.5 rounded text-[10px] font-semibold">
             ปฏิเสธ
+          </span>
+        );
+      case 'QUOTED':
+        return (
+          <span className="bg-amber-950/60 text-amber-400 border border-amber-800/60 px-2 py-0.5 rounded text-[10px] font-semibold">
+            เสนอราคาแล้ว
           </span>
         );
       case 'EXPIRED':
@@ -122,7 +158,7 @@ export default function EstimateRequestList({
           <FileText size={28} className="text-[#7A7265] mx-auto opacity-60" />
           <h4 className="text-xs sm:text-sm font-semibold text-[#ECE4D3]">ยังไม่มีคำขอจากลูกค้า</h4>
           <p className="text-[11px] text-[#7A7265] max-w-sm mx-auto">
-            เมื่อมีลูกค้าส่งคำขอประเมินราคา รายการจะแสดงที่นี่เพื่อให้ผู้ดูแลระบบสามารถส่งใบเสนอราคาได้
+            เมื่อมีลูกค้าส่งคำขอจองคิวสัก รายการจะแสดงที่นี่เพื่อให้ผู้ดูแลระบบตรวจสอบและลงคิวงานได้
           </p>
         </div>
       ) : (
@@ -136,8 +172,8 @@ export default function EstimateRequestList({
                   <th className="py-3 px-3">ลูกค้า</th>
                   <th className="py-3 px-3">ช่างสัก</th>
                   <th className="py-3 px-3">ตำแหน่ง / ขนาด</th>
+                  <th className="py-3 px-3">วันที่สะดวก</th>
                   <th className="py-3 px-3">สถานะ</th>
-                  <th className="py-3 px-3 text-right">ราคาที่เสนอ</th>
                   <th className="py-3 px-3 text-center">จัดการ</th>
                 </tr>
               </thead>
@@ -149,7 +185,9 @@ export default function EstimateRequestList({
                       key={est.id}
                       onClick={() => onSelectEstimate(est)}
                       className={`cursor-pointer transition-colors ${
-                        isSelected ? 'bg-[#1F1D1A]' : 'hover:bg-[#1F1D1A]/50'
+                        isSelected
+                          ? 'bg-[#1F1D1A]'
+                          : 'hover:bg-[#0E0D0C]/70'
                       }`}
                     >
                       <td className="py-3 px-3 text-[#A89F91]">
@@ -161,20 +199,32 @@ export default function EstimateRequestList({
                       <td className="py-3 px-3 text-[#A89F91]">
                         {est.artist_name}
                       </td>
-                      <td className="py-3 px-3 text-[#ECE4D3]">
-                        <span className="font-medium">{est.placement}</span>
+                      <td className="py-3 px-3">
+                        <span className="text-[#ECE4D3]">{est.placement}</span>
                         {est.width_cm && est.height_cm && (
-                          <span className="text-[10px] text-[#7A7265] ml-1.5">
-                            ({est.width_cm}x{est.height_cm} ซม.)
+                          <span className="text-[10px] text-[#7A7265] block">
+                            {est.width_cm} × {est.height_cm} ซม.
                           </span>
                         )}
                       </td>
-                      <td className="py-3 px-3">{getStatusBadge(est.status)}</td>
-                      <td className="py-3 px-3 text-right font-semibold text-emerald-400">
-                        {est.quoted_price ? formatCurrency(est.quoted_price) : '-'}
+                      <td className="py-3 px-3 text-[#A89F91]">
+                        {est.preferred_date || 'ไม่ระบุ'}
                       </td>
-                      <td className="py-3 px-3 text-center text-[#7A7265]">
-                        <ChevronRight size={14} className="inline-block" />
+                      <td className="py-3 px-3">
+                        {renderStatusBadge(est)}
+                      </td>
+                      <td className="py-3 px-3 text-center">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onSelectEstimate(est);
+                          }}
+                          className="px-3 py-1 bg-[#0E0D0C] hover:bg-[#1F1D1A] text-[#ECE4D3] text-xs font-medium rounded border border-[#4A443A] hover:border-[#7A7265] transition-colors inline-flex items-center gap-1"
+                        >
+                          <span>จัดการคำขอจอง</span>
+                          <ChevronRight size={13} />
+                        </button>
                       </td>
                     </tr>
                   );
@@ -183,44 +233,49 @@ export default function EstimateRequestList({
             </table>
           </div>
 
-          {/* Mobile Cards View */}
-          <div className="md:hidden space-y-2.5">
-            {filteredEstimates.map((est) => {
-              const isSelected = selectedEstimate?.id === est.id;
-              return (
-                <div
-                  key={est.id}
-                  onClick={() => onSelectEstimate(est)}
-                  className={`border rounded-lg p-3.5 space-y-2 cursor-pointer transition-colors ${
-                    isSelected
-                      ? 'bg-[#1F1D1A] border-[#ECE4D3]'
-                      : 'bg-[#0E0D0C] border-[#4A443A]/70 hover:border-[#7A7265]'
-                  }`}
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <span className="font-semibold text-sm text-[#ECE4D3]">{est.customer_name}</span>
-                      <p className="text-[11px] text-[#7A7265] mt-0.5">
-                        ช่างสัก: <span className="text-[#A89F91]">{est.artist_name}</span>
-                      </p>
-                    </div>
-                    {getStatusBadge(est.status)}
-                  </div>
+          {/* Mobile Card List */}
+          <div className="md:hidden space-y-3">
+            {filteredEstimates.map((est) => (
+              <div
+                key={est.id}
+                onClick={() => onSelectEstimate(est)}
+                className="bg-[#0E0D0C] border border-[#4A443A] rounded-xl p-3.5 space-y-2.5 shadow cursor-pointer active:scale-[0.99] transition-all"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-xs font-semibold text-[#ECE4D3] flex items-center gap-1.5">
+                    <User size={13} className="text-[#9C2F2F]" />
+                    {est.customer_name}
+                  </span>
+                  {renderStatusBadge(est)}
+                </div>
 
-                  <div className="text-xs text-[#A89F91] pt-1 border-t border-[#4A443A]/40 flex items-center justify-between">
-                    <span>
-                      {est.placement}{' '}
-                      {est.width_cm && est.height_cm ? `(${est.width_cm}x${est.height_cm} ซม.)` : ''}
-                    </span>
-                    {est.quoted_price ? (
-                      <span className="font-semibold text-emerald-400">{formatCurrency(est.quoted_price)}</span>
-                    ) : (
-                      <span className="text-[10px] text-blue-400 font-medium">รอประเมินราคา</span>
-                    )}
+                <div className="grid grid-cols-2 gap-1.5 text-xs">
+                  <div className="bg-[#171512] p-2 rounded border border-[#4A443A]/40">
+                    <span className="text-[9px] text-[#7A7265] block">ช่างที่ระบุ</span>
+                    <span className="text-[#ECE4D3] truncate block">{est.artist_name}</span>
+                  </div>
+                  <div className="bg-[#171512] p-2 rounded border border-[#4A443A]/40">
+                    <span className="text-[9px] text-[#7A7265] block">ตำแหน่ง</span>
+                    <span className="text-[#ECE4D3] truncate block">{est.placement}</span>
                   </div>
                 </div>
-              );
-            })}
+
+                <div className="flex items-center justify-between text-[11px] text-[#A89F91] pt-1">
+                  <span>วันที่สะดวก: {est.preferred_date || 'ไม่ระบุ'}</span>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onSelectEstimate(est);
+                    }}
+                    className="text-xs font-medium text-emerald-400 hover:text-emerald-300 flex items-center gap-0.5"
+                  >
+                    <span>จัดการคำขอจอง</span>
+                    <ChevronRight size={13} />
+                  </button>
+                </div>
+              </div>
+            ))}
           </div>
         </>
       )}

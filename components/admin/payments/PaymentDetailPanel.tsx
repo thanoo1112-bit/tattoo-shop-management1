@@ -144,7 +144,7 @@ export default function PaymentDetailPanel({
             </div>
           )}
 
-          {/* Financial Summary Card (Section 8) */}
+          {/* Financial Summary Card */}
           <div className="bg-[#0E0D0C] border border-[#4A443A] rounded-xl p-4 space-y-4">
             <div className="flex items-center justify-between border-b border-[#4A443A]/60 pb-2.5">
               <span className="text-xs font-heading font-medium text-[#ECE4D3] flex items-center gap-1.5">
@@ -154,58 +154,87 @@ export default function PaymentDetailPanel({
 
               {/* Status Badges */}
               <div className="flex items-center gap-1.5 text-[10px]">
-                {summary.is_fully_paid ? (
+                {booking.status === 'COMPLETED' ? (
+                  summary.paid_total >= summary.quoted_price && summary.quoted_price > 0 ? (
+                    <span className="bg-emerald-950/50 text-emerald-400 border border-emerald-800/50 px-2 py-0.5 rounded-full font-medium">
+                      ชำระครบ
+                    </span>
+                  ) : (
+                    <span className="bg-red-950/50 text-red-400 border border-red-800/50 px-2 py-0.5 rounded-full font-medium">
+                      ค้างชำระ ฿{Math.max(0, summary.quoted_price - summary.paid_total).toLocaleString('th-TH')}
+                    </span>
+                  )
+                ) : summary.paid_total >= summary.quoted_price && summary.quoted_price > 0 ? (
                   <span className="bg-emerald-950/50 text-emerald-400 border border-emerald-800/50 px-2 py-0.5 rounded-full font-medium">
-                    ชำระครบแล้ว
+                    ชำระครบ
                   </span>
-                ) : summary.deposit_paid ? (
-                  <span className="bg-blue-950/50 text-blue-400 border border-blue-800/50 px-2 py-0.5 rounded-full font-medium">
-                    มัดจำเรียบร้อย
-                  </span>
-                ) : summary.deposit_required > 0 ? (
-                  <span className="bg-amber-950/50 text-amber-400 border border-amber-800/50 px-2 py-0.5 rounded-full font-medium">
-                    รอมัดจำ
-                  </span>
-                ) : (
+                ) : summary.deposit_required <= 0 ? (
                   <span className="bg-[#1F1D1A] text-[#A89F91] border border-[#4A443A] px-2 py-0.5 rounded-full font-medium">
                     ไม่มีมัดจำ
+                  </span>
+                ) : summary.paid_total >= summary.deposit_required ? (
+                  <span className="bg-emerald-950/50 text-emerald-400 border border-emerald-800/50 px-2 py-0.5 rounded-full font-medium">
+                    รับมัดจำครบแล้ว
+                  </span>
+                ) : summary.paid_total > 0 ? (
+                  <span className="bg-blue-950/50 text-blue-400 border border-blue-800/50 px-2 py-0.5 rounded-full font-medium">
+                    ชำระบางส่วน
+                  </span>
+                ) : (
+                  <span className="bg-amber-950/50 text-amber-400 border border-amber-800/50 px-2 py-0.5 rounded-full font-medium">
+                    ยังไม่ได้รับมัดจำ
                   </span>
                 )}
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3 text-xs">
-              <div className="bg-[#171512] p-2.5 rounded-lg border border-[#4A443A]/60">
-                <p className="text-[10px] text-[#7A7265]">ราคางานสักที่ตกลง</p>
-                <p className="text-base font-heading font-semibold text-[#ECE4D3] mt-0.5">
-                  ฿{summary.quoted_price.toLocaleString('th-TH')}
-                </p>
-              </div>
-
+            <div className="grid grid-cols-3 gap-2 text-xs">
               <div className="bg-[#171512] p-2.5 rounded-lg border border-[#4A443A]/60">
                 <p className="text-[10px] text-[#7A7265]">มัดจำที่กำหนด</p>
-                <p className="text-base font-heading font-semibold text-amber-300 mt-0.5">
-                  ฿{summary.deposit_required.toLocaleString('th-TH')}
+                <p className="text-sm sm:text-base font-heading font-semibold text-amber-300 mt-0.5">
+                  {summary.deposit_required > 0 ? `฿${summary.deposit_required.toLocaleString('th-TH')}` : 'ไม่มีมัดจำ'}
                 </p>
               </div>
 
               <div className="bg-[#171512] p-2.5 rounded-lg border border-[#4A443A]/60">
                 <p className="text-[10px] text-emerald-400/80">รับเงินจริงแล้ว</p>
-                <p className="text-base font-heading font-semibold text-emerald-400 mt-0.5">
+                <p className="text-sm sm:text-base font-heading font-semibold text-emerald-400 mt-0.5">
                   ฿{summary.paid_total.toLocaleString('th-TH')}
                 </p>
               </div>
 
               <div className="bg-[#171512] p-2.5 rounded-lg border border-[#4A443A]/60">
-                <p className="text-[10px] text-red-400/80">ยอดคงเหลือ</p>
-                <p className="text-base font-heading font-semibold text-red-400 mt-0.5">
-                  ฿{summary.remaining_balance.toLocaleString('th-TH')}
+                <p className="text-[10px] text-[#7A7265]">ยอดที่ต้องจ่าย</p>
+                <p className="text-sm sm:text-base font-heading font-semibold mt-0.5">
+                  {summary.quoted_price > 0 ? (
+                    Math.max(0, summary.quoted_price - summary.paid_total) > 0 ? (
+                      <span className="text-[#ECE4D3]">
+                        ฿{Math.max(0, summary.quoted_price - summary.paid_total).toLocaleString('th-TH')}
+                      </span>
+                    ) : (
+                      <span className="text-emerald-400 text-xs sm:text-sm">ชำระครบแล้ว</span>
+                    )
+                  ) : Math.max(0, summary.deposit_required - summary.paid_total) > 0 ? (
+                    <span className="text-amber-400 text-xs sm:text-sm">
+                      ขาดมัดจำ ฿{Math.max(0, summary.deposit_required - summary.paid_total).toLocaleString('th-TH')}
+                    </span>
+                  ) : (
+                    <span className="text-emerald-400 text-xs sm:text-sm">รับมัดจำแล้ว</span>
+                  )}
                 </p>
               </div>
             </div>
 
+            {/* Flash Price (if Flash Booking) */}
+            {booking.booking_source === 'FLASH' && summary.quoted_price > 0 && (
+              <div className="pt-2 border-t border-[#4A443A]/40 flex justify-between text-xs text-[#A89F91]">
+                <span>ราคาแบบลาย Flash (Fixed Price):</span>
+                <strong className="text-[#ECE4D3]">฿{summary.quoted_price.toLocaleString('th-TH')}</strong>
+              </div>
+            )}
+
             {/* Booking State Badges */}
-            <div className="flex flex-wrap items-center justify-between text-[11px] text-[#7A7265] pt-1">
+            <div className="flex flex-wrap items-center justify-between text-[11px] text-[#7A7265] pt-1 border-t border-[#4A443A]/20">
               <span>สถานะคิวงาน: <strong className="text-[#ECE4D3]">{booking.status}</strong></span>
               {booking.confirmed_at && (
                 <span>ยืนยันเมื่อ: <span className="text-[#A89F91]">{new Date(booking.confirmed_at).toLocaleDateString('th-TH')}</span></span>

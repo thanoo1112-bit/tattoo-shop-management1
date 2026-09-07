@@ -8,12 +8,20 @@ import {
   CheckCircle2,
   AlertCircle,
   X,
+  FileCheck,
+  Settings,
+  Layers,
+  Clock,
+  DollarSign,
 } from 'lucide-react';
+import AdminRevenuePage from '@/components/admin/revenue/AdminRevenuePage';
 import PaymentSummaryCards from './PaymentSummaryCards';
 import PaymentBookingList from './PaymentBookingList';
 import PaymentDetailPanel from './PaymentDetailPanel';
 import RecordPaymentForm from './RecordPaymentForm';
 import VoidPaymentDialog from './VoidPaymentDialog';
+import PaymentSubmissionReviewQueue from './PaymentSubmissionReviewQueue';
+import AdminPaymentSettingsSection from './AdminPaymentSettingsSection';
 import {
   PaymentBookingDetail,
   BookingPaymentSummaryRow,
@@ -24,6 +32,9 @@ import {
 import { createClient } from '@/lib/supabase/client';
 
 export default function AdminPaymentPage() {
+  const [activeMainTab, setActiveMainTab] = useState<'overview' | 'submissions' | 'settings' | 'revenue'>('overview');
+  const [pendingSubmissionsCount, setPendingSubmissionsCount] = useState<number>(0);
+
   const [bookings, setBookings] = useState<PaymentBookingDetail[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
@@ -52,8 +63,10 @@ export default function AdminPaymentPage() {
   };
 
   // Main Live Data Fetcher
-  const fetchLivePaymentData = useCallback(async () => {
-    setIsLoading(true);
+  const fetchLivePaymentData = useCallback(async (opts?: { isInitial?: boolean }) => {
+    if (opts?.isInitial) {
+      setIsLoading(true);
+    }
     try {
       const supabase = createClient();
 
@@ -77,10 +90,13 @@ export default function AdminPaymentPage() {
 
       if (bErr) throw bErr;
 
-      // 3. Fetch customers for name and contact info
+      // 3. Fetch customers and profiles for name and contact info
       const { data: custList } = await supabase
         .from('customers')
         .select('id, user_id, display_name, phone, email');
+      const { data: profList } = await supabase
+        .from('profiles')
+        .select('user_id, display_name, phone, email');
 
       // 4. Combine into complete PaymentBookingDetail
       const combined: PaymentBookingDetail[] = (bList || []).map((b: any) => {
@@ -98,6 +114,7 @@ export default function AdminPaymentPage() {
         };
 
         const cust = (custList || []).find((c: any) => c.user_id === b.customer_user_id);
+        const prof = (profList || []).find((p: any) => p.user_id === b.customer_user_id);
         const artist = b.artists;
 
         return {
@@ -107,12 +124,13 @@ export default function AdminPaymentPage() {
           artist_id: b.artist_id,
           requested_date: b.requested_date,
           status: b.status,
+          booking_source: b.booking_source || null,
           approved_at: b.approved_at,
           confirmed_at: b.confirmed_at,
           created_at: b.created_at,
-          customer_name: cust?.display_name || 'ลูกค้า 157 Tattoo',
-          customer_phone: cust?.phone || '',
-          customer_email: cust?.email || '',
+          customer_name: (cust?.display_name && cust.display_name !== 'ลูกค้าประจำ') ? cust.display_name : prof?.display_name || cust?.display_name || 'ลูกค้า 157 Tattoo',
+          customer_phone: cust?.phone || prof?.phone || '',
+          customer_email: cust?.email || prof?.email || '',
           artist_name: artist?.name || 'ยังไม่มอบหมายช่าง',
           artist_nickname: artist?.nickname || null,
           placement: b.estimate_requests?.placement || undefined,
@@ -140,38 +158,54 @@ export default function AdminPaymentPage() {
 
       setBookings(combined);
 
-      // If a booking is currently selected, update its reference
-      if (selectedBooking) {
-        const updated = combined.find((item) => item.id === selectedBooking.id);
-        if (updated) setSelectedBooking(updated);
-      }
+      // If a booking is currently selected, update its reference quietly without triggering re-fetch
+      setSelectedBooking((prevSelected) => {
+        if (!prevSelected) return null;
+        const updated = combined.find((item) => item.id === prevSelected.id);
+        return updated || prevSelected;
+      });
+
+      // Count pending submissions
+      const { count: pCount } = await supabase
+        .from('booking_payment_submissions')
+        .select('*', { count: 'exact', head: true })
+        .eq('status', 'PENDING');
+
+      setPendingSubmissionsCount(pCount || 0);
     } catch (err: any) {
       console.error('Error loading live payment data:', err);
       showToast('error', 'ไม่สามารถโหลดข้อมูลการเงินจากฐานข้อมูลได้: ' + (err.message || 'Network error'));
     } finally {
-      setIsLoading(false);
+      if (opts?.isInitial) {
+        setIsLoading(false);
+      }
     }
-  }, [selectedBooking?.id]);
+  }, []);
+
+  const isInitialMountedRef = React.useRef(false);
 
   useEffect(() => {
-    fetchLivePaymentData();
-  }, [refreshTrigger]);
+    if (!isInitialMountedRef.current) {
+      isInitialMountedRef.current = true;
+      fetchLivePaymentData({ isInitial: true });
+    } else {
+      fetchLivePaymentData({ isInitial: false });
+    }
+  }, [refreshTrigger, fetchLivePaymentData]);
 
-  // KPI Calculations (Section 4)
+  // KPI Calculations
   const kpiData = useMemo(() => {
     let waitingDepositCount = 0;
     let waitingDepositAmount = 0;
     let totalPaid = 0;
-    let totalRemaining = 0;
-    let fullyPaidCount = 0;
+    let depositPaidCount = 0;
 
     bookings.forEach((b) => {
       const s = b.summary;
       totalPaid += s.paid_total;
-      totalRemaining += s.remaining_balance;
 
-      if (s.is_fully_paid) {
-        fullyPaidCount += 1;
+      if (s.deposit_required > 0 && s.paid_total >= s.deposit_required) {
+        depositPaidCount += 1;
       }
 
       if (!s.deposit_paid && s.deposit_required > 0) {
@@ -184,13 +218,12 @@ export default function AdminPaymentPage() {
       waitingDepositCount,
       waitingDepositAmount,
       totalPaid,
-      totalRemaining,
-      fullyPaidCount,
+      depositPaidCount,
       totalBookings: bookings.length,
     };
   }, [bookings]);
 
-  // Filtered Bookings List (Section 7)
+  // Filtered Bookings List
   const filteredBookings = useMemo(() => {
     return bookings.filter((b) => {
       // 1. Search filter
@@ -203,12 +236,12 @@ export default function AdminPaymentPage() {
       }
 
       // 2. Financial filter
-      if (financialFilter === 'WAITING_DEPOSIT') {
-        if (b.summary.deposit_paid || b.summary.deposit_required <= 0) return false;
+      if (financialFilter === 'UNPAID') {
+        if (b.summary.deposit_required <= 0 || b.summary.paid_total > 0) return false;
       } else if (financialFilter === 'PARTIAL') {
-        if (!b.summary.deposit_paid || b.summary.is_fully_paid || b.summary.paid_total <= 0) return false;
-      } else if (financialFilter === 'FULLY_PAID') {
-        if (!b.summary.is_fully_paid) return false;
+        if (b.summary.paid_total <= 0 || b.summary.paid_total >= b.summary.deposit_required) return false;
+      } else if (financialFilter === 'PAID') {
+        if (b.summary.deposit_required <= 0 || b.summary.paid_total < b.summary.deposit_required) return false;
       }
 
       // 3. Booking status filter
@@ -250,7 +283,7 @@ export default function AdminPaymentPage() {
         </div>
       )}
 
-      {/* Page Title & Subtitle Header (Section 4) */}
+      {/* Page Title & Subtitle Header */}
       <div className="border-b border-[#4A443A] pb-4 flex flex-col sm:flex-row justify-between items-start sm:items-end gap-3">
         <div>
           <div className="inline-flex items-center space-x-2 bg-[#171512] border border-[#4A443A] px-2.5 py-0.5 sm:px-3 sm:py-1 rounded text-[#ECE4D3] text-[10px] uppercase font-heading tracking-widest mb-1.5">
@@ -261,7 +294,7 @@ export default function AdminPaymentPage() {
             การเงินและการชำระเงิน
           </h1>
           <p className="text-xs text-[#A89F91] mt-1 font-light">
-            ติดตามเงินมัดจำ ยอดที่รับแล้ว และยอดคงเหลือของงานสัก
+            ติดตามเงินมัดจำ ตรวจสอบสลิปโอนเงิน และตั้งค่าบัญชีรับชำระของสตูดิโอ
           </p>
         </div>
 
@@ -278,63 +311,160 @@ export default function AdminPaymentPage() {
         </div>
       </div>
 
-      {/* 4 Summary Cards (Section 4) */}
-      <PaymentSummaryCards
-        waitingDepositCount={kpiData.waitingDepositCount}
-        waitingDepositAmount={kpiData.waitingDepositAmount}
-        totalPaid={kpiData.totalPaid}
-        totalRemaining={kpiData.totalRemaining}
-        fullyPaidCount={kpiData.fullyPaidCount}
-        totalBookings={kpiData.totalBookings}
-      />
+      {/* Main Navigation Tabs */}
+      <div className="flex items-center gap-2 border-b border-[#4A443A] pb-2 overflow-x-auto">
+        <button
+          type="button"
+          onClick={() => setActiveMainTab('overview')}
+          className={
+            "px-4 py-2 rounded-t-[6px] text-xs font-bold transition-all flex items-center gap-2 " +
+            (activeMainTab === 'overview'
+              ? "bg-[#171512] text-[#ECE4D3] border-t-2 border-t-[#9C2F2F] border-x border-[#4A443A]"
+              : "text-[#A89F91] hover:text-[#ECE4D3] hover:bg-[#171512]/50")
+          }
+        >
+          <Layers size={14} className={activeMainTab === 'overview' ? 'text-[#9C2F2F]' : ''} />
+          <span>ภาพรวมและประวัติการเงิน</span>
+        </button>
 
-      {/* Booking Financial List with Filters (Section 5, 6, 7) */}
-      <PaymentBookingList
-        bookings={filteredBookings}
-        selectedBookingId={selectedBooking?.id}
-        onSelectBooking={(b) => setSelectedBooking(b)}
-        searchQuery={searchQuery}
-        onSearchChange={setSearchQuery}
-        financialFilter={financialFilter}
-        onFinancialFilterChange={setFinancialFilter}
-        bookingStatusFilter={bookingStatusFilter}
-        onBookingStatusFilterChange={setBookingStatusFilter}
-        isLoading={isLoading}
-      />
+        <button
+          type="button"
+          onClick={() => setActiveMainTab('submissions')}
+          className={
+            "px-4 py-2 rounded-t-[6px] text-xs font-bold transition-all flex items-center gap-2 relative " +
+            (activeMainTab === 'submissions'
+              ? "bg-[#171512] text-[#ECE4D3] border-t-2 border-t-[#9C2F2F] border-x border-[#4A443A]"
+              : "text-[#A89F91] hover:text-[#ECE4D3] hover:bg-[#171512]/50")
+          }
+        >
+          <FileCheck size={14} className={activeMainTab === 'submissions' ? 'text-[#C9A86A]' : ''} />
+          <span>รอตรวจสอบสลิป</span>
+          {pendingSubmissionsCount > 0 && (
+            <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-red-800 text-white font-mono animate-pulse font-semibold">
+              {pendingSubmissionsCount}
+            </span>
+          )}
+        </button>
 
-      {/* Slide-out Payment Detail Panel (Section 8) */}
-      <PaymentDetailPanel
-        booking={selectedBooking}
-        isOpen={Boolean(selectedBooking)}
-        onClose={() => setSelectedBooking(null)}
-        onOpenRecordModal={() => setIsRecordModalOpen(true)}
-        onOpenVoidModal={(p) => setVoidTargetPayment(p)}
-        refreshTrigger={refreshTrigger}
-      />
+        <button
+          type="button"
+          onClick={() => setActiveMainTab('revenue')}
+          className={
+            "px-4 py-2 rounded-t-[6px] text-xs font-bold transition-all flex items-center gap-2 " +
+            (activeMainTab === 'revenue'
+              ? "bg-[#171512] text-[#ECE4D3] border-t-2 border-t-[#9C2F2F] border-x border-[#4A443A]"
+              : "text-[#A89F91] hover:text-[#ECE4D3] hover:bg-[#171512]/50")
+          }
+        >
+          <DollarSign size={14} className={activeMainTab === 'revenue' ? 'text-[#9C2F2F]' : ''} />
+          <span>รายได้</span>
+        </button>
 
-      {/* Record Payment Form Modal (Section 9, 10, 11) */}
-      <RecordPaymentForm
-        booking={selectedBooking}
-        isOpen={isRecordModalOpen}
-        onClose={() => setIsRecordModalOpen(false)}
-        onSuccess={(msg) => {
-          showToast('success', msg);
-          handleRefresh();
-        }}
-        onError={(err) => showToast('error', err)}
-      />
+        <button
+          type="button"
+          onClick={() => setActiveMainTab('settings')}
+          className={
+            "px-4 py-2 rounded-t-[6px] text-xs font-bold transition-all flex items-center gap-2 " +
+            (activeMainTab === 'settings'
+              ? "bg-[#171512] text-[#ECE4D3] border-t-2 border-t-[#9C2F2F] border-x border-[#4A443A]"
+              : "text-[#A89F91] hover:text-[#ECE4D3] hover:bg-[#171512]/50")
+          }
+        >
+          <Settings size={14} className={activeMainTab === 'settings' ? 'text-[#9C2F2F]' : ''} />
+          <span>ตั้งค่าการชำระเงิน</span>
+        </button>
+      </div>
 
-      {/* Void Payment Confirmation Dialog (Section 14) */}
-      <VoidPaymentDialog
-        payment={voidTargetPayment}
-        isOpen={Boolean(voidTargetPayment)}
-        onClose={() => setVoidTargetPayment(null)}
-        onSuccess={(msg) => {
-          showToast('success', msg);
-          handleRefresh();
-        }}
-        onError={(err) => showToast('error', err)}
-      />
+      {/* Tab 1 Content: Overview & Bookings */}
+      {activeMainTab === 'overview' && (
+        <div className="space-y-6 animate-fadeIn">
+          {/* 4 Summary Cards */}
+          <PaymentSummaryCards
+            waitingDepositCount={kpiData.waitingDepositCount}
+            waitingDepositAmount={kpiData.waitingDepositAmount}
+            totalPaid={kpiData.totalPaid}
+            depositPaidCount={kpiData.depositPaidCount}
+            totalBookings={kpiData.totalBookings}
+          />
+
+          {/* Booking Financial List with Filters */}
+          <PaymentBookingList
+            bookings={filteredBookings}
+            selectedBookingId={selectedBooking?.id}
+            onSelectBooking={(b) => setSelectedBooking(b)}
+            searchQuery={searchQuery}
+            onSearchChange={setSearchQuery}
+            financialFilter={financialFilter}
+            onFinancialFilterChange={setFinancialFilter}
+            bookingStatusFilter={bookingStatusFilter}
+            onBookingStatusFilterChange={setBookingStatusFilter}
+            isLoading={isLoading}
+          />
+
+          {/* Slide-out Payment Detail Panel */}
+          <PaymentDetailPanel
+            booking={selectedBooking}
+            isOpen={Boolean(selectedBooking)}
+            onClose={() => setSelectedBooking(null)}
+            onOpenRecordModal={() => setIsRecordModalOpen(true)}
+            onOpenVoidModal={(p) => setVoidTargetPayment(p)}
+            refreshTrigger={refreshTrigger}
+          />
+
+          {/* Record Payment Form Modal */}
+          <RecordPaymentForm
+            booking={selectedBooking}
+            isOpen={isRecordModalOpen}
+            onClose={() => setIsRecordModalOpen(false)}
+            onSuccess={(msg) => {
+              showToast('success', msg);
+              handleRefresh();
+            }}
+            onError={(err) => showToast('error', err)}
+          />
+
+          {/* Void Payment Confirmation Dialog */}
+          <VoidPaymentDialog
+            payment={voidTargetPayment}
+            isOpen={Boolean(voidTargetPayment)}
+            onClose={() => setVoidTargetPayment(null)}
+            onSuccess={(msg) => {
+              showToast('success', msg);
+              handleRefresh();
+            }}
+            onError={(err) => showToast('error', err)}
+          />
+        </div>
+      )}
+
+      {/* Tab 2 Content: Review Queue */}
+      {activeMainTab === 'submissions' && (
+        <div className="animate-fadeIn">
+          <PaymentSubmissionReviewQueue
+            onSuccessToast={(msg) => showToast('success', msg)}
+            onErrorToast={(err) => showToast('error', err)}
+            onRefreshParent={handleRefresh}
+            onPendingCountChange={(count) => setPendingSubmissionsCount(count)}
+          />
+        </div>
+      )}
+
+      {/* Tab 3 Content: Payment Settings */}
+      {activeMainTab === 'settings' && (
+        <div className="animate-fadeIn">
+          <AdminPaymentSettingsSection
+            onSuccessToast={(msg) => showToast('success', msg)}
+            onErrorToast={(err) => showToast('error', err)}
+          />
+        </div>
+      )}
+
+      {/* Tab 4 Content: Revenue Analytics & Records */}
+      {activeMainTab === 'revenue' && (
+        <div className="animate-fadeIn">
+          <AdminRevenuePage />
+        </div>
+      )}
     </div>
   );
 }

@@ -1,19 +1,43 @@
 'use client';
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useApp } from '@/components/AppContext';
 import AdminHeader from '@/components/admin/AdminHeader';
+import AdminMobileBottomNav from '@/components/admin/AdminMobileBottomNav';
 import KPICard from '@/components/admin/KPICard';
 import ArtistTimeline from '@/components/admin/ArtistTimeline';
-import EstimateRequestQueue from '@/components/admin/EstimateRequestQueue';
-import BookingRequestQueue from '@/components/admin/BookingRequestQueue';
-import DepositVerificationQueue from '@/components/admin/DepositVerificationQueue';
+import UnifiedActionQueue from '@/components/admin/UnifiedActionQueue';
 import { Calendar, User, Clock, ClipboardList, DollarSign, ShieldCheck, Sparkles } from 'lucide-react';
+import { createClient } from '@/lib/supabase/client';
+
+// Helper for Bangkok Date YYYY-MM-DD
+function getBangkokTodayDateString() {
+  const options: Intl.DateTimeFormatOptions = {
+    timeZone: 'Asia/Bangkok',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  };
+  const parts = new Intl.DateTimeFormat('en-CA', options).formatToParts(new Date());
+  const year = parts.find((p) => p.type === 'year')?.value;
+  const month = parts.find((p) => p.type === 'month')?.value;
+  const day = parts.find((p) => p.type === 'day')?.value;
+  return `${year}-${month}-${day}`;
+}
 
 export default function AdminDashboardPage() {
-  const { isStaffLoggedIn, staffRole, authLoading, bookings, estimateRequests, bookingPayments, artists } = useApp();
+  const { isStaffLoggedIn, staffRole, authLoading } = useApp();
 
-  const [authTimedOut, setAuthTimedOut] = React.useState(false);
+  const [authTimedOut, setAuthTimedOut] = useState(false);
+
+  // Live Metrics State
+  const [confirmedTodayCount, setConfirmedTodayCount] = useState<number>(0);
+  const [pendingRequestsCount, setPendingRequestsCount] = useState<number>(0);
+  const [pendingSubmissionsCount, setPendingSubmissionsCount] = useState<number>(0);
+  const [tattooingCount, setTattooingCount] = useState<number>(0);
+  const [totalActiveArtistsCount, setTotalActiveArtistsCount] = useState<number>(0);
+  const [verifiedDepositTotal, setVerifiedDepositTotal] = useState<number>(0);
+  const [isMetricsLoading, setIsMetricsLoading] = useState<boolean>(true);
 
   // Authentication timeout safety guard (10s)
   useEffect(() => {
@@ -33,6 +57,100 @@ export default function AdminDashboardPage() {
       }
     }
   }, [isStaffLoggedIn, staffRole, authLoading]);
+
+  // Live Dashboard Metrics Fetcher
+  const fetchDashboardMetrics = useCallback(async () => {
+    setIsMetricsLoading(true);
+    try {
+      const supabase = createClient();
+      const bangkokTodayStr = getBangkokTodayDateString();
+
+      // 1. KPI: คิวคอนเฟิร์มวันนี้ (Today's actual appointment sessions in Asia/Bangkok)
+      const { data: rawSessions } = await supabase
+        .from('booking_sessions')
+        .select('id, start_at, status, booking_id, bookings(id, status)')
+        .neq('status', 'CANCELLED');
+
+      let todaySessionsCount = 0;
+      (rawSessions || []).forEach((ses: any) => {
+        const b = Array.isArray(ses.bookings) ? ses.bookings[0] : ses.bookings;
+        if (b && !['CANCELLED', 'REJECTED'].includes(b.status) && ses.start_at) {
+          try {
+            const sesBangkokDate = new Date(ses.start_at).toLocaleDateString('en-CA', {
+              timeZone: 'Asia/Bangkok',
+            });
+            if (sesBangkokDate === bangkokTodayStr) {
+              todaySessionsCount += 1;
+            }
+          } catch (_) {}
+        }
+      });
+      setConfirmedTodayCount(todaySessionsCount);
+
+      // 2. KPI: คำขอรอดำเนินการ (Live estimate_requests with status = 'PENDING')
+      const { count: reqCount } = await supabase
+        .from('estimate_requests')
+        .select('*', { count: 'exact', head: true })
+        .eq('status', 'PENDING');
+      setPendingRequestsCount(reqCount || 0);
+
+      // 3. KPI: รอตรวจสอบมัดจำ / สลิปรอตรวจ (Live booking_payment_submissions with status = 'PENDING')
+      const { count: slipCount } = await supabase
+        .from('booking_payment_submissions')
+        .select('*', { count: 'exact', head: true })
+        .eq('status', 'PENDING');
+      setPendingSubmissionsCount(slipCount || 0);
+
+      // 4. KPI: ช่างกำลังทำงาน (Distinct artists with an active IN_PROGRESS session)
+      const { data: artistList } = await supabase
+        .from('artists')
+        .select('id, is_active');
+      
+      const activeArtists = (artistList || []).filter((a: any) => a.is_active === true);
+      setTotalActiveArtistsCount(activeArtists.length);
+
+      // Fetch live booking_sessions with status IN_PROGRESS joined with bookings
+      const { data: inProgressSessions } = await supabase
+        .from('booking_sessions')
+        .select('id, artist_id, booking_id, bookings(id, artist_id, status)')
+        .eq('status', 'IN_PROGRESS');
+
+      const workingArtistIds = new Set<string>();
+
+      (inProgressSessions || []).forEach((ses: any) => {
+        const b = Array.isArray(ses.bookings) ? ses.bookings[0] : ses.bookings;
+        if (b && !['CANCELLED', 'REJECTED'].includes(b.status)) {
+          const resolvedArtistId = ses.artist_id || b.artist_id;
+          if (resolvedArtistId) {
+            workingArtistIds.add(resolvedArtistId);
+          }
+        }
+      });
+
+      setTattooingCount(workingArtistIds.size);
+
+      // 5. KPI: มัดจำสะสมที่ตรวจแล้ว (Sum of approved DEPOSIT payments in booking_payments)
+      const { data: depositPayments } = await supabase
+        .from('booking_payments')
+        .select('amount')
+        .eq('payment_type', 'DEPOSIT')
+        .eq('status', 'RECORDED');
+      
+      const depositTotal = (depositPayments || []).reduce((sum: number, p: any) => sum + Number(p.amount || 0), 0);
+      setVerifiedDepositTotal(depositTotal);
+
+    } catch (err) {
+      console.error('Error fetching dashboard live metrics:', err);
+    } finally {
+      setIsMetricsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (isStaffLoggedIn && staffRole === 'ADMIN') {
+      fetchDashboardMetrics();
+    }
+  }, [isStaffLoggedIn, staffRole, fetchDashboardMetrics]);
 
   if (authTimedOut && authLoading) {
     return (
@@ -55,19 +173,6 @@ export default function AdminDashboardPage() {
       </div>
     );
   }
-
-  console.log('[ADMIN-AUTH 12] Admin guard rendered dashboard');
-
-  // Calculate Metrics
-  const activeStudioArtists = artists.filter(a => a.is_active === true);
-  const confirmedToday = bookings.filter(b => b.status === 'CONFIRMED').length;
-  const pendingRequests = bookings.filter(b => b.status === 'PENDING').length + estimateRequests.filter(e => e.status === 'PENDING').length;
-  const pendingDeposits = bookingPayments.filter(p => p.paymentType === 'DEPOSIT' && p.status === 'SUBMITTED').length;
-  const tattooingCount = activeStudioArtists.filter(a => a.status === 'Tattooing' || a.status === 'TATTOOING').length;
-
-  const verifiedDepositTotal = bookingPayments
-    .filter(p => p.paymentType === 'DEPOSIT' && p.status === 'VERIFIED')
-    .reduce((sum, p) => sum + p.amount, 0);
 
   return (
     <div className="min-h-screen bg-studio-main pb-16 text-studio-primary animate-fadeIn font-prompt">
@@ -96,45 +201,29 @@ export default function AdminDashboardPage() {
           </span>
         </div>
 
-        {/* 1. TOP: 5 KPI Cards */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5 sm:gap-4">
+        {/* 1. TOP: 3 Primary Operational KPI Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
           <KPICard
-            title="คิวคอนเฟิร์มวันนี้"
-            value={`${confirmedToday} คิว`}
+            title="คิววันนี้"
+            value={`${isMetricsLoading ? '...' : confirmedTodayCount} คิว`}
             icon={Calendar}
             change="นัดหมายวันนี้"
             changeType="neutral"
           />
           <KPICard
             title="คำขอรอดำเนินการ"
-            value={`${pendingRequests} คำขอ`}
+            value={`${isMetricsLoading ? '...' : pendingRequestsCount} คำขอ`}
             icon={ClipboardList}
-            change="คำขอประเมิน + จองใหม่"
-            changeType={pendingRequests > 0 ? 'positive' : 'neutral'}
+            change="คำขอจองใหม่"
+            changeType={pendingRequestsCount > 0 ? 'positive' : 'neutral'}
           />
           <KPICard
-            title="รอตรวจสอบมัดจำ"
-            value={`${pendingDeposits} รายการ`}
+            title="สลิปรอตรวจ"
+            value={`${isMetricsLoading ? '...' : pendingSubmissionsCount} รายการ`}
             icon={ShieldCheck}
             change="สลิปโอนเงินรอตรวจ"
-            changeType={pendingDeposits > 0 ? 'positive' : 'neutral'}
+            changeType={pendingSubmissionsCount > 0 ? 'positive' : 'neutral'}
           />
-          <KPICard
-            title="ช่างกำลังทำงาน"
-            value={`${tattooingCount} คน`}
-            icon={Clock}
-            change={`จากช่างทั้งหมด ${activeStudioArtists.length} คน`}
-            changeType="neutral"
-          />
-          <div className="col-span-2 sm:col-span-1">
-            <KPICard
-              title="มัดจำสะสมที่ตรวจแล้ว"
-              value={`฿${verifiedDepositTotal.toLocaleString()}`}
-              icon={DollarSign}
-              change="เข้าบัญชีร้านแล้ว"
-              changeType="positive"
-            />
-          </div>
         </div>
 
         {/* 2. MIDDLE: Master Artist Gantt Timeline */}
@@ -142,21 +231,15 @@ export default function AdminDashboardPage() {
           <ArtistTimeline />
         </div>
 
-        {/* 3. BOTTOM: Management Queues */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-          {/* Slip Verification Queue */}
-          <div className="lg:col-span-5 space-y-4">
-            <DepositVerificationQueue />
-          </div>
-
-          {/* Booking & Estimate Requests Split */}
-          <div className="lg:col-span-7 space-y-6">
-            <BookingRequestQueue />
-            <EstimateRequestQueue />
-          </div>
+        {/* 3. BOTTOM: Unified Action Queue */}
+        <div className="w-full">
+          <UnifiedActionQueue />
         </div>
 
       </main>
+
+      {/* Mobile Bottom Navigation Bar */}
+      <AdminMobileBottomNav />
     </div>
   );
 }

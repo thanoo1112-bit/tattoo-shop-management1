@@ -3,6 +3,8 @@
 import React, { useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useApp } from '@/components/AppContext';
+import DatePickerPopover from '@/components/booking/DatePickerPopover';
+import { getThailandTodayStr, getThailandTomorrowStr } from '@/components/portal/portalUtils';
 import { X, Calendar, Clock, DollarSign, User, ShieldCheck, AlertTriangle, CheckCircle2, Sparkles } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
@@ -41,7 +43,7 @@ export default function FlashReservationModal({
   onSuccess,
 }: FlashReservationModalProps) {
   const router = useRouter();
-  const { user } = useApp();
+  const { user, isCustomerProfileComplete } = useApp();
   const [requestedDate, setRequestedDate] = useState('');
   const [requestedTime, setRequestedTime] = useState('13:00');
   const [customerNote, setCustomerNote] = useState('');
@@ -67,9 +69,33 @@ export default function FlashReservationModal({
       return;
     }
 
+    if (!isCustomerProfileComplete) {
+      router.push(`/complete-profile?next=${encodeURIComponent(`/flash?select=${flash.id}`)}`);
+      return;
+    }
+
     if (flash.status !== 'AVAILABLE') {
       setError('ลายนี้ไม่สามารถส่งคำขอได้ในขณะนี้ (สถานะ: ' + flash.status + ')');
       return;
+    }
+
+    if (requestedDate && requestedDate <= getThailandTodayStr()) {
+      setError('กรุณาเลือกวันนัดหมายตั้งแต่วันพรุ่งนี้เป็นต้นไป');
+      return;
+    }
+
+    const targetArtistId = flash.artist_id || flash.artist?.id;
+    if (requestedDate && targetArtistId) {
+      const supabase = createClient();
+      const { data: busyCheck } = await supabase.rpc('get_artist_busy_ranges', {
+        p_artist_id: targetArtistId,
+        p_start_date: requestedDate,
+        p_end_date: requestedDate,
+      });
+      if (Array.isArray(busyCheck) && busyCheck.length > 0) {
+        setError('วันที่เลือกมีคิวงานที่ยืนยันแล้วของช่างสักท่านนี้ กรุณาเลือกวันอื่น');
+        return;
+      }
     }
 
     setLoading(true);
@@ -158,18 +184,20 @@ export default function FlashReservationModal({
           </div>
 
           {/* Requested Date & Time Preferences */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="space-y-3">
             <div className="space-y-1">
               <label className="block text-studio-secondary font-medium flex items-center gap-1">
                 <Calendar size={12} className="text-studio-red" />
                 <span>วันที่สะดวกเข้ารับบริการ (ทางเลือก)</span>
               </label>
-              <input
-                type="date"
+              <DatePickerPopover
                 value={requestedDate}
-                onChange={(e) => setRequestedDate(e.target.value)}
-                min={new Date().toISOString().split('T')[0]}
-                className="w-full bg-studio-main border border-studio-border text-xs text-studio-primary px-3 py-2 rounded-[4px] outline-none focus:border-studio-red"
+                onChange={(dateStr) => {
+                  setRequestedDate(dateStr);
+                  setError('');
+                }}
+                artistId={flash.artist_id || flash.artist?.id}
+                placeholder="-- เลือกวันที่สะดวก --"
               />
             </div>
 

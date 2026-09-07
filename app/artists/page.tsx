@@ -37,27 +37,41 @@ function ArtistsContent() {
         .order('sort_order', { ascending: true })
         .order('created_at', { ascending: true });
 
+      const { data: portData } = await supabase
+        .from('portfolio_artworks')
+        .select('id, artist_id, image_url, sort_order, created_at')
+        .eq('is_visible', true)
+        .order('sort_order', { ascending: true })
+        .order('created_at', { ascending: false });
+
       if (!error && data) {
-        const mapped: Artist[] = data.map((item: any) => ({
-          id: item.id,
-          name: item.name,
-          nickname: item.nickname || undefined,
-          slug: item.slug || undefined,
-          specialty: (item.specialties && item.specialties.length > 0) ? item.specialties.join(' / ') : '',
-          specialties: item.specialties || [],
-          bio: item.bio || '',
-          avatar: item.avatar_url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=500',
-          avatar_url: item.avatar_url || undefined,
-          portfolio: [],
-          availability: item.working_days || [],
-          working_days: item.working_days || [],
-          status: item.status || 'AVAILABLE',
-          is_active: item.is_active,
-          is_visible: item.is_visible,
-          sort_order: item.sort_order,
-          created_at: item.created_at,
-          updated_at: item.updated_at,
-        }));
+        const mapped: Artist[] = data.map((item: any) => {
+          const artistPort = (portData || [])
+            .filter((p: any) => p.artist_id === item.id)
+            .slice(0, 3)
+            .map((p: any) => p.image_url);
+
+          return {
+            id: item.id,
+            name: item.name,
+            nickname: item.nickname || undefined,
+            slug: item.slug || undefined,
+            specialty: (item.specialties && item.specialties.length > 0) ? item.specialties.join(' / ') : '',
+            specialties: item.specialties || [],
+            bio: item.bio || '',
+            avatar: item.avatar_url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=500',
+            avatar_url: item.avatar_url || undefined,
+            portfolio: artistPort,
+            availability: item.working_days || [],
+            working_days: item.working_days || [],
+            status: item.status || 'AVAILABLE',
+            is_active: item.is_active,
+            is_visible: item.is_visible,
+            sort_order: item.sort_order,
+            created_at: item.created_at,
+            updated_at: item.updated_at,
+          };
+        });
         setArtists(mapped);
       }
     } catch (_) {}

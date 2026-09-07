@@ -57,7 +57,7 @@ export default function CustomerLoginModal({ onClose, onSuccess }: CustomerLogin
         return;
       }
       if (!consentAccepted) {
-        setError('กรุณายืนยันว่ามีอายุ 18 ปีบริบูรณ์ขึ้นไป และได้แจ้งข้อมูลสุขภาพถูกต้อง');
+        setError('กรุณายืนยันเงื่อนไขก่อนรับบริการ');
         return;
       }
     }
@@ -236,7 +236,7 @@ export default function CustomerLoginModal({ onClose, onSuccess }: CustomerLogin
                   className="mt-0.5 w-4 h-4 rounded border-studio-border bg-studio-main text-studio-red focus:ring-studio-red focus:ring-offset-0 transition-colors shrink-0 accent-studio-red"
                 />
                 <span className="text-xs text-studio-secondary leading-relaxed group-hover:text-studio-primary transition-colors">
-                  ฉันยืนยันว่ามีอายุ 18 ปีบริบูรณ์ขึ้นไป และได้แจ้งข้อมูลสุขภาพที่อาจเกี่ยวข้องกับการรับบริการสักอย่างถูกต้อง
+                  ฉันยืนยันว่ามีอายุ 18 ปีบริบูรณ์ขึ้นไป และไม่มีภาวะสุขภาพที่ทราบว่าอาจส่งผลต่อความปลอดภัยในการสัก หากมีข้อมูลสุขภาพที่เกี่ยวข้อง ฉันจะแจ้งร้านก่อนรับบริการ
                 </span>
               </label>
             </div>

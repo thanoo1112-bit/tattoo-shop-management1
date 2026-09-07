@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import CustomerHeader from '@/components/customer/CustomerHeader';
 import MobileBottomNav from '@/components/customer/MobileBottomNav';
 import HeroSection from '@/components/customer/HeroSection';
@@ -10,13 +11,26 @@ import Link from 'next/link';
 import { Sparkles, Compass, Award, MapPin, Clock, Phone, ShieldCheck, ArrowRight, ArrowUpRight, Users } from 'lucide-react';
 
 export default function HomePage() {
-  const { supabase } = useApp();
+  const router = useRouter();
+  const { supabase, user, profile, authLoading } = useApp();
   const [featuredArtists, setFeaturedArtists] = useState<Artist[]>([]);
   const [artistsLoading, setArtistsLoading] = useState(true);
   const [liveFlash, setLiveFlash] = useState<any[]>([]);
   const [livePortfolio, setLivePortfolio] = useState<any[]>([]);
   const [portfolioLoading, setPortfolioLoading] = useState(true);
   const [portfolioError, setPortfolioError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!authLoading && user && profile) {
+      if (profile.role === 'admin') {
+        router.replace('/admin/dashboard');
+        return;
+      } else if (profile.role === 'artist') {
+        router.replace('/artist/dashboard');
+        return;
+      }
+    }
+  }, [user, profile, authLoading, router]);
 
   useEffect(() => {
     let isMounted = true;
@@ -109,8 +123,7 @@ export default function HomePage() {
           `)
           .eq('is_visible', true)
           .order('sort_order', { ascending: true })
-          .order('created_at', { ascending: false })
-          .limit(6);
+          .order('created_at', { ascending: false });
 
         if (!portErr && portfolioData && isMounted) {
           setLivePortfolio(portfolioData.map((p: any) => ({
@@ -182,7 +195,7 @@ export default function HomePage() {
                 className="w-[78vw] max-w-[300px] shrink-0 snap-center lg:w-auto bg-studio-card border border-studio-border hover:border-studio-red/60 rounded-[6px] overflow-hidden flex flex-col justify-between group transition-all duration-300 shadow-md"
               >
                 <Link
-                  href={`/flash?select=${item.id}`}
+                  href={`/booking?flash=${item.id}`}
                   className="aspect-square bg-studio-main overflow-hidden relative block"
                 >
                   <img
@@ -195,7 +208,7 @@ export default function HomePage() {
                   </div>
                   <div className="absolute inset-0 bg-gradient-to-t from-studio-main/90 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-4">
                     <span className="text-xs text-studio-paper font-bold flex items-center gap-1">
-                      ดูรายละเอียด <ArrowUpRight size={14} />
+                      จองลายนี้ <ArrowUpRight size={14} />
                     </span>
                   </div>
                 </Link>
@@ -217,7 +230,7 @@ export default function HomePage() {
                       </span>
                     </div>
                     <Link
-                      href={`/flash?select=${item.id}`}
+                      href={`/booking?flash=${item.id}`}
                       className="min-h-[38px] bg-studio-red text-studio-paper hover:bg-tattoo-red-dark active:scale-95 py-2 px-4 rounded-[4px] text-xs font-semibold uppercase tracking-wider transition-all flex items-center justify-center text-center border border-studio-red"
                     >
                       จองลายนี้
@@ -257,12 +270,12 @@ export default function HomePage() {
           {/* Loading Skeleton */}
           {portfolioLoading && (
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2.5 sm:gap-4">
-              {[1, 2, 3, 4, 5, 6].map((idx) => (
+              {Array.from({ length: 9 }).map((_, idx) => (
                 <div
                   key={idx}
                   className={`bg-studio-card border border-studio-border rounded-[6px] overflow-hidden animate-pulse ${
-                    idx === 0 || idx === 3 ? 'lg:col-span-2 aspect-[4/3]' : 'aspect-square'
-                  }`}
+                    idx === 0 || idx === 3 || idx === 6 ? 'lg:col-span-2 aspect-[4/3]' : 'aspect-square'
+                  } ${idx === 6 ? 'lg:-mt-[118px]' : ''}`}
                 >
                   <div className="w-full h-full bg-studio-sec/60" />
                 </div>
@@ -287,13 +300,13 @@ export default function HomePage() {
           {/* Live Portfolio Grid */}
           {!portfolioLoading && livePortfolio.length > 0 && (
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2.5 sm:gap-4">
-              {livePortfolio.map((item, idx) => (
+              {livePortfolio.slice(0, 9).map((item, idx) => (
                 <Link
                   key={item.id}
                   href={`/portfolio?select=${item.id}`}
                   className={`bg-studio-card border border-studio-border hover:border-studio-red/60 rounded-[6px] overflow-hidden group relative transition-all block ${
-                    idx === 0 || idx === 3 ? 'lg:col-span-2 aspect-[4/3]' : 'aspect-square'
-                  }`}
+                    idx === 0 || idx === 3 || idx === 6 ? 'lg:col-span-2 aspect-[4/3]' : 'aspect-square'
+                  } ${idx === 6 ? 'lg:-mt-[118px]' : ''}`}
                 >
                   <img
                     src={item.image}

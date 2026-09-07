@@ -7,6 +7,7 @@ import { EstimateRequest } from '@/data/mockEstimateRequests';
 import { createClient } from '@/lib/supabase/client';
 import { User } from '@supabase/supabase-js';
 import { normalizeThaiPhone, formatThaiPhoneForDisplay } from '@/lib/phoneUtils';
+import { getThailandTodayStr } from './portal/portalUtils';
 
 interface Profile {
   id: string;
@@ -109,7 +110,7 @@ export const checkIsCustomerProfileComplete = (
   completedAt?: string | null,
   confirmedAt?: string | null
 ): boolean => {
-  if (role !== 'customer') return false;
+  if (role !== 'customer') return true;
   if (isActive !== true) return false;
   if (!phone || !/^0[0-9]{9}$/.test(phone.trim())) return false;
   if (!completedAt || !confirmedAt) return false;
@@ -245,6 +246,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         artistId: item.artist_id || '',
         artistName: matchedArtist?.name || 'ช่างประจำร้าน',
         referenceImage: item.reference_images?.[0] || 'https://images.unsplash.com/photo-1598440947619-2c35fc9aa908?w=500',
+        referenceImages: item.reference_images || (item.reference_images?.[0] ? [item.reference_images[0]] : []),
         width: Number(item.width_cm) || 10,
         height: Number(item.height_cm) || 10,
         placement: item.placement,
@@ -441,6 +443,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (storedEDraft) setEstimateDraftState(JSON.parse(storedEDraft));
 
     let isMountedLocal = true;
+    let initialAuthDone = false;
 
     const initializeAuth = async () => {
       console.log('[ADMIN-AUTH 01] AppContext mounted');
@@ -467,8 +470,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             console.log('[ADMIN-AUTH 07] profile query returned. Role:', prof?.role, 'Error:', profError?.message || 'none');
 
             if (prof && isMountedLocal) {
-              setProfile(prof);
-              if (prof.role === 'customer') {
+              const userMetaRole = session.user.user_metadata?.role;
+              const effectiveRole = (prof.role && prof.role !== 'customer')
+                ? prof.role
+                : (userMetaRole || prof.role || 'customer');
+              const resolvedProf = { ...prof, role: effectiveRole };
+              setProfile(resolvedProf);
+              if (effectiveRole === 'customer') {
                 try {
                   const { data: custData } = await supabase
                     .from('customers')
@@ -540,6 +548,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         console.error('[ADMIN-AUTH] Auth initialization error:', err);
       } finally {
         if (isMountedLocal) {
+          initialAuthDone = true;
           console.log('[ADMIN-AUTH 10] before setAuthLoading(false)');
           setAuthLoading(false);
           console.log('[ADMIN-AUTH 11] authLoading false');
@@ -556,9 +565,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
-      if (event === 'SIGNED_IN' && session?.user) {
+      if ((event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') && session?.user) {
         setUser(session.user);
-        if (isMountedLocal) setAuthLoading(true);
+        if (isMountedLocal && !initialAuthDone) setAuthLoading(true);
         // Defer database query outside the auth lock to avoid deadlock with signInWithPassword
         setTimeout(async () => {
           try {
@@ -568,8 +577,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
               .eq('user_id', session.user.id)
               .single();
             if (prof && isMountedLocal) {
-              setProfile(prof);
-              if (prof.role === 'customer') {
+              const userMetaRole = session.user.user_metadata?.role;
+              const effectiveRole = (prof.role && prof.role !== 'customer')
+                ? prof.role
+                : (userMetaRole || prof.role || 'customer');
+              const resolvedProf = { ...prof, role: effectiveRole };
+              setProfile(resolvedProf);
+              if (effectiveRole === 'customer') {
                 try {
                   const { data: custData } = await supabase
                     .from('customers')
@@ -617,9 +631,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
               loadUserData(session.user, prof.role).catch(() => {});
             }
           } catch (_) {}
-          if (isMountedLocal) setAuthLoading(false);
+          if (isMountedLocal && !initialAuthDone) setAuthLoading(false);
         }, 0);
-      } else if (event === 'SIGNED_OUT') {
+      } else if (event === 'SIGNED_OUT' || !session) {
         const storedStaff = typeof window !== 'undefined' ? localStorage.getItem('157_staff_session') : null;
         const storedCustomer = typeof window !== 'undefined' ? localStorage.getItem('157_customer_session') : null;
         if (!storedStaff && !storedCustomer) {
@@ -1261,10 +1275,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       throw new Error('สไตล์งานสักที่เลือกไม่ตรงกับช่างสัก กรุณาเลือกใหม่');
     }
 
+    if (estimate.preferredDate && estimate.preferredDate <= getThailandTodayStr()) {
+      throw new Error('กรุณาเลือกวันนัดหมายตั้งแต่วันพรุ่งนี้เป็นต้นไป');
+    }
+
     const newDbEstimate: any = {
       customer_user_id: user.id,
       artist_id: estimate.artistId,
-      reference_images: estimate.referenceImage ? [estimate.referenceImage] : [],
+      reference_images: estimate.referenceImages && estimate.referenceImages.length > 0 
+        ? estimate.referenceImages 
+        : (estimate.referenceImage ? [estimate.referenceImage] : []),
       width_cm: estimate.width || 10,
       height_cm: estimate.height || 10,
       placement: estimate.placement || 'ท่อนแขน (Forearm)',

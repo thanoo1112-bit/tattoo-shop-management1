@@ -189,7 +189,7 @@ export default function CalendarSessionDetailDrawer({
                 </span>
                 <div className="grid grid-cols-2 gap-2 text-xs">
                   <div className="bg-[#0E0D0C] p-2 rounded-lg border border-[#4A443A]/30">
-                    <span className="text-[10px] text-[#7A7265] block">ราคาประเมิน</span>
+                    <span className="text-[10px] text-[#7A7265] block">ราคางานสัก</span>
                     <span className="font-bold text-[#ECE4D3]">
                       ฿{formatCurrency(event.financial.quoted_price)}
                     </span>

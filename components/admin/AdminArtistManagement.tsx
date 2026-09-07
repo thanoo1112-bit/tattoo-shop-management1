@@ -628,6 +628,16 @@ export default function AdminArtistManagement() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
+  // Account Setup Modal States
+  const [accountModalArtist, setAccountModalArtist] = useState<Artist | null>(null);
+  const [accountEmail, setAccountEmail] = useState('');
+  const [accountPassword, setAccountPassword] = useState('');
+  const [accountConfirmPassword, setAccountConfirmPassword] = useState('');
+  const [accountError, setAccountError] = useState<string | null>(null);
+  const [accountSuccess, setAccountSuccess] = useState<string | null>(null);
+  const [isAccountSubmitting, setIsAccountSubmitting] = useState(false);
+  const [showAccountPassword, setShowAccountPassword] = useState(false);
+
   // Form Field States
   const [formName, setFormName] = useState('');
   const [formNickname, setFormNickname] = useState('');
@@ -673,6 +683,7 @@ export default function AdminArtistManagement() {
       if (data) {
         const mapped: Artist[] = data.map((item: any) => ({
           id: item.id,
+          user_id: item.user_id || undefined,
           name: item.name,
           nickname: item.nickname || undefined,
           slug: item.slug || undefined,
@@ -1104,6 +1115,88 @@ export default function AdminArtistManagement() {
     }
   };
 
+  // Open Account Setup / Reset Password Modal
+  const handleOpenAccountModal = (artist: Artist) => {
+    setAccountModalArtist(artist);
+    const defaultEmail =
+      artist.id === 'd5af5064-d973-4bbb-b205-1ab6b2929abb' || artist.name.includes('บาส')
+        ? 'artist1@157tattoo.com'
+        : `${artist.nickname ? artist.nickname.toLowerCase() : 'artist'}@157tattoo.com`;
+    setAccountEmail(defaultEmail);
+    setAccountPassword('');
+    setAccountConfirmPassword('');
+    setAccountError(null);
+    setAccountSuccess(null);
+    setShowAccountPassword(false);
+  };
+
+  // Handle Account Form Submission (Create or Reset Password based on account state)
+  const handleCreateAccountSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!accountModalArtist) return;
+
+    const isExistingAccount = Boolean(accountModalArtist.user_id);
+
+    if (!isExistingAccount && (!accountEmail || !accountEmail.trim())) {
+      setAccountError('กรุณาระบุอีเมลสำหรับบัญชีช่าง');
+      return;
+    }
+    if (!accountPassword || accountPassword.trim() === '') {
+      setAccountError('กรุณาระบุรหัสผ่าน');
+      return;
+    }
+    if (accountPassword.length < 6) {
+      setAccountError('รหัสผ่านต้องมีความยาวอย่างน้อย 6 ตัวอักษร');
+      return;
+    }
+    if (accountPassword !== accountConfirmPassword) {
+      setAccountError('รหัสผ่านและการยืนยันรหัสผ่านไม่ตรงกัน');
+      return;
+    }
+
+    try {
+      setIsAccountSubmitting(true);
+      setAccountError(null);
+      setAccountSuccess(null);
+
+      const endpoint = isExistingAccount
+        ? '/api/admin/artists/reset-password'
+        : '/api/admin/artists/create-account';
+
+      const payload = isExistingAccount
+        ? { artistId: accountModalArtist.id, password: accountPassword }
+        : { artistId: accountModalArtist.id, email: accountEmail.trim(), password: accountPassword };
+
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || (isExistingAccount ? 'ไม่สามารถตั้งรหัสผ่านใหม่ได้' : 'เกิดข้อผิดพลาดในการสร้างบัญชีช่างสัก'));
+      }
+
+      const successMsg = isExistingAccount
+        ? `ตั้งรหัสผ่านใหม่สำหรับ ${accountModalArtist.name} เรียบร้อยแล้ว`
+        : `สร้างบัญชีสำหรับ ${accountModalArtist.name} (${accountEmail.trim()}) เรียบร้อยแล้ว`;
+
+      setAccountSuccess(successMsg);
+      await loadArtists();
+
+      setTimeout(() => {
+        setAccountModalArtist(null);
+        setAccountSuccess(null);
+      }, 1800);
+    } catch (err: any) {
+      console.error('Error submitting account form:', err);
+      setAccountError(err.message || 'ไม่สามารถดำเนินการได้');
+    } finally {
+      setIsAccountSubmitting(false);
+    }
+  };
+
   // Filtered & Sorted Artists
   const filteredArtists = useMemo(() => {
     return artists
@@ -1169,7 +1262,7 @@ export default function AdminArtistManagement() {
             className="h-[38px] px-4 bg-[#9C2F2F] hover:bg-[#802222] text-[#ECE4D3] rounded-[6px] text-xs font-semibold tracking-wide transition-all shadow-md flex items-center space-x-1.5 active:scale-95"
           >
             <Plus size={15} />
-            <span>เพิ่มช่างสัก</span>
+            <span>เพิ่มช่างใหม่</span>
           </button>
         </div>
       </div>
@@ -1520,6 +1613,18 @@ export default function AdminArtistManagement() {
                         type="button"
                         onClick={(e) => {
                           e.stopPropagation();
+                          handleOpenAccountModal(artist);
+                        }}
+                        className="px-2.5 h-8 bg-[#171512] hover:bg-[#25211D] border border-[#4A443A] hover:border-[#9C2F2F] text-[#ECE4D3] rounded-[4px] text-xs font-semibold transition-colors flex items-center justify-center space-x-1"
+                        title={artist.user_id ? 'จัดการบัญชีผู้ใช้งานช่าง' : 'ตั้งค่าบัญชีล็อกอินช่าง'}
+                      >
+                        <User size={12} className="text-[#9C2F2F]" />
+                        <span>{artist.user_id ? 'บัญชีผู้ใช้' : 'ตั้งค่าบัญชี'}</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
                           setSelectedArtist(artist);
                           setIsEditMode(false);
                         }}
@@ -1739,8 +1844,16 @@ export default function AdminArtistManagement() {
                     </button>
                     <button
                       type="button"
+                      onClick={() => handleOpenAccountModal(selectedArtist)}
+                      className="px-3.5 h-10 bg-[#171512] hover:bg-[#25211D] border border-[#4A443A] hover:border-[#9C2F2F] text-[#ECE4D3] rounded text-xs font-semibold transition-colors flex items-center justify-center space-x-1.5"
+                    >
+                      <User size={14} className="text-[#9C2F2F]" />
+                      <span>{selectedArtist.user_id ? 'ตั้งรหัสผ่านใหม่' : 'ตั้งค่าบัญชี'}</span>
+                    </button>
+                    <button
+                      type="button"
                       onClick={() => handleToggleActive(selectedArtist)}
-                      className={`h-10 px-4 rounded border text-xs font-medium flex items-center space-x-1.5 transition-colors ${
+                      className={`h-10 px-3.5 rounded border text-xs font-medium flex items-center space-x-1.5 transition-colors ${
                         selectedArtist.is_active !== false
                           ? 'bg-[#0E0D0C] border-[#4A443A] text-[#A89F91] hover:text-[#ECE4D3]'
                           : 'bg-[#9C2F2F]/20 border-[#9C2F2F] text-[#9C2F2F]'
@@ -1843,6 +1956,159 @@ export default function AdminArtistManagement() {
                 <span>ยืนยันการลบ</span>
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* 10. ARTIST ACCOUNT SETUP / RESET PASSWORD MODAL */}
+      {/* ========================================================================= */}
+      {accountModalArtist && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-sm font-prompt animate-fadeIn">
+          <div className="w-full max-w-md bg-[#171512] border border-[#4A443A] rounded-[8px] p-6 space-y-5 shadow-2xl animate-scaleUp">
+            {/* Header */}
+            <div className="flex justify-between items-center border-b border-[#4A443A]/60 pb-3">
+              <div className="flex items-center space-x-2">
+                <div className="w-7 h-7 rounded-full bg-[#9C2F2F]/20 border border-[#9C2F2F] flex items-center justify-center text-[#9C2F2F]">
+                  <User size={15} />
+                </div>
+                <div>
+                  <h3 className="text-base font-heading font-normal text-[#ECE4D3]">
+                    {accountModalArtist.user_id ? `จัดการบัญชีช่าง: ${accountModalArtist.name}` : `ตั้งค่าบัญชีช่าง: ${accountModalArtist.name}`}
+                  </h3>
+                  <p className="text-[10px] text-[#A89F91]">
+                    {accountModalArtist.user_id ? 'บัญชีล็อกอิน Staff เปิดใช้งานอยู่' : 'สร้างบัญชีล็อกอิน Staff สำหรับช่างสัก'}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setAccountModalArtist(null)}
+                className="text-[#7A7265] hover:text-[#ECE4D3] transition-colors"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Error & Success Messages */}
+            {accountError && (
+              <div className="p-3 bg-red-950/40 border border-red-800/80 rounded text-xs text-red-300 flex items-start space-x-2">
+                <AlertCircle size={14} className="shrink-0 mt-0.5 text-red-400" />
+                <span>{accountError}</span>
+              </div>
+            )}
+            {accountSuccess && (
+              <div className="p-3 bg-emerald-950/40 border border-emerald-800/80 rounded text-xs text-emerald-300 flex items-start space-x-2">
+                <CheckCircle2 size={14} className="shrink-0 mt-0.5 text-emerald-400" />
+                <span>{accountSuccess}</span>
+              </div>
+            )}
+
+            {/* Account Info Box (When Account Already Exists) */}
+            {accountModalArtist.user_id && (
+              <div className="p-3 bg-[#0E0D0C] border border-[#4A443A] rounded-[6px] space-y-1.5 text-xs">
+                <div className="flex justify-between items-center">
+                  <span className="text-[#A89F91]">บัญชีเข้าสู่ระบบ:</span>
+                  <span className="text-[#ECE4D3] font-mono font-medium">{accountEmail}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-[#A89F91]">สถานะบัญชี:</span>
+                  <span className="inline-flex items-center space-x-1 text-emerald-400 font-medium">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                    <span>เปิดใช้งาน</span>
+                  </span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-[#A89F91]">สิทธิ์ผู้ใช้งาน:</span>
+                  <span className="text-[#ECE4D3] font-medium">ช่างสัก (Artist)</span>
+                </div>
+              </div>
+            )}
+
+            {/* Form */}
+            <form onSubmit={handleCreateAccountSubmit} className="space-y-4">
+              {/* Field 1: Email (Show input ONLY if creating a NEW account) */}
+              {!accountModalArtist.user_id && (
+                <div className="space-y-1.5">
+                  <label className="block text-[#A89F91] text-xs font-medium">
+                    Email / Username
+                  </label>
+                  <input
+                    type="email"
+                    value={accountEmail}
+                    onChange={(e) => setAccountEmail(e.target.value)}
+                    placeholder="artist1@157tattoo.com"
+                    required
+                    className="w-full h-10 px-3 bg-[#0E0D0C] border border-[#4A443A] focus:border-[#9C2F2F] rounded text-xs text-[#ECE4D3] outline-none transition-colors"
+                  />
+                </div>
+              )}
+
+              {/* Field 2: Password / New Password */}
+              <div className="space-y-1.5">
+                <label className="block text-[#A89F91] text-xs font-medium">
+                  {accountModalArtist.user_id ? 'รหัสผ่านใหม่ (New Password)' : 'Password'}
+                </label>
+                <div className="relative">
+                  <input
+                    type={showAccountPassword ? 'text' : 'password'}
+                    value={accountPassword}
+                    onChange={(e) => setAccountPassword(e.target.value)}
+                    placeholder={accountModalArtist.user_id ? 'ระบุรหัสผ่านใหม่ (อย่างน้อย 6 ตัวอักษร)' : 'กำหนดรหัสผ่าน (อย่างน้อย 6 ตัวอักษร)'}
+                    autoComplete="new-password"
+                    required
+                    className="w-full h-10 pl-3 pr-10 bg-[#0E0D0C] border border-[#4A443A] focus:border-[#9C2F2F] rounded text-xs text-[#ECE4D3] outline-none transition-colors"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowAccountPassword(!showAccountPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-[#7A7265] hover:text-[#ECE4D3]"
+                  >
+                    {showAccountPassword ? <EyeOff size={14} /> : <Eye size={14} />}
+                  </button>
+                </div>
+              </div>
+
+              {/* Field 3: Confirm Password */}
+              <div className="space-y-1.5">
+                <label className="block text-[#A89F91] text-xs font-medium">
+                  Confirm Password
+                </label>
+                <input
+                  type={showAccountPassword ? 'text' : 'password'}
+                  value={accountConfirmPassword}
+                  onChange={(e) => setAccountConfirmPassword(e.target.value)}
+                  placeholder="ยืนยันรหัสผ่าน"
+                  autoComplete="new-password"
+                  required
+                  className="w-full h-10 px-3 bg-[#0E0D0C] border border-[#4A443A] focus:border-[#9C2F2F] rounded text-xs text-[#ECE4D3] outline-none transition-colors"
+                />
+              </div>
+
+              {/* Actions */}
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setAccountModalArtist(null)}
+                  disabled={isAccountSubmitting}
+                  className="flex-1 h-10 bg-[#0E0D0C] hover:bg-[#1f1b17] border border-[#4A443A] text-[#A89F91] hover:text-[#ECE4D3] rounded text-xs font-medium transition-colors"
+                >
+                  ยกเลิก
+                </button>
+                <button
+                  type="submit"
+                  disabled={isAccountSubmitting}
+                  className="flex-1 h-10 bg-[#9C2F2F] hover:bg-[#802222] text-[#ECE4D3] rounded text-xs font-semibold transition-colors flex items-center justify-center space-x-1.5 shadow"
+                >
+                  {isAccountSubmitting ? (
+                    <Loader2 size={14} className="animate-spin" />
+                  ) : (
+                    <User size={14} />
+                  )}
+                  <span>{accountModalArtist.user_id ? 'ตั้งรหัสผ่านใหม่' : 'สร้างบัญชีช่าง'}</span>
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

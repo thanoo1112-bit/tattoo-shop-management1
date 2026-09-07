@@ -14,9 +14,9 @@ interface ArtistTimelineProps {
 export default function ArtistTimeline({ singleArtistId = null }: ArtistTimelineProps) {
   const { artists, bookings, updateArtistStatus } = useApp();
 
-  const startDayHour = 9;  // 09:00
-  const endDayHour = 20;   // 20:00
-  const totalHours = endDayHour - startDayHour; // 11 hours
+  const startDayHour = 10; // 10:00
+  const endDayHour = 23;  // 23:00
+  const totalHours = endDayHour - startDayHour; // 13 hours
 
   const todayStr = new Intl.DateTimeFormat('en-CA', { 
     timeZone: 'Asia/Bangkok', 
@@ -92,7 +92,7 @@ export default function ArtistTimeline({ singleArtistId = null }: ArtistTimeline
             />
           </div>
           <span className="text-[11px] text-studio-muted hidden sm:inline">
-            09:00 — 20:00 น.
+            10:00 — 23:00 น.
           </span>
         </div>
       </div>
@@ -103,7 +103,7 @@ export default function ArtistTimeline({ singleArtistId = null }: ArtistTimeline
       <div className="block md:hidden p-4 space-y-6">
         {displayedArtists.map((artist) => {
           const artistBookingsToday = bookings.filter(
-            b => b.artistId === artist.id && b.date === selectedDate && ['CONFIRMED', 'WAITING_DEPOSIT', 'APPROVED'].includes(b.status)
+            b => b.artistId === artist.id && b.date === selectedDate && !['CANCELLED', 'REJECTED'].includes(b.status)
           );
 
           return (
@@ -148,9 +148,21 @@ export default function ArtistTimeline({ singleArtistId = null }: ArtistTimeline
                           <span>{booking.startTime} - {booking.endTime} ({booking.duration} ชม.)</span>
                         </span>
                         <span className={`text-[10px] px-2 py-0.5 rounded font-bold border ${
-                          booking.status === 'CONFIRMED' ? 'bg-green-950/60 border-green-800 text-green-400' : 'bg-studio-red/10 border-studio-red/30 text-studio-red'
+                          booking.status === 'COMPLETED'
+                            ? 'bg-blue-950/60 border-blue-800 text-blue-300'
+                            : booking.status === 'IN_PROGRESS'
+                            ? 'bg-amber-950/60 border-amber-800 text-amber-300 animate-pulse'
+                            : ['CONFIRMED', 'SCHEDULED', 'APPROVED'].includes(booking.status)
+                            ? 'bg-green-950/60 border-green-800 text-green-400'
+                            : 'bg-studio-red/10 border-studio-red/30 text-studio-red'
                         }`}>
-                          {booking.status === 'CONFIRMED' ? 'มัดจำแล้ว' : 'รอมัดจำ'}
+                          {booking.status === 'COMPLETED'
+                            ? 'เสร็จแล้ว'
+                            : booking.status === 'IN_PROGRESS'
+                            ? 'กำลังสัก'
+                            : ['CONFIRMED', 'SCHEDULED', 'APPROVED'].includes(booking.status)
+                            ? 'ยืนยัน'
+                            : 'รอมัดจำ'}
                         </span>
                       </div>
 
@@ -180,7 +192,7 @@ export default function ArtistTimeline({ singleArtistId = null }: ArtistTimeline
             <div className="col-span-3 p-3.5 border-r border-studio-border flex items-center text-studio-muted">
               ช่างสักประจำร้าน (Artist)
             </div>
-            <div className="col-span-9 grid grid-cols-11 text-center divide-x divide-studio-border/40">
+            <div className="col-span-9 grid text-center divide-x divide-studio-border/40" style={{ gridTemplateColumns: `repeat(${totalHours}, minmax(0, 1fr))` }}>
               {Array.from({ length: totalHours }).map((_, i) => {
                 const hour = startDayHour + i;
                 return (
@@ -196,7 +208,7 @@ export default function ArtistTimeline({ singleArtistId = null }: ArtistTimeline
           <div className="divide-y divide-studio-border/60">
             {displayedArtists.map((artist) => {
               const artistBookings = bookings.filter(
-                b => b.artistId === artist.id && b.date === selectedDate && ['CONFIRMED', 'WAITING_DEPOSIT', 'APPROVED'].includes(b.status)
+                b => b.artistId === artist.id && b.date === selectedDate && !['CANCELLED', 'REJECTED'].includes(b.status)
               );
 
               return (
@@ -225,7 +237,7 @@ export default function ArtistTimeline({ singleArtistId = null }: ArtistTimeline
                   <div className="col-span-9 relative h-20 bg-studio-main/10 flex items-center">
                     
                     {/* Background Grid Lines */}
-                    <div className="absolute inset-0 grid grid-cols-11 divide-x divide-studio-border/20 pointer-events-none">
+                    <div className="absolute inset-0 grid divide-x divide-studio-border/20 pointer-events-none" style={{ gridTemplateColumns: `repeat(${totalHours}, minmax(0, 1fr))` }}>
                       {Array.from({ length: totalHours }).map((_, i) => (
                         <div key={i} className="h-full" />
                       ))}
@@ -234,26 +246,40 @@ export default function ArtistTimeline({ singleArtistId = null }: ArtistTimeline
                     {/* Timeline Booking Bars */}
                     {artistBookings.map((booking) => {
                       const posStyle = getEventStyle(booking);
-                      const isConfirmed = booking.status === 'CONFIRMED';
+                      const isCompleted = booking.status === 'COMPLETED';
+                      const isInProgress = booking.status === 'IN_PROGRESS';
+                      const isConfirmed = ['CONFIRMED', 'SCHEDULED', 'APPROVED'].includes(booking.status);
+
+                      let cardStyle = 'bg-studio-sec border-studio-red/80 text-studio-primary';
+                      let badgeStyle = 'bg-studio-red/20 text-studio-red';
+                      let badgeText = 'รอมัดจำ';
+
+                      if (isCompleted) {
+                        cardStyle = 'bg-[#171512] border-[#4A443A] text-[#A89F91] opacity-75';
+                        badgeStyle = 'bg-blue-950 text-blue-300 border border-blue-800/50';
+                        badgeText = 'เสร็จแล้ว';
+                      } else if (isInProgress) {
+                        cardStyle = 'bg-studio-sec border-amber-500/80 text-amber-200 ring-1 ring-amber-500/40';
+                        badgeStyle = 'bg-amber-950 text-amber-300 border border-amber-800/50 animate-pulse';
+                        badgeText = 'กำลังสัก';
+                      } else if (isConfirmed) {
+                        cardStyle = 'bg-studio-sec border-green-600/80 text-studio-primary';
+                        badgeStyle = 'bg-green-950 text-green-400';
+                        badgeText = 'ยืนยัน';
+                      }
 
                       return (
                         <div
                           key={booking.id}
                           style={posStyle}
-                          className={`absolute h-14 rounded-[4px] border p-2 flex flex-col justify-between overflow-hidden shadow-md cursor-pointer transition-all hover:scale-[1.01] z-10 ${
-                            isConfirmed
-                              ? 'bg-studio-sec border-green-600/80 text-studio-primary'
-                              : 'bg-studio-sec border-studio-red/80 text-studio-primary'
-                          }`}
+                          className={`absolute h-14 rounded-[4px] border p-2 flex flex-col justify-between overflow-hidden shadow-md cursor-pointer transition-all hover:scale-[1.01] z-10 ${cardStyle}`}
                         >
                           <div className="flex justify-between items-start gap-1">
                             <span className="text-[11px] font-bold truncate leading-tight">
                               {booking.artworkTitle || 'Custom Tattoo'}
                             </span>
-                            <span className={`text-[9px] px-1.5 py-0.2 rounded font-bold uppercase shrink-0 ${
-                              isConfirmed ? 'bg-green-950 text-green-400' : 'bg-studio-red/20 text-studio-red'
-                            }`}>
-                              {isConfirmed ? 'ยืนยัน' : 'รอมัดจำ'}
+                            <span className={`text-[9px] px-1.5 py-0.2 rounded font-bold uppercase shrink-0 ${badgeStyle}`}>
+                              {badgeText}
                             </span>
                           </div>
 

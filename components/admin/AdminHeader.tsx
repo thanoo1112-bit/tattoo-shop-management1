@@ -14,22 +14,21 @@ export default function AdminHeader() {
 
   const navItems = [
     { name: 'ภาพรวม', href: '/admin/dashboard', icon: LayoutDashboard },
-    { name: 'ปฏิทิน', href: '/admin/calendar', icon: Calendar },
     { name: 'คำขอ', href: '/admin/requests', icon: FileText },
-    { name: 'ลาย Flash', href: '/admin/flash', icon: Sparkles },
-    { name: 'ผลงาน', href: '/admin/portfolio', icon: ImageIcon },
-    { name: 'การเงิน', href: '/admin/payments', icon: CreditCard },
+    { name: 'ปฏิทิน', href: '/admin/calendar', icon: Calendar },
     { name: 'ลูกค้า', href: '/admin/customers', icon: Users },
+    { name: 'การเงิน', href: '/admin/payments', icon: CreditCard },
     { name: 'ช่างสัก', href: '/admin/artists', icon: User },
-    { name: 'รายได้', href: '/admin/revenue', icon: DollarSign },
+    { name: 'ผลงาน', href: '/admin/portfolio', icon: ImageIcon },
+    { name: 'ลาย Flash', href: '/admin/flash', icon: Sparkles },
   ];
 
   return (
-    <header className="sticky top-0 z-50 bg-studio-main/95 backdrop-blur-md border-b border-studio-border h-[68px] px-6 md:px-8 xl:px-12 font-prompt">
+    <header className="sticky top-0 z-50 bg-studio-main/95 backdrop-blur-md border-b border-studio-border h-[68px] px-4 md:px-6 xl:px-10 font-prompt">
       <div className="max-w-[1600px] mx-auto h-full flex items-center justify-between">
         
         {/* Left: Brand Wordmark + Role Badge */}
-        <div className="flex items-center space-x-3">
+        <div className="flex items-center space-x-3 shrink-0">
           <Link href="/admin/dashboard" className="text-xl xl:text-3xl font-heading tracking-[0.1em] text-studio-primary hover:text-studio-red transition-colors flex items-center gap-1.5">
             <span>157</span>
             <span className="text-studio-red">TATTOO</span>
@@ -40,7 +39,7 @@ export default function AdminHeader() {
         </div>
 
         {/* Center: Top Navigation Menu */}
-        <nav className="hidden md:flex space-x-6 xl:space-x-8 h-full">
+        <nav className="hidden md:flex items-center space-x-3 lg:space-x-5 xl:space-x-7 h-full">
           {navItems.map((item) => {
             const isActive = pathname === item.href || (item.href !== '/admin/dashboard' && pathname.startsWith(item.href));
             const Icon = item.icon;
@@ -48,7 +47,7 @@ export default function AdminHeader() {
               <Link
                 key={item.name}
                 href={item.href}
-                className={`text-xs xl:text-sm tracking-wide font-medium flex items-center space-x-1.5 relative transition-colors duration-200 ${
+                className={`text-xs xl:text-sm tracking-wide font-medium flex items-center space-x-1.5 relative transition-colors duration-200 py-5 ${
                   isActive
                     ? 'text-studio-primary font-semibold'
                     : 'text-studio-secondary hover:text-studio-primary'

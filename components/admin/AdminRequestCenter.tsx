@@ -370,7 +370,7 @@ export default function AdminRequestCenter() {
             คำขอและงานที่ต้องตรวจสอบ
           </h1>
           <p className="text-xs text-[#A89F91] mt-0.5 font-light">
-            จัดการคำขอจอง การประเมินราคา และการตรวจสอบมัดจำ
+            จัดการคำขอจองคิว และการตรวจสอบมัดจำ
           </p>
         </div>
 
@@ -443,7 +443,7 @@ export default function AdminRequestCenter() {
         >
           <div className="flex justify-between items-start">
             <span className="text-xs sm:text-sm font-semibold text-[#ECE4D3] block">
-              ประเมินราคา
+              กำหนดราคางานสัก
             </span>
             {pendingEstimatesCount > 0 && (
               <span className="w-2 h-2 rounded-full bg-[#9C2F2F] animate-pulse" />
@@ -451,11 +451,11 @@ export default function AdminRequestCenter() {
           </div>
           <div className="mt-2 flex items-baseline space-x-2">
             <span className="text-2xl sm:text-3xl font-heading font-normal text-[#ECE4D3]">
-              {estimateRequests.length}
+              {bookings.length}
             </span>
             {pendingEstimatesCount > 0 && (
               <span className="text-[10px] sm:text-xs font-semibold text-[#9C2F2F]">
-                ({pendingEstimatesCount} รอเสนอ)
+                ({pendingEstimatesCount} รอตรวจ)
               </span>
             )}
           </div>
@@ -479,7 +479,7 @@ export default function AdminRequestCenter() {
         >
           <div className="flex justify-between items-start">
             <span className="text-xs sm:text-sm font-semibold text-[#ECE4D3] block">
-              ตรวจมัดจำ
+              สลิปมัดจำ
             </span>
             {pendingDepositsCount > 0 && (
               <span className="w-2 h-2 rounded-full bg-[#9C2F2F] animate-pulse" />
@@ -487,7 +487,7 @@ export default function AdminRequestCenter() {
           </div>
           <div className="mt-2 flex items-baseline space-x-2">
             <span className="text-2xl sm:text-3xl font-heading font-normal text-[#ECE4D3]">
-              {bookingPayments.filter((p) => p.paymentType === 'DEPOSIT').length}
+              {bookingPayments.length}
             </span>
             {pendingDepositsCount > 0 && (
               <span className="text-[10px] sm:text-xs font-semibold text-[#9C2F2F]">
@@ -501,8 +501,8 @@ export default function AdminRequestCenter() {
         </button>
       </div>
 
-      {/* 3. MAIN NAVIGATION TABS */}
-      <div className="flex border-b border-[#4A443A] space-x-6 sm:space-x-8 text-sm">
+      {/* 3. NAVIGATION TABS */}
+      <div className="flex items-center space-x-6 border-b border-[#4A443A] text-xs font-medium pt-2">
         <button
           type="button"
           onClick={() => {
@@ -542,7 +542,7 @@ export default function AdminRequestCenter() {
               : 'text-[#7A7265] hover:text-[#A89F91]'
           }`}
         >
-          <span>ขอประเมินราคา</span>
+          <span>คำขอจอง</span>
           <span
             className={`text-[11px] px-2 py-0.5 rounded-full font-mono ${
               activeTab === 'estimates'
@@ -698,7 +698,7 @@ export default function AdminRequestCenter() {
                   <th className="py-3 px-4">วันนัดหมาย</th>
                   <th className="py-3 px-4">เวลา</th>
                   <th className="py-3 px-4">ระยะเวลา</th>
-                  <th className="py-3 px-4">ราคาประเมิน</th>
+                  <th className="py-3 px-4">ราคางานสัก</th>
                   <th className="py-3 px-4">สถานะ</th>
                   <th className="py-3 px-4 text-right">ดำเนินการ</th>
                 </tr>
@@ -877,7 +877,7 @@ export default function AdminRequestCenter() {
                 {filteredEstimates.length === 0 ? (
                   <tr>
                     <td colSpan={9} className="py-12 text-center text-xs text-[#7A7265]">
-                      ไม่มีคำขอประเมินราคาใหม่
+                      ไม่มีคำขอจองใหม่
                     </td>
                   </tr>
                 ) : (
@@ -958,7 +958,7 @@ export default function AdminRequestCenter() {
           <div className="md:hidden space-y-3">
             {filteredEstimates.length === 0 ? (
               <div className="p-8 bg-[#171512] border border-[#4A443A] rounded-[8px] text-center text-xs text-[#7A7265]">
-                ไม่มีคำขอประเมินราคาใหม่
+                ไม่มีคำขอจองใหม่
               </div>
             ) : (
               filteredEstimates.map((e) => {
@@ -1405,7 +1405,7 @@ export default function AdminRequestCenter() {
                 <div className="flex items-center space-x-2">
                   <Sparkles size={16} className="text-[#9C2F2F]" />
                   <span className="text-xs uppercase font-heading tracking-wider text-[#ECE4D3]">
-                    PRICE ESTIMATE • ขอประเมินราคา
+                    TATTOO REQUEST • คำขอจอง
                   </span>
                 </div>
                 <button
@@ -1428,7 +1428,7 @@ export default function AdminRequestCenter() {
 
               <div>
                 <h2 className="text-xl sm:text-2xl font-heading font-normal tracking-wide text-[#ECE4D3]">
-                  คำขอประเมินราคา #{selectedEstimate.id}
+                  คำขอจอง #{selectedEstimate.id}
                 </h2>
                 <span
                   className={`text-xs px-2.5 py-0.5 rounded-[4px] font-semibold inline-block border mt-1 ${
@@ -1462,7 +1462,7 @@ export default function AdminRequestCenter() {
 
               <div className="bg-[#0E0D0C] border border-[#4A443A] p-4 rounded-[6px] space-y-2.5">
                 <span className="text-[10px] uppercase font-bold text-[#7A7265] tracking-wider block">
-                  สเปกงานที่ขอประเมิน:
+                  สเปกงานที่ขอจอง:
                 </span>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
@@ -1503,7 +1503,7 @@ export default function AdminRequestCenter() {
                   </span>
                   <div className="grid grid-cols-2 gap-2">
                     <div>
-                      <span className="text-[#7A7265] block text-[10px]">ราคาประเมิน:</span>
+                      <span className="text-[#7A7265] block text-[10px]">ราคางานสัก:</span>
                       <strong className="text-sm font-mono text-[#ECE4D3]">
                         ฿{selectedEstimate.quotedPrice.toLocaleString()}
                       </strong>

@@ -587,12 +587,8 @@ export default function AdminFlashManagement() {
         </div>
       </div>
 
-      {/* KPI Stats Bar */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 sm:gap-3">
-        <div className="bg-studio-card border border-studio-border p-3 rounded-[6px]">
-          <span className="text-[10px] text-studio-muted uppercase tracking-wider block">ลาย Flash ทั้งหมด</span>
-          <span className="text-lg font-bold text-studio-primary mt-0.5 block">{totalCount}</span>
-        </div>
+      {/* KPI Stats Bar (4 Status Cards Only) */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3">
         <div className="bg-studio-card border border-emerald-900/40 p-3 rounded-[6px]">
           <span className="text-[10px] text-emerald-400 uppercase tracking-wider block">ว่าง (AVAILABLE)</span>
           <span className="text-lg font-bold text-emerald-400 mt-0.5 block">{availableCount}</span>
@@ -608,10 +604,6 @@ export default function AdminFlashManagement() {
         <div className="bg-studio-card border border-[#4A443A] p-3 rounded-[6px]">
           <span className="text-[10px] text-[#7A7265] uppercase tracking-wider block">สักแล้ว (SOLD)</span>
           <span className="text-lg font-bold text-[#A89F91] mt-0.5 block">{soldCount}</span>
-        </div>
-        <div className="bg-studio-card border border-studio-red/40 p-3 rounded-[6px]">
-          <span className="text-[10px] text-studio-red uppercase tracking-wider block">คำขอรอตรวจ</span>
-          <span className="text-lg font-bold text-studio-red mt-0.5 block">{pendingResCount}</span>
         </div>
       </div>
 

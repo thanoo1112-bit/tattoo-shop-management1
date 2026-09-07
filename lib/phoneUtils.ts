@@ -17,22 +17,13 @@ export function sanitizeDigitsOnly(input: string): string {
  */
 export function validateCustomerPhone(input: string): { valid: boolean; error?: string } {
   if (!input || input.trim() === '') {
-    return { valid: false, error: 'กรุณากรอกเบอร์โทรศัพท์' };
+    return { valid: false, error: 'กรุณากรอกเบอร์โทรศัพท์ให้ถูกต้อง 10 หลัก' };
   }
 
   const cleaned = input.trim();
 
-  // If input contains non-digits
-  if (/\D/.test(cleaned)) {
-    return { valid: false, error: 'รูปแบบเบอร์โทรศัพท์ไม่ถูกต้อง (กรอกเฉพาะตัวเลข)' };
-  }
-
-  if (cleaned.length < 10 || cleaned.length > 10) {
-    return { valid: false, error: 'กรุณากรอกเบอร์โทรศัพท์ให้ครบ 10 หลัก' };
-  }
-
   if (!/^0[0-9]{9}$/.test(cleaned)) {
-    return { valid: false, error: 'รูปแบบเบอร์โทรศัพท์ไม่ถูกต้อง' };
+    return { valid: false, error: 'กรุณากรอกเบอร์โทรศัพท์ให้ถูกต้อง 10 หลัก' };
   }
 
   return { valid: true };

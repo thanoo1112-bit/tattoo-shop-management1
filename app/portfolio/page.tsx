@@ -46,13 +46,8 @@ export interface PortfolioArtworkData {
 
 function formatDurationDisplay(minutes: number | null): string | null {
   if (!minutes || minutes <= 0) return null;
-  if (minutes < 60) return `${minutes} นาที`;
-  const hours = Math.floor(minutes / 60);
-  const remainingMins = minutes % 60;
-  if (remainingMins === 0) {
-    return `${hours} ชม. (${minutes} นาที)`;
-  }
-  return `${hours} ชม. ${remainingMins} นาที`;
+  const hours = Math.round((minutes / 60) * 100) / 100;
+  return `${hours} ชม.`;
 }
 
 function PortfolioContent() {
@@ -340,36 +335,34 @@ function PortfolioContent() {
                     <div
                       key={item.id}
                       onClick={() => handleItemSelect(item)}
-                      className={`bg-studio-card border rounded-[6px] overflow-hidden group cursor-pointer transition-all duration-200 flex flex-col justify-between ${
+                      className={`aspect-square bg-studio-main border rounded-[6px] overflow-hidden group cursor-pointer transition-all duration-200 relative ${
                         isSelected
                           ? 'border-studio-red ring-1 ring-studio-red shadow-lg shadow-studio-red/10'
                           : 'border-studio-border hover:border-studio-red/60 hover:shadow-md'
                       }`}
                     >
-                      <div className="aspect-square bg-studio-main overflow-hidden relative">
-                        <img
-                          src={item.image_url}
-                          alt={item.title}
-                          className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-500"
-                        />
-                        <div className="absolute top-2 left-2 bg-studio-sec/90 backdrop-blur-sm border border-studio-border text-studio-red text-[9px] font-bold px-2 py-0.5 rounded">
-                          {item.style}
-                        </div>
-                        <div className="absolute inset-0 bg-gradient-to-t from-studio-main/90 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-3">
-                          <span className="text-[11px] text-studio-paper font-bold flex items-center gap-1">
-                            ดูรายละเอียด <ArrowUpRight size={13} />
-                          </span>
-                        </div>
-                      </div>
+                      <img
+                        src={item.image_url}
+                        alt={item.title}
+                        className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-500"
+                      />
 
-                      <div className="p-3 space-y-1">
-                        <h3 className="text-xs sm:text-sm font-heading tracking-wide text-studio-primary truncate">
+                      {/* Permanent Dark Gradient Overlay on Image Bottom */}
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent flex flex-col justify-end p-3 sm:p-3.5 space-y-0.5 pointer-events-none">
+                        {/* Style name in Red */}
+                        <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-studio-red truncate">
+                          {item.style}
+                        </span>
+
+                        {/* Artwork Title in White */}
+                        <h3 className="text-xs sm:text-sm font-heading font-bold tracking-wide text-studio-primary truncate">
                           {item.title}
                         </h3>
-                        <div className="flex justify-between items-center text-[10px] text-studio-secondary">
-                          <span className="truncate">ช่าง: {artistName}</span>
-                          {durationText && <span className="shrink-0 text-studio-muted">{item.size_label || durationText}</span>}
-                        </div>
+
+                        {/* Artist Name */}
+                        <span className="text-[10px] sm:text-xs text-studio-secondary truncate">
+                          ช่าง: {artistName}
+                        </span>
                       </div>
                     </div>
                   );

@@ -7,8 +7,7 @@ interface PaymentSummaryCardsProps {
   waitingDepositCount: number;
   waitingDepositAmount: number;
   totalPaid: number;
-  totalRemaining: number;
-  fullyPaidCount: number;
+  depositPaidCount: number;
   totalBookings: number;
 }
 
@@ -16,23 +15,22 @@ export default function PaymentSummaryCards({
   waitingDepositCount,
   waitingDepositAmount,
   totalPaid,
-  totalRemaining,
-  fullyPaidCount,
+  depositPaidCount,
   totalBookings,
 }: PaymentSummaryCardsProps) {
   const cards = [
     {
       title: 'รอรับมัดจำ',
-      subtitle: `${waitingDepositCount} รายการ`,
+      subtitle: `${waitingDepositCount} คิวงาน`,
       value: `฿${waitingDepositAmount.toLocaleString('th-TH')}`,
-      hint: 'ยอดมัดจำที่รอชำระเพื่อยืนยันคิว',
+      hint: 'ยอดมัดจำที่รอชำระเพื่อยืนยันสิทธิ์',
       icon: Clock3,
       borderColor: 'border-amber-900/40',
       iconBg: 'bg-amber-950/40 text-amber-400 border border-amber-800/40',
       accentColor: 'text-amber-400',
     },
     {
-      title: 'รับเงินแล้ว',
+      title: 'รับเงินจริงรวม',
       subtitle: `จาก ${totalBookings} คิวงาน`,
       value: `฿${totalPaid.toLocaleString('th-TH')}`,
       hint: 'ยอดเงินจริงที่ร้านได้รับทั้งหมด',
@@ -42,24 +40,24 @@ export default function PaymentSummaryCards({
       accentColor: 'text-emerald-400',
     },
     {
-      title: 'ยอดค้างชำระ',
-      subtitle: 'ยอดคงเหลือที่ต้องเก็บ',
-      value: `฿${totalRemaining.toLocaleString('th-TH')}`,
-      hint: 'ยอดรวมส่วนที่เหลือหลังหักมัดจำ',
-      icon: AlertCircle,
-      borderColor: 'border-[#9C2F2F]/40',
-      iconBg: 'bg-[#9C2F2F]/20 text-red-400 border border-[#9C2F2F]/40',
-      accentColor: 'text-red-400',
-    },
-    {
-      title: 'ชำระครบ',
-      subtitle: `${fullyPaidCount} คิวงาน`,
-      value: `${fullyPaidCount} คิว`,
-      hint: 'งานที่ชำระค่าบริการครบ 100%',
+      title: 'รับมัดจำครบแล้ว',
+      subtitle: `${depositPaidCount} จาก ${totalBookings} คิว`,
+      value: `${depositPaidCount} คิว`,
+      hint: 'คิวงานที่ได้รับมัดจำครบตามกำหนด',
       icon: ShieldCheck,
       borderColor: 'border-cyan-900/40',
       iconBg: 'bg-cyan-950/40 text-cyan-400 border border-cyan-800/40',
       accentColor: 'text-cyan-400',
+    },
+    {
+      title: 'คิวงานทั้งหมด',
+      subtitle: 'สถานะในระบบ',
+      value: `${totalBookings} คิว`,
+      hint: 'จำนวนรายการคิวทั้งหมดในระบบ',
+      icon: AlertCircle,
+      borderColor: 'border-[#4A443A]',
+      iconBg: 'bg-[#1F1D1A] text-[#ECE4D3] border border-[#4A443A]',
+      accentColor: 'text-[#ECE4D3]',
     },
   ];
 

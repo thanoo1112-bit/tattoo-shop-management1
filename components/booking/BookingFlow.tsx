@@ -9,6 +9,7 @@ import BookingSummary from './BookingSummary';
 import CustomerLoginModal from '../auth/CustomerLoginModal';
 import { Artist } from '@/data/mockArtists';
 import { CheckCircle2, ChevronRight, ChevronLeft, Calendar, ArrowRight, AlertTriangle, Loader2 } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 
 export interface BookingArtworkReference {
   id: string;
@@ -37,8 +38,10 @@ export default function BookingFlow({
   estimateRequestId,
   onSuccess,
 }: BookingFlowProps) {
+  const router = useRouter();
   const {
     isLoggedIn,
+    isCustomerProfileComplete,
     artists,
     addBookingRequest,
     bookingDraft,
@@ -142,6 +145,12 @@ export default function BookingFlow({
     if (!isLoggedIn) {
       saveDraft();
       setShowLogin(true);
+      return;
+    }
+
+    if (!isCustomerProfileComplete) {
+      saveDraft();
+      router.push('/complete-profile?next=' + encodeURIComponent(window.location.pathname + window.location.search));
       return;
     }
 
@@ -290,6 +299,7 @@ export default function BookingFlow({
               setDate(d);
               setSelectedSlot(null);
             }}
+            artistId={selectedArtist?.id}
             artistWorkingDays={selectedArtist?.working_days || (selectedArtist as any)?.availability}
           />
 

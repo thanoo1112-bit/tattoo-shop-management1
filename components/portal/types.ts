@@ -82,6 +82,7 @@ export interface CustomerPortalBooking {
   source_ref?: string | null;
   artwork_title?: string | null;
   artwork_image_url?: string | null;
+  reference_images?: string[] | null;
   placement?: string | null;
   width_cm?: number | null;
   height_cm?: number | null;
@@ -106,3 +107,38 @@ export interface NextAppointmentInfo {
   booking: CustomerPortalBooking;
   artist: CustomerPortalArtist | null;
 }
+
+export type SubmissionStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
+
+export interface BookingPaymentSubmission {
+  id: string;
+  booking_id: string;
+  customer_user_id: string;
+  claimed_amount: number;
+  slip_path: string;
+  reference_no?: string | null;
+  customer_note?: string | null;
+  status: SubmissionStatus;
+  submitted_at: string;
+  reviewed_at?: string | null;
+  reviewed_by?: string | null;
+  rejection_reason?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PaymentSetting {
+  id: string;
+  payment_qr_path?: string | null;
+  payment_display_name?: string | null;
+  bank_name?: string | null;
+  account_no?: string | null;
+  account_name?: string | null;
+  promptpay_id?: string | null;
+  payment_instruction?: string | null;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+  updated_by?: string | null;
+}
+

@@ -5,7 +5,7 @@ import { CustomerPortalEstimate } from './types';
 import { createClient } from '@/lib/supabase/client';
 import BookingCalendar, { BusyRange } from '../booking/BookingCalendar';
 import { X, Calendar, Clock, AlertTriangle, CheckCircle2, Ban, Info, RefreshCw } from 'lucide-react';
-import { formatThaiDate, formatCurrency, formatTimeBangkok } from './portalUtils';
+import { formatThaiDate, formatCurrency, formatTimeBangkok, getThailandTodayStr, getThailandTomorrowStr } from './portalUtils';
 
 interface CustomerBookingCreateModalProps {
   estimate: CustomerPortalEstimate;
@@ -28,9 +28,13 @@ export default function CustomerBookingCreateModal({
   onClose,
   onSuccess,
 }: CustomerBookingCreateModalProps) {
-  const [requestedDate, setRequestedDate] = useState(
-    estimate.preferred_date || new Date().toISOString().split('T')[0]
-  );
+  const [requestedDate, setRequestedDate] = useState(() => {
+    const minBookable = getThailandTomorrowStr();
+    if (estimate.preferred_date && estimate.preferred_date >= minBookable) {
+      return estimate.preferred_date;
+    }
+    return minBookable;
+  });
   const [requestedTime, setRequestedTime] = useState('11:00');
   const [customerNote, setCustomerNote] = useState('');
   const [loading, setLoading] = useState(false);
@@ -179,8 +183,8 @@ export default function CustomerBookingCreateModal({
   // Form Submit Handler
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!requestedDate) {
-      setError('กรุณาเลือกวันที่ต้องการเข้ารับบริการ');
+    if (!requestedDate || requestedDate <= getThailandTodayStr()) {
+      setError('กรุณาเลือกวันนัดหมายตั้งแต่วันพรุ่งนี้เป็นต้นไป');
       return;
     }
 

@@ -8,12 +8,14 @@ interface BookingListProps {
   bookings: BookingItem[];
   selectedBooking: BookingItem | null;
   onSelectBooking: (booking: BookingItem) => void;
+  onCheckSlip?: (bookingId: string) => void;
 }
 
 export default function BookingList({
   bookings,
   selectedBooking,
   onSelectBooking,
+  onCheckSlip,
 }: BookingListProps) {
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
@@ -42,8 +44,35 @@ export default function BookingList({
     });
   }, [bookings, statusFilter, searchQuery]);
 
-  const getStatusBadge = (status: BookingStatus) => {
-    switch (status) {
+  const renderStatusBadge = (book: BookingItem) => {
+    if (
+      (book.operational_status?.key === 'WAITING_SLIP_VERIFICATION' || book.has_pending_payment_submission) &&
+      onCheckSlip
+    ) {
+      return (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onCheckSlip(book.id);
+          }}
+          title="กดเพื่อตรวจสลิป"
+          className="bg-amber-950/80 hover:bg-amber-900 text-amber-300 border border-amber-800/80 px-2 py-0.5 rounded text-[10px] font-semibold inline-flex items-center animate-pulse transition-colors cursor-pointer shadow-sm"
+        >
+          <span>สลิปรอตรวจ</span>
+        </button>
+      );
+    }
+
+    if (book.operational_status) {
+      return (
+        <span className={`${book.operational_status.badgeClass} px-2 py-0.5 rounded text-[10px] font-semibold`}>
+          {book.operational_status.label}
+        </span>
+      );
+    }
+
+    switch (book.status) {
       case 'PENDING':
         return (
           <span className="bg-blue-950/60 text-blue-400 border border-blue-800/60 px-2 py-0.5 rounded text-[10px] font-semibold">
@@ -98,16 +127,39 @@ export default function BookingList({
     }
   };
 
-  const getFinancialBadge = (fin: any) => {
+  const getFinancialBadge = (book: any) => {
+    const fin = book?.financial;
     if (!fin) return null;
-    if (fin.is_fully_paid) {
+
+    const isCompleted = book.status === 'COMPLETED';
+    const quoted = Number(fin.quoted_price || 0);
+    const received = Number(fin.total_paid || 0);
+    const isFullyPaid = fin.is_fully_paid || (quoted > 0 && received >= quoted);
+
+    if (isCompleted) {
+      if (isFullyPaid || (quoted > 0 && received >= quoted)) {
+        return (
+          <span className="bg-emerald-950/60 text-emerald-400 border border-emerald-800/60 px-2 py-0.5 rounded text-[10px] font-semibold">
+            ชำระครบ
+          </span>
+        );
+      }
+      const outstanding = Math.max(0, quoted - received);
+      return (
+        <span className="bg-red-950/60 text-red-400 border border-red-800/60 px-2 py-0.5 rounded text-[10px] font-semibold">
+          ค้างชำระ {formatCurrency(outstanding)}
+        </span>
+      );
+    }
+
+    if (isFullyPaid || (quoted > 0 && received >= quoted)) {
       return (
         <span className="bg-emerald-950/60 text-emerald-400 border border-emerald-800/60 px-2 py-0.5 rounded text-[10px] font-semibold">
           ชำระครบ
         </span>
       );
     }
-    if (fin.total_paid > 0) {
+    if (received > 0) {
       return (
         <span className="bg-blue-950/60 text-blue-400 border border-blue-800/60 px-2 py-0.5 rounded text-[10px] font-semibold">
           ชำระบางส่วน
@@ -175,11 +227,10 @@ export default function BookingList({
             <table className="w-full text-left text-xs text-[#ECE4D3]">
               <thead className="bg-[#0E0D0C] text-[#7A7265] uppercase text-[10px] tracking-wider border-b border-[#4A443A]">
                 <tr>
-                  <th className="py-3 px-3">วันที่ต้องการ</th>
+                  <th className="py-3 px-3">วันที่</th>
                   <th className="py-3 px-3">ลูกค้า</th>
                   <th className="py-3 px-3">ช่างสัก</th>
-                  <th className="py-3 px-3">สถานะคิวงาน</th>
-                  <th className="py-3 px-3">สถานะการเงิน</th>
+                  <th className="py-3 px-3">สถานะ</th>
                   <th className="py-3 px-3 text-right">ราคาที่ตกลง</th>
                   <th className="py-3 px-3 text-right">รับเงินแล้ว</th>
                   <th className="py-3 px-3 text-center">จัดการ</th>
@@ -205,8 +256,9 @@ export default function BookingList({
                       <td className="py-3 px-3 text-[#A89F91]">
                         {book.artist_name}
                       </td>
-                      <td className="py-3 px-3">{getStatusBadge(book.status)}</td>
-                      <td className="py-3 px-3">{getFinancialBadge(book.financial)}</td>
+                      <td className="py-3 px-3">
+                        {renderStatusBadge(book)}
+                      </td>
                       <td className="py-3 px-3 text-right font-medium text-[#ECE4D3]">
                         {formatCurrency(book.financial?.quoted_price || 0)}
                       </td>
@@ -239,19 +291,18 @@ export default function BookingList({
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div>
-                      <span className="font-semibold text-sm text-[#ECE4D3]">{book.customer_name}</span>
+                      <span className="font-semibold text-xs text-[#ECE4D3]">{book.customer_name}</span>
                       <p className="text-[11px] text-[#7A7265] mt-0.5">
                         ช่าง: <span className="text-[#A89F91]">{book.artist_name}</span>
                         {book.requested_date && ` • วันที่: ${book.requested_date}`}
                       </p>
                     </div>
-                    {getStatusBadge(book.status)}
+                    {renderStatusBadge(book)}
                   </div>
 
                   <div className="text-xs pt-2 border-t border-[#4A443A]/40 flex items-center justify-between">
-                    <div>{getFinancialBadge(book.financial)}</div>
-                    <div className="text-right">
-                      <span className="text-[10px] text-[#7A7265] mr-1">รับแล้ว:</span>
+                    <div className="text-right w-full">
+                      <span className="text-[10px] text-[#7A7265] mr-1">รับเงินแล้ว:</span>
                       <span className="font-semibold text-emerald-400">
                         {formatCurrency(book.financial?.total_paid || 0)}
                       </span>
