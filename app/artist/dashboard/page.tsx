@@ -1,13 +1,13 @@
 'use client';
 
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
-import { useApp } from '@/components/AppContext';
-import { createClient } from '@/lib/supabase/client';
-import ArtistHeader from '@/components/artist/ArtistHeader';
-import ArtistMobileNav from '@/components/artist/ArtistMobileNav';
-import ArtistAppointmentDetailDrawer, { ArtistSessionDetail } from '@/components/artist/ArtistAppointmentDetailDrawer';
-import ArtistRequestDetailDrawer, { ArtistPendingEstimateDetail } from '@/components/artist/ArtistRequestDetailDrawer';
-import ArtistPaymentReviewDrawer from '@/components/artist/ArtistPaymentReviewDrawer';
+import { useApp } from '../../../components/AppContext';
+import { createClient } from '../../../lib/supabase/client';
+import ArtistHeader from '../../../components/artist/ArtistHeader';
+import ArtistMobileNav from '../../../components/artist/ArtistMobileNav';
+import ArtistAppointmentDetailDrawer, { ArtistSessionDetail } from '../../../components/artist/ArtistAppointmentDetailDrawer';
+import ArtistRequestDetailDrawer, { ArtistPendingEstimateDetail } from '../../../components/artist/ArtistRequestDetailDrawer';
+import ArtistPaymentReviewDrawer from '../../../components/artist/ArtistPaymentReviewDrawer';
 import CustomerReferenceImage from '@/components/common/CustomerReferenceImage';
 import PaymentSlipImage from '@/components/common/PaymentSlipImage';
 import PaymentSlipLightbox from '@/components/common/PaymentSlipLightbox';

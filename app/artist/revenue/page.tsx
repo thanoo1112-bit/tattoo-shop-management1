@@ -1,10 +1,10 @@
 'use client';
 
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
-import { useApp } from '@/components/AppContext';
-import { createClient } from '@/lib/supabase/client';
-import ArtistHeader from '@/components/artist/ArtistHeader';
-import ArtistMobileNav from '@/components/artist/ArtistMobileNav';
+import { useApp } from '../../../components/AppContext';
+import { createClient } from '../../../lib/supabase/client';
+import ArtistHeader from '../../../components/artist/ArtistHeader';
+import ArtistMobileNav from '../../../components/artist/ArtistMobileNav';
 import { formatDateBangkok, getTodayBangkokStr, getDateStrBangkok } from '@/components/admin/calendar/calendarUtils';
 import { 
   DollarSign, 

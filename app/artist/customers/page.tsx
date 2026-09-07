@@ -1,11 +1,11 @@
 'use client';
 
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
-import { useApp } from '@/components/AppContext';
-import { createClient } from '@/lib/supabase/client';
-import ArtistHeader from '@/components/artist/ArtistHeader';
-import ArtistMobileNav from '@/components/artist/ArtistMobileNav';
-import ArtistCustomerDetailDrawer, { ArtistCustomerDetail } from '@/components/artist/ArtistCustomerDetailDrawer';
+import { useApp } from '../../../components/AppContext';
+import { createClient } from '../../../lib/supabase/client';
+import ArtistHeader from '../../../components/artist/ArtistHeader';
+import ArtistMobileNav from '../../../components/artist/ArtistMobileNav';
+import ArtistCustomerDetailDrawer, { ArtistCustomerDetail } from '../../../components/artist/ArtistCustomerDetailDrawer';
 import { formatThaiPhoneForDisplay } from '@/lib/phoneUtils';
 import { formatDateBangkok } from '@/components/admin/calendar/calendarUtils';
 import { 
