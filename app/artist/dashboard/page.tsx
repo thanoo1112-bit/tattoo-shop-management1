@@ -76,7 +76,8 @@ export default function ArtistDashboardPage() {
   }, [isAuthorized, authLoading]);
 
   const [pendingSubmissions, setPendingSubmissions] = useState<any[]>([]);
-  const [todayArtistRevenueTotal, setTodayArtistRevenueTotal] = useState<number>(0);
+  const [completedJobsThisMonth, setCompletedJobsThisMonth] = useState<number>(0);
+  const [monthlyRevenue, setMonthlyRevenue] = useState<number>(0);
 
   // Fetch live operational data for Artist (strictly scoped to staffArtistId)
   const fetchArtistData = useCallback(async () => {
@@ -140,11 +141,21 @@ export default function ArtistDashboardPage() {
       const pEstimatesList = pEstData || [];
       setPendingEstimates(pEstimatesList);
 
-      // 4.5 Query pending payment submissions for own bookings
+      // 4.5 Query pending payment submissions for own bookings & compute monthly KPIs
       const dbBookingIds = dbBookings.map((b: any) => b.id);
       let pSubmissions: any[] = [];
-      let todayRev = 0;
-      const tBangkokStr = getTodayBangkokStr();
+      let mRev = 0;
+      const currentMonthStr = getTodayBangkokStr().slice(0, 7);
+
+      // Count COMPLETED bookings in current month for logged-in artist
+      const completedThisMonthCount = dbBookings.filter((b: any) => {
+        if (b.status !== 'COMPLETED') return false;
+        const targetDateIso = b.completed_at || b.updated_at || b.created_at;
+        if (!targetDateIso) return false;
+        return getDateStrBangkok(targetDateIso).slice(0, 7) === currentMonthStr;
+      }).length;
+
+      setCompletedJobsThisMonth(completedThisMonthCount);
 
       if (dbBookingIds.length > 0) {
         const { data: subData } = await supabase
@@ -154,21 +165,25 @@ export default function ArtistDashboardPage() {
           .eq('status', 'PENDING');
         pSubmissions = subData || [];
 
-        // 4.6 Query recorded booking payments for today's revenue metric
+        // 4.6 Query RECORDED booking payments for current artist's bookings in current month
         const { data: payData } = await supabase
           .from('booking_payments')
-          .select('amount, paid_at, status')
+          .select('amount, paid_at, created_at, status')
           .in('booking_id', dbBookingIds)
           .eq('status', 'RECORDED');
 
         if (payData) {
-          todayRev = payData
-            .filter((p: any) => p.paid_at && getDateStrBangkok(p.paid_at) === tBangkokStr)
+          mRev = payData
+            .filter((p: any) => {
+              const dateIso = p.paid_at || p.created_at;
+              if (!dateIso) return false;
+              return getDateStrBangkok(dateIso).slice(0, 7) === currentMonthStr;
+            })
             .reduce((sum: number, p: any) => sum + (Number(p.amount) || 0), 0);
         }
       }
       setPendingSubmissions(pSubmissions);
-      setTodayArtistRevenueTotal(todayRev);
+      setMonthlyRevenue(mRev);
 
       // 5. Collect all customer user IDs (from bookings + pending estimates + pending payment submissions)
       const customerUserIds = Array.from(
@@ -569,18 +584,19 @@ export default function ArtistDashboardPage() {
             </div>
           </div>
 
-          {/* Card 4: ยอดค่ามือวันนี้ */}
+          {/* Card 4: ผลงานเดือนนี้ */}
           <div className="bg-studio-card border border-studio-border p-4 sm:p-5 rounded-xl flex items-center justify-between shadow-lg">
-            <div className="space-y-1">
-              <span className="text-xs text-studio-secondary uppercase tracking-wider font-medium">ยอดค่ามือวันนี้</span>
-              <div className="text-2xl sm:text-3xl font-bold font-mono text-emerald-400">
-                ฿{todayArtistRevenueTotal.toLocaleString('th-TH')}
+            <div className="space-y-1 min-w-0 pr-2">
+              <span className="text-xs text-studio-secondary uppercase tracking-wider font-medium">ผลงานเดือนนี้</span>
+              <div className="text-2xl sm:text-3xl font-bold font-mono text-studio-primary flex items-baseline space-x-1.5 truncate">
+                <span>{completedJobsThisMonth}</span>
+                <span className="text-xs sm:text-sm font-normal text-studio-muted">เคส</span>
               </div>
-              <div className="text-xs text-studio-muted">
-                รายได้จากงานสักวันนี้
+              <div className="text-xs font-mono text-emerald-400 truncate">
+                ยอดรวม ฿{monthlyRevenue.toLocaleString('th-TH')}
               </div>
             </div>
-            <div className="w-12 h-12 rounded-xl bg-emerald-950/20 border border-emerald-800/40 flex items-center justify-center text-emerald-400">
+            <div className="w-12 h-12 rounded-xl bg-emerald-950/20 border border-emerald-800/40 flex items-center justify-center text-emerald-400 shrink-0">
               <Wallet size={22} />
             </div>
           </div>
