@@ -29,6 +29,42 @@ export interface PendingPaymentSubmission {
   created_at?: string;
 }
 
+export type TattooWorkType = 'NEW_TATTOO' | 'REWORK' | 'COVER_UP' | 'SCAR_COVER';
+
+export type ColorTechnique = 'LINEWORK' | 'BLACK_AND_GREY' | 'FULL_COLOR';
+
+export type EstimatedSizeTier = 'MICRO' | 'SMALL_MED' | 'LARGE' | 'XL' | 'FULL_PROJECT';
+
+export const getColorTechniqueLabel = (colorTechnique?: string | null): string => {
+  if (!colorTechnique) return '';
+  switch (colorTechnique) {
+    case 'LINEWORK':
+      return 'เส้น / Linework';
+    case 'BLACK_AND_GREY':
+      return 'ขาวดำและแรเงา';
+    case 'FULL_COLOR':
+      return 'งานสี';
+    default:
+      return colorTechnique;
+  }
+};
+
+export const getTattooWorkTypeLabel = (workType?: string | null): string => {
+  if (!workType) return 'ไม่ระบุประเภทงาน';
+  switch (workType) {
+    case 'NEW_TATTOO':
+      return 'งานสักใหม่';
+    case 'REWORK':
+      return 'แก้ไข / ต่อเติมงานเดิม';
+    case 'COVER_UP':
+      return 'Cover-up / สักทับงานเดิม';
+    case 'SCAR_COVER':
+      return 'ปกปิดรอยแผลเป็น';
+    default:
+      return 'ไม่ระบุประเภทงาน';
+  }
+};
+
 export interface EstimateRequestItem {
   id: string;
   customer_user_id: string;
@@ -42,11 +78,29 @@ export interface EstimateRequestItem {
   preferred_date?: string | null;
   reference_images?: string[] | null;
   status: EstimateStatus;
+  request_type?: 'ESTIMATE' | 'DIRECT_BOOKING';
+  work_type?: TattooWorkType | null;
+  color_technique?: ColorTechnique | null;
   quoted_price: number | null;
+  estimated_min_price?: number | null;
+  estimated_max_price?: number | null;
+  estimated_base_price_snapshot?: number | null;
+  estimated_size_tier?: EstimatedSizeTier | string | null;
+  estimated_size_multiplier?: number | null;
+  estimated_color_multiplier?: number | null;
+  estimated_work_type_multiplier?: number | null;
+  estimated_range_factor?: number | null;
+  estimated_rounding_increment?: number | null;
+  price_estimated_at?: string | null;
   deposit_required: number | null;
   estimated_duration_minutes: number | null;
   quote_note: string | null;
   quoted_at: string | null;
+  admin_reviewed_at?: string | null;
+  has_medical_condition?: boolean;
+  medical_condition_note?: string | null;
+  has_allergy?: boolean;
+  allergy_note?: string | null;
   created_at: string;
   updated_at: string;
   // Joined fields:
@@ -63,6 +117,14 @@ export interface EstimateRequestItem {
   operational_status?: OperationalStatusInfo;
 }
 
+export function resolveCustomerConfirmationStatus(customer?: {
+  eligibility_confirmed_at?: string | null;
+  profile_completed_at?: string | null;
+} | null): boolean {
+  if (!customer) return false;
+  return Boolean(customer.eligibility_confirmed_at || customer.profile_completed_at);
+}
+
 export interface BookingSessionItem {
   id: string;
   booking_id: string;
@@ -74,6 +136,7 @@ export interface BookingSessionItem {
   note: string | null;
   created_at: string;
   updated_at: string;
+  session_paid_amount?: number;
 }
 
 export interface BookingFinancialData {
@@ -90,8 +153,10 @@ export interface BookingItem {
   customer_user_id: string;
   artist_id: string | null;
   estimate_request_id: string | null;
+  booking_source?: string | null;
   requested_date: string | null;
   requested_time?: string | null;
+  requested_start_time?: string | null;
   status: BookingStatus;
   started_at?: string | null;
   completed_at?: string | null;
@@ -113,11 +178,18 @@ export interface BookingItem {
   style_preference?: string | null;
   description?: string | null;
   reference_images?: string[] | null;
+  work_type?: TattooWorkType | string | null;
 
-  // Financial from booking_payment_summary
+  // Financial from booking_payment_summary & estimate snapshot
+  estimated_min_price?: number | null;
+  estimated_max_price?: number | null;
+  price_estimated_at?: string | null;
   financial: BookingFinancialData;
   // Sessions
   sessions: BookingSessionItem[];
+  // Health alert indicators
+  has_medical_condition?: boolean;
+  has_allergy?: boolean;
   // Operational status hydration:
   has_pending_payment_submission?: boolean;
   pending_submission?: PendingPaymentSubmission | null;
@@ -125,10 +197,11 @@ export interface BookingItem {
 }
 
 export interface RequestSummaryCounts {
-  newEstimatesCount: number;
+  pendingEvaluationCount: number;
+  waitingCustomerCount: number;
   waitingDepositCount: number;
+  pendingSlipsCount: number;
   confirmedCount: number;
-  inProgressCount: number;
 }
 
 // ------------------------------------------------------------------
@@ -195,16 +268,7 @@ export function resolveEstimateOperationalStatus(
   linkedBooking?: BookingItem | null,
   hasPendingSlip?: boolean
 ): OperationalStatusInfo {
-  // 1. estimate request still pending
-  if (request.status === 'PENDING') {
-    return {
-      key: 'PENDING',
-      label: 'รอตรวจสอบ',
-      badgeClass: 'bg-blue-950/60 text-blue-400 border border-blue-800/60',
-    };
-  }
-
-  // 2. request rejected
+  // 1. Terminal / Rejected
   if (request.status === 'REJECTED') {
     return {
       key: 'REJECTED',
@@ -213,9 +277,8 @@ export function resolveEstimateOperationalStatus(
     };
   }
 
-  // If there is a linked booking, evaluate its lifecycle
+  // Evaluate linked booking lifecycle
   if (linkedBooking) {
-    // 3. linked booking cancelled
     if (linkedBooking.status === 'CANCELLED') {
       return {
         key: 'CANCELLED',
@@ -224,25 +287,6 @@ export function resolveEstimateOperationalStatus(
       };
     }
 
-    // 4. linked payment submission = PENDING
-    if (hasPendingSlip) {
-      return {
-        key: 'WAITING_SLIP_VERIFICATION',
-        label: 'สลิปรอตรวจ',
-        badgeClass: 'bg-amber-950/60 text-amber-400 border border-amber-800/60 animate-pulse',
-      };
-    }
-
-    // 5. linked booking = WAITING_DEPOSIT and no pending slip
-    if (linkedBooking.status === 'WAITING_DEPOSIT') {
-      return {
-        key: 'WAITING_DEPOSIT',
-        label: 'รอมัดจำ',
-        badgeClass: 'bg-purple-950/60 text-purple-400 border border-purple-800/60',
-      };
-    }
-
-    // 7. active session / booking in progress
     const hasSessionInProgress = linkedBooking.sessions?.some((s) => s.status === 'IN_PROGRESS');
     if (linkedBooking.status === 'IN_PROGRESS' || hasSessionInProgress) {
       return {
@@ -252,7 +296,6 @@ export function resolveEstimateOperationalStatus(
       };
     }
 
-    // 8. completed booking
     if (linkedBooking.status === 'COMPLETED') {
       return {
         key: 'COMPLETED',
@@ -261,7 +304,6 @@ export function resolveEstimateOperationalStatus(
       };
     }
 
-    // 6. linked booking/session confirmed
     if (linkedBooking.status === 'CONFIRMED') {
       return {
         key: 'CONFIRMED',
@@ -271,20 +313,39 @@ export function resolveEstimateOperationalStatus(
     }
   }
 
+  // 2. Pending Payment Submission (Pending Slip takes priority over QUOTED / WAITING_DEPOSIT)
+  if (hasPendingSlip) {
+    return {
+      key: 'WAITING_SLIP_VERIFICATION',
+      label: 'สลิปรอตรวจ',
+      badgeClass: 'bg-amber-950/60 text-amber-400 border border-amber-800/60 animate-pulse',
+    };
+  }
+
+  // 3. Deposit Waiting: QUOTED or WAITING_DEPOSIT (without pending slip) -> "รอมัดจำ"
+  if (request.status === 'QUOTED' || linkedBooking?.status === 'WAITING_DEPOSIT') {
+    return {
+      key: 'WAITING_DEPOSIT',
+      label: 'รอมัดจำ',
+      badgeClass: 'bg-purple-950/60 text-purple-400 border border-purple-800/60',
+    };
+  }
+
+  // 4. Initial Pending Request
+  if (request.status === 'PENDING') {
+    return {
+      key: 'PENDING',
+      label: 'รอตรวจสอบ',
+      badgeClass: 'bg-blue-950/60 text-blue-400 border border-blue-800/60',
+    };
+  }
+
   // Fallback for ACCEPTED request without linked booking yet
   if (request.status === 'ACCEPTED') {
     return {
       key: 'ACCEPTED',
       label: 'ยืนยันแล้ว',
       badgeClass: 'bg-emerald-950/60 text-emerald-400 border border-emerald-800/60',
-    };
-  }
-
-  if (request.status === 'QUOTED') {
-    return {
-      key: 'QUOTED',
-      label: 'เสนอราคาแล้ว',
-      badgeClass: 'bg-amber-950/60 text-amber-400 border border-amber-800/60',
     };
   }
 

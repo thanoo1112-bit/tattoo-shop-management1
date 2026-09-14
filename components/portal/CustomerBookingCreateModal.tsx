@@ -29,7 +29,7 @@ export default function CustomerBookingCreateModal({
   onSuccess,
 }: CustomerBookingCreateModalProps) {
   const [requestedDate, setRequestedDate] = useState(() => {
-    const minBookable = getThailandTomorrowStr();
+    const minBookable = getThailandTodayStr();
     if (estimate.preferred_date && estimate.preferred_date >= minBookable) {
       return estimate.preferred_date;
     }
@@ -183,8 +183,8 @@ export default function CustomerBookingCreateModal({
   // Form Submit Handler
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!requestedDate || requestedDate <= getThailandTodayStr()) {
-      setError('กรุณาเลือกวันนัดหมายตั้งแต่วันพรุ่งนี้เป็นต้นไป');
+    if (!requestedDate || requestedDate < getThailandTodayStr()) {
+      setError('ไม่สามารถเลือกวันที่ย้อนหลังได้');
       return;
     }
 

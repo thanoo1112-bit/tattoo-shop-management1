@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import Link from 'next/link';
 import { useApp } from '../AppContext';
 import { X, AlertTriangle, Eye, EyeOff, CheckCircle } from 'lucide-react';
 import { sanitizeDigitsOnly, validateCustomerPhone, normalizeThaiPhone } from '@/lib/phoneUtils';
@@ -222,6 +223,17 @@ export default function CustomerLoginModal({ onClose, onSuccess }: CustomerLogin
                 {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
               </button>
             </div>
+            {authMode === 'login' && (
+              <div className="flex justify-end pt-1">
+                <Link
+                  href="/forgot-password"
+                  onClick={onClose}
+                  className="text-[11px] text-studio-secondary hover:text-studio-red transition-colors underline-offset-4 hover:underline"
+                >
+                  ลืมรหัสผ่าน?
+                </Link>
+              </div>
+            )}
           </div>
 
           {/* Consent Checkbox (Register Mode Only) */}
@@ -236,7 +248,7 @@ export default function CustomerLoginModal({ onClose, onSuccess }: CustomerLogin
                   className="mt-0.5 w-4 h-4 rounded border-studio-border bg-studio-main text-studio-red focus:ring-studio-red focus:ring-offset-0 transition-colors shrink-0 accent-studio-red"
                 />
                 <span className="text-xs text-studio-secondary leading-relaxed group-hover:text-studio-primary transition-colors">
-                  ฉันยืนยันว่ามีอายุ 18 ปีบริบูรณ์ขึ้นไป และไม่มีภาวะสุขภาพที่ทราบว่าอาจส่งผลต่อความปลอดภัยในการสัก หากมีข้อมูลสุขภาพที่เกี่ยวข้อง ฉันจะแจ้งร้านก่อนรับบริการ
+                  ฉันยืนยันว่ามีอายุ 18 ปีบริบูรณ์ขึ้นไป และยอมรับข้อกำหนดการใช้งานและนโยบายความเป็นส่วนตัว
                 </span>
               </label>
             </div>

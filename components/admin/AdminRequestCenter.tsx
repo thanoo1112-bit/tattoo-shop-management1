@@ -28,6 +28,7 @@ import {
   Eye,
   ArrowUpDown,
 } from 'lucide-react';
+import { parseNoteWithPreferredTime } from '@/lib/noteUtils';
 
 export default function AdminRequestCenter() {
   const {
@@ -1479,21 +1480,37 @@ export default function AdminRequestCenter() {
                       {selectedEstimate.width} × {selectedEstimate.height} ซม.
                     </span>
                   </div>
-                  <div>
-                    <span className="text-[#7A7265] text-[10px] block">วันที่สะดวก:</span>
-                    <span className="text-[#ECE4D3] font-mono">
-                      {selectedEstimate.preferredDate || 'ตามคิวว่างของช่าง'}
-                    </span>
-                  </div>
+                  {(() => {
+                    const { cleanNote, extractedTime } = parseNoteWithPreferredTime(selectedEstimate.description);
+                    return (
+                      <>
+                        <div>
+                          <span className="text-[#7A7265] text-[10px] block">วันที่สะดวก:</span>
+                          <span className="text-[#ECE4D3] font-mono">
+                            {selectedEstimate.preferredDate || 'ตามคิวว่างของช่าง'}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-[#7A7265] text-[10px] block">เวลาที่สะดวก:</span>
+                          <span className="text-[#ECE4D3] font-mono">
+                            {extractedTime || 'ไม่ระบุ'}
+                          </span>
+                        </div>
+                      </>
+                    );
+                  })()}
                 </div>
-                {selectedEstimate.description && (
-                  <div className="pt-2 border-t border-[#4A443A]/30">
-                    <span className="text-[#7A7265] text-[10px] block">รายละเอียดเพิ่มเติม:</span>
-                    <p className="text-[#A89F91] text-xs leading-relaxed mt-0.5">
-                      {selectedEstimate.description}
-                    </p>
-                  </div>
-                )}
+                {(() => {
+                  const { cleanNote } = parseNoteWithPreferredTime(selectedEstimate.description);
+                  return cleanNote ? (
+                    <div className="pt-2 border-t border-[#4A443A]/30">
+                      <span className="text-[#7A7265] text-[10px] block">รายละเอียดเพิ่มเติม:</span>
+                      <p className="text-[#A89F91] text-xs leading-relaxed mt-0.5 whitespace-pre-wrap">
+                        {cleanNote}
+                      </p>
+                    </div>
+                  ) : null;
+                })()}
               </div>
 
               {selectedEstimate.quotedPrice && (

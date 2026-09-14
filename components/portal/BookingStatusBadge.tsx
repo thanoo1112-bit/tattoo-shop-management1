@@ -46,9 +46,9 @@ export default function BookingStatusBadge({ status, type = 'booking' }: Booking
     },
     WAITING_DEPOSIT: {
       label: 'รอมัดจำ',
-      dot: 'bg-[#9C2F2F]',
-      container: 'bg-[#171512] border-[#9C2F2F]/40',
-      text: 'text-[#ECE4D3]',
+      dot: 'bg-[#D9A441]',
+      container: 'bg-[#171512] border-[#D9A441]/45',
+      text: 'text-[#D9A441]',
     },
     CONFIRMED: {
       label: 'ยืนยันคิวแล้ว',

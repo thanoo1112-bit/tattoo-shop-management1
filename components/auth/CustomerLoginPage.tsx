@@ -120,7 +120,7 @@ export default function CustomerLoginPage({ initialFlipped = false }: CustomerLo
         return;
       }
       if (!consentAccepted) {
-        setCustomerError('กรุณายืนยันว่ามีอายุ 18 ปีบริบูรณ์ขึ้นไป และได้แจ้งข้อมูลสุขภาพถูกต้อง');
+        setCustomerError('กรุณายืนยันว่ามีอายุ 18 ปีบริบูรณ์ขึ้นไป และยอมรับข้อกำหนดการใช้งาน');
         return;
       }
     }
@@ -408,6 +408,16 @@ export default function CustomerLoginPage({ initialFlipped = false }: CustomerLo
                         {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                       </button>
                     </div>
+                    {authMode === 'login' && (
+                      <div className="flex justify-end pt-1.5">
+                        <Link
+                          href="/forgot-password"
+                          className="text-[11px] text-studio-secondary hover:text-studio-red transition-colors underline-offset-4 hover:underline"
+                        >
+                          ลืมรหัสผ่าน?
+                        </Link>
+                      </div>
+                    )}
                   </div>
 
                   {authMode === 'register' && (
@@ -420,7 +430,7 @@ export default function CustomerLoginPage({ initialFlipped = false }: CustomerLo
                           className="mt-0.5 rounded border-studio-border bg-studio-main text-studio-red focus:ring-0 focus:ring-offset-0 shrink-0"
                         />
                         <span className="text-[11px] text-studio-secondary leading-snug group-hover:text-studio-primary transition-colors">
-                          ฉันขอยืนยันว่ามีอายุ 18 ปีบริบูรณ์ขึ้นไป และได้แจ้งข้อมูลสุขภาพ/ประวัติแพ้ถูกต้อง
+                          ฉันยืนยันว่ามีอายุ 18 ปีบริบูรณ์ขึ้นไป และยอมรับข้อกำหนดการใช้งานและนโยบายความเป็นส่วนตัว
                         </span>
                       </label>
                     </div>
@@ -527,7 +537,7 @@ export default function CustomerLoginPage({ initialFlipped = false }: CustomerLo
                   }}
                   className="group inline-flex items-center space-x-1.5 text-xs text-studio-secondary hover:text-studio-primary transition-colors py-1.5 px-3 rounded hover:bg-studio-sec/60"
                 >
-                  <span className="font-light">สำหรับทีมงาน (เจ้าของร้าน/ช่างสัก)</span>
+                  <span className="font-light">สำหรับผู้ดูแลระบบ</span>
                   <ArrowRight size={14} className="text-studio-red transition-transform group-hover:translate-x-0.5" />
                 </button>
               </div>
@@ -557,7 +567,7 @@ export default function CustomerLoginPage({ initialFlipped = false }: CustomerLo
                     157 <span className="text-studio-red">TATTOO</span>
                   </h2>
                   <p className="text-xs text-studio-secondary font-light">
-                    เข้าสู่ระบบสำหรับเจ้าของร้านและช่างสัก
+                    เข้าสู่ระบบสำหรับเจ้าของร้าน
                   </p>
                 </div>
 
@@ -571,14 +581,14 @@ export default function CustomerLoginPage({ initialFlipped = false }: CustomerLo
                 <form onSubmit={handleStaffSubmit} className="mt-5 space-y-4">
                   <div>
                     <label className="text-[11px] uppercase tracking-wider text-studio-secondary block mb-1.5 font-medium">
-                      STAFF EMAIL
+                      ADMIN EMAIL
                     </label>
                     <input
                       type="email"
                       value={staffEmail}
                       onChange={(e) => setStaffEmail(e.target.value)}
                       required
-                      placeholder="staff@157tattoo.com"
+                      placeholder="admin@157tattoo.com"
                       className="w-full min-h-[50px] bg-studio-main border border-studio-border focus:border-studio-red text-sm text-studio-primary px-4 py-3 outline-none rounded-[4px] transition-colors"
                     />
                   </div>
@@ -607,12 +617,12 @@ export default function CustomerLoginPage({ initialFlipped = false }: CustomerLo
                     </div>
                   </div>
 
-                  {/* Account Shortcuts */}
+                  {/* Account Shortcut */}
                   <div className="pt-1">
                     <label className="text-[11px] uppercase tracking-wider text-studio-secondary block mb-2 font-medium">
-                      บัญชีพนักงาน:
+                      บัญชีผู้ดูแลระบบ:
                     </label>
-                    <div className="grid grid-cols-2 gap-2">
+                    <div>
                       {/* Owner Card */}
                       <button
                         type="button"
@@ -620,36 +630,16 @@ export default function CustomerLoginPage({ initialFlipped = false }: CustomerLo
                           setStaffEmail('admin@157tattoo.com');
                           setStaffError('');
                         }}
-                        className="w-full p-2.5 sm:p-3 rounded-[6px] bg-studio-sec/80 hover:bg-studio-sec border border-studio-border hover:border-studio-red/40 transition-all text-left group flex flex-col justify-between cursor-pointer"
+                        className="w-full p-2.5 sm:p-3 rounded-[6px] bg-studio-sec/80 hover:bg-studio-sec border border-studio-border hover:border-studio-red/40 transition-all text-left group flex items-center justify-between cursor-pointer"
                       >
-                        <div className="flex items-center space-x-1.5 mb-1">
+                        <div className="flex items-center space-x-2">
                           <span className="text-xs sm:text-sm">👑</span>
-                          <span className="text-[11px] sm:text-xs font-semibold text-studio-primary group-hover:text-studio-red transition-colors truncate">
+                          <span className="text-[11px] sm:text-xs font-semibold text-studio-primary group-hover:text-studio-red transition-colors">
                             เจ้าของร้าน
                           </span>
                         </div>
-                        <span className="text-[9px] min-[380px]:text-[10px] sm:text-[11px] font-mono text-studio-secondary truncate block w-full">
+                        <span className="text-[10px] sm:text-[11px] font-mono text-studio-secondary">
                           admin@157tattoo.com
-                        </span>
-                      </button>
-
-                      {/* Artist Card */}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setStaffEmail('artist@157tattoo.com');
-                          setStaffError('');
-                        }}
-                        className="w-full p-2.5 sm:p-3 rounded-[6px] bg-studio-sec/80 hover:bg-studio-sec border border-studio-border hover:border-studio-red/40 transition-all text-left group flex flex-col justify-between cursor-pointer"
-                      >
-                        <div className="flex items-center space-x-1.5 mb-1">
-                          <span className="text-xs sm:text-sm">🎨</span>
-                          <span className="text-[11px] sm:text-xs font-semibold text-studio-primary group-hover:text-studio-red transition-colors truncate">
-                            ช่าง
-                          </span>
-                        </div>
-                        <span className="text-[9px] min-[380px]:text-[10px] sm:text-[11px] font-mono text-studio-secondary truncate block w-full">
-                          artist@157tattoo.com
                         </span>
                       </button>
                     </div>
@@ -661,7 +651,7 @@ export default function CustomerLoginPage({ initialFlipped = false }: CustomerLo
                       disabled={staffLoading}
                       className="w-full min-h-[52px] bg-studio-red border border-studio-red text-studio-paper hover:bg-tattoo-red-dark active:scale-[0.99] text-xs sm:text-sm uppercase tracking-wider px-4 font-semibold transition-all duration-200 rounded-[4px] disabled:opacity-50 shadow-md flex items-center justify-center"
                     >
-                      {staffLoading ? 'กำลังเข้าสู่ระบบ...' : 'เข้าสู่ระบบ STAFF'}
+                      {staffLoading ? 'กำลังเข้าสู่ระบบ...' : 'เข้าสู่ระบบผู้ดูแล'}
                     </button>
                   </div>
                 </form>

@@ -18,6 +18,17 @@ export interface BookingPayment {
   updatedAt: string;
 }
 
+export interface BookingSessionItem {
+  id: string;
+  booking_id: string;
+  artist_id?: string;
+  session_number?: number;
+  start_at: string;
+  end_at: string;
+  status: 'SCHEDULED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
+  note?: string;
+}
+
 export interface Booking {
   id: string;
   customerName: string;
@@ -37,6 +48,7 @@ export interface Booking {
   paymentStatus?: 'UNPAID' | 'DEPOSIT_PAID';
   estimateRequestId?: string;
   bookingSource?: 'FLASH' | 'ESTIMATE' | 'DIRECT';
+  style?: string;
   placement?: string;
   width?: number;
   height?: number;
@@ -49,4 +61,5 @@ export interface Booking {
   depositPaymentReference?: string;
   depositStaffNote?: string;
   remainingBalance?: number;
+  sessions?: BookingSessionItem[];
 }

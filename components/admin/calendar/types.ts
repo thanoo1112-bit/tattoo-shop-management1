@@ -20,13 +20,14 @@ export interface CalendarArtist {
   is_active: boolean;
   working_days?: string[] | null;
   styles?: string[] | null;
+  specialties?: string[] | null;
 }
 
 export interface CalendarCustomer {
-  user_id: string;
+  user_id?: string | null;
   display_name: string;
   phone: string | null;
-  email: string | null;
+  email?: string | null;
 }
 
 export interface CalendarFinancialSummary {
@@ -54,14 +55,24 @@ export interface CalendarSessionEvent {
   booking?: {
     id: string;
     status: BookingStatus;
-    customer_user_id: string;
+    customer_user_id?: string | null;
     requested_date: string;
     requested_start_time: string | null;
     customer_note: string | null;
     admin_note: string | null;
     started_at: string | null;
     completed_at: string | null;
-    created_at: string;
+    estimate_request_id?: string | null;
+  } | null;
+  estimate?: {
+    id: string;
+    style?: string | null;
+    width_cm?: number | null;
+    height_cm?: number | null;
+    placement?: string | null;
+    reference_images?: string[] | null;
+    work_type?: string | null;
+    description?: string | null;
   } | null;
   customer?: CalendarCustomer | null;
   financial?: CalendarFinancialSummary | null;

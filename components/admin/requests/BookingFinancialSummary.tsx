@@ -2,7 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { DollarSign, ShieldCheck, AlertTriangle, ArrowRight, CreditCard } from 'lucide-react';
+import { DollarSign, ShieldCheck, AlertTriangle, ArrowRight, CreditCard, Sparkles } from 'lucide-react';
 import { BookingItem, formatCurrency } from './types';
 
 interface BookingFinancialSummaryProps {
@@ -127,10 +127,23 @@ export default function BookingFinancialSummary({
 
       {/* Financial Metrics Grid */}
       <div className="grid grid-cols-2 gap-2 text-xs">
+        {booking.estimated_min_price && booking.estimated_max_price && (
+          <div className="col-span-2 bg-[#171512] p-2.5 rounded-lg border border-[#4A443A]/40 flex justify-between items-center">
+            <span className="text-[10px] text-[#7A7265] flex items-center gap-1">
+              <Sparkles size={12} className="text-amber-400" /> ราคาประเมินโดยระบบ
+            </span>
+            <span className="text-xs font-heading font-semibold text-amber-400">
+              {formatCurrency(booking.estimated_min_price)} – {formatCurrency(booking.estimated_max_price)}
+            </span>
+          </div>
+        )}
+
         <div className="bg-[#171512] p-2.5 rounded-lg border border-[#4A443A]/40">
           <span className="text-[10px] text-[#7A7265] block">ราคางานสักที่ตกลง</span>
           <span className="text-sm font-heading font-semibold text-[#ECE4D3] mt-0.5 block">
-            {formatCurrency(fin.quoted_price)}
+            {fin.quoted_price && fin.quoted_price > 0
+              ? formatCurrency(fin.quoted_price)
+              : 'ยังไม่กำหนดราคา'}
           </span>
         </div>
 
@@ -152,10 +165,14 @@ export default function BookingFinancialSummary({
           <span className="text-[10px] text-[#7A7265] block">ยอดคงเหลือ</span>
           <span
             className={`text-sm font-heading font-semibold mt-0.5 block ${
-              fin.remaining_balance > 0 ? 'text-amber-400' : 'text-[#A89F91]'
+              fin.quoted_price && fin.quoted_price > 0 && fin.remaining_balance > 0
+                ? 'text-amber-400'
+                : 'text-[#A89F91]'
             }`}
           >
-            {formatCurrency(fin.remaining_balance)}
+            {fin.quoted_price && fin.quoted_price > 0
+              ? formatCurrency(fin.remaining_balance)
+              : 'คำนวณหลังจากกำหนดราคา'}
           </span>
         </div>
       </div>

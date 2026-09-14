@@ -49,8 +49,8 @@ export default function BookingCalendar({
   loading = false,
   onMonthChange,
 }: BookingCalendarProps) {
-  // Earliest bookable date is TOMORROW in Asia/Bangkok time
-  const minBookableDateStr = useMemo(() => getThailandTomorrowStr(), []);
+  // Earliest bookable date is TODAY in Asia/Bangkok time
+  const minBookableDateStr = useMemo(() => getThailandTodayStr(), []);
   const todayStr = useMemo(() => getThailandTodayStr(), []);
 
   // Initialize display month from selectedDate or today
@@ -263,11 +263,7 @@ export default function BookingCalendar({
 
   // Handle "วันนี้" button click
   const handleTodayClick = () => {
-    if (todayStr >= minBookableDateStr) {
-      onDateSelect(todayStr);
-    } else {
-      onDateSelect(minBookableDateStr);
-    }
+    onDateSelect(todayStr);
   };
 
   return (

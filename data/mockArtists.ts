@@ -15,6 +15,7 @@ export interface Artist {
   status: 'Available' | 'Tattooing' | 'Break' | 'Off Duty' | 'AVAILABLE' | 'TATTOOING' | 'BREAK' | 'OFF_DUTY';
   is_active?: boolean;
   is_visible?: boolean;
+  base_price?: number | null;
   sort_order?: number;
   created_at?: string;
   updated_at?: string;

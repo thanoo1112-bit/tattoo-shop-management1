@@ -11,6 +11,9 @@ interface RecordPaymentFormProps {
   onClose: () => void;
   onSuccess: (message: string) => void;
   onError: (errorMessage: string) => void;
+  bookingSessionId?: string | null;
+  sessionRoundNumber?: number | null;
+  sessionDate?: string | null;
 }
 
 export default function RecordPaymentForm({
@@ -19,8 +22,13 @@ export default function RecordPaymentForm({
   onClose,
   onSuccess,
   onError,
+  bookingSessionId,
+  sessionRoundNumber,
+  sessionDate,
 }: RecordPaymentFormProps) {
-  const [paymentType, setPaymentType] = useState<'DEPOSIT' | 'BALANCE' | 'FULL_PAYMENT' | 'OTHER'>('DEPOSIT');
+  const [paymentType, setPaymentType] = useState<'DEPOSIT' | 'BALANCE' | 'FULL_PAYMENT' | 'OTHER'>(
+    bookingSessionId ? 'BALANCE' : 'DEPOSIT'
+  );
   const [amount, setAmount] = useState<string>('');
   const [paymentMethod, setPaymentMethod] = useState<'CASH' | 'BANK_TRANSFER' | 'QR' | 'OTHER'>('QR');
   
@@ -32,8 +40,6 @@ export default function RecordPaymentForm({
   };
 
   const [paidAt, setPaidAt] = useState<string>(getNowLocalString());
-  const [referenceNo, setReferenceNo] = useState<string>('');
-  const [note, setNote] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   if (!isOpen || !booking) return null;
@@ -56,20 +62,28 @@ export default function RecordPaymentForm({
       return;
     }
 
+    // Ownership Validation: Validate booking_sessions.id belongs to current booking.id
+    if (bookingSessionId) {
+      const sessionItem = (booking.sessions || []).find((s) => s.id === bookingSessionId);
+      if (!sessionItem) {
+        onError('ไม่สามารถบันทึกเงินได้: ไม่พบรอบการสักที่ระบุในคิวงานนี้');
+        return;
+      }
+    }
+
     setIsSubmitting(true);
     try {
       const supabase = createClient();
 
-      // Section 11: strictly send ONLY allowed fields
-      // Do NOT send created_by, status, voided_at, voided_by, void_reason!
       const payload: Record<string, any> = {
         booking_id: booking.id,
+        booking_session_id: bookingSessionId || null,
         payment_type: paymentType,
         amount: numAmount,
         payment_method: paymentMethod,
         paid_at: paidAt ? new Date(paidAt).toISOString() : new Date().toISOString(),
-        reference_no: referenceNo.trim() || null,
-        note: note.trim() || null,
+        reference_no: null,
+        note: null,
       };
 
       const { data, error } = await supabase
@@ -79,7 +93,6 @@ export default function RecordPaymentForm({
 
       if (error) {
         console.error('Insert payment error:', error);
-        // Translate known database exceptions to clean Thai
         let userMessage = error.message;
         if (error.message?.includes('Cannot record payment for booking') && error.message?.includes('PENDING')) {
           userMessage = 'ไม่สามารถบันทึกเงินได้: คิวงานยังอยู่ในสถานะ PENDING ต้องได้รับอนุมัติก่อน';
@@ -90,7 +103,10 @@ export default function RecordPaymentForm({
         return;
       }
 
-      onSuccess(`บันทึกรับเงิน ฿${numAmount.toLocaleString('th-TH')} เรียบร้อยแล้ว`);
+      const successMsg = sessionRoundNumber
+        ? `บันทึกรับเงินสำหรับรอบที่ ${sessionRoundNumber} จำนวน ฿${numAmount.toLocaleString('th-TH')} เรียบร้อยแล้ว`
+        : `บันทึกรับเงิน ฿${numAmount.toLocaleString('th-TH')} เรียบร้อยแล้ว`;
+      onSuccess(successMsg);
       onClose();
     } catch (err: any) {
       console.error('Unexpected error recording payment:', err);
@@ -111,10 +127,15 @@ export default function RecordPaymentForm({
             </div>
             <div>
               <h3 className="text-base font-heading font-semibold text-[#ECE4D3]">
-                บันทึกการรับเงิน
+                {sessionRoundNumber ? `บันทึกรับเงิน — รอบที่ ${sessionRoundNumber}` : 'บันทึกการรับเงิน'}
               </h3>
               <p className="text-[11px] text-[#A89F91]">
                 ลูกค้า: <span className="text-[#ECE4D3] font-medium">{booking.customer_name}</span> • ช่างสัก: {booking.artist_name}
+                {sessionRoundNumber && sessionDate && (
+                  <span className="block text-emerald-400 font-medium mt-0.5">
+                    รอบที่ {sessionRoundNumber} ({sessionDate})
+                  </span>
+                )}
               </p>
             </div>
           </div>
@@ -274,34 +295,6 @@ export default function RecordPaymentForm({
               value={paidAt}
               onChange={(e) => setPaidAt(e.target.value)}
               className="w-full bg-[#0E0D0C] border border-[#4A443A] rounded-md px-3 py-1.5 text-xs text-[#ECE4D3] focus:outline-none focus:border-[#ECE4D3] transition-colors"
-            />
-          </div>
-
-          {/* 5. Reference No */}
-          <div>
-            <label className="block text-xs font-medium text-[#ECE4D3] mb-1">
-              เลขอ้างอิง / สลิป (Optional)
-            </label>
-            <input
-              type="text"
-              value={referenceNo}
-              onChange={(e) => setReferenceNo(e.target.value)}
-              placeholder="เช่น หมายเลขอ้างอิงธนาคาร, รหัสสลิป..."
-              className="w-full bg-[#0E0D0C] border border-[#4A443A] rounded-md px-3 py-1.5 text-xs text-[#ECE4D3] placeholder-[#7A7265] focus:outline-none focus:border-[#ECE4D3] transition-colors"
-            />
-          </div>
-
-          {/* 6. Note */}
-          <div>
-            <label className="block text-xs font-medium text-[#ECE4D3] mb-1">
-              หมายเหตุ (Optional)
-            </label>
-            <textarea
-              rows={2}
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-              placeholder="เช่น รับเงินสดหน้าร้าน, จ่ายเพิ่มเติม..."
-              className="w-full bg-[#0E0D0C] border border-[#4A443A] rounded-md p-2 text-xs text-[#ECE4D3] placeholder-[#7A7265] focus:outline-none focus:border-[#ECE4D3] transition-colors"
             />
           </div>
 

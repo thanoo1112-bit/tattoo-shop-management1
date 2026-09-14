@@ -3,6 +3,7 @@
 import React from 'react';
 import { Booking } from '@/data/mockBookings';
 import { useApp } from '../AppContext';
+import { checkAdminCompletionEligibility, mapServerCompletionError } from './requests/adminCompletionGuard';
 import {
   X,
   Calendar,
@@ -374,9 +375,18 @@ export default function AdminAppointmentDrawer({
 
           {booking.status === 'IN_PROGRESS' && (
             <button
-              onClick={() => {
-                updateBookingStatus(booking.id, 'COMPLETED');
-                onClose();
+              onClick={async () => {
+                const eligibility = checkAdminCompletionEligibility(booking as any);
+                if (!eligibility.allowed) {
+                  alert(`${eligibility.title}: ${eligibility.reason}`);
+                  return;
+                }
+                try {
+                  await updateBookingStatus(booking.id, 'COMPLETED');
+                  onClose();
+                } catch (err: any) {
+                  alert(mapServerCompletionError(err.message));
+                }
               }}
               className="w-full min-h-[44px] bg-green-900/60 hover:bg-green-800 border border-green-700 text-green-300 rounded-[4px] text-xs font-semibold flex items-center justify-center space-x-1.5 transition-colors shadow-md"
             >

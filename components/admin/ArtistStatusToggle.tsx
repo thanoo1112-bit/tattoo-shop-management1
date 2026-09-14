@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { useApp } from '../AppContext';
 import { Artist } from '@/data/mockArtists';
 import { ChevronDown, Check } from 'lucide-react';
@@ -29,8 +30,15 @@ export default function ArtistStatusToggle({
 
   const [isOpen, setIsOpen] = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
+  const [mounted, setMounted] = useState(false);
+  const [coords, setCoords] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
+
   const dropdownRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Status definitions adhering strictly to the 4 system states and design colors
   const statusOptions: StatusOption[] = [
@@ -59,10 +67,42 @@ export default function ArtistStatusToggle({
   const currentOption =
     statusOptions.find((opt) => opt.value === currentStatus) || statusOptions[0];
 
+  const updateCoords = useCallback(() => {
+    if (triggerRef.current) {
+      const rect = triggerRef.current.getBoundingClientRect();
+      const dropdownWidth = window.innerWidth >= 640 ? 180 : 170;
+      let left = rect.right - dropdownWidth;
+      if (left < 8) left = 8;
+      if (left + dropdownWidth > window.innerWidth - 8) {
+        left = window.innerWidth - dropdownWidth - 8;
+      }
+      setCoords({
+        top: rect.bottom + 6,
+        left: left,
+      });
+    }
+  }, []);
+
+  useEffect(() => {
+    if (isOpen) {
+      updateCoords();
+      window.addEventListener('resize', updateCoords);
+      window.addEventListener('scroll', updateCoords, true);
+    }
+    return () => {
+      window.removeEventListener('resize', updateCoords);
+      window.removeEventListener('scroll', updateCoords, true);
+    };
+  }, [isOpen, updateCoords]);
+
   // Handle outside click
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+      const target = event.target as Node;
+      if (
+        dropdownRef.current && !dropdownRef.current.contains(target) &&
+        triggerRef.current && !triggerRef.current.contains(target)
+      ) {
         setIsOpen(false);
       }
     }
@@ -115,9 +155,69 @@ export default function ArtistStatusToggle({
     }
   };
 
+  const dropdownMenu = isOpen && mounted ? (
+    <>
+      {/* Backdrop for Mobile view to close smoothly */}
+      <div
+        className="fixed inset-0 z-[9998] bg-black/40 backdrop-blur-[2px] sm:hidden"
+        onClick={() => setIsOpen(false)}
+      />
+
+      <div
+        ref={dropdownRef}
+        role="listbox"
+        tabIndex={-1}
+        aria-label="เลือกสถานะช่าง"
+        style={{
+          position: 'fixed',
+          top: `${coords.top}px`,
+          left: `${coords.left}px`,
+          zIndex: 9999,
+        }}
+        className="w-[170px] sm:w-[180px] bg-[#171512] border border-[#4A443A] rounded-[8px] p-1.5 shadow-2xl shadow-black/90 space-y-1 animate-fadeIn font-prompt"
+      >
+        {statusOptions.map((option, index) => {
+          const isSelected = option.value === currentStatus;
+          const isHighlighted = index === highlightedIndex;
+
+          return (
+            <button
+              key={option.value}
+              type="button"
+              role="option"
+              aria-selected={isSelected}
+              onClick={() => handleSelect(option.value)}
+              onMouseEnter={() => setHighlightedIndex(index)}
+              className={`w-full h-[42px] sm:h-[40px] px-3 rounded-[6px] flex items-center justify-between text-left text-sm font-medium transition-colors select-none ${
+                isSelected
+                  ? 'bg-[#9C2F2F]/[0.14] text-[#ECE4D3]'
+                  : isHighlighted
+                  ? 'bg-[#ECE4D3]/[0.06] text-[#ECE4D3]'
+                  : 'text-[#ECE4D3] hover:bg-[#ECE4D3]/[0.06]'
+              }`}
+            >
+              {/* Left: Dot + Label */}
+              <div className="flex items-center space-x-2.5">
+                <span
+                  className={`w-2.5 h-2.5 rounded-full shrink-0 ${option.dotColor}`}
+                  aria-hidden="true"
+                />
+                <span className="tracking-wide">{option.label}</span>
+              </div>
+
+              {/* Right: Selected Checkmark */}
+              {isSelected && (
+                <Check size={15} className="text-[#9C2F2F] shrink-0" strokeWidth={2.5} />
+              )}
+            </button>
+          );
+        })}
+      </div>
+    </>
+  ) : null;
+
   return (
     <div
-      ref={dropdownRef}
       className={`relative inline-flex items-center space-x-2 font-prompt text-xs sm:text-sm ${className}`}
     >
       {showLabel && (
@@ -159,60 +259,8 @@ export default function ArtistStatusToggle({
         />
       </button>
 
-      {/* Desktop & Tablet Dropdown Popover */}
-      {isOpen && (
-        <>
-          {/* Backdrop for Mobile view to close smoothly */}
-          <div
-            className="fixed inset-0 z-40 bg-black/40 backdrop-blur-[2px] sm:hidden"
-            onClick={() => setIsOpen(false)}
-          />
-
-          <div
-            role="listbox"
-            tabIndex={-1}
-            aria-label="เลือกสถานะช่าง"
-            className="absolute top-full mt-1.5 right-0 z-50 w-[170px] sm:w-[180px] bg-[#171512] border border-[#4A443A] rounded-[8px] p-1.5 shadow-2xl shadow-black/80 space-y-1 animate-fadeIn font-prompt"
-          >
-            {statusOptions.map((option, index) => {
-              const isSelected = option.value === currentStatus;
-              const isHighlighted = index === highlightedIndex;
-
-              return (
-                <button
-                  key={option.value}
-                  type="button"
-                  role="option"
-                  aria-selected={isSelected}
-                  onClick={() => handleSelect(option.value)}
-                  onMouseEnter={() => setHighlightedIndex(index)}
-                  className={`w-full h-[42px] sm:h-[40px] px-3 rounded-[6px] flex items-center justify-between text-left text-sm font-medium transition-colors select-none ${
-                    isSelected
-                      ? 'bg-[#9C2F2F]/[0.14] text-[#ECE4D3]'
-                      : isHighlighted
-                      ? 'bg-[#ECE4D3]/[0.06] text-[#ECE4D3]'
-                      : 'text-[#ECE4D3] hover:bg-[#ECE4D3]/[0.06]'
-                  }`}
-                >
-                  {/* Left: Dot + Label */}
-                  <div className="flex items-center space-x-2.5">
-                    <span
-                      className={`w-2.5 h-2.5 rounded-full shrink-0 ${option.dotColor}`}
-                      aria-hidden="true"
-                    />
-                    <span className="tracking-wide">{option.label}</span>
-                  </div>
-
-                  {/* Right: Selected Checkmark */}
-                  {isSelected && (
-                    <Check size={15} className="text-[#9C2F2F] shrink-0" strokeWidth={2.5} />
-                  )}
-                </button>
-              );
-            })}
-          </div>
-        </>
-      )}
+      {/* Portal Dropdown Menu */}
+      {dropdownMenu && createPortal(dropdownMenu, document.body)}
     </div>
   );
 }

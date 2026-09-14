@@ -25,7 +25,7 @@ export default function AdminMobileBottomNav() {
   // Calculate pending badge count for requests
   const pendingCount =
     bookingPayments.filter((p) => p.paymentType === 'DEPOSIT' && p.status === 'SUBMITTED').length +
-    estimateRequests.filter((e) => e.status === 'PENDING').length;
+    estimateRequests.filter((e) => e.status === 'PENDING' && e.request_type !== 'DIRECT_BOOKING').length;
 
   // Body scroll lock and ESC key listener for FAB Menu Panel
   useEffect(() => {

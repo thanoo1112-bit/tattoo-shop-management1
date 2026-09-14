@@ -1,12 +1,13 @@
 'use client';
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { FileText, Calendar, RefreshCw, Layers } from 'lucide-react';
+import { FileText, Calendar, RefreshCw, Layers, CheckCircle2 } from 'lucide-react';
 import RequestSummaryCards from './RequestSummaryCards';
 import EstimateRequestList from './EstimateRequestList';
 import EstimateDetailPanel from './EstimateDetailPanel';
 import BookingList from './BookingList';
 import BookingDetailPanel from './BookingDetailPanel';
+import DeleteRejectedRequestDialog from './DeleteRejectedRequestDialog';
 import PaymentSubmissionReviewDrawer from '@/components/admin/payments/PaymentSubmissionReviewDrawer';
 import { PaymentSubmissionDetail } from '@/components/admin/payments/types';
 import {
@@ -18,11 +19,13 @@ import {
   resolveBookingOperationalStatus,
 } from './types';
 import { createClient } from '@/lib/supabase/client';
+import { BlockedDateRecord } from '@/lib/availabilityUtils';
 
 export default function AdminRequestsPage() {
   const [activeTab, setActiveTab] = useState<'estimates' | 'bookings'>('estimates');
   const [estimates, setEstimates] = useState<EstimateRequestItem[]>([]);
   const [bookings, setBookings] = useState<BookingItem[]>([]);
+  const [blockedDates, setBlockedDates] = useState<BlockedDateRecord[]>([]);
   const [artists, setArtists] = useState<Array<{ id: string; name: string; nickname: string | null }>>([]);
   const [selectedEstimate, setSelectedEstimate] = useState<EstimateRequestItem | null>(null);
   const [selectedBooking, setSelectedBooking] = useState<BookingItem | null>(null);
@@ -30,6 +33,21 @@ export default function AdminRequestsPage() {
   const [pendingSubmissionsCount, setPendingSubmissionsCount] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [estimateFilter, setEstimateFilter] = useState<string>('ALL');
+  const [bookingFilter, setBookingFilter] = useState<string>('ALL');
+
+  const handleTabChangeWithFilter = useCallback((tab: 'estimates' | 'bookings', filter?: string) => {
+    setActiveTab(tab);
+    if (filter) {
+      if (tab === 'estimates') setEstimateFilter(filter);
+      if (tab === 'bookings') setBookingFilter(filter);
+    }
+  }, []);
+
+  // Admin Delete Rejected Request State
+  const [deleteTargetItem, setDeleteTargetItem] = useState<{ id: string; name?: string; refImages?: string[] | null } | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   // Main Live Data Fetcher (Section 4 & 34: Avoid N+1 query)
   const fetchAllRequestsData = useCallback(async () => {
@@ -68,7 +86,13 @@ export default function AdminRequestsPage() {
 
       if (sumErr) throw sumErr;
 
-      // 4b. Fetch pending payment submissions
+      // 4b. Fetch non-voided booking payments for session paid calculation
+      const { data: payData } = await supabase
+        .from('booking_payments')
+        .select('id, booking_id, booking_session_id, amount, status')
+        .neq('status', 'VOIDED');
+
+      // 4c. Fetch pending payment submissions
       const { data: pendingSubmissions } = await supabase
         .from('booking_payment_submissions')
         .select('id, booking_id, status, claimed_amount, slip_path, reference_no, created_at')
@@ -84,6 +108,13 @@ export default function AdminRequestsPage() {
 
       if (artErr) throw artErr;
       setArtists(artData || []);
+
+      // 5b. Fetch artist blocked dates
+      const { data: blockedData } = await supabase
+        .from('artist_blocked_dates')
+        .select('id, scope, artist_id, blocked_date, reason');
+
+      setBlockedDates(blockedData || []);
 
       // 6. Fetch customers & profiles
       const { data: custData } = await supabase
@@ -103,7 +134,7 @@ export default function AdminRequestsPage() {
         if (candidate) return candidate;
         const emailPrefix = c?.email ? c.email.split('@')[0] : p?.email ? p.email.split('@')[0] : null;
         if (emailPrefix && emailPrefix !== 'ลูกค้าประจำ') return emailPrefix;
-        return 'ลูกค้า (ไม่ระบุชื่อ)';
+        return 'ไม่ระบุชื่อ';
       };
 
       const mappedBookings: BookingItem[] = (bookData || []).map((b: any) => {
@@ -111,7 +142,17 @@ export default function AdminRequestsPage() {
         const customer = (custData || []).find((c) => c.user_id === b.customer_user_id);
         const profile = (profData || []).find((p) => p.user_id === b.customer_user_id);
         const summary = (sumData || []).find((f) => f.booking_id === b.id);
-        const bookingSessions = (sesData || []).filter((s) => s.booking_id === b.id);
+        const bookingSessions = (sesData || [])
+          .filter((s) => s.booking_id === b.id)
+          .map((s: any) => {
+            const sessionPaidAmount = (payData || [])
+              .filter((p: any) => p.booking_session_id === s.id && p.status !== 'VOIDED')
+              .reduce((sum: number, p: any) => sum + Number(p.amount || 0), 0);
+            return {
+              ...s,
+              session_paid_amount: sessionPaidAmount,
+            };
+          });
         const est = (estData || []).find((e: any) => e.id === b.estimate_request_id);
 
         const pendingSub = (pendingSubmissions || []).find((sub: any) => sub.booking_id === b.id);
@@ -122,7 +163,8 @@ export default function AdminRequestsPage() {
           artist_id: b.artist_id,
           estimate_request_id: b.estimate_request_id,
           requested_date: b.requested_date,
-          requested_time: b.requested_time,
+          requested_time: b.requested_start_time || b.requested_time || null,
+          requested_start_time: b.requested_start_time || b.requested_time || null,
           status: b.status,
           customer_note: b.customer_note,
           admin_note: b.admin_note,
@@ -130,6 +172,7 @@ export default function AdminRequestsPage() {
           width_cm: b.width_cm ?? est?.width_cm ?? null,
           height_cm: b.height_cm ?? est?.height_cm ?? null,
           style_preference: b.style_preference || est?.style || est?.style_preference || 'ไม่ระบุ',
+          work_type: b.work_type || est?.work_type || null,
           description: b.description || est?.description || b.customer_note || null,
           reference_images: b.reference_images || est?.reference_images || null,
           created_at: b.created_at,
@@ -137,9 +180,14 @@ export default function AdminRequestsPage() {
           customer_name: getCleanCustomerName(customer, profile),
           customer_phone: customer?.phone || profile?.phone || undefined,
           customer_email: customer?.email || profile?.email || undefined,
-          is_age_confirmed: Boolean(customer?.eligibility_confirmed_at || customer?.profile_completed_at),
+          is_age_confirmed: customer ? (customer.eligibility_confirmed_at || customer.profile_completed_at ? true : undefined) : undefined,
           artist_name: artist?.name || 'ยังไม่มอบหมายช่าง',
           artist_nickname: artist?.nickname || null,
+          has_medical_condition: Boolean(est?.has_medical_condition),
+          has_allergy: Boolean(est?.has_allergy),
+          estimated_min_price: est?.estimated_min_price ? Number(est.estimated_min_price) : null,
+          estimated_max_price: est?.estimated_max_price ? Number(est.estimated_max_price) : null,
+          price_estimated_at: est?.price_estimated_at || null,
           financial: {
             quoted_price: Number(summary?.quoted_price || 0),
             deposit_required: Number(summary?.deposit_required || 0),
@@ -197,17 +245,23 @@ export default function AdminRequestsPage() {
           preferred_date: e.preferred_date,
           reference_images: e.reference_images,
           status: e.status,
+          request_type: e.request_type,
+          work_type: e.work_type || null,
           quoted_price: e.quoted_price ? Number(e.quoted_price) : null,
           deposit_required: e.deposit_required ? Number(e.deposit_required) : null,
           estimated_duration_minutes: e.estimated_duration_minutes,
           quote_note: e.quote_note,
           quoted_at: e.quoted_at,
+          has_medical_condition: e.has_medical_condition !== undefined && e.has_medical_condition !== null ? Boolean(e.has_medical_condition) : e.has_medical_condition,
+          medical_condition_note: e.medical_condition_note || null,
+          has_allergy: e.has_allergy !== undefined && e.has_allergy !== null ? Boolean(e.has_allergy) : e.has_allergy,
+          allergy_note: e.allergy_note || null,
           created_at: e.created_at,
           updated_at: e.updated_at,
           customer_name: getCleanCustomerName(customer, profile),
           customer_phone: customer?.phone || profile?.phone || undefined,
           customer_email: customer?.email || profile?.email || undefined,
-          is_age_confirmed: Boolean(customer?.eligibility_confirmed_at || customer?.profile_completed_at),
+          is_age_confirmed: customer ? (customer.eligibility_confirmed_at || customer.profile_completed_at ? true : undefined) : undefined,
           artist_name: artist?.name || 'ไม่ระบุช่าง',
           artist_nickname: artist?.nickname || null,
           linked_booking: linkedBooking,
@@ -231,21 +285,22 @@ export default function AdminRequestsPage() {
       setEstimates(mappedEstimates);
       setBookings(mappedBookings);
 
-      // Keep selected items updated if open
-      if (selectedEstimate) {
-        const updatedEst = mappedEstimates.find((e) => e.id === selectedEstimate.id);
-        if (updatedEst) setSelectedEstimate(updatedEst);
-      }
-      if (selectedBooking) {
-        const updatedBook = mappedBookings.find((b) => b.id === selectedBooking.id);
-        if (updatedBook) setSelectedBooking(updatedBook);
-      }
+      // Keep selected items updated if open (using functional state updates)
+      setSelectedEstimate((prev) => {
+        if (!prev) return null;
+        return mappedEstimates.find((e) => e.id === prev.id) || prev;
+      });
+
+      setSelectedBooking((prev) => {
+        if (!prev) return null;
+        return mappedBookings.find((b) => b.id === prev.id) || prev;
+      });
     } catch (err: any) {
       console.error('Error loading requests & bookings data:', err);
     } finally {
       setIsLoading(false);
     }
-  }, [selectedEstimate?.id, selectedBooking?.id]);
+  }, []);
 
   useEffect(() => {
     fetchAllRequestsData();
@@ -297,23 +352,129 @@ export default function AdminRequestsPage() {
     }
   }, []);
 
-  // Top Summary Counts (Section 5: Card 2 = PENDING payment submissions "สลิปรอตรวจ")
+  // Tab 1 ("คำขอจากลูกค้า"): All pre-confirmation business stage items
+  // Includes estimate requests without booking OR estimate requests whose linked booking is pre-confirmed (WAITING_DEPOSIT / WAITING_SLIP_VERIFICATION)
+  const customerRequests = useMemo(() => {
+    return estimates.filter((e) => {
+      if (!e.linked_booking) return true;
+      const bStatus = e.linked_booking.status;
+      const hasPendingSlip = Boolean(
+        e.has_pending_payment_submission ||
+        e.linked_booking.has_pending_payment_submission ||
+        e.operational_status?.key === 'WAITING_SLIP_VERIFICATION'
+      );
+      return bStatus === 'WAITING_DEPOSIT' || hasPendingSlip;
+    });
+  }, [estimates]);
+
+  // Tab 2 ("คิวงาน"): All confirmed / post-confirmation work queue items
+  // Includes bookings in CONFIRMED, IN_PROGRESS, COMPLETED, CANCELLED
+  // Excludes WAITING_DEPOSIT and WAITING_SLIP_VERIFICATION
+  const workQueueBookings = useMemo(() => {
+    return bookings.filter((b) => {
+      const hasPendingSlip = Boolean(
+        b.has_pending_payment_submission ||
+        b.pending_submission?.status === 'PENDING' ||
+        b.operational_status?.key === 'WAITING_SLIP_VERIFICATION'
+      );
+      if (hasPendingSlip) return false;
+      if (b.status === 'WAITING_DEPOSIT') return false;
+      return b.status === 'CONFIRMED' || b.status === 'IN_PROGRESS' || b.status === 'COMPLETED' || b.status === 'CANCELLED';
+    });
+  }, [bookings]);
+
+  // Top Summary Counts for Admin Requests Page
   const summaryCounts: RequestSummaryCounts = useMemo(() => {
-    const newEstimates = estimates.filter((e) => e.status === 'PENDING').length;
-    const pendingSlips = pendingSubmissionsCount;
-    const confirmed = bookings.filter((b) => b.status === 'CONFIRMED').length;
-    const inProgress = bookings.filter((b) => b.status === 'IN_PROGRESS').length;
+    const pendingEvaluation = customerRequests.filter(
+      (e) => e.operational_status?.key === 'PENDING'
+    ).length;
+    const waitingDeposit = customerRequests.filter(
+      (e) => e.operational_status?.key === 'WAITING_DEPOSIT'
+    ).length;
+    const pendingSlips = customerRequests.filter(
+      (e) => e.operational_status?.key === 'WAITING_SLIP_VERIFICATION'
+    ).length;
+    const confirmed = workQueueBookings.filter((b) => b.status === 'CONFIRMED').length;
 
     return {
-      newEstimatesCount: newEstimates,
-      waitingDepositCount: pendingSlips,
+      pendingEvaluationCount: pendingEvaluation,
+      waitingCustomerCount: waitingDeposit,
+      waitingDepositCount: waitingDeposit,
+      pendingSlipsCount: pendingSlips,
       confirmedCount: confirmed,
-      inProgressCount: inProgress,
     };
-  }, [estimates, bookings, pendingSubmissionsCount]);
+  }, [customerRequests, workQueueBookings]);
+
+  // Delete Rejected Request Handlers
+  const handleOpenDeleteModal = useCallback((item: { id: string; customer_name?: string; reference_images?: string[] | null }) => {
+    setDeleteTargetItem({
+      id: item.id,
+      name: item.customer_name,
+      refImages: item.reference_images,
+    });
+  }, []);
+
+  const handleConfirmDeleteRejected = async () => {
+    if (!deleteTargetItem?.id) return;
+    setIsDeleting(true);
+    try {
+      const supabase = createClient();
+      const { data, error } = await supabase.rpc('admin_delete_rejected_request', {
+        p_request_id: deleteTargetItem.id,
+      });
+
+      if (error) {
+        alert(error.message || 'เกิดข้อผิดพลาดในการลบคำขอ');
+        return;
+      }
+
+      if (data?.success) {
+        // Storage cleanup for reference_images if returned
+        const imagesToClean: string[] = data.reference_images || deleteTargetItem.refImages || [];
+        if (imagesToClean.length > 0) {
+          try {
+            const storagePaths = imagesToClean.map((img) => {
+              if (img.startsWith('customer-references/')) {
+                return img.replace('customer-references/', '');
+              }
+              return img;
+            });
+            await supabase.storage.from('customer-references').remove(storagePaths);
+          } catch (stErr) {
+            console.error('Error cleaning reference images storage:', stErr);
+          }
+        }
+
+        // Close modal and drawers immediately
+        setDeleteTargetItem(null);
+        setSelectedEstimate(null);
+        setSelectedBooking(null);
+
+        // Refresh request list and KPIs immediately
+        setRefreshTrigger((prev) => prev + 1);
+
+        // Show toast
+        setToastMessage('ลบคำขอที่ปฏิเสธแล้วเรียบร้อย');
+        setTimeout(() => setToastMessage(null), 4000);
+      }
+    } catch (err: any) {
+      console.error('Exception deleting rejected request:', err);
+      alert(err.message || 'เกิดข้อผิดพลาดในการลบคำขอ');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   return (
-    <div className="space-y-6 font-prompt pb-12">
+    <div className="space-y-6 font-prompt pb-12 relative">
+      {/* Toast Notification */}
+      {toastMessage && (
+        <div className="fixed top-5 right-5 z-[110] bg-emerald-950/90 text-emerald-200 border border-emerald-800 px-4 py-3 rounded-xl text-xs font-semibold shadow-2xl flex items-center gap-2 animate-in fade-in">
+          <CheckCircle2 size={16} className="text-emerald-400 shrink-0" />
+          <span>{toastMessage}</span>
+        </div>
+      )}
+
       {/* Title & Page Header */}
       <div className="border-b border-[#4A443A] pb-4 flex flex-col sm:flex-row justify-between items-start sm:items-end gap-3">
         <div>
@@ -342,19 +503,19 @@ export default function AdminRequestsPage() {
         </div>
       </div>
 
-      {/* 4 KPI Summary Cards (Section 5) */}
+      {/* 4 KPI Summary Cards */}
       <RequestSummaryCards
         counts={summaryCounts}
         activeTab={activeTab}
-        onTabChange={setActiveTab}
+        onTabChange={handleTabChangeWithFilter}
       />
 
-      {/* Main 2 Tabs Switcher (Section 6: Estimate != Booking) */}
+      {/* Main 2 Tabs Switcher */}
       <div className="flex items-center border-b border-[#4A443A] gap-2">
         <button
           id="tab-btn-estimates"
           type="button"
-          onClick={() => setActiveTab('estimates')}
+          onClick={() => handleTabChangeWithFilter('estimates')}
           className={`px-4 py-2.5 text-xs sm:text-sm font-heading font-semibold transition-all border-b-2 flex items-center gap-2 ${
             activeTab === 'estimates'
               ? 'text-[#ECE4D3] border-[#9C2F2F]'
@@ -362,10 +523,10 @@ export default function AdminRequestsPage() {
           }`}
         >
           <FileText size={14} className={activeTab === 'estimates' ? 'text-[#9C2F2F]' : ''} />
-          <span>คำขอจองคิวสัก ({estimates.length})</span>
-          {summaryCounts.newEstimatesCount > 0 && (
-            <span className="bg-blue-600 text-white text-[10px] px-1.5 py-0.2 rounded-full">
-              {summaryCounts.newEstimatesCount}
+          <span>คำขอจากลูกค้า ({customerRequests.length})</span>
+          {summaryCounts.pendingEvaluationCount + summaryCounts.pendingSlipsCount > 0 && (
+            <span className="bg-amber-600 text-[#ECE4D3] text-[10px] font-bold px-1.5 py-0.2 rounded-full">
+              {summaryCounts.pendingEvaluationCount + summaryCounts.pendingSlipsCount}
             </span>
           )}
         </button>
@@ -373,7 +534,7 @@ export default function AdminRequestsPage() {
         <button
           id="tab-btn-bookings"
           type="button"
-          onClick={() => setActiveTab('bookings')}
+          onClick={() => handleTabChangeWithFilter('bookings')}
           className={`px-4 py-2.5 text-xs sm:text-sm font-heading font-semibold transition-all border-b-2 flex items-center gap-2 ${
             activeTab === 'bookings'
               ? 'text-[#ECE4D3] border-[#9C2F2F]'
@@ -381,32 +542,35 @@ export default function AdminRequestsPage() {
           }`}
         >
           <Calendar size={14} className={activeTab === 'bookings' ? 'text-[#9C2F2F]' : ''} />
-          <span>คิวงานทั้งหมด ({bookings.length})</span>
-          {summaryCounts.waitingDepositCount + summaryCounts.confirmedCount > 0 && (
-            <span className="bg-amber-600 text-white text-[10px] px-1.5 py-0.2 rounded-full">
-              {summaryCounts.waitingDepositCount + summaryCounts.confirmedCount}
+          <span>คิวงาน ({workQueueBookings.length})</span>
+          {summaryCounts.confirmedCount > 0 && (
+            <span className="bg-emerald-600 text-[#ECE4D3] text-[10px] font-bold px-1.5 py-0.2 rounded-full">
+              {summaryCounts.confirmedCount}
             </span>
           )}
         </button>
       </div>
 
-      {/* Tab 1: Estimate Requests List */}
+      {/* Tab 1: Estimate Requests List (คำขอจากลูกค้า) */}
       {activeTab === 'estimates' && (
         <EstimateRequestList
-          estimates={estimates}
+          estimates={customerRequests}
           selectedEstimate={selectedEstimate}
           onSelectEstimate={setSelectedEstimate}
           onCheckSlip={handleOpenCheckSlip}
+          onDeleteRequest={handleOpenDeleteModal}
+          initialFilter={estimateFilter}
         />
       )}
 
-      {/* Tab 2: Bookings List */}
+      {/* Tab 2: Bookings List (คิวงาน) */}
       {activeTab === 'bookings' && (
         <BookingList
-          bookings={bookings}
+          bookings={workQueueBookings}
           selectedBooking={selectedBooking}
           onSelectBooking={setSelectedBooking}
           onCheckSlip={handleOpenCheckSlip}
+          initialFilter={bookingFilter}
         />
       )}
 
@@ -414,9 +578,11 @@ export default function AdminRequestsPage() {
       {selectedEstimate && (
         <EstimateDetailPanel
           estimate={selectedEstimate}
+          blockedDates={blockedDates}
           onClose={() => setSelectedEstimate(null)}
           onRefresh={() => setRefreshTrigger((prev) => prev + 1)}
           onCheckSlip={handleOpenCheckSlip}
+          onDeleteRequest={handleOpenDeleteModal}
         />
       )}
 
@@ -425,6 +591,7 @@ export default function AdminRequestsPage() {
         <BookingDetailPanel
           booking={selectedBooking}
           artists={artists}
+          blockedDates={blockedDates}
           onClose={() => setSelectedBooking(null)}
           onRefresh={() => setRefreshTrigger((prev) => prev + 1)}
           onCheckSlip={handleOpenCheckSlip}
@@ -444,6 +611,16 @@ export default function AdminRequestsPage() {
           onError={(err) => alert(err)}
         />
       )}
+
+      {/* Delete Rejected Request Confirmation Dialog */}
+      <DeleteRejectedRequestDialog
+        isOpen={Boolean(deleteTargetItem)}
+        requestId={deleteTargetItem?.id || null}
+        customerName={deleteTargetItem?.name}
+        onClose={() => setDeleteTargetItem(null)}
+        onConfirm={handleConfirmDeleteRejected}
+        isLoading={isDeleting}
+      />
     </div>
   );
 }

@@ -8,6 +8,7 @@ import { createClient } from '@/lib/supabase/client';
 import { User } from '@supabase/supabase-js';
 import { normalizeThaiPhone, formatThaiPhoneForDisplay } from '@/lib/phoneUtils';
 import { getThailandTodayStr } from './portal/portalUtils';
+import { mapServerCompletionError } from './admin/requests/adminCompletionGuard';
 
 interface Profile {
   id: string;
@@ -86,8 +87,10 @@ interface AppContextType {
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 // Helper to format ISO TIMESTAMPTZ into Asia/Bangkok date & time
-const parseBangkokDateTime = (isoString: string) => {
+const parseBangkokDateTime = (isoString?: string) => {
+  if (!isoString) return { date: '', time: '' };
   const d = new Date(isoString);
+  if (isNaN(d.getTime())) return { date: '', time: '' };
   const bkkDate = new Intl.DateTimeFormat('en-CA', { 
     timeZone: 'Asia/Bangkok', 
     year: 'numeric', 
@@ -201,7 +204,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
     const { data: dbEstimates, error: errEst } = await supabase
       .from('estimate_requests')
-      .select('*')
+      .select('id, customer_user_id, artist_id, reference_images, width_cm, height_cm, placement, style, description, preferred_date, status, quoted_price, estimated_duration_minutes, deposit_required, quote_note, quoted_at, accepted_at, rejected_at, created_at, updated_at')
       .order('created_at', { ascending: false });
 
     if (errEst) {
@@ -259,6 +262,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         quotedDeposit: item.deposit_required ? Number(item.deposit_required) : undefined,
         estimatedDuration: item.estimated_duration_minutes ? Number(item.estimated_duration_minutes) / 60 : undefined,
         quoteNote: item.quote_note || undefined,
+        request_type: (item as any).request_type || undefined,
+        work_type: (item as any).work_type || null,
       };
     });
 
@@ -273,10 +278,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    // 1. Fetch bookings
+    // 1. Fetch bookings along with joined booking_sessions and estimate_requests (excluding health disclosure fields)
     const { data: dbBookings, error: errBook } = await supabase
       .from('bookings')
-      .select('*')
+      .select('*, booking_sessions(*), estimate_requests(id, customer_user_id, artist_id, reference_images, width_cm, height_cm, placement, style, description, preferred_date, status, quoted_price, estimated_duration_minutes, deposit_required, quote_note, quoted_at, accepted_at, rejected_at, created_at, updated_at)')
       .order('created_at', { ascending: false });
 
     if (errBook) {
@@ -344,19 +349,36 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const customerProf = profilesList.find(p => p.user_id === item.customer_user_id);
       const matchedArtist = artistsList.find((a: any) => a.id === item.artist_id);
 
-      const startParsed = parseBangkokDateTime(item.start_at);
-      const endParsed = parseBangkokDateTime(item.end_at);
+      const rawSessions = item.booking_sessions || [];
+      const primarySession = rawSessions.length > 0 ? rawSessions[0] : null;
+      const linkedEstimate = item.estimate_requests || null;
 
-      const durationHours = Math.max(
-        1,
-        Math.round((new Date(item.end_at).getTime() - new Date(item.start_at).getTime()) / (1000 * 60 * 60) * 10) / 10
-      );
+      const startParsed = primarySession?.start_at ? parseBangkokDateTime(primarySession.start_at) : { date: '', time: '' };
+      const endParsed = primarySession?.end_at ? parseBangkokDateTime(primarySession.end_at) : { date: '', time: '' };
+
+      const durationHours = (primarySession?.start_at && primarySession?.end_at)
+        ? Math.max(1, Math.round((new Date(primarySession.end_at).getTime() - new Date(primarySession.start_at).getTime()) / (1000 * 60 * 60) * 10) / 10)
+        : 1;
 
       // Match linked deposit payment
       const linkedDeposit = rawPayments.find(p => p.bookingId === item.id && p.paymentType === 'DEPOSIT');
       const verifiedDepositAmount = linkedDeposit?.status === 'VERIFIED' ? linkedDeposit.amount : 0;
       const tattooPrice = item.tattoo_price ? Number(item.tattoo_price) : 0;
       const remainingBalance = Math.max(0, tattooPrice - verifiedDepositAmount);
+
+      let computedEndTime = endParsed.time;
+      if (!computedEndTime && item.requested_start_time) {
+        const [h, m] = item.requested_start_time.split(':').map(Number);
+        if (!isNaN(h)) {
+          const endH = Math.min(23, h + durationHours);
+          computedEndTime = `${endH.toString().padStart(2, '0')}:${(m || 0).toString().padStart(2, '0')}`;
+        }
+      }
+
+      const derivedStyle = item.style || linkedEstimate?.style || undefined;
+      const derivedPlacement = item.placement || linkedEstimate?.placement || undefined;
+      const derivedWidth = item.width_cm ? Number(item.width_cm) : (linkedEstimate?.width_cm ? Number(linkedEstimate.width_cm) : undefined);
+      const derivedHeight = item.height_cm ? Number(item.height_cm) : (linkedEstimate?.height_cm ? Number(linkedEstimate.height_cm) : undefined);
 
       return {
         id: item.id,
@@ -366,9 +388,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         artistName: matchedArtist?.name || 'ช่างประจำร้าน',
         artworkTitle: item.artwork_title || (item.booking_source === 'ESTIMATE' ? 'งานสักจากใบประเมินราคา' : 'งานสัก Custom'),
         artworkImage: item.artwork_image_url || 'https://images.unsplash.com/photo-1598440947619-2c35fc9aa908?w=500',
-        date: item.requested_date || startParsed.date,
-        startTime: item.requested_start_time || startParsed.time,
-        endTime: endParsed.time,
+        date: startParsed.date || item.requested_date,
+        startTime: startParsed.time || item.requested_start_time,
+        endTime: computedEndTime,
         duration: durationHours,
         price: tattooPrice,
         deposit: item.deposit_required ? Number(item.deposit_required) : 0,
@@ -377,9 +399,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         paymentStatus: linkedDeposit?.status === 'VERIFIED' ? 'DEPOSIT_PAID' : 'UNPAID',
         estimateRequestId: item.estimate_request_id || undefined,
         bookingSource: item.booking_source as any,
-        placement: item.placement || undefined,
-        width: item.width_cm ? Number(item.width_cm) : undefined,
-        height: item.height_cm ? Number(item.height_cm) : undefined,
+        style: derivedStyle,
+        placement: derivedPlacement,
+        width: derivedWidth,
+        height: derivedHeight,
         description: item.description || undefined,
         customerNote: item.customer_note || undefined,
         staffNote: item.staff_note || undefined,
@@ -389,6 +412,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         depositPaymentReference: linkedDeposit?.paymentReference,
         depositStaffNote: linkedDeposit?.staffNote,
         remainingBalance: remainingBalance,
+        sessions: rawSessions,
       };
     });
 
@@ -567,7 +591,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
       if ((event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') && session?.user) {
         setUser(session.user);
-        if (isMountedLocal && !initialAuthDone) setAuthLoading(true);
         // Defer database query outside the auth lock to avoid deadlock with signInWithPassword
         setTimeout(async () => {
           try {
@@ -601,20 +624,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
                     }
                   }
                 } catch (_) {}
-              } else if (prof.role === 'admin') {
-                try {
-                  const { data: artistRec } = await supabase
-                    .from('artists')
-                    .select('*')
-                    .eq('user_id', session.user.id)
-                    .eq('is_active', true)
-                    .maybeSingle();
-                  if (artistRec && isMountedLocal) {
-                    setStaffArtistRecord(artistRec);
-                    setStaffArtistIdState(artistRec.id);
-                  }
-                } catch (_) {}
-              } else if (prof.role === 'artist' && prof.is_active !== false) {
+              } else if (prof.role === 'admin' || prof.role === 'artist') {
                 try {
                   const { data: artistRec } = await supabase
                     .from('artists')
@@ -630,8 +640,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
               }
               loadUserData(session.user, prof.role).catch(() => {});
             }
-          } catch (_) {}
-          if (isMountedLocal && !initialAuthDone) setAuthLoading(false);
+          } catch (err) {
+            console.error('[ADMIN-AUTH] auth change profile error:', err);
+          }
         }, 0);
       } else if (event === 'SIGNED_OUT' || !session) {
         const storedStaff = typeof window !== 'undefined' ? localStorage.getItem('157_staff_session') : null;
@@ -1275,22 +1286,30 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       throw new Error('สไตล์งานสักที่เลือกไม่ตรงกับช่างสัก กรุณาเลือกใหม่');
     }
 
-    if (estimate.preferredDate && estimate.preferredDate <= getThailandTodayStr()) {
-      throw new Error('กรุณาเลือกวันนัดหมายตั้งแต่วันพรุ่งนี้เป็นต้นไป');
+    const finalRefImages = estimate.referenceImages && estimate.referenceImages.length > 0 
+      ? estimate.referenceImages 
+      : (estimate.referenceImage ? [estimate.referenceImage] : []);
+
+    if (finalRefImages.length > 5) {
+      throw new Error('สามารถแนบรูปภาพอ้างอิงได้สูงสุด 5 รูปเท่านั้น');
     }
 
     const newDbEstimate: any = {
       customer_user_id: user.id,
       artist_id: estimate.artistId,
-      reference_images: estimate.referenceImages && estimate.referenceImages.length > 0 
-        ? estimate.referenceImages 
-        : (estimate.referenceImage ? [estimate.referenceImage] : []),
+      reference_images: finalRefImages.slice(0, 5),
       width_cm: estimate.width || 10,
       height_cm: estimate.height || 10,
-      placement: estimate.placement || 'ท่อนแขน (Forearm)',
+      placement: estimate.placement || 'ไม่ระบุ',
       style: estimate.style.trim(),
       description: estimate.description || '',
       preferred_date: estimate.preferredDate || null,
+      has_medical_condition: Boolean(estimate.hasMedicalCondition),
+      medical_condition_note: estimate.hasMedicalCondition && estimate.medicalConditionNote?.trim() ? estimate.medicalConditionNote.trim() : null,
+      has_allergy: Boolean(estimate.hasAllergy),
+      allergy_note: estimate.hasAllergy && estimate.allergyNote?.trim() ? estimate.allergyNote.trim() : null,
+      request_type: 'ESTIMATE',
+      work_type: estimate.work_type || null,
       status: 'PENDING'
     };
 
@@ -1337,6 +1356,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       console.error('Error updating booking status:', error);
       if (error.code === '23P01' || error.message?.includes('no_artist_double_booking')) {
         throw new Error('ไม่สามารถอนุมัติได้เนื่องจากช่วงเวลาชนกับคิวจองอื่นที่ได้รับการอนุมัติแล้ว (Double-booking Conflict)');
+      }
+      if (status === 'COMPLETED') {
+        throw new Error(mapServerCompletionError(error.message));
       }
       throw new Error(error.message || 'เกิดข้อผิดพลาดในการอัปเดตสถานะการจอง');
     }

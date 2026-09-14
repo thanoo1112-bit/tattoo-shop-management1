@@ -14,6 +14,7 @@ interface CalendarToolbarProps {
   isToday: boolean;
   onRefresh: () => void;
   isLoading: boolean;
+  onOpenBlockModal?: () => void;
 }
 
 export default function CalendarToolbar({
@@ -26,11 +27,13 @@ export default function CalendarToolbar({
   isToday,
   onRefresh,
   isLoading,
+  onOpenBlockModal,
 }: CalendarToolbarProps) {
   return (
     <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-4 bg-[#171512] border border-[#4A443A]/40 rounded-xl p-3 sm:p-4">
       {/* Left: Navigation Controls & Title */}
       <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+
         {/* Today Button */}
         <button
           id="btn-calendar-today"
@@ -77,8 +80,20 @@ export default function CalendarToolbar({
         </div>
       </div>
 
-      {/* Right: View Switcher (Month / Week / Day) & Refresh */}
-      <div className="flex items-center gap-2 self-end md:self-auto">
+      {/* Right: View Switcher (Month / Week / Day) & Actions */}
+      <div className="flex items-center gap-2 self-end md:self-auto flex-wrap">
+        {onOpenBlockModal && (
+          <button
+            id="btn-open-block-modal"
+            type="button"
+            onClick={onOpenBlockModal}
+            className="px-3 py-1.5 bg-red-950/80 hover:bg-red-900/90 text-red-300 border border-red-800/80 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1.5 shadow-sm"
+          >
+            <span>🔒</span>
+            <span>ปิดรับคิว</span>
+          </button>
+        )}
+
         {/* View Mode Buttons */}
         <div className="inline-flex bg-[#0E0D0C] border border-[#4A443A] rounded-lg p-0.5">
           <button

@@ -1,12 +1,30 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useApp } from '../AppContext';
 import ReferenceUploader from './ReferenceUploader';
 import TattooSizeInput from './TattooSizeInput';
 import PlacementSelector from './PlacementSelector';
 import DatePickerPopover from '../booking/DatePickerPopover';
 import CustomerLoginModal from '../auth/CustomerLoginModal';
+
+const HOURLY_TIME_OPTIONS = [
+  { value: '', label: '-- เลือกเวลา (10:00 - 23:00) --' },
+  { value: '10:00', label: '10:00 น.' },
+  { value: '11:00', label: '11:00 น.' },
+  { value: '12:00', label: '12:00 น.' },
+  { value: '13:00', label: '13:00 น.' },
+  { value: '14:00', label: '14:00 น.' },
+  { value: '15:00', label: '15:00 น.' },
+  { value: '16:00', label: '16:00 น.' },
+  { value: '17:00', label: '17:00 น.' },
+  { value: '18:00', label: '18:00 น.' },
+  { value: '19:00', label: '19:00 น.' },
+  { value: '20:00', label: '20:00 น.' },
+  { value: '21:00', label: '21:00 น.' },
+  { value: '22:00', label: '22:00 น.' },
+  { value: '23:00', label: '23:00 น.' },
+];
 import { getThailandTodayStr, getThailandTomorrowStr } from '../portal/portalUtils';
 import { 
   CheckCircle2, 
@@ -22,6 +40,7 @@ import {
   DollarSign,
   AlertTriangle,
   ArrowLeft,
+  ArrowRight,
   ChevronLeft,
   ChevronRight
 } from 'lucide-react';
@@ -33,9 +52,10 @@ interface EstimateFormProps {
   preselectedArtistId?: string;
   preselectedArtworkImage?: string;
   preselectedStyle?: string;
+  preselectedType?: 'ESTIMATE' | 'DIRECT_BOOKING';
   flashId?: string;
   compact?: boolean;
-  onSuccess?: (requestId: string) => void;
+  onSuccess?: (requestId: string, bookingId?: string) => void;
 }
 
 // Helper to extract clean specialties array from artist object
@@ -50,11 +70,65 @@ const getArtistSpecialties = (art?: any): string[] => {
   return specs.filter((s: string) => s !== 'ตามที่ช่างแนะนำ');
 };
 
+export type TattooWorkType = 'NEW_TATTOO' | 'REWORK' | 'COVER_UP' | 'SCAR_COVER';
+
+const translateRpcError = (msg: string): string => {
+  if (!msg) return 'เกิดข้อผิดพลาดในการส่งคำขอจองคิว';
+  if (msg.includes('ARTIST_BASE_PRICE_NOT_CONFIGURED')) {
+    return 'ยังไม่สามารถประเมินราคาสำหรับช่างคนนี้ได้ กรุณาติดต่อร้าน';
+  }
+  if (msg.includes('PRICING_SETTINGS_NOT_CONFIGURED') || msg.includes('PRICE_ESTIMATE_SNAPSHOT_INVALID') || msg.includes('PRICING_RULE_NOT_FOUND')) {
+    return 'ระบบประเมินราคายังไม่พร้อมใช้งาน กรุณาติดต่อร้าน';
+  }
+  if (msg.includes('ARTIST_DATE_BLOCKED')) {
+    return 'ช่างปิดรับคิวในวันที่เลือก กรุณาเลือกวันอื่น';
+  }
+  if (msg.includes('ARTIST_DAY_ALREADY_BOOKED')) {
+    return 'ช่างมีคิวในวันที่เลือกแล้ว กรุณาเลือกวันอื่น';
+  }
+  if (msg.includes('Cannot request booking for a past date')) {
+    return 'ไม่สามารถเลือกวันที่ย้อนหลังได้';
+  }
+  if (msg.includes('placement is required')) {
+    return 'กรุณาระบุตำแหน่งบนร่างกายให้ครบถ้วน';
+  }
+  if (msg.includes('p_requested_date is required')) {
+    return 'กรุณาเลือกวันที่ต้องการจองคิว';
+  }
+  if (msg.includes('p_artist_id is required')) {
+    return 'กรุณาเลือกช่างสักที่ต้องการ';
+  }
+  if (msg.includes('Authentication required') || msg.includes('42501')) {
+    return 'กรุณาเข้าสู่ระบบเพื่อดำเนินการส่งคำขอจองคิว';
+  }
+  return msg;
+};
+
+const translateEstimateRpcError = (msg: string): string => {
+  if (!msg) return 'ไม่สามารถประเมินราคาได้ในขณะนี้ กรุณาติดต่อร้าน';
+  if (msg.includes('ARTIST_BASE_PRICE_NOT_CONFIGURED')) {
+    return 'ยังไม่สามารถประเมินราคาสำหรับช่างคนนี้ได้ กรุณาติดต่อร้าน';
+  }
+  if (msg.includes('INVALID_TATTOO_DIMENSIONS') || msg.includes('width_cm and height_cm must be positive')) {
+    return 'กรุณาตรวจสอบขนาดงานสักอีกครั้ง';
+  }
+  if (
+    msg.includes('PRICING_SETTINGS_NOT_CONFIGURED') ||
+    msg.includes('COLOR_PRICING_RULE_NOT_CONFIGURED') ||
+    msg.includes('WORK_TYPE_PRICING_RULE_NOT_CONFIGURED') ||
+    msg.includes('SIZE_RULE_CONFIGURATION_INVALID')
+  ) {
+    return 'ระบบประเมินราคายังไม่พร้อมใช้งาน กรุณาติดต่อร้าน';
+  }
+  return 'ระบบประเมินราคายังไม่พร้อมใช้งาน กรุณาติดต่อร้าน';
+};
+
 export default function EstimateForm({ 
   initialArtistId = '', 
   preselectedArtistId,
   preselectedArtworkImage,
   preselectedStyle,
+  preselectedType,
   flashId,
   compact = false,
   onSuccess 
@@ -71,6 +145,17 @@ export default function EstimateForm({
     setEstimateDraft 
   } = useApp();
 
+  // Request Type State (Unified Customer Booking Flow: DIRECT_BOOKING)
+  const [requestType, setRequestType] = useState<'ESTIMATE' | 'DIRECT_BOOKING'>(
+    preselectedType || 'DIRECT_BOOKING'
+  );
+
+  useEffect(() => {
+    if (preselectedType) {
+      setRequestType(preselectedType);
+    }
+  }, [preselectedType]);
+
   // Flash Design State
   const [flashData, setFlashData] = useState<any | null>(null);
   const [loadingFlash, setLoadingFlash] = useState(!!flashId);
@@ -83,20 +168,116 @@ export default function EstimateForm({
   const [referenceImages, setReferenceImages] = useState<string[]>(preselectedArtworkImage ? [preselectedArtworkImage] : []);
   const [width, setWidth] = useState(10);
   const [height, setHeight] = useState(10);
-  const [placement, setPlacement] = useState('ท่อนแขน (Forearm)');
+  const [placement, setPlacement] = useState('');
   const [style, setStyle] = useState(preselectedStyle || '');
   const [description, setDescription] = useState('');
   const [preferredDate, setPreferredDate] = useState('');
-  const [preferredTime, setPreferredTime] = useState('13:00');
+  const [preferredTime, setPreferredTime] = useState('');
+
+  // Health Disclosure State
+  const [hasMedicalCondition, setHasMedicalCondition] = useState(false);
+  const [medicalConditionNote, setMedicalConditionNote] = useState('');
+  const [hasAllergy, setHasAllergy] = useState(false);
+  const [allergyNote, setAllergyNote] = useState('');
 
   // Submission State
   const [submitted, setSubmitted] = useState(false);
   const [isFlashSubmission, setIsFlashSubmission] = useState(false);
+  const [isDirectBookingSubmission, setIsDirectBookingSubmission] = useState(false);
   const [newRequestId, setNewRequestId] = useState('');
+  const [newBookingId, setNewBookingId] = useState('');
   const [showLogin, setShowLogin] = useState(false);
   
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  // Phase 7D: Customer Price Estimate Preview State
+  const [priceEstimate, setPriceEstimate] = useState<{
+    minPrice: number;
+    maxPrice: number;
+    sizeLabel?: string;
+    colorLabel?: string;
+    workTypeLabel?: string;
+  } | null>(null);
+  const [isEstimating, setIsEstimating] = useState(false);
+  const [estimateError, setEstimateError] = useState<string | null>(null);
+  const [estimateFingerprint, setEstimateFingerprint] = useState<{
+    artistId: string;
+    width: number;
+    height: number;
+  } | null>(null);
+
+  // Validate if current price-affecting inputs match the previewed fingerprint
+  const isEstimateValid = React.useMemo(() => {
+    if (!priceEstimate || !estimateFingerprint) return false;
+    return (
+      estimateFingerprint.artistId === artistId &&
+      estimateFingerprint.width === width &&
+      estimateFingerprint.height === height
+    );
+  }, [priceEstimate, estimateFingerprint, artistId, width, height]);
+
+  const isEstimateStale = React.useMemo(() => {
+    if (!priceEstimate || !estimateFingerprint) return false;
+    return !isEstimateValid;
+  }, [priceEstimate, isEstimateValid, estimateFingerprint]);
+
+  const handleCalculatePriceEstimate = async () => {
+    setEstimateError(null);
+    setError('');
+
+    if (!artistId) {
+      setEstimateError('กรุณาเลือกช่างสักที่ต้องการก่อนประเมินราคา');
+      return;
+    }
+    if (!width || width <= 0 || !height || height <= 0) {
+      setEstimateError('กรุณากรอกขนาดงานสัก (ความกว้างและความสูง) ให้มากกว่า 0 ซม.');
+      return;
+    }
+
+    setIsEstimating(true);
+    try {
+      const { data, error: rpcErr } = await supabase.rpc('calculate_tattoo_price_estimate', {
+        p_artist_id: artistId,
+        p_width_cm: width,
+        p_height_cm: height,
+        p_color_technique: null,
+        p_work_type: null,
+      });
+
+      if (rpcErr) {
+        setEstimateError(translateEstimateRpcError(rpcErr.message));
+        setPriceEstimate(null);
+        setEstimateFingerprint(null);
+        return;
+      }
+
+      if (data) {
+        const res = Array.isArray(data) ? data[0] : data;
+        if (res) {
+          setPriceEstimate({
+            minPrice: Number(res.estimated_min_price),
+            maxPrice: Number(res.estimated_max_price),
+            sizeLabel: res.size_label,
+            colorLabel: res.color_label,
+            workTypeLabel: res.work_type_label,
+          });
+          setEstimateFingerprint({
+            artistId,
+            width,
+            height,
+          });
+        }
+      }
+    } catch (err: any) {
+      console.error('Price estimation error:', err);
+      setEstimateError(translateEstimateRpcError(err?.message || ''));
+      setPriceEstimate(null);
+      setEstimateFingerprint(null);
+    } finally {
+      setIsEstimating(false);
+    }
+  };
 
   // 1. Load Flash Record if flashId is provided
   useEffect(() => {
@@ -172,6 +353,7 @@ export default function EstimateForm({
       if (estimateDraft.style) setStyle(estimateDraft.style);
       if (estimateDraft.description) setDescription(estimateDraft.description);
       if (estimateDraft.preferredDate) setPreferredDate(estimateDraft.preferredDate);
+      if ((estimateDraft as any).preferredTime) setPreferredTime((estimateDraft as any).preferredTime);
       
       setEstimateDraft(null);
     }
@@ -190,6 +372,64 @@ export default function EstimateForm({
       }
     }
   }, [flashId, preselectedArtistId, preselectedStyle, artists]);
+
+  // 3. Silently Prefill Returning Customer's Health Disclosure from Latest Request
+  const prefilledHealthRef = useRef(false);
+
+  useEffect(() => {
+    if (!user?.id || prefilledHealthRef.current) return;
+
+    const currentUserId = user.id;
+    let isMounted = true;
+
+    async function prefillHealthData() {
+      try {
+        const { data, error: fetchErr } = await supabase
+          .from('estimate_requests')
+          .select('has_medical_condition, medical_condition_note, has_allergy, allergy_note')
+          .eq('customer_user_id', currentUserId)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (!isMounted) return;
+
+        if (fetchErr) {
+          prefilledHealthRef.current = true;
+          return;
+        }
+
+        if (data && !prefilledHealthRef.current) {
+          prefilledHealthRef.current = true;
+          if (data.has_medical_condition === true) {
+            setHasMedicalCondition(true);
+            setMedicalConditionNote(data.medical_condition_note || '');
+          } else {
+            setHasMedicalCondition(false);
+            setMedicalConditionNote('');
+          }
+
+          if (data.has_allergy === true) {
+            setHasAllergy(true);
+            setAllergyNote(data.allergy_note || '');
+          } else {
+            setHasAllergy(false);
+            setAllergyNote('');
+          }
+        } else {
+          prefilledHealthRef.current = true;
+        }
+      } catch {
+        if (isMounted) prefilledHealthRef.current = true;
+      }
+    }
+
+    prefillHealthData();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [user?.id, supabase]);
 
   const handleArtistSelect = (selectedId: string) => {
     if (flashId) return; // Locked in Flash Mode
@@ -212,14 +452,25 @@ export default function EstimateForm({
       height,
       placement,
       style,
+      work_type: null,
       description,
       preferredDate: preferredDate || undefined,
-    });
+      preferredTime: preferredTime || undefined,
+    } as any);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+
+    if (preferredTime && preferredTime.trim() !== '') {
+      const t = preferredTime.trim();
+      const validTimes = HOURLY_TIME_OPTIONS.map((o) => o.value).filter(Boolean);
+      if (!validTimes.includes(t)) {
+        setError('กรุณาเลือกเวลาระหว่าง 10:00–23:00 น.');
+        return;
+      }
+    }
 
     // =========================================================================
     // FLASH BOOKING SUBMISSION
@@ -235,8 +486,13 @@ export default function EstimateForm({
         return;
       }
 
-      if (preferredDate && preferredDate <= getThailandTodayStr()) {
-        setError('กรุณาเลือกวันนัดหมายตั้งแต่วันพรุ่งนี้เป็นต้นไป');
+      if (!preferredTime || !preferredTime.trim()) {
+        setError('กรุณาเลือกเวลาที่สะดวก');
+        return;
+      }
+
+      if (preferredDate && preferredDate < getThailandTodayStr()) {
+        setError('ไม่สามารถเลือกวันที่ย้อนหลังได้');
         return;
       }
 
@@ -296,7 +552,8 @@ export default function EstimateForm({
     }
 
     // =========================================================================
-    // NORMAL ESTIMATE SUBMISSION
+    // =========================================================================
+    // CUSTOMER ESTIMATE REQUEST SUBMISSION
     // =========================================================================
     if (!artistId) {
       setError('กรุณาเลือกช่างสักที่ต้องการ');
@@ -316,12 +573,33 @@ export default function EstimateForm({
     }
 
     if (!placement || !placement.trim() || placement.trim() === 'อื่น ๆ (Others)' || placement.trim().toLowerCase() === 'others') {
-      setError('กรุณาระบุตำแหน่งบนร่างกายให้ครบถ้วน');
+      setError('กรุณาระบุตำแหน่งที่ต้องการสัก');
       return;
     }
 
-    if (preferredDate && preferredDate <= getThailandTodayStr()) {
-      setError('กรุณาเลือกวันนัดหมายตั้งแต่วันพรุ่งนี้เป็นต้นไป');
+    if (!width || Number(width) <= 0 || !height || Number(height) <= 0) {
+      setError('กรุณาระบุขนาดของงานสัก (ความกว้างและความสูงต้องมากกว่า 0 ซม.)');
+      return;
+    }
+
+    if (!preferredDate) {
+      setError('กรุณาเลือกวันที่ต้องการจองคิว');
+      return;
+    }
+
+    if (!preferredTime || !preferredTime.trim()) {
+      setError('กรุณาเลือกเวลาที่สะดวก');
+      return;
+    }
+
+    const hasRefImage = Boolean(referenceImage || (referenceImages && referenceImages.length > 0));
+    if (!hasRefImage) {
+      setError('กรุณาอัปโหลดรูปภาพอ้างอิงอย่างน้อย 1 รูป');
+      return;
+    }
+
+    if (preferredDate < getThailandTodayStr()) {
+      setError('ไม่สามารถเลือกวันที่ย้อนหลังได้');
       return;
     }
 
@@ -337,7 +615,17 @@ export default function EstimateForm({
       }
     }
 
-    if (!isLoggedIn) {
+    if (hasMedicalCondition && (!medicalConditionNote || !medicalConditionNote.trim())) {
+      setError('กรุณาระบุรายละเอียดโรคประจำตัวที่ควรแจ้งช่าง (หรือยกเลิกการเลือก)');
+      return;
+    }
+
+    if (hasAllergy && (!allergyNote || !allergyNote.trim())) {
+      setError('กรุณาระบุรายละเอียดประวัติภูมิแพ้ที่ควรแจ้งช่าง (หรือยกเลิกการเลือก)');
+      return;
+    }
+
+    if (!isLoggedIn || !user) {
       saveDraft();
       setShowLogin(true);
       return;
@@ -357,22 +645,29 @@ export default function EstimateForm({
       const resId = await addEstimateRequest({
         artistId,
         artistName,
-        referenceImage: referenceImages[0] || referenceImage || 'https://images.unsplash.com/photo-1598440947619-2c35fc9aa908?w=800',
+        referenceImage: referenceImages[0] || referenceImage || '',
         referenceImages: referenceImages.length > 0 ? referenceImages : (referenceImage ? [referenceImage] : []),
         width,
         height,
-        placement,
-        style,
-        description,
+        placement: placement.trim(),
+        style: style.trim(),
+        work_type: null,
+        description: preferredTime ? `${description ? description.trim() + '\n' : ''}[เวลาสะดวก: ${preferredTime} น.]` : (description ? description.trim() : ''),
         preferredDate: preferredDate || undefined,
+        hasMedicalCondition,
+        medicalConditionNote: hasMedicalCondition ? medicalConditionNote.trim() : null,
+        hasAllergy,
+        allergyNote: hasAllergy ? allergyNote.trim() : null,
       });
 
       setNewRequestId(resId);
       setIsFlashSubmission(false);
+      setIsDirectBookingSubmission(false);
       setSubmitted(true);
       if (onSuccess) onSuccess(resId);
     } catch (err: any) {
-      setError(err?.message || 'เกิดข้อผิดพลาดในการส่งคำขอจองคิว กรุณาลองใหม่อีกครั้ง');
+      console.error('Error submitting estimate request:', err);
+      setError(translateRpcError(err?.message || 'เกิดข้อผิดพลาดในการส่งคำขอประเมินราคา'));
     } finally {
       setLoading(false);
     }
@@ -384,6 +679,60 @@ export default function EstimateForm({
 
   // --- SUBMITTED SUCCESS SCREEN ---
   if (submitted) {
+    if (isDirectBookingSubmission) {
+      return (
+        <div className="bg-studio-card border border-studio-border p-6 sm:p-8 rounded-[8px] text-center space-y-4 font-prompt animate-fadeIn">
+          <div className="w-14 h-14 bg-amber-500/10 border border-amber-500/30 text-amber-400 rounded-full flex items-center justify-center mx-auto mb-2">
+            <CheckCircle2 size={28} />
+          </div>
+          <div className="inline-flex items-center space-x-1.5 bg-amber-950/60 border border-amber-700/60 px-3 py-1 rounded text-amber-300 text-[11px] uppercase font-bold tracking-widest">
+            <Sparkles size={12} />
+            <span>DIRECT BOOKING CREATED</span>
+          </div>
+          <h3 className="text-xl font-bold text-studio-primary">สร้างคิวจองสำเร็จแล้ว! (สถานะ: รอมัดจำ)</h3>
+          
+          <div className="bg-studio-main border border-amber-900/40 p-4 rounded-[6px] max-w-md mx-auto text-left space-y-2 text-xs">
+            <div className="flex justify-between items-center pb-2 border-b border-studio-border/60">
+              <span className="text-studio-muted">รหัสคิวงาน:</span>
+              <strong className="text-amber-300 font-mono">#{newBookingId ? newBookingId.slice(0, 8).toUpperCase() : newRequestId.slice(0, 8).toUpperCase()}</strong>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-studio-muted">สถานะคิวงาน:</span>
+              <span className="bg-amber-950/80 text-amber-300 border border-amber-800/80 px-2 py-0.5 rounded text-[10px] font-bold">
+                รอมัดจำ (WAITING_DEPOSIT)
+              </span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-studio-muted">เงินมัดจำเพื่อล็อกคิว:</span>
+              <strong className="text-amber-300 font-mono font-bold">฿500</strong>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-studio-muted">ราคางานสัก:</span>
+              <span className="text-studio-secondary italic">ยังไม่กำหนดราคา (กำหนดภายหลัง)</span>
+            </div>
+          </div>
+
+          <p className="text-xs text-studio-secondary leading-relaxed max-w-md mx-auto font-light">
+            ระบบได้สร้างรายการคิวของคุณเรียบร้อยแล้ว กรุณาชำระเงินมัดจำ 500 บาทและแนบสลิปโอนเงิน เพื่อให้ทางร้านอนุมัติและยืนยันคิวของคุณอย่างสมบูรณ์
+          </p>
+
+          <div className="pt-2 flex flex-col sm:flex-row gap-3 justify-center max-w-md mx-auto">
+            <button
+              type="button"
+              onClick={() => {
+                if (typeof window !== 'undefined') {
+                  window.location.href = '/portal?tab=bookings';
+                }
+              }}
+              className="min-h-[44px] flex-1 bg-amber-600 hover:bg-amber-500 text-white text-xs uppercase tracking-wider py-3 px-4 font-semibold transition-all rounded-[4px] border border-amber-600 flex items-center justify-center cursor-pointer shadow-lg"
+            >
+              ไปที่หน้าแนบสลิปมัดจำ (Portal)
+            </button>
+          </div>
+        </div>
+      );
+    }
+
     if (isFlashSubmission) {
       const flashArtistName = flashData?.artists?.name || 'ช่างประจำสตูดิโอ';
       return (
@@ -712,7 +1061,7 @@ export default function EstimateForm({
               {/* 3. Placement on Body */}
               <div>
                 <label className="text-[11px] uppercase tracking-wider text-studio-secondary block mb-1.5 font-semibold">
-                  3. ตำแหน่งบนร่างกาย <span className="text-studio-red">*</span>
+                  3. ตำแหน่งที่ต้องการสัก <span className="text-studio-red">*</span>
                 </label>
                 <PlacementSelector
                   value={placement}
@@ -721,34 +1070,32 @@ export default function EstimateForm({
               </div>
 
               {/* 4. Preferred Date & Time */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-[3fr_2fr] gap-2 sm:gap-3 items-end">
                 <div>
                   <DatePickerPopover
                     value={preferredDate}
                     onChange={(dateStr) => setPreferredDate(dateStr)}
                     artistId={flashArtist?.id || flashData?.artist_id}
                     artistWorkingDays={flashArtist?.working_days || []}
-                    label="4. วันที่สะดวกเข้ารับบริการ (ทางเลือก)"
+                    label="4. วันที่สะดวก (ทางเลือก)"
                   />
                 </div>
 
                 <div>
-                  <label className="text-[11px] uppercase tracking-wider text-studio-secondary block mb-1.5 font-semibold flex items-center gap-1.5">
-                    <Clock size={13} className="text-studio-red" />
-                    <span>เวลาที่สะดวกเริ่มสัก (ทางเลือก)</span>
+                  <label className="text-[11px] uppercase tracking-wider text-studio-secondary block mb-1.5 font-semibold flex items-center gap-1">
+                    <Clock size={12} className="text-studio-red shrink-0" />
+                    <span className="truncate">เวลาที่สะดวก</span>
                   </label>
                   <select
                     value={preferredTime}
                     onChange={(e) => setPreferredTime(e.target.value)}
-                    className="w-full min-h-[44px] bg-studio-main border border-studio-border focus:border-studio-red text-xs text-studio-primary px-3 py-2 outline-none rounded-[4px] cursor-pointer"
+                    className="w-full min-h-[44px] bg-[#0E0D0C] border border-[#4A443A] focus:border-[#9C2F2F] text-xs text-[#ECE4D3] px-2 sm:px-3 py-2 outline-none rounded-[4px] cursor-pointer font-prompt truncate [color-scheme:dark]"
                   >
-                    <option value="10:00">10:00 น. (ช่วงเช้า)</option>
-                    <option value="11:00">11:00 น. (ช่วงสาย)</option>
-                    <option value="13:00">13:00 น. (ช่วงบ่าย)</option>
-                    <option value="14:00">14:00 น. (ช่วงบ่าย)</option>
-                    <option value="15:00">15:00 น. (ช่วงบ่ายแก่)</option>
-                    <option value="16:00">16:00 น. (ช่วงเย็น)</option>
-                    <option value="17:00">17:00 น. (ช่วงค่ำ)</option>
+                    {HOURLY_TIME_OPTIONS.map((opt) => (
+                      <option key={opt.value} value={opt.value} className="bg-[#171512] text-[#ECE4D3]">
+                        {opt.label}
+                      </option>
+                    ))}
                   </select>
                 </div>
               </div>
@@ -814,8 +1161,9 @@ export default function EstimateForm({
   }
 
   // =========================================================================
-  // NORMAL BOOKING MODE (CUSTOM TATTOO ESTIMATE)
+  // NORMAL BOOKING MODE (ESTIMATE VS DIRECT BOOKING)
   // =========================================================================
+
   const selectedArtist = artists.find((a) => a.id === artistId);
   const artistSpecialties = getArtistSpecialties(selectedArtist);
 
@@ -827,26 +1175,26 @@ export default function EstimateForm({
         <div className="border-b border-studio-border pb-3 mb-2">
           <div className="flex items-center space-x-1.5 text-studio-red text-[10px] uppercase tracking-widest font-bold mb-0.5">
             <Sparkles size={12} />
-            <span>BOOKING REQUEST</span>
+            <span>TATTOO ESTIMATE REQUEST</span>
           </div>
           <h3 className="text-base sm:text-lg font-bold tracking-wide text-studio-primary">
-            ส่งคำขอจองคิวงานสัก
+            คำขอประเมินราคางานสัก
           </h3>
           <p className="text-xs text-studio-secondary mt-0.5 font-light">
-            ส่งรายละเอียดงาน รูปอ้างอิง ขนาด และตำแหน่ง เพื่อส่งคำขอจองกับช่างที่คุณเลือก
+            กรอกรายละเอียดงาน เลือกวันเวลาที่สะดวก และส่งคำขอให้ช่างประเมินราคา
           </p>
         </div>
       ) : (
         <div className="bg-studio-card border border-studio-border p-5 sm:p-6 rounded-[8px]">
           <div className="flex items-center space-x-2 text-studio-red text-xs uppercase tracking-widest font-heading font-normal mb-1">
             <Sparkles size={14} />
-            <span>CUSTOM TATTOO BOOKING REQUEST</span>
+            <span>TATTOO ESTIMATE REQUEST</span>
           </div>
           <h2 className="text-2xl sm:text-3xl font-heading font-normal tracking-wide text-studio-primary">
-            ส่งคำขอจองคิวงานสัก (BOOKING REQUEST)
+            คำขอประเมินราคางานสัก
           </h2>
           <p className="text-xs text-studio-secondary mt-1 font-light">
-            ส่งรายละเอียดงาน รูปอ้างอิง ขนาด ตำแหน่ง และช่างสักที่ต้องการ เพื่อส่งคำขอจองคิวงานสัก
+            กรอกรายละเอียดงาน เลือกวันเวลาที่สะดวก และส่งคำขอให้ช่างประเมินราคา
           </p>
         </div>
       )}
@@ -867,167 +1215,261 @@ export default function EstimateForm({
         }
       >
         
-        <div className={compact ? "space-y-6 w-full" : "grid grid-cols-1 lg:grid-cols-12 gap-8"}>
+        <div className="space-y-6 w-full max-w-3xl mx-auto">
           
-          {/* Reference Image Upload */}
-          <div className={compact ? "space-y-4 w-full" : "lg:col-span-5 space-y-4"}>
-            <div>
-              <label className="text-[11px] uppercase tracking-wider text-studio-secondary block mb-2 font-semibold flex items-center gap-1.5">
-                <ImageIcon size={14} className="text-studio-red" />
-                <span>ภาพตัวอย่าง / ลายที่สนใจ (Reference)</span>
-              </label>
-              <ReferenceUploader
-                value={referenceImage}
-                values={flashId ? (referenceImage ? [referenceImage] : []) : referenceImages}
-                onChange={setReferenceImage}
-                onValuesChange={(paths) => {
-                  setReferenceImages(paths);
-                  setReferenceImage(paths[0] || '');
-                }}
-                maxImages={flashId ? 1 : 5}
-              />
+          {/* 1. Artist Selection */}
+          <div>
+            <label className="text-[11px] uppercase tracking-wider text-studio-secondary block mb-2 font-semibold flex items-center gap-1.5">
+              <User size={14} className="text-studio-red" />
+              <span>1. เลือกช่างสักที่ต้องการ <span className="text-studio-red">*</span></span>
+            </label>
+            <div className="grid grid-cols-2 gap-2.5">
+              {artists.map((art) => {
+                const specs = getArtistSpecialties(art);
+                const specsLabel = specs.length > 0 ? specs.join(' / ') : 'ช่างประจำร้าน';
+                return (
+                  <button
+                    key={art.id}
+                    type="button"
+                    onClick={() => handleArtistSelect(art.id)}
+                    className={`p-2.5 rounded-[4px] border text-left flex items-center space-x-2.5 transition-all min-w-0 ${
+                      artistId === art.id 
+                        ? 'border-studio-red bg-studio-sec shadow-inner' 
+                        : 'border-studio-border hover:border-studio-border/80 bg-studio-main/60'
+                    }`}
+                  >
+                    <img src={art.avatar} alt={art.name} className="w-8 h-8 object-cover rounded-full shrink-0 border border-studio-border" />
+                    <div className="min-w-0 flex-1">
+                      <h4 className="text-xs font-semibold text-studio-primary truncate">{art.name}</h4>
+                      <p className="text-[10px] text-studio-secondary truncate">{specsLabel}</p>
+                    </div>
+                  </button>
+                );
+              })}
             </div>
           </div>
 
-          {/* Artist Selection, Details, Size */}
-          <div className={compact ? "space-y-5 w-full" : "lg:col-span-7 space-y-6"}>
-            
-            {/* 1. Artist Selection */}
-            <div>
-              <label className="text-[11px] uppercase tracking-wider text-studio-secondary block mb-2 font-semibold flex items-center gap-1.5">
-                <User size={14} className="text-studio-red" />
-                <span>1. เลือกช่างสักที่ต้องการ</span>
-              </label>
-              <div className="grid grid-cols-2 gap-2.5">
-                {artists.map((art) => {
-                  const specs = getArtistSpecialties(art);
-                  const specsLabel = specs.length > 0 ? specs.join(' / ') : 'ช่างประจำร้าน';
-                  return (
-                    <button
-                      key={art.id}
-                      type="button"
-                      onClick={() => handleArtistSelect(art.id)}
-                      className={`p-2.5 rounded-[4px] border text-left flex items-center space-x-2.5 transition-all min-w-0 ${
-                        artistId === art.id 
-                          ? 'border-studio-red bg-studio-sec shadow-inner' 
-                          : 'border-studio-border hover:border-studio-border/80 bg-studio-main/60'
-                      }`}
-                    >
-                      <img src={art.avatar} alt={art.name} className="w-8 h-8 object-cover rounded-full shrink-0 border border-studio-border" />
-                      <div className="min-w-0 flex-1">
-                        <h4 className="text-xs font-semibold text-studio-primary truncate">{art.name}</h4>
-                        <p className="text-[10px] text-studio-secondary truncate">{specsLabel}</p>
-                      </div>
-                    </button>
-                  );
-                })}
+          {/* 2. Style */}
+          <div>
+            <label className="text-[11px] uppercase tracking-wider text-studio-secondary block mb-1.5 font-semibold">
+              2. สไตล์งานสัก <span className="text-studio-red">*</span>
+            </label>
+            {artists.length === 0 ? (
+              <select
+                disabled
+                className="w-full min-h-[44px] bg-studio-main border border-studio-border text-xs text-studio-muted px-3 py-2 outline-none rounded-[4px] cursor-not-allowed opacity-60"
+              >
+                <option value="">กำลังโหลดสไตล์ของช่าง...</option>
+              </select>
+            ) : !artistId ? (
+              <select
+                disabled
+                className="w-full min-h-[44px] bg-studio-main border border-studio-border text-xs text-studio-muted px-3 py-2 outline-none rounded-[4px] cursor-not-allowed opacity-60"
+              >
+                <option value="">กรุณาเลือกช่างก่อน</option>
+              </select>
+            ) : artistSpecialties.length === 0 ? (
+              <div className="space-y-1">
+                <select
+                  disabled
+                  className="w-full min-h-[44px] bg-studio-main border border-studio-border text-xs text-studio-muted px-3 py-2 outline-none rounded-[4px] cursor-not-allowed opacity-60"
+                >
+                  <option value="">ยังไม่มีข้อมูลสไตล์งานของช่างคนนี้</option>
+                </select>
+                <span className="text-[10px] text-amber-400 block">
+                  ยังไม่มีข้อมูลสไตล์งานของช่างคนนี้
+                </span>
               </div>
-            </div>
+            ) : (
+              <select
+                value={style}
+                onChange={(e) => {
+                  setStyle(e.target.value);
+                  setError('');
+                }}
+                className="w-full min-h-[44px] bg-studio-main border border-studio-border focus:border-studio-red text-xs text-studio-primary px-3 py-2 outline-none rounded-[4px] cursor-pointer"
+              >
+                <option value="" disabled>เลือกสไตล์งานสัก</option>
+                {style === 'ตามที่ช่างแนะนำ' && (
+                  <option value="ตามที่ช่างแนะนำ">ตามที่ช่างแนะนำ</option>
+                )}
+                {artistSpecialties.map((st) => (
+                  <option key={st} value={st}>
+                    {st}
+                  </option>
+                ))}
+              </select>
+            )}
+          </div>
 
-            {/* 2. Style */}
-            <div>
-              <label className="text-[11px] uppercase tracking-wider text-studio-secondary block mb-1.5 font-semibold">
-                2. สไตล์งานสัก <span className="text-studio-red">*</span>
-              </label>
-              {artists.length === 0 ? (
-                <select
-                  disabled
-                  className="w-full min-h-[44px] bg-studio-main border border-studio-border text-xs text-studio-muted px-3 py-2 outline-none rounded-[4px] cursor-not-allowed opacity-60"
-                >
-                  <option value="">กำลังโหลดสไตล์ของช่าง...</option>
-                </select>
-              ) : !artistId ? (
-                <select
-                  disabled
-                  className="w-full min-h-[44px] bg-studio-main border border-studio-border text-xs text-studio-muted px-3 py-2 outline-none rounded-[4px] cursor-not-allowed opacity-60"
-                >
-                  <option value="">กรุณาเลือกช่างก่อน</option>
-                </select>
-              ) : artistSpecialties.length === 0 ? (
-                <div className="space-y-1">
-                  <select
-                    disabled
-                    className="w-full min-h-[44px] bg-studio-main border border-studio-border text-xs text-studio-muted px-3 py-2 outline-none rounded-[4px] cursor-not-allowed opacity-60"
-                  >
-                    <option value="">ยังไม่มีข้อมูลสไตล์งานของช่างคนนี้</option>
-                  </select>
-                  <span className="text-[10px] text-amber-400 block">
-                    ยังไม่มีข้อมูลสไตล์งานของช่างคนนี้
-                  </span>
-                </div>
-              ) : (
-                <select
-                  value={style}
-                  onChange={(e) => {
-                    setStyle(e.target.value);
-                    setError('');
-                  }}
-                  className="w-full min-h-[44px] bg-studio-main border border-studio-border focus:border-studio-red text-xs text-studio-primary px-3 py-2 outline-none rounded-[4px] cursor-pointer"
-                >
-                  <option value="" disabled>เลือกสไตล์งานสัก</option>
-                  {style === 'ตามที่ช่างแนะนำ' && (
-                    <option value="ตามที่ช่างแนะนำ">ตามที่ช่างแนะนำ</option>
-                  )}
-                  {artistSpecialties.map((st) => (
-                    <option key={st} value={st}>
-                      {st}
-                    </option>
-                  ))}
-                </select>
-              )}
-            </div>
-
-            {/* 3. Placement */}
-            <div>
-              <label className="text-[11px] uppercase tracking-wider text-studio-secondary block mb-1.5 font-semibold">
-                3. ตำแหน่งบนร่างกาย
-              </label>
-              <PlacementSelector
-                value={placement}
-                onChange={setPlacement}
-              />
-            </div>
-
-            {/* 4. Size Input */}
-            <div>
-              <label className="text-[11px] uppercase tracking-wider text-studio-secondary block mb-1.5 font-semibold">
-                4. ขนาดของงานสัก (เซนติเมตร)
-              </label>
-              <TattooSizeInput
-                width={width}
-                height={height}
-                onWidthChange={setWidth}
-                onHeightChange={setHeight}
-              />
-            </div>
-
-            {/* 5. Description */}
-            <div>
-              <label className="text-[11px] uppercase tracking-wider text-studio-secondary block mb-1.5 font-semibold">
-                5. รายละเอียดเพิ่มเติมที่ต้องการบอกช่าง
-              </label>
-              <textarea
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder="เช่น ต้องการปรับเพิ่มดอกไม้, มีรอยสักเดิมทับ, ต้องการโทนเงาเข้ม..."
-                rows={3}
-                className="w-full bg-studio-main border border-studio-border focus:border-studio-red text-xs text-studio-primary p-3 outline-none rounded-[4px] resize-none"
-              />
-            </div>
-
-            {/* 6. Preferred Date */}
+          {/* 3. Preferred Date & Time (MOVED UP) */}
+          <div className="grid grid-cols-1 sm:grid-cols-[3fr_2fr] gap-2 sm:gap-3 items-end">
             <div>
               <DatePickerPopover
                 value={preferredDate}
                 onChange={(dateStr) => setPreferredDate(dateStr)}
                 artistId={artistId}
                 artistWorkingDays={getArtistSpecialties(selectedArtist)}
-                label="6. วันที่สนใจเข้ารับบริการ (ทางเลือก / Optional)"
+                label={requestType === 'DIRECT_BOOKING' ? '3. วันที่ต้องการจองคิว *' : '3. วันที่สะดวก (ทางเลือก)'}
                 disabled={!artistId}
-                placeholder={artistId ? 'เลือกวันที่สะดวก (วว/ดด/ปปปป)' : 'กรุณาเลือกช่างสักในขั้นตอนที่ 1 ก่อน'}
+                placeholder={
+                  !artistId 
+                    ? 'เลือกช่างสักก่อน' 
+                    : requestType === 'DIRECT_BOOKING' 
+                    ? 'เลือกวันที่ต้องการจองคิว *' 
+                    : 'เลือกวันที่สะดวก (วว/ดด/ปปปป)'
+                }
               />
             </div>
 
+            <div>
+              <label className="text-[11px] uppercase tracking-wider text-studio-secondary block mb-1.5 font-semibold flex items-center gap-1">
+                <Clock size={12} className="text-studio-red shrink-0" />
+                <span className="truncate">เวลาที่สะดวก <span className="text-studio-red">*</span></span>
+              </label>
+              <select
+                value={preferredTime}
+                onChange={(e) => setPreferredTime(e.target.value)}
+                className="w-full min-h-[44px] bg-[#0E0D0C] border border-[#4A443A] focus:border-[#9C2F2F] text-xs text-[#ECE4D3] px-2 sm:px-3 py-2 outline-none rounded-[4px] cursor-pointer font-prompt truncate [color-scheme:dark]"
+              >
+                {HOURLY_TIME_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value} className="bg-[#171512] text-[#ECE4D3]">
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* 4. Placement */}
+          <div>
+            <label className="text-[11px] uppercase tracking-wider text-studio-secondary block mb-1.5 font-semibold">
+              4. ตำแหน่งที่ต้องการสัก <span className="text-studio-red">*</span>
+            </label>
+            <PlacementSelector
+              value={placement}
+              onChange={setPlacement}
+            />
+          </div>
+
+          {/* 5. Size Input */}
+          <div>
+            <label className="text-[11px] uppercase tracking-wider text-studio-secondary block mb-1.5 font-semibold">
+              5. ขนาดของงานสัก (เซนติเมตร) <span className="text-studio-red">*</span>
+            </label>
+            <TattooSizeInput
+              width={width}
+              height={height}
+              onWidthChange={setWidth}
+              onHeightChange={setHeight}
+            />
+          </div>
+
+          {/* 6. Reference Image Upload */}
+          <div>
+            <label className="text-[11px] uppercase tracking-wider text-studio-secondary block mb-2 font-semibold flex items-center gap-1.5">
+              <ImageIcon size={14} className="text-studio-red" />
+              <span>6. รูปอ้างอิง (REFERENCE) <span className="text-studio-red">*</span></span>
+            </label>
+            <ReferenceUploader
+              value={referenceImage}
+              values={flashId ? (referenceImage ? [referenceImage] : []) : referenceImages}
+              onChange={setReferenceImage}
+              onValuesChange={(paths) => {
+                setReferenceImages(paths);
+                setReferenceImage(paths[0] || '');
+              }}
+              maxImages={flashId ? 1 : 5}
+            />
+          </div>
+
+          {/* 7. Description */}
+          <div>
+            <label className="text-[11px] uppercase tracking-wider text-studio-secondary block mb-1.5 font-semibold">
+              7. รายละเอียดงานสักเพิ่มเติม
+            </label>
+            <p className="text-[11px] text-studio-secondary mb-1 font-light">
+              อธิบายรายละเอียดลายที่ต้องการเพิ่มเติม
+            </p>
+            <textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="อธิบายรายละเอียดลายที่ต้องการเพิ่มเติม เช่น ต้องการปรับเพิ่มดอกไม้, มีรอยสักเดิมทับ/ต้องการแก้, ต้องการปกปิดรอยแผลเป็น..."
+              rows={3}
+              className="w-full bg-studio-main border border-studio-border focus:border-studio-red text-xs text-studio-primary p-3 outline-none rounded-[4px] resize-none"
+            />
+          </div>
+
+          {/* 8. Health Disclosure */}
+          <div className="bg-[#171512] border border-[#4A443A] p-4 rounded-[6px] space-y-3 font-prompt">
+            <div className="flex items-center space-x-2 text-[#ECE4D3] text-xs font-semibold pb-2 border-b border-[#4A443A]/60">
+              <AlertTriangle size={15} className="text-amber-400 shrink-0" />
+              <span>8. ข้อมูลสุขภาพที่เกี่ยวข้องกับการสัก (เพื่อความปลอดภัยของคุณ)</span>
+            </div>
+            <p className="text-[11px] text-studio-secondary font-light">
+              ข้อมูลสุขภาพนี้จะถูกใช้เพื่อการประเมินงานสักอย่างปลอดภัย และจะแสดงเฉพาะต่อ Admin และช่างสักผู้รับผิดชอบงานเท่านั้น
+            </p>
+
+            {/* 8.1 Medical Condition */}
+            <div className="space-y-2 pt-1">
+              <label className="flex items-center space-x-2 cursor-pointer text-xs text-[#ECE4D3]">
+                <input
+                  type="checkbox"
+                  checked={hasMedicalCondition}
+                  onChange={(e) => {
+                    setHasMedicalCondition(e.target.checked);
+                    if (!e.target.checked) setMedicalConditionNote('');
+                  }}
+                  className="w-4 h-4 rounded border-[#4A443A] bg-[#0E0D0C] text-[#9C2F2F] focus:ring-0 focus:ring-offset-0 cursor-pointer"
+                />
+                <span className="font-medium">มีโรคประจำตัวที่ควรแจ้งช่าง</span>
+              </label>
+              {hasMedicalCondition && (
+                <textarea
+                  value={medicalConditionNote}
+                  onChange={(e) => setMedicalConditionNote(e.target.value)}
+                  placeholder="ระบุชื่อโรคประจำตัว ยาที่รับประทาน หรือข้อควรระวัง..."
+                  rows={2}
+                  className="w-full bg-[#0E0D0C] border border-[#4A443A] focus:border-[#9C2F2F] text-xs text-[#ECE4D3] p-2.5 outline-none rounded-[4px] resize-none"
+                />
+              )}
+            </div>
+
+            {/* 8.2 Allergy History */}
+            <div className="space-y-2 pt-1 border-t border-[#4A443A]/40">
+              <label className="flex items-center space-x-2 cursor-pointer text-xs text-[#ECE4D3]">
+                <input
+                  type="checkbox"
+                  checked={hasAllergy}
+                  onChange={(e) => {
+                    setHasAllergy(e.target.checked);
+                    if (!e.target.checked) setAllergyNote('');
+                  }}
+                  className="w-4 h-4 rounded border-[#4A443A] bg-[#0E0D0C] text-[#9C2F2F] focus:ring-0 focus:ring-offset-0 cursor-pointer"
+                />
+                <span className="font-medium">มีประวัติแพ้อาหาร / ยา / สารเคมี / แอลกอฮอล์</span>
+              </label>
+              {hasAllergy && (
+                <textarea
+                  value={allergyNote}
+                  onChange={(e) => setAllergyNote(e.target.value)}
+                  placeholder="ระบุสิ่งที่แพ้ เช่น แพ้ยาชา, แพ้แอลกอฮอล์, แพ้ยางพารา (Latex)..."
+                  rows={2}
+                  className="w-full bg-[#0E0D0C] border border-[#4A443A] focus:border-[#9C2F2F] text-xs text-[#ECE4D3] p-2.5 outline-none rounded-[4px] resize-none"
+                />
+              )}
+            </div>
+          </div>
+
+          {/* 9. Steps After Submit Notice Box */}
+          <div className="p-4 bg-[#171512] border border-[#4A443A] rounded-[6px] space-y-1.5 text-xs text-[#ECE4D3] font-prompt">
+            <div className="flex items-center space-x-2 font-bold text-amber-300">
+              <Sparkles size={16} className="text-amber-400 shrink-0" />
+              <span>9. ขั้นตอนถัดไปหลังส่งคำขอ</span>
+            </div>
+            <p className="text-[11px] text-[#A89F91] leading-relaxed font-light">
+              ช่างจะตรวจสอบรายละเอียด รูปอ้างอิง และขนาดงาน ก่อนเสนอราคากลับมาให้คุณ เมื่อได้รับราคาแล้ว คุณสามารถกดยืนยันและชำระค่าจองคิว 500 บาทเพื่อล็อกวันนัดหมาย
+            </p>
           </div>
 
         </div>
@@ -1035,27 +1477,37 @@ export default function EstimateForm({
         {/* Bottom Sticky / Summary Bar */}
         <div className="border-t border-studio-border pt-4 flex flex-col sm:flex-row justify-between items-center gap-3 bg-studio-sec p-3.5 rounded-[6px] border border-studio-border/60">
           <div className="text-xs text-studio-secondary space-y-0.5">
-            <div>ช่าง: <strong className="text-studio-primary">{selectedArtist?.name || 'ยังไม่เลือกช่าง'}</strong> • สไตล์: <strong className="text-studio-primary">{style || 'ยังไม่เลือกสไตล์'}</strong></div>
-            <div className="text-[11px]">ขนาด: <strong className="text-studio-red">{width}×{height} ซม.</strong> • ตำแหน่ง: <strong className="text-studio-primary">{placement || 'ยังไม่ระบุตำแหน่ง'}</strong></div>
+            <div>
+              ช่าง: <strong className="text-studio-primary">{selectedArtist?.name || 'ยังไม่เลือกช่าง'}</strong> • 
+              สไตล์: <strong className="text-studio-primary">{style || 'ยังไม่เลือกสไตล์'}</strong>
+            </div>
+            <div className="text-[11px]">
+              ขนาด: <strong className="text-studio-red">{width}×{height} ซม.</strong> • ตำแหน่ง: <strong className="text-studio-primary">{placement || 'ยังไม่ระบุตำแหน่ง'}</strong>
+            </div>
           </div>
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full sm:w-auto min-h-[48px] bg-studio-red hover:bg-tattoo-red-dark text-studio-paper text-xs uppercase tracking-wider font-semibold py-3.5 px-8 rounded-[4px] transition-all border border-studio-red flex items-center justify-center space-x-2 disabled:opacity-50"
-          >
-            {loading ? (
-              <>
-                <Loader2 size={15} className="mr-2 animate-spin" />
-                กำลังส่งคำขอ...
-              </>
-            ) : (
-              <>
-                <Send size={14} className="mr-2" />
-                <span>ส่งคำขอจองคิว</span>
-              </>
-            )}
-          </button>
+          <div className="flex flex-col items-center sm:items-end gap-1.5 w-full sm:w-auto">
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full sm:w-auto min-h-[48px] text-xs uppercase tracking-wider font-semibold py-3.5 px-8 rounded-[4px] transition-all flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer bg-studio-red hover:bg-tattoo-red-dark text-studio-paper border border-studio-red shadow-lg shadow-studio-red/20"
+            >
+              {loading ? (
+                <>
+                  <Loader2 size={15} className="mr-2 animate-spin" />
+                  <span>กำลังส่งคำขอ...</span>
+                </>
+              ) : (
+                <>
+                  <Send size={14} className="mr-2" />
+                  <span>ส่งคำขอให้ช่างประเมิน</span>
+                </>
+              )}
+            </button>
+            <span className="text-[10px] text-[#A89F91] font-light text-center sm:text-right">
+              ช่างจะตรวจสอบรายละเอียด รูปอ้างอิง และขนาดงาน ก่อนเสนอราคางานสักกลับมาให้คุณ
+            </span>
+          </div>
         </div>
 
       </form>

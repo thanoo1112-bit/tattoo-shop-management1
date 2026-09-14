@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import { Search, ChevronRight, User, Calendar, DollarSign, Clock, ShieldCheck, CreditCard } from 'lucide-react';
+import { Search, ChevronRight, User, Calendar, DollarSign, Clock, ShieldCheck, CreditCard, TriangleAlert } from 'lucide-react';
 import { BookingItem, BookingStatus, formatDateTimeBangkok, formatCurrency } from './types';
 
 interface BookingListProps {
@@ -9,6 +9,7 @@ interface BookingListProps {
   selectedBooking: BookingItem | null;
   onSelectBooking: (booking: BookingItem) => void;
   onCheckSlip?: (bookingId: string) => void;
+  initialFilter?: string;
 }
 
 export default function BookingList({
@@ -16,23 +17,36 @@ export default function BookingList({
   selectedBooking,
   onSelectBooking,
   onCheckSlip,
+  initialFilter,
 }: BookingListProps) {
-  const [statusFilter, setStatusFilter] = useState<string>('ALL');
+  const [statusFilter, setStatusFilter] = useState<string>(initialFilter || 'ALL');
   const [searchQuery, setSearchQuery] = useState('');
+
+  React.useEffect(() => {
+    if (initialFilter) {
+      setStatusFilter(initialFilter);
+    }
+  }, [initialFilter]);
 
   const filterPills: Array<{ id: string; label: string }> = [
     { id: 'ALL', label: 'ทั้งหมด' },
-    { id: 'PENDING', label: 'รออนุมัติ' },
-    { id: 'WAITING_DEPOSIT', label: 'รอมัดจำ' },
     { id: 'CONFIRMED', label: 'ยืนยันคิว' },
-    { id: 'IN_PROGRESS', label: 'กำลังสัก' },
     { id: 'COMPLETED', label: 'เสร็จสิ้น' },
     { id: 'CANCELLED', label: 'ยกเลิก' },
   ];
 
   const filteredBookings = useMemo(() => {
     return bookings.filter((b) => {
-      if (statusFilter !== 'ALL' && b.status !== statusFilter) return false;
+      if (statusFilter === 'CONFIRMED') {
+        if (b.status !== 'CONFIRMED') return false;
+      } else if (statusFilter === 'COMPLETED') {
+        if (b.status !== 'COMPLETED') return false;
+      } else if (statusFilter === 'CANCELLED') {
+        if (b.status !== 'CANCELLED') return false;
+      } else if (statusFilter !== 'ALL') {
+        if (b.status !== statusFilter) return false;
+      }
+
       if (searchQuery.trim()) {
         const query = searchQuery.toLowerCase();
         const matchesCustomer = b.customer_name?.toLowerCase().includes(query);
@@ -43,6 +57,26 @@ export default function BookingList({
       return true;
     });
   }, [bookings, statusFilter, searchQuery]);
+
+  const renderHealthAlertBadge = (book: BookingItem) => {
+    const hasAlert = Boolean(book.has_medical_condition || book.has_allergy);
+    if (hasAlert) {
+      return (
+        <span
+          title="มีข้อมูลสุขภาพ กรุณาตรวจสอบรายละเอียดก่อนให้บริการ"
+          className="bg-[#2A1212] text-[#E8B4B4] border border-[#9C2F2F] px-2 py-0.5 rounded text-[10px] font-semibold inline-flex items-center gap-1 cursor-help"
+        >
+          <TriangleAlert size={11} className="text-[#E8B4B4] shrink-0" />
+          <span>มีข้อมูล</span>
+        </span>
+      );
+    }
+    return (
+      <span className="bg-[#171512] text-[#9C9486] border border-[#4A443A] px-2 py-0.5 rounded text-[10px] font-medium inline-flex items-center">
+        ปกติ
+      </span>
+    );
+  };
 
   const renderStatusBadge = (book: BookingItem) => {
     if (
@@ -231,6 +265,7 @@ export default function BookingList({
                   <th className="py-3 px-3">ลูกค้า</th>
                   <th className="py-3 px-3">ช่างสัก</th>
                   <th className="py-3 px-3">สถานะ</th>
+                  <th className="py-3 px-3 text-center">แจ้งเตือนด้านสุขภาพ</th>
                   <th className="py-3 px-3 text-right">ราคาที่ตกลง</th>
                   <th className="py-3 px-3 text-right">รับเงินแล้ว</th>
                   <th className="py-3 px-3 text-center">จัดการ</th>
@@ -259,8 +294,13 @@ export default function BookingList({
                       <td className="py-3 px-3">
                         {renderStatusBadge(book)}
                       </td>
+                      <td className="py-3 px-3 text-center">
+                        {renderHealthAlertBadge(book)}
+                      </td>
                       <td className="py-3 px-3 text-right font-medium text-[#ECE4D3]">
-                        {formatCurrency(book.financial?.quoted_price || 0)}
+                        {book.financial?.quoted_price && book.financial.quoted_price > 0
+                          ? formatCurrency(book.financial.quoted_price)
+                          : 'ยังไม่กำหนดราคา'}
                       </td>
                       <td className="py-3 px-3 text-right font-semibold text-emerald-400">
                         {formatCurrency(book.financial?.total_paid || 0)}
@@ -297,7 +337,10 @@ export default function BookingList({
                         {book.requested_date && ` • วันที่: ${book.requested_date}`}
                       </p>
                     </div>
-                    {renderStatusBadge(book)}
+                    <div className="flex items-center gap-1.5">
+                      {renderHealthAlertBadge(book)}
+                      {renderStatusBadge(book)}
+                    </div>
                   </div>
 
                   <div className="text-xs pt-2 border-t border-[#4A443A]/40 flex items-center justify-between">
@@ -307,7 +350,7 @@ export default function BookingList({
                         {formatCurrency(book.financial?.total_paid || 0)}
                       </span>
                       <span className="text-[10px] text-[#7A7265] ml-1">
-                        / {formatCurrency(book.financial?.quoted_price || 0)}
+                        / {book.financial?.quoted_price && book.financial.quoted_price > 0 ? formatCurrency(book.financial.quoted_price) : 'ยังไม่กำหนดราคา'}
                       </span>
                     </div>
                   </div>

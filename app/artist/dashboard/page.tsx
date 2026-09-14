@@ -12,6 +12,7 @@ import CustomerReferenceImage from '@/components/common/CustomerReferenceImage';
 import PaymentSlipImage from '@/components/common/PaymentSlipImage';
 import PaymentSlipLightbox from '@/components/common/PaymentSlipLightbox';
 import { formatThaiPhoneForDisplay } from '@/lib/phoneUtils';
+import { parseNoteWithPreferredTime } from '@/lib/noteUtils';
 import { 
   Calendar as CalendarIcon, 
   Clock, 
@@ -51,6 +52,7 @@ export default function ArtistDashboardPage() {
   const [customersMap, setCustomersMap] = useState<Map<string, any>>(new Map());
   const [profilesMap, setProfilesMap] = useState<Map<string, any>>(new Map());
   const [estimatesMap, setEstimatesMap] = useState<Map<string, any>>(new Map());
+  const [paymentSummaryMap, setPaymentSummaryMap] = useState<Map<string, any>>(new Map());
   
   // Drawer States
   const [selectedSessionDetail, setSelectedSessionDetail] = useState<ArtistSessionDetail | null>(null);
@@ -119,7 +121,7 @@ export default function ArtistDashboardPage() {
       if (estimateIds.length > 0) {
         const { data: estData } = await supabase
           .from('estimate_requests')
-          .select('*')
+          .select('id, customer_user_id, artist_id, reference_images, width_cm, height_cm, placement, style, description, preferred_date, status, quoted_price, estimated_duration_minutes, deposit_required, quote_note, quoted_at, accepted_at, rejected_at, created_at, updated_at, has_medical_condition, medical_condition_note, has_allergy, allergy_note, work_type, estimated_min_price, estimated_max_price, price_estimated_at, request_type')
           .in('id', estimateIds);
         dbEstimates = estData || [];
       }
@@ -127,19 +129,19 @@ export default function ArtistDashboardPage() {
       dbEstimates.forEach((e: any) => estMap.set(e.id, e));
       setEstimatesMap(estMap);
 
-      // 4. Query PENDING estimate_requests strictly assigned to staffArtistId
+      // 4. Query PENDING estimate_requests strictly assigned to staffArtistId (immediate visibility)
       const { data: pEstData, error: pEstErr } = await supabase
         .from('estimate_requests')
-        .select('*')
+        .select('id, customer_user_id, artist_id, reference_images, width_cm, height_cm, placement, style, description, preferred_date, status, request_type, quoted_price, estimated_duration_minutes, deposit_required, quote_note, quoted_at, accepted_at, rejected_at, created_at, updated_at, has_medical_condition, medical_condition_note, has_allergy, allergy_note, work_type')
         .eq('artist_id', staffArtistId)
         .eq('status', 'PENDING')
+        .neq('request_type', 'DIRECT_BOOKING')
         .order('created_at', { ascending: false });
 
       if (pEstErr) {
-        console.error('Error fetching pending estimate requests:', pEstErr);
+        console.error('Error fetching artist pending estimates:', pEstErr);
       }
-      const pEstimatesList = pEstData || [];
-      setPendingEstimates(pEstimatesList);
+      setPendingEstimates(pEstData || []);
 
       // 4.5 Query pending payment submissions for own bookings & compute monthly KPIs
       const dbBookingIds = dbBookings.map((b: any) => b.id);
@@ -181,6 +183,16 @@ export default function ArtistDashboardPage() {
             })
             .reduce((sum: number, p: any) => sum + (Number(p.amount) || 0), 0);
         }
+
+        // 4.7 Query booking_payment_summary for financial status mapping
+        const { data: sumData } = await supabase
+          .from('booking_payment_summary')
+          .select('*')
+          .in('booking_id', dbBookingIds);
+
+        const sumMap = new Map<string, any>();
+        (sumData || []).forEach((s: any) => sumMap.set(s.booking_id, s));
+        setPaymentSummaryMap(sumMap);
       }
       setPendingSubmissions(pSubmissions);
       setMonthlyRevenue(mRev);
@@ -189,7 +201,7 @@ export default function ArtistDashboardPage() {
       const customerUserIds = Array.from(
         new Set([
           ...dbBookings.map((b: any) => b.customer_user_id),
-          ...pEstimatesList.map((e: any) => e.customer_user_id),
+          ...(pEstData || []).map((e: any) => e.customer_user_id),
           ...pSubmissions.map((s: any) => s.customer_user_id)
         ].filter(Boolean))
       );
@@ -233,40 +245,6 @@ export default function ArtistDashboardPage() {
     }
   }, [supabase, isAuthorized, staffArtistId]);
 
-  const handleApprovePayment = async (subId: string, claimedAmount: number) => {
-    try {
-      const { data, error } = await supabase.rpc('artist_approve_payment_submission', {
-        p_submission_id: subId,
-        p_verified_amount: claimedAmount
-      });
-      if (error) {
-        alert(`ไม่สามารถอนุมัติสลิปได้: ${error.message}`);
-        return;
-      }
-      fetchArtistData();
-    } catch (err: any) {
-      console.error('Error approving payment submission:', err);
-    }
-  };
-
-  const handleRejectPayment = async (subId: string) => {
-    const reason = prompt('กรุณาระบุเหตุผลการปฏิเสธสลิป:');
-    if (reason === null) return;
-    try {
-      const { data, error } = await supabase.rpc('artist_reject_payment_submission', {
-        p_submission_id: subId,
-        p_rejection_reason: reason.trim() || 'สลิปไม่ถูกต้อง'
-      });
-      if (error) {
-        alert(`ไม่สามารถปฏิเสธสลิปได้: ${error.message}`);
-        return;
-      }
-      fetchArtistData();
-    } catch (err: any) {
-      console.error('Error rejecting payment submission:', err);
-    }
-  };
-
   useEffect(() => {
     if (isAuthorized && staffArtistId) {
       fetchArtistData();
@@ -301,10 +279,13 @@ export default function ArtistDashboardPage() {
     return phone ? formatThaiPhoneForDisplay(phone) : '';
   };
 
-  const getIsAgeConfirmed = (uid?: string | null) => {
-    if (!uid) return false;
+  const getIsAgeConfirmed = (uid?: string | null): boolean | undefined => {
+    if (!uid) return undefined;
     const c = customersMap.get(uid);
-    return Boolean(c?.eligibility_confirmed_at || c?.profile_completed_at);
+    if (c?.eligibility_confirmed_at || c?.profile_completed_at) {
+      return true;
+    }
+    return undefined;
   };
 
   // Today Bangkok Date String
@@ -312,14 +293,24 @@ export default function ArtistDashboardPage() {
 
   // Today's sessions & upcoming sessions
   const todaySessions = useMemo(() => {
-    return sessions.filter((s: any) => getDateStrBangkok(s.start_at) === todayStr);
-  }, [sessions, todayStr]);
+    return sessions.filter((s: any) => {
+      if (getDateStrBangkok(s.start_at) !== todayStr || s.status === 'CANCELLED') return false;
+      const b = bookingsMap.get(s.booking_id);
+      if (!b) return false;
+      return b.status === 'CONFIRMED' || b.status === 'IN_PROGRESS' || b.status === 'COMPLETED';
+    });
+  }, [sessions, todayStr, bookingsMap]);
 
   const upcomingSessions = useMemo(() => {
     return sessions
-      .filter((s: any) => getDateStrBangkok(s.start_at) > todayStr && s.status !== 'CANCELLED')
+      .filter((s: any) => {
+        if (getDateStrBangkok(s.start_at) <= todayStr || s.status === 'CANCELLED') return false;
+        const b = bookingsMap.get(s.booking_id);
+        if (!b) return false;
+        return b.status === 'CONFIRMED' || b.status === 'IN_PROGRESS';
+      })
       .slice(0, 10);
-  }, [sessions, todayStr]);
+  }, [sessions, todayStr, bookingsMap]);
 
   // KPI Metrics Calculations
   const pendingRequestsCount = pendingEstimates.length;
@@ -400,6 +391,24 @@ export default function ArtistDashboardPage() {
     const customer = customerUserId ? customersMap.get(customerUserId) : null;
     const prof = customerUserId ? profilesMap.get(customerUserId) : null;
     const estimate = booking?.estimate_request_id ? estimatesMap.get(booking.estimate_request_id) : null;
+    const summary = paymentSummaryMap.get(sess.booking_id);
+    const hasPendingSlip = pendingSubmissions.some((sub: any) => sub.booking_id === sess.booking_id);
+    const depositReq = summary?.deposit_required ?? estimate?.deposit_required ?? 0;
+
+    let depositStatus = 'ยืนยันแล้ว';
+    if (booking?.status === 'CANCELLED' || booking?.status === 'REJECTED') {
+      depositStatus = 'เสียสิทธิ์';
+    } else if (Number(depositReq) > 0) {
+      if (summary?.deposit_paid || summary?.deposit_paid === true || booking?.status === 'CONFIRMED' || booking?.status === 'IN_PROGRESS' || booking?.status === 'COMPLETED') {
+        depositStatus = 'ยืนยันแล้ว';
+      } else if (hasPendingSlip) {
+        depositStatus = 'ส่งหลักฐานแล้ว';
+      } else {
+        depositStatus = 'รอมัดจำ';
+      }
+    } else {
+      depositStatus = 'ไม่ต้องมัดจำ';
+    }
 
     const siblingSessions = sessions
       .filter((s: any) => s.booking_id === sess.booking_id)
@@ -409,7 +418,7 @@ export default function ArtistDashboardPage() {
         start_at: s.start_at,
         end_at: s.end_at,
         status: s.status,
-        notes: s.notes,
+        notes: s.notes || s.session_notes || s.note || null,
       }))
       .sort((a, b) => a.session_number - b.session_number);
 
@@ -420,17 +429,17 @@ export default function ArtistDashboardPage() {
       start_at: sess.start_at,
       end_at: sess.end_at,
       session_status: sess.status,
-      session_notes: sess.notes,
+      session_notes: sess.session_notes || sess.notes || sess.note || null,
 
       booking_id: sess.booking_id,
       booking_status: booking?.status || 'CONFIRMED',
       booking_source: booking?.booking_source,
       artwork_title: booking?.artwork_title,
       artwork_image_url: booking?.artwork_image_url,
-      placement: booking?.placement || estimate?.placement,
-      width_cm: booking?.width_cm || estimate?.width_cm,
-      height_cm: booking?.height_cm || estimate?.height_cm,
-      description: booking?.description || estimate?.description,
+      placement: booking?.placement || estimate?.placement || null,
+      width_cm: booking?.width_cm ?? estimate?.width_cm ?? null,
+      height_cm: booking?.height_cm ?? estimate?.height_cm ?? null,
+      description: parseNoteWithPreferredTime(estimate?.description || booking?.description).cleanNote || null,
       customer_note: booking?.customer_note,
       staff_note: booking?.staff_note,
 
@@ -440,8 +449,21 @@ export default function ArtistDashboardPage() {
       is_age_confirmed: getIsAgeConfirmed(customerUserId),
 
       estimate_request_id: booking?.estimate_request_id,
-      style: estimate?.style || null,
+      request_type: estimate?.request_type || null,
+      work_type: estimate?.work_type || null,
+      style: estimate?.style || estimate?.style_preference || booking?.style_preference || null,
       reference_images: estimate?.reference_images || (booking?.artwork_image_url ? [booking.artwork_image_url] : null),
+
+      quoted_price: summary?.quoted_price ?? estimate?.quoted_price ?? null,
+      estimated_min_price: estimate?.estimated_min_price ?? null,
+      estimated_max_price: estimate?.estimated_max_price ?? null,
+      price_estimated_at: estimate?.price_estimated_at ?? null,
+      deposit_required: summary?.deposit_required ?? estimate?.deposit_required ?? null,
+      paid_total: summary?.paid_total ?? null,
+      remaining_balance: summary?.remaining_balance ?? null,
+      deposit_status: depositStatus,
+      is_deposit_paid: summary?.deposit_paid ?? false,
+      is_fully_paid: summary?.is_fully_paid ?? false,
 
       all_sessions: siblingSessions.length > 0 ? siblingSessions : undefined,
     };
@@ -470,6 +492,10 @@ export default function ArtistDashboardPage() {
       style_preference: est.style || est.style_preference,
       preferred_date: est.preferred_date,
       reference_images: est.reference_images,
+      has_medical_condition: Boolean(est.has_medical_condition),
+      medical_condition_note: est.medical_condition_note || null,
+      has_allergy: Boolean(est.has_allergy),
+      allergy_note: est.allergy_note || null,
       status: est.status,
       created_at: est.created_at,
     };
@@ -524,80 +550,80 @@ export default function ArtistDashboardPage() {
         </div>
 
         {/* Section 1: Top 4 Summary KPI Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-5">
           {/* Card 1: คำขอใหม่ */}
-          <div className="bg-studio-card border border-studio-border p-4 sm:p-5 rounded-xl flex items-center justify-between shadow-lg">
-            <div className="space-y-1">
-              <span className="text-xs text-studio-secondary uppercase tracking-wider font-medium">คำขอใหม่</span>
-              <div className="text-2xl sm:text-3xl font-bold font-mono text-amber-400">
+          <div className="bg-studio-card border border-studio-border p-3.5 sm:p-5 rounded-xl flex items-center justify-between shadow-lg">
+            <div className="space-y-0.5 min-w-0 pr-1">
+              <span className="text-[11px] sm:text-xs text-studio-secondary uppercase tracking-wider font-medium block truncate">คำขอใหม่</span>
+              <div className="text-xl sm:text-3xl font-bold font-mono text-amber-400 truncate">
                 {pendingRequestsCount} <span className="text-xs font-normal text-studio-muted">รายการ</span>
               </div>
             </div>
-            <div className="w-12 h-12 rounded-xl bg-amber-950/30 border border-amber-800/40 flex items-center justify-center text-amber-400">
-              <Inbox size={22} />
+            <div className="w-9 h-9 sm:w-12 sm:h-12 rounded-xl bg-amber-950/30 border border-amber-800/40 flex items-center justify-center text-amber-400 shrink-0">
+              <Inbox className="w-4 h-4 sm:w-5 sm:h-5" />
             </div>
           </div>
 
           {/* Card 2: คิววันนี้ */}
-          <div className="bg-studio-card border border-studio-border p-4 sm:p-5 rounded-xl flex items-center justify-between shadow-lg">
-            <div className="space-y-1">
-              <span className="text-xs text-studio-secondary uppercase tracking-wider font-medium">คิววันนี้</span>
-              <div className="text-2xl sm:text-3xl font-bold font-mono text-studio-primary">
+          <div className="bg-studio-card border border-studio-border p-3.5 sm:p-5 rounded-xl flex items-center justify-between shadow-lg">
+            <div className="space-y-0.5 min-w-0 pr-1">
+              <span className="text-[11px] sm:text-xs text-studio-secondary uppercase tracking-wider font-medium block truncate">คิววันนี้</span>
+              <div className="text-xl sm:text-3xl font-bold font-mono text-studio-primary truncate">
                 {todaySessionCount} <span className="text-xs font-normal text-studio-muted">รอบ</span>
               </div>
-              <div className="text-xs text-studio-muted">
+              <div className="text-[11px] sm:text-xs text-studio-muted truncate">
                 รวม {formattedTodayHours} ชม.
               </div>
             </div>
-            <div className="w-12 h-12 rounded-xl bg-studio-sec border border-studio-border flex items-center justify-center text-studio-red">
-              <CalendarIcon size={22} />
+            <div className="w-9 h-9 sm:w-12 sm:h-12 rounded-xl bg-studio-sec border border-studio-border flex items-center justify-center text-studio-red shrink-0">
+              <CalendarIcon className="w-4 h-4 sm:w-5 sm:h-5" />
             </div>
           </div>
 
           {/* Card 3: คิวถัดไป */}
-          <div className="bg-studio-card border border-studio-border p-4 sm:p-5 rounded-xl flex items-center justify-between shadow-lg">
-            <div className="space-y-1 min-w-0 pr-2">
-              <span className="text-xs text-studio-secondary uppercase tracking-wider font-medium">คิวถัดไป</span>
+          <div className="bg-studio-card border border-studio-border p-3.5 sm:p-5 rounded-xl flex items-center justify-between shadow-lg">
+            <div className="space-y-0.5 min-w-0 pr-1">
+              <span className="text-[11px] sm:text-xs text-studio-secondary uppercase tracking-wider font-medium block truncate">คิวถัดไป</span>
               {nextUpcomingSession ? (
                 <>
-                  <div className="text-base sm:text-lg font-bold text-studio-primary truncate">
+                  <div className="text-sm sm:text-lg font-bold text-studio-primary truncate">
                     {nextSessionCustomerName}
                   </div>
-                  <div className="text-xs text-studio-muted truncate">
+                  <div className="text-[11px] sm:text-xs text-studio-muted truncate leading-tight">
                     {nextSessionDateLabel} • {nextSessionTimeStr}
                   </div>
-                  <div className="text-xs text-studio-secondary truncate">
+                  <div className="text-[11px] sm:text-xs text-studio-secondary truncate">
                     {nextSessionPlacement || 'ไม่ระบุตำแหน่ง'}
                   </div>
                 </>
               ) : (
                 <>
-                  <div className="text-base sm:text-lg font-medium text-studio-muted">
+                  <div className="text-sm sm:text-lg font-medium text-studio-muted truncate">
                     ไม่มีคิวถัดไป
                   </div>
-                  <div className="text-xs text-studio-muted">-</div>
+                  <div className="text-[11px] sm:text-xs text-studio-muted">-</div>
                 </>
               )}
             </div>
-            <div className="w-12 h-12 rounded-xl bg-amber-950/20 border border-amber-800/40 flex items-center justify-center text-amber-400 shrink-0">
-              <Clock size={22} />
+            <div className="w-9 h-9 sm:w-12 sm:h-12 rounded-xl bg-amber-950/20 border border-amber-800/40 flex items-center justify-center text-amber-400 shrink-0">
+              <Clock className="w-4 h-4 sm:w-5 sm:h-5" />
             </div>
           </div>
 
           {/* Card 4: ผลงานเดือนนี้ */}
-          <div className="bg-studio-card border border-studio-border p-4 sm:p-5 rounded-xl flex items-center justify-between shadow-lg">
-            <div className="space-y-1 min-w-0 pr-2">
-              <span className="text-xs text-studio-secondary uppercase tracking-wider font-medium">ผลงานเดือนนี้</span>
-              <div className="text-2xl sm:text-3xl font-bold font-mono text-studio-primary flex items-baseline space-x-1.5 truncate">
+          <div className="bg-studio-card border border-studio-border p-3.5 sm:p-5 rounded-xl flex items-center justify-between shadow-lg">
+            <div className="space-y-0.5 min-w-0 pr-1">
+              <span className="text-[11px] sm:text-xs text-studio-secondary uppercase tracking-wider font-medium block truncate">ผลงานเดือนนี้</span>
+              <div className="text-xl sm:text-3xl font-bold font-mono text-studio-primary flex items-baseline space-x-1 truncate">
                 <span>{completedJobsThisMonth}</span>
                 <span className="text-xs sm:text-sm font-normal text-studio-muted">เคส</span>
               </div>
-              <div className="text-xs font-mono text-emerald-400 truncate">
+              <div className="text-[11px] sm:text-xs font-mono text-emerald-400 truncate">
                 ยอดรวม ฿{monthlyRevenue.toLocaleString('th-TH')}
               </div>
             </div>
-            <div className="w-12 h-12 rounded-xl bg-emerald-950/20 border border-emerald-800/40 flex items-center justify-center text-emerald-400 shrink-0">
-              <Wallet size={22} />
+            <div className="w-9 h-9 sm:w-12 sm:h-12 rounded-xl bg-emerald-950/20 border border-emerald-800/40 flex items-center justify-center text-emerald-400 shrink-0">
+              <Wallet className="w-4 h-4 sm:w-5 sm:h-5" />
             </div>
           </div>
         </div>
@@ -654,7 +680,7 @@ export default function ArtistDashboardPage() {
                           </span>
                         </div>
                         <h3 className="text-sm font-semibold text-studio-primary pt-1 truncate">
-                          {item.style_preference || 'งานสัก Custom'}
+                          {item.style || item.style_preference || 'งานสัก'}
                         </h3>
                       </div>
 
@@ -720,18 +746,18 @@ export default function ArtistDashboardPage() {
           )}
         </section>
 
-        {/* Section 2.5: สลิปรอตรวจ (Exact Admin UnifiedActionQueue Payment Item Matching) */}
+        {/* Section 2.5: รอตรวจสอบการชำระเงิน (Read-Only Status View for Artist) */}
         {pendingSubmissions.length > 0 && (
           <section className="space-y-4 font-prompt">
             <div className="flex items-center justify-between border-b border-studio-border/60 pb-3">
               <div className="flex items-center space-x-2">
                 <div className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse" />
                 <h2 className="text-base sm:text-lg font-heading font-semibold text-studio-primary">
-                  สลิปรอตรวจ ({pendingSubmissions.length})
+                  รอตรวจสอบการชำระเงิน ({pendingSubmissions.length})
                 </h2>
               </div>
               <span className="text-xs text-studio-muted font-mono">
-                สลิปชำระมัดจำสำหรับงานของคุณ
+                รายการหลักฐานการโอนเงินที่อยู่ระหว่างการตรวจสอบโดยร้าน
               </span>
             </div>
 
@@ -759,7 +785,7 @@ export default function ArtistDashboardPage() {
                       <div className="space-y-1 flex-1 min-w-0">
                         <div className="flex items-center space-x-2 flex-wrap gap-y-1">
                           <span className="text-[10px] bg-amber-950/60 text-amber-400 border border-amber-800/60 px-2 py-0.5 rounded font-bold uppercase tracking-wider">
-                            สลิปรอตรวจ
+                            รอร้านตรวจสอบ
                           </span>
                           <span className="text-[10px] text-studio-muted font-mono">#{sub.id.slice(0, 8)}</span>
                           <span className="text-[10px] text-studio-secondary font-mono">
@@ -783,10 +809,10 @@ export default function ArtistDashboardPage() {
                       <button
                         type="button"
                         onClick={() => setSelectedPaymentReviewSub({ sub, booking, estimate, customerName, customerPhone, depositRequired })}
-                        className="w-full sm:w-auto px-4 py-2 bg-amber-950/80 hover:bg-amber-900 text-amber-200 border border-amber-800 text-xs font-semibold rounded transition-colors flex items-center justify-center space-x-1.5 cursor-pointer shadow"
+                        className="w-full sm:w-auto px-4 py-2 bg-studio-sec hover:bg-studio-border text-studio-primary border border-studio-border text-xs font-semibold rounded transition-colors flex items-center justify-center space-x-1.5 cursor-pointer shadow"
                       >
-                        <ShieldCheck size={14} />
-                        <span>ตรวจสลิป</span>
+                        <Eye size={14} />
+                        <span>ดูรายละเอียด</span>
                       </button>
                     </div>
                   </div>
@@ -829,16 +855,47 @@ export default function ArtistDashboardPage() {
               {todaySessions.map((sess: any) => {
                 const booking = bookingsMap.get(sess.booking_id);
                 const customerUserId = booking?.customer_user_id;
-                const customer = customerUserId ? customersMap.get(customerUserId) : null;
-                const prof = customerUserId ? profilesMap.get(customerUserId) : null;
-                const customerName = prof?.display_name || customer?.first_name || 'ลูกค้าประจำ';
+                const customerName = getCleanCustomerName(customerUserId);
+                const estimate = booking?.estimate_request_id ? estimatesMap.get(booking.estimate_request_id) : null;
+                const summary = paymentSummaryMap.get(sess.booking_id);
                 const sConf = getSessionStatusConfig(sess.status as any);
+
+                const styleName = estimate?.style || estimate?.style_preference || booking?.style_preference || 'Custom';
+                const placement = booking?.placement || estimate?.placement || '—';
+                const widthCm = booking?.width_cm ?? estimate?.width_cm ?? null;
+                const heightCm = booking?.height_cm ?? estimate?.height_cm ?? null;
+                const sizeStr = widthCm && heightCm ? `${widthCm} × ${heightCm} ซม.` : '—';
+                const quotedPrice = summary?.quoted_price ?? estimate?.quoted_price ?? null;
+                const depositReq = summary?.deposit_required ?? estimate?.deposit_required ?? 0;
+
+                const hasPendingSlip = pendingSubmissions.some((sub: any) => sub.booking_id === sess.booking_id);
+                let depositStatusText = 'ยืนยันแล้ว';
+                let depositStatusBadge = 'bg-emerald-950/60 text-emerald-400 border-emerald-800/60';
+
+                if (booking?.status === 'CANCELLED' || booking?.status === 'REJECTED') {
+                  depositStatusText = 'เสียสิทธิ์';
+                  depositStatusBadge = 'bg-red-950/60 text-red-400 border-red-800/60';
+                } else if (Number(depositReq) > 0) {
+                  if (summary?.deposit_paid || summary?.deposit_paid === true || booking?.status === 'CONFIRMED' || booking?.status === 'IN_PROGRESS' || booking?.status === 'COMPLETED') {
+                    depositStatusText = 'ยืนยันแล้ว';
+                    depositStatusBadge = 'bg-emerald-950/60 text-emerald-400 border-emerald-800/60';
+                  } else if (hasPendingSlip) {
+                    depositStatusText = 'ส่งหลักฐานแล้ว';
+                    depositStatusBadge = 'bg-purple-950/60 text-purple-400 border-purple-800/60';
+                  } else {
+                    depositStatusText = 'รอมัดจำ';
+                    depositStatusBadge = 'bg-amber-950/60 text-amber-400 border-amber-800/60';
+                  }
+                } else {
+                  depositStatusText = 'ไม่ต้องมัดจำ';
+                  depositStatusBadge = 'bg-blue-950/60 text-blue-400 border-blue-800/60';
+                }
 
                 return (
                   <div
                     key={sess.id}
                     onClick={() => handleOpenSessionDetail(sess)}
-                    className="group bg-studio-card border border-studio-border hover:border-studio-red/60 p-4 sm:p-5 rounded-xl transition-all duration-200 cursor-pointer shadow-md hover:shadow-xl relative overflow-hidden flex flex-col justify-between space-y-4"
+                    className="group bg-studio-card border border-studio-border hover:border-studio-red/60 p-4 sm:p-5 rounded-xl transition-all duration-200 cursor-pointer shadow-md hover:shadow-xl relative overflow-hidden flex flex-col justify-between space-y-3"
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div className="space-y-1">
@@ -852,6 +909,7 @@ export default function ArtistDashboardPage() {
                         </div>
                         <h3 className="text-sm font-semibold text-studio-primary group-hover:text-studio-red transition-colors flex items-center gap-1.5 pt-1">
                           <span>{booking?.artwork_title || 'งานสัก Custom'}</span>
+                          <span className="text-[11px] text-studio-muted font-normal">({styleName})</span>
                         </h3>
                       </div>
 
@@ -869,16 +927,40 @@ export default function ArtistDashboardPage() {
                     <div className="grid grid-cols-2 gap-2 text-xs pt-2 border-t border-studio-border/60">
                       <div className="flex items-center space-x-1.5 text-studio-secondary truncate">
                         <User size={13} className="text-studio-muted shrink-0" />
-                        <span className="truncate">{customerName}</span>
+                        <span className="truncate font-medium text-studio-primary">{customerName}</span>
                       </div>
                       <div className="flex items-center space-x-1.5 text-studio-secondary truncate justify-end">
                         <Layers size={13} className="text-studio-muted shrink-0" />
-                        <span className="truncate">{booking?.placement || 'ตามที่ระบุ'}</span>
+                        <span className="truncate">{placement}</span>
+                      </div>
+                      <div className="text-studio-muted text-[11px] font-mono">
+                        ขนาด: <span className="text-studio-secondary">{sizeStr}</span>
+                      </div>
+                      <div className="text-right text-studio-muted text-[11px] truncate">
+                        {styleName}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between pt-2 border-t border-studio-border/40">
+                      <div>
+                        <span className="text-[10px] text-studio-muted block">ราคางาน</span>
+                        <span className="text-xs font-bold font-mono text-studio-primary">
+                          {quotedPrice !== null && quotedPrice !== undefined && Number(quotedPrice) > 0
+                            ? `฿${Number(quotedPrice).toLocaleString('th-TH')}`
+                            : '—'}
+                        </span>
+                      </div>
+
+                      <div className="text-right">
+                        <span className="text-[10px] text-studio-muted block">มัดจำ</span>
+                        <span className={`text-[10px] px-2 py-0.5 rounded border font-medium inline-block ${depositStatusBadge}`}>
+                          {depositStatusText}
+                        </span>
                       </div>
                     </div>
 
                     <div className="flex items-center justify-between text-[11px] text-studio-muted pt-1">
-                      <span>คลิกเพื่อดูรายละเอียด / รูปภาพ</span>
+                      <span>ดูรายละเอียด / รูปภาพ</span>
                       <ChevronRight size={14} className="text-studio-secondary group-hover:translate-x-1 transition-transform" />
                     </div>
                   </div>
@@ -916,10 +998,36 @@ export default function ArtistDashboardPage() {
               {upcomingSessions.map((sess: any) => {
                 const booking = bookingsMap.get(sess.booking_id);
                 const customerUserId = booking?.customer_user_id;
-                const customer = customerUserId ? customersMap.get(customerUserId) : null;
-                const prof = customerUserId ? profilesMap.get(customerUserId) : null;
-                const customerName = prof?.display_name || customer?.first_name || 'ลูกค้าประจำ';
+                const customerName = getCleanCustomerName(customerUserId);
+                const estimate = booking?.estimate_request_id ? estimatesMap.get(booking.estimate_request_id) : null;
+                const summary = paymentSummaryMap.get(sess.booking_id);
                 const sConf = getSessionStatusConfig(sess.status as any);
+
+                const placement = booking?.placement || estimate?.placement || 'ไม่ระบุ';
+                const quotedPrice = summary?.quoted_price ?? estimate?.quoted_price ?? null;
+                const depositReq = summary?.deposit_required ?? estimate?.deposit_required ?? 0;
+                const hasPendingSlip = pendingSubmissions.some((sub: any) => sub.booking_id === sess.booking_id);
+
+                let depositStatusText = 'ยืนยันแล้ว';
+                let depositStatusBadge = 'bg-emerald-950/60 text-emerald-400 border-emerald-800/60';
+                if (booking?.status === 'CANCELLED' || booking?.status === 'REJECTED') {
+                  depositStatusText = 'เสียสิทธิ์';
+                  depositStatusBadge = 'bg-red-950/60 text-red-400 border-red-800/60';
+                } else if (Number(depositReq) > 0) {
+                  if (summary?.deposit_paid || summary?.deposit_paid === true || booking?.status === 'CONFIRMED' || booking?.status === 'IN_PROGRESS' || booking?.status === 'COMPLETED') {
+                    depositStatusText = 'ยืนยันแล้ว';
+                    depositStatusBadge = 'bg-emerald-950/60 text-emerald-400 border-emerald-800/60';
+                  } else if (hasPendingSlip) {
+                    depositStatusText = 'ส่งหลักฐานแล้ว';
+                    depositStatusBadge = 'bg-purple-950/60 text-purple-400 border-purple-800/60';
+                  } else {
+                    depositStatusText = 'รอมัดจำ';
+                    depositStatusBadge = 'bg-amber-950/60 text-amber-400 border-amber-800/60';
+                  }
+                } else {
+                  depositStatusText = 'ไม่ต้องมัดจำ';
+                  depositStatusBadge = 'bg-blue-950/60 text-blue-400 border-blue-800/60';
+                }
 
                 return (
                   <div
@@ -942,11 +1050,20 @@ export default function ArtistDashboardPage() {
                           <span className={`text-[9px] px-1.5 py-0.2 rounded border ${sConf.badgeBg} ${sConf.badgeText} ${sConf.border}`}>
                             {sConf.label}
                           </span>
+                          <span className={`text-[9px] px-1.5 py-0.2 rounded border font-medium ${depositStatusBadge}`}>
+                            {depositStatusText}
+                          </span>
                         </div>
                         <div className="text-[11px] text-studio-secondary flex items-center space-x-2">
-                          <span>ลูกค้า: {customerName}</span>
+                          <span>ลูกค้า: <strong className="text-studio-primary font-normal">{customerName}</strong></span>
                           <span>•</span>
-                          <span>ตำแหน่ง: {booking?.placement || 'ไม่ระบุ'}</span>
+                          <span>ตำแหน่ง: {placement}</span>
+                          {quotedPrice !== null && quotedPrice !== undefined && Number(quotedPrice) > 0 && (
+                            <>
+                              <span>•</span>
+                              <span className="font-mono font-bold text-studio-primary">฿{Number(quotedPrice).toLocaleString('th-TH')}</span>
+                            </>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -1008,8 +1125,6 @@ export default function ArtistDashboardPage() {
           customerName={selectedPaymentReviewSub.customerName}
           customerPhone={selectedPaymentReviewSub.customerPhone}
           depositRequired={selectedPaymentReviewSub.depositRequired}
-          onApprove={handleApprovePayment}
-          onReject={handleRejectPayment}
         />
       )}
 

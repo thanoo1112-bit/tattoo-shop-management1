@@ -91,7 +91,7 @@ export default function ArtistCustomersPage() {
       // 3. Fetch estimate_requests for staffArtistId
       const { data: dbEstimates, error: eErr } = await supabase
         .from('estimate_requests')
-        .select('*')
+        .select('id, customer_user_id, artist_id, reference_images, width_cm, height_cm, placement, style, description, preferred_date, status, quoted_price, estimated_duration_minutes, deposit_required, quote_note, quoted_at, accepted_at, rejected_at, created_at, updated_at')
         .eq('artist_id', staffArtistId);
 
       if (eErr) console.error('Error fetching artist estimates for customers:', eErr);

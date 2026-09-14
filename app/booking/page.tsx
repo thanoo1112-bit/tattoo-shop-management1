@@ -68,6 +68,9 @@ function BookingContent() {
     );
   }
 
+  const typeParam = searchParams.get('type');
+  const preselectedType = (typeParam === 'ESTIMATE' || typeParam === 'DIRECT_BOOKING') ? typeParam : 'DIRECT_BOOKING';
+
   return (
     <div className="min-h-screen bg-studio-main pb-28 md:pb-16 text-studio-primary font-prompt">
       <CustomerHeader />
@@ -76,12 +79,12 @@ function BookingContent() {
         <div className="border-b border-studio-border pb-4 mb-6 md:mb-8">
           <span className="text-[10px] uppercase tracking-widest text-studio-red font-bold">157 TATTOO STUDIO</span>
           <h1 className="text-xl md:text-3xl font-bold tracking-wider text-studio-primary mt-0.5">
-            {flashParam ? 'ส่งคำขอจองแบบลายสัก Flash' : 'ส่งคำขอจองคิวงานสัก'}
+            {flashParam ? 'ส่งคำขอจองแบบลายสัก Flash' : 'จองคิวสัก'}
           </h1>
           <p className="text-xs text-studio-secondary mt-1 font-light">
             {flashParam 
               ? 'จองแบบลายสักพร้อมสักราคาคงที่ ระบุวันที่และตำแหน่งที่ต้องการสักเพื่อส่งคำขอจองคิวงาน' 
-              : 'ส่งรายละเอียดงาน รูปอ้างอิง ขนาด ตำแหน่ง และวันที่สะดวก เพื่อส่งคำขอจองกับช่างที่คุณเลือก'}
+              : 'กรอกรายละเอียดงาน เลือกวันเวลาที่สะดวก และยืนยันการจองด้วยเงินมัดจำ 500 บาท'}
           </p>
         </div>
 
@@ -91,8 +94,9 @@ function BookingContent() {
             preselectedArtistId={preselectedArtistId}
             preselectedArtworkImage={preselectedArtworkImage}
             preselectedStyle={preselectedStyle}
+            preselectedType={preselectedType}
             onSuccess={(requestId) => {
-              // EstimateForm provides success UI with link to portal
+              // EstimateForm handles success UI and navigation to portal
             }}
           />
         </div>

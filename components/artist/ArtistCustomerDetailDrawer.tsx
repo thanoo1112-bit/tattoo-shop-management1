@@ -271,15 +271,12 @@ export default function ArtistCustomerDetailDrawer({
                               {statusCfg.label}
                             </span>
                           </div>
-                          <span className="text-xs font-mono text-studio-secondary">
-                            {formatDateBangkok(s.start_at)}
-                          </span>
                         </div>
 
                         <div className="text-xs text-studio-primary font-medium flex items-center space-x-2 pt-1">
                           <Clock size={13} className="text-studio-muted" />
                           <span>
-                            {formatTimeBangkok(s.start_at)} - {formatTimeBangkok(s.end_at)}
+                            {formatDateBangkok(s.start_at)} · {formatTimeBangkok(s.start_at)} น.
                           </span>
                         </div>
 

@@ -448,10 +448,10 @@ export default function CustomerDepositPaymentSection({
         <div className="bg-studio-main border border-studio-border p-4 rounded-[6px] space-y-4">
           <div className="border-b border-studio-border/40 pb-2 flex items-center justify-between">
             <span className="text-[11px] uppercase tracking-wider font-bold text-studio-secondary flex items-center gap-1.5">
-              <QrCode size={13} className="text-studio-red" /> ช่องทางการชำระเงินมัดจำ
+              <QrCode size={13} className="text-[#D9A441]" /> ช่องทางการชำระเงินมัดจำ
             </span>
             <span className="text-[10px] text-studio-muted">
-              ยอดชำระ: <strong className="text-studio-red">฿{formatCurrency(depositOutstanding)}</strong>
+              ยอดชำระ: <strong className="text-[#D9A441]">฿{formatCurrency(depositOutstanding)}</strong>
             </span>
           </div>
 

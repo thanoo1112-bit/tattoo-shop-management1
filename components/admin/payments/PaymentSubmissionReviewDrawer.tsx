@@ -85,12 +85,18 @@ export default function PaymentSubmissionReviewDrawer({
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
 
+  const [confirmationState, setConfirmationState] = useState<'loading' | 'confirmed' | 'not_confirmed' | 'error'>('loading');
+
   // Complete self-hydration effect for linked entity relationships
   useEffect(() => {
-    if (!submission) return;
+    if (!submission) {
+      setConfirmationState('not_confirmed');
+      return;
+    }
     const currentSub = submission;
 
     let isMounted = true;
+    setConfirmationState('loading');
 
     async function loadFullData() {
       try {
@@ -147,11 +153,7 @@ export default function PaymentSubmissionReviewDrawer({
           const activeSes = sessions.find((s: any) => s.status === 'SCHEDULED' || s.status === 'IN_PROGRESS') || sessions[0];
           if (activeSes?.start_at) {
             apptDate = formatDateBangkok(activeSes.start_at);
-            if (activeSes.end_at) {
-              apptTime = `${formatTimeBangkok(activeSes.start_at)} – ${formatTimeBangkok(activeSes.end_at)}`;
-            } else {
-              apptTime = formatTimeBangkok(activeSes.start_at);
-            }
+            apptTime = `${formatTimeBangkok(activeSes.start_at)} น.`;
           }
         } else if (b?.requested_date) {
           apptDate = formatDateBangkok(b.requested_date);
@@ -176,25 +178,31 @@ export default function PaymentSubmissionReviewDrawer({
           images = [currentSub.artwork_image_url];
         }
 
-        setHydratedDetails({
-          customerName: custName,
-          customerPhone: custPhone,
-          artistName: artName,
-          appointmentDate: apptDate,
-          appointmentTime: apptTime,
-          bookingStatus: b?.status || currentSub.booking_status || 'WAITING_DEPOSIT',
-          placement: b?.placement || est?.placement || currentSub.placement || 'ไม่ระบุ',
-          widthCm: b?.width_cm ?? est?.width_cm ?? currentSub.width_cm ?? null,
-          heightCm: b?.height_cm ?? est?.height_cm ?? currentSub.height_cm ?? null,
-          style: est?.style || currentSub.style || 'Custom',
-          description: est?.description || b?.description || currentSub.description || '',
-          quotedPrice: Number(summary?.quoted_price ?? est?.quoted_price ?? currentSub.quoted_price ?? 0),
-          depositRequired: Number(summary?.deposit_required ?? est?.deposit_required ?? currentSub.deposit_required ?? 0),
-          paidTotal: Number(summary?.paid_total ?? currentSub.paid_total ?? 0),
-          refImages: images,
-        });
+        const isConfirmed = Boolean(cust?.eligibility_confirmed_at || cust?.profile_completed_at);
+
+        if (isMounted) {
+          setConfirmationState(isConfirmed ? 'confirmed' : 'not_confirmed');
+          setHydratedDetails({
+            customerName: custName,
+            customerPhone: custPhone,
+            artistName: artName,
+            appointmentDate: apptDate,
+            appointmentTime: apptTime,
+            bookingStatus: b?.status || currentSub.booking_status || 'WAITING_DEPOSIT',
+            placement: b?.placement || est?.placement || currentSub.placement || 'ไม่ระบุ',
+            widthCm: b?.width_cm ?? est?.width_cm ?? currentSub.width_cm ?? null,
+            heightCm: b?.height_cm ?? est?.height_cm ?? currentSub.height_cm ?? null,
+            style: est?.style || currentSub.style || 'Custom',
+            description: est?.description || b?.description || currentSub.description || '',
+            quotedPrice: Number(summary?.quoted_price ?? est?.quoted_price ?? currentSub.quoted_price ?? 0),
+            depositRequired: Number(summary?.deposit_required ?? est?.deposit_required ?? currentSub.deposit_required ?? 0),
+            paidTotal: Number(summary?.paid_total ?? currentSub.paid_total ?? 0),
+            refImages: images,
+          });
+        }
       } catch (err) {
         console.error('[PaymentSubmissionReviewDrawer] Hydration error:', err);
+        if (isMounted) setConfirmationState('error');
       }
     }
 
@@ -414,11 +422,25 @@ export default function PaymentSubmissionReviewDrawer({
               )}
             </div>
             <div className="flex items-center justify-between text-xs pt-1.5 border-t border-[#4A443A]/40">
-              <span className="text-[11px] text-[#7A7265]">ยืนยันเงื่อนไขก่อนรับบริการ:</span>
-              <span className="text-emerald-400 bg-emerald-950/50 border border-emerald-800/60 px-2 py-0.5 rounded text-[10px] font-semibold flex items-center gap-1">
-                <CheckCircle2 size={11} />
-                <span>✓ ยืนยันแล้ว</span>
-              </span>
+              <span className="text-[11px] text-[#7A7265]">การยืนยันอายุและเงื่อนไข:</span>
+              {confirmationState === 'loading' ? (
+                <span className="text-[#A89F91] bg-[#171512] border border-[#4A443A]/50 px-2 py-0.5 rounded text-[10px]">
+                  กำลังตรวจสอบ...
+                </span>
+              ) : confirmationState === 'confirmed' ? (
+                <span className="text-emerald-400 bg-emerald-950/50 border border-emerald-800/60 px-2 py-0.5 rounded text-[10px] font-semibold flex items-center gap-1">
+                  <CheckCircle2 size={11} />
+                  <span>ยืนยันแล้ว</span>
+                </span>
+              ) : confirmationState === 'error' ? (
+                <span className="text-amber-400/80 bg-amber-950/30 border border-amber-800/30 px-2 py-0.5 rounded text-[10px]">
+                  ! ไม่สามารถตรวจสอบได้
+                </span>
+              ) : (
+                <span className="text-amber-400 bg-amber-950/50 border border-amber-800/60 px-2 py-0.5 rounded text-[10px] font-semibold">
+                  ยังไม่ยืนยัน
+                </span>
+              )}
             </div>
           </div>
 
@@ -453,12 +475,12 @@ export default function PaymentSubmissionReviewDrawer({
 
               {/* Row 3: Date & Time */}
               <div className="bg-[#171512] p-2.5 rounded-lg border border-[#4A443A]/40 min-w-0">
-                <span className="text-[10px] text-[#7A7265] block">วันนัดหมาย</span>
+                <span className="text-[10px] text-[#7A7265] block">วันที่นัด</span>
                 <span className="font-medium text-[#ECE4D3] mt-0.5 block truncate">{displayApptDate}</span>
               </div>
 
               <div className="bg-[#171512] p-2.5 rounded-lg border border-[#4A443A]/40 min-w-0">
-                <span className="text-[10px] text-[#7A7265] block">เวลา</span>
+                <span className="text-[10px] text-[#7A7265] block">เวลานัด</span>
                 <span className="font-medium text-[#ECE4D3] mt-0.5 block truncate">{displayApptTime}</span>
               </div>
 

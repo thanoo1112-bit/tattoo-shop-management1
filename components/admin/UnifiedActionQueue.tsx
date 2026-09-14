@@ -25,6 +25,7 @@ import PaymentSubmissionReviewDrawer from '@/components/admin/payments/PaymentSu
 import EstimateDetailPanel from '@/components/admin/requests/EstimateDetailPanel';
 import BookingDetailPanel from '@/components/admin/requests/BookingDetailPanel';
 import { formatDateBangkok, formatTimeBangkok } from '@/components/admin/calendar/calendarUtils';
+import { resolveEstimateOperationalStatus } from '@/components/admin/requests/types';
 
 export type UnifiedQueueTab = 'all' | 'custom' | 'payments' | 'flash';
 
@@ -79,7 +80,7 @@ export default function UnifiedActionQueue() {
       // 2. Fetch Customers & Profiles
       const { data: custData } = await supabase
         .from('customers')
-        .select('user_id, display_name, first_name, last_name, phone, email');
+        .select('user_id, display_name, first_name, last_name, phone, email, eligibility_confirmed_at, profile_completed_at');
       const { data: profData } = await supabase.from('profiles').select('user_id, display_name, phone, email');
 
       const getCustomerInfo = (uid: string) => {
@@ -95,7 +96,9 @@ export default function UnifiedActionQueue() {
           ? c.email.split('@')[0]
           : 'ลูกค้า';
         const phoneCandidate = p?.phone || c?.phone || '';
-        return { name: nameCandidate, phone: phoneCandidate };
+        const emailCandidate = p?.email || c?.email || '';
+        const isConfirmed = c ? (c.eligibility_confirmed_at || c.profile_completed_at ? true : undefined) : undefined;
+        return { name: nameCandidate, phone: phoneCandidate, email: emailCandidate, isConfirmed };
       };
 
       const unifiedList: UnifiedQueueItem[] = [];
@@ -105,25 +108,70 @@ export default function UnifiedActionQueue() {
         .from('estimate_requests')
         .select('*')
         .eq('status', 'PENDING')
+        .neq('request_type', 'DIRECT_BOOKING')
         .order('created_at', { ascending: false });
 
-      (pendingEst || []).forEach((est: any) => {
-        const custInfo = getCustomerInfo(est.customer_user_id);
-        unifiedList.push({
-          id: est.id,
-          type: 'custom',
-          created_at: est.created_at,
-          customerName: custInfo.name,
-          customerPhone: custInfo.phone,
-          artistName: artMap.get(est.artist_id) || 'ช่างสักประจำร้าน',
-          estimateData: {
-            ...est,
-            customer_name: custInfo.name,
-            customer_phone: custInfo.phone,
-            artist_name: artMap.get(est.artist_id),
-          },
+      if (pendingEst && pendingEst.length > 0) {
+        const pendingEstIds = pendingEst.map((e: any) => e.id);
+        const { data: linkedBookingsData } = await supabase
+          .from('bookings')
+          .select('*, artists(id, name, nickname), booking_sessions(id, session_number, start_at, end_at, status)')
+          .in('estimate_request_id', pendingEstIds);
+
+        const linkedBookingIds = (linkedBookingsData || []).map((b: any) => b.id);
+        const { data: pendingSlipsData } = linkedBookingIds.length > 0
+          ? await supabase
+              .from('booking_payment_submissions')
+              .select('*')
+              .in('booking_id', linkedBookingIds)
+              .eq('status', 'PENDING')
+          : { data: [] };
+
+        (pendingEst || []).forEach((est: any) => {
+          const custInfo = getCustomerInfo(est.customer_user_id);
+          const artistObj = (artData || []).find((a: any) => a.id === est.artist_id);
+          const artistFormatted = artistObj
+            ? `${artistObj.name}${artistObj.nickname ? ` (${artistObj.nickname})` : ''}`
+            : 'ช่างสักประจำร้าน';
+
+          const linkedB = (linkedBookingsData || []).find((b: any) => b.estimate_request_id === est.id) || null;
+          const pendingSub = linkedB
+            ? (pendingSlipsData || []).find((sub: any) => sub.booking_id === linkedB.id)
+            : null;
+          const hasPendingSlip = Boolean(pendingSub);
+          const opStatus = resolveEstimateOperationalStatus(est, linkedB, hasPendingSlip);
+
+          unifiedList.push({
+            id: est.id,
+            type: 'custom',
+            created_at: est.created_at,
+            customerName: custInfo.name,
+            customerPhone: custInfo.phone,
+            artistName: artistFormatted,
+            estimateData: {
+              ...est,
+              customer_name: custInfo.name,
+              customer_phone: custInfo.phone,
+              customer_email: custInfo.email,
+              is_age_confirmed: custInfo.isConfirmed,
+              artist_name: artistObj?.name || 'ยังไม่มอบหมายช่าง',
+              artist_nickname: artistObj?.nickname || null,
+              style_preference: est.style || est.style_preference || null,
+              style: est.style || est.style_preference || null,
+              work_type: est.work_type || null,
+              color_technique: est.color_technique || null,
+              quoted_price: est.quoted_price ? Number(est.quoted_price) : null,
+              deposit_required: est.deposit_required ? Number(est.deposit_required) : null,
+              estimated_min_price: est.estimated_min_price ? Number(est.estimated_min_price) : null,
+              estimated_max_price: est.estimated_max_price ? Number(est.estimated_max_price) : null,
+              linked_booking: linkedB,
+              has_pending_payment_submission: hasPendingSlip,
+              pending_submission: pendingSub,
+              operational_status: opStatus,
+            },
+          });
         });
-      });
+      }
 
       // B. Payment Reviews (PENDING booking_payment_submissions)
       const { data: pendingSubs } = await supabase
@@ -163,6 +211,86 @@ export default function UnifiedActionQueue() {
           const paidTotal = Number(f?.paid_total ?? 0);
           const outstanding = Math.max(0, depReq - paidTotal);
 
+          const fullEstData = est ? {
+            ...est,
+            customer_name: custInfo.name,
+            customer_phone: custInfo.phone,
+            customer_email: custInfo.email,
+            is_age_confirmed: custInfo.isConfirmed,
+            artist_name: artistObj?.name || 'ยังไม่มอบหมายช่าง',
+            artist_nickname: artistObj?.nickname || null,
+            style_preference: est.style || est.style_preference || null,
+            style: est.style || est.style_preference || null,
+            work_type: est.work_type || null,
+            color_technique: est.color_technique || null,
+            quoted_price: est.quoted_price ? Number(est.quoted_price) : null,
+            deposit_required: est.deposit_required ? Number(est.deposit_required) : null,
+            estimated_min_price: est.estimated_min_price ? Number(est.estimated_min_price) : null,
+            estimated_max_price: est.estimated_max_price ? Number(est.estimated_max_price) : null,
+            linked_booking: b ? {
+              ...b,
+              customer_name: custInfo.name,
+              customer_phone: custInfo.phone,
+              customer_email: custInfo.email,
+              artist_name: artistObj?.name || 'ช่างสักประจำร้าน',
+              artist_nickname: artistObj?.nickname || null,
+              financial: {
+                quoted_price: Number(f?.quoted_price || 0),
+                deposit_required: depReq,
+                total_paid: paidTotal,
+                remaining_balance: Math.max(0, Number(f?.quoted_price || 0) - paidTotal),
+                is_deposit_paid: paidTotal >= depReq,
+                is_fully_paid: paidTotal >= Number(f?.quoted_price || 0),
+              },
+              sessions: b.booking_sessions || [],
+              has_pending_payment_submission: true,
+              pending_submission: sub,
+            } : null,
+            has_pending_payment_submission: true,
+            pending_submission: sub,
+            operational_status: resolveEstimateOperationalStatus(est, b, true),
+          } : (b ? {
+            id: b.id,
+            created_at: b.created_at || sub.submitted_at,
+            customer_user_id: sub.customer_user_id,
+            customer_name: custInfo.name,
+            customer_phone: custInfo.phone,
+            customer_email: custInfo.email,
+            is_age_confirmed: custInfo.isConfirmed,
+            artist_name: artistObj?.name || 'ช่างสักประจำร้าน',
+            artist_nickname: artistObj?.nickname || null,
+            style_preference: b.style_preference || 'งานสัก Custom',
+            style: b.style_preference || 'งานสัก Custom',
+            placement: b.placement || null,
+            width_cm: b.width_cm || null,
+            height_cm: b.height_cm || null,
+            description: b.description || null,
+            quoted_price: Number(f?.quoted_price || 0),
+            deposit_required: depReq,
+            linked_booking: {
+              ...b,
+              customer_name: custInfo.name,
+              customer_phone: custInfo.phone,
+              customer_email: custInfo.email,
+              artist_name: artistObj?.name || 'ช่างสักประจำร้าน',
+              artist_nickname: artistObj?.nickname || null,
+              financial: {
+                quoted_price: Number(f?.quoted_price || 0),
+                deposit_required: depReq,
+                total_paid: paidTotal,
+                remaining_balance: Math.max(0, Number(f?.quoted_price || 0) - paidTotal),
+                is_deposit_paid: paidTotal >= depReq,
+                is_fully_paid: paidTotal >= Number(f?.quoted_price || 0),
+              },
+              sessions: b.booking_sessions || [],
+              has_pending_payment_submission: true,
+              pending_submission: sub,
+            },
+            has_pending_payment_submission: true,
+            pending_submission: sub,
+            operational_status: resolveEstimateOperationalStatus({ id: b.id, status: 'CONFIRMED' } as any, b, true),
+          } : null);
+
           unifiedList.push({
             id: sub.id,
             type: 'payment',
@@ -170,10 +298,12 @@ export default function UnifiedActionQueue() {
             customerName: custInfo.name,
             customerPhone: custInfo.phone,
             artistName: artistFormatted,
+            estimateData: fullEstData,
             submissionData: {
               ...sub,
               customer_name: custInfo.name,
               customer_phone: custInfo.phone,
+              customer_email: custInfo.email,
               artist_name: artistFormatted,
               artist_nickname: artistObj?.nickname || null,
               artwork_title: b?.artwork_title || est?.style || 'งานสัก Custom',
@@ -389,7 +519,14 @@ export default function UnifiedActionQueue() {
                 return (
                   <div
                     key={item.id}
-                    className="bg-studio-main border border-amber-900/40 hover:border-amber-700/60 p-4 rounded-[6px] transition-all flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 group"
+                    className="bg-studio-main border border-amber-900/40 hover:border-amber-700/60 p-4 rounded-[6px] transition-all flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 group cursor-pointer"
+                    onClick={() => {
+                      if (item.estimateData) {
+                        setSelectedEstimateReq(item.estimateData);
+                      } else {
+                        setSelectedPaymentSub(sub);
+                      }
+                    }}
                   >
                     <div className="flex items-start space-x-3.5 flex-1 min-w-0">
                       {/* Single Slip Thumbnail */}
@@ -420,10 +557,16 @@ export default function UnifiedActionQueue() {
                       </div>
                     </div>
 
-                    <div className="shrink-0 w-full sm:w-auto">
+                    <div className="shrink-0 flex items-center gap-2 w-full sm:w-auto" onClick={(e) => e.stopPropagation()}>
                       <button
                         type="button"
-                        onClick={() => setSelectedPaymentSub(sub)}
+                        onClick={() => {
+                          if (item.estimateData) {
+                            setSelectedEstimateReq(item.estimateData);
+                          } else {
+                            setSelectedPaymentSub(sub);
+                          }
+                        }}
                         className="w-full sm:w-auto px-4 py-2 bg-amber-950/80 hover:bg-amber-900 text-amber-200 border border-amber-800 text-xs font-semibold rounded transition-colors flex items-center justify-center space-x-1.5 cursor-pointer shadow"
                       >
                         <ShieldCheck size={14} />
@@ -513,6 +656,12 @@ export default function UnifiedActionQueue() {
           onRefresh={() => {
             setSelectedEstimateReq(null);
             fetchUnifiedQueue();
+          }}
+          onCheckSlip={(bookingId) => {
+            const sub = items.find((i) => i.type === 'payment' && i.submissionData?.booking_id === bookingId)?.submissionData;
+            if (sub) {
+              setSelectedPaymentSub(sub);
+            }
           }}
         />
       )}

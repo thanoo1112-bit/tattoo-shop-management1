@@ -102,7 +102,7 @@ export default function PaymentSlipLightbox({
 
   return (
     <div
-      className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm animate-fadeIn font-prompt"
+      className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm animate-fadeIn font-prompt"
       onClick={onClose}
     >
       {/* Container - Stop propagation on inner content click */}

@@ -5,7 +5,6 @@ import { createClient } from '@/lib/supabase/client';
 import {
   CalendarSessionEvent,
   CalendarArtist,
-  CalendarSummaryMetrics,
   ViewMode,
   SessionStatus,
 } from './types';
@@ -17,12 +16,12 @@ import {
 } from './calendarUtils';
 import CalendarToolbar from './CalendarToolbar';
 import CalendarFilters from './CalendarFilters';
-import CalendarSummaryStrip from './CalendarSummaryStrip';
 import MonthCalendarView from './MonthCalendarView';
 import WeekCalendarView from './WeekCalendarView';
 import DayAgendaView from './DayAgendaView';
 import CalendarSessionDetailDrawer from './CalendarSessionDetailDrawer';
-import { AlertCircle, RefreshCw } from 'lucide-react';
+import AvailabilityBlockModal, { BlockedDateItem } from './AvailabilityBlockModal';
+import { AlertCircle, CheckCircle2 } from 'lucide-react';
 
 export default function AdminMasterCalendar() {
   const todayStr = useMemo(() => getTodayBangkokStr(), []);
@@ -34,9 +33,12 @@ export default function AdminMasterCalendar() {
   const [selectedArtistId, setSelectedArtistId] = useState<string>('ALL');
   const [selectedStatus, setSelectedStatus] = useState<string>('ALL');
   const [selectedEvent, setSelectedEvent] = useState<CalendarSessionEvent | null>(null);
+  const [isBlockModalOpen, setIsBlockModalOpen] = useState<boolean>(false);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   // Data State
   const [artists, setArtists] = useState<CalendarArtist[]>([]);
+  const [blockedDates, setBlockedDates] = useState<BlockedDateItem[]>([]);
   const [sessions, setSessions] = useState<CalendarSessionEvent[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -58,35 +60,38 @@ export default function AdminMasterCalendar() {
     try {
       const supabase = createClient();
 
-      // 1. Fetch Active Artists
-      const { data: artistsData, error: artistsError } = await supabase
-        .from('artists')
-        .select('id, name, nickname, avatar_url, is_active, working_days, specialties')
-        .eq('is_active', true)
-        .order('name');
+      // 1. Fetch Active Artists, Blocked Dates, and Sessions in Parallel
+      const [artistsRes, blockedRes, sessionsRes] = await Promise.all([
+        supabase
+          .from('artists')
+          .select('id, name, nickname, avatar_url, is_active, working_days, specialties')
+          .eq('is_active', true)
+          .order('name'),
+        supabase
+          .from('artist_blocked_dates')
+          .select('id, scope, artist_id, blocked_date, reason'),
+        supabase
+          .from('booking_sessions')
+          .select('*')
+          .order('start_at', { ascending: true }),
+      ]);
 
-      if (artistsError) throw artistsError;
-      setArtists((artistsData as CalendarArtist[]) || []);
+      if (artistsRes.error) throw artistsRes.error;
+      setArtists((artistsRes.data as CalendarArtist[]) || []);
+      setBlockedDates((blockedRes.data as BlockedDateItem[]) || []);
 
-      // 2. Fetch Sessions
-      const { data: sessionsData, error: sessionsError } = await supabase
-        .from('booking_sessions')
-        .select('*')
-        .order('start_at', { ascending: true });
+      if (sessionsRes.error) throw sessionsRes.error;
 
-      if (sessionsError) throw sessionsError;
+      const rawSessions = sessionsRes.data || [];
 
-      const rawSessions = sessionsData || [];
+      const bookingIds = Array.from(new Set(rawSessions.map((s) => s.booking_id)));
 
-      // 3. Batch Fetch Related Bookings & Financial Summaries
-      if (rawSessions.length > 0) {
-        const bookingIds = Array.from(new Set(rawSessions.map((s) => s.booking_id)));
-
+      if (bookingIds.length > 0) {
         const [bookingsRes, financialsRes] = await Promise.all([
           supabase
             .from('bookings')
             .select(
-              'id, status, customer_user_id, requested_date, requested_start_time, customer_note, admin_note, started_at, completed_at, created_at'
+              'id, status, customer_user_id, artist_id, requested_date, requested_start_time, customer_note, admin_note, started_at, completed_at, created_at, estimate_request_id'
             )
             .in('id', bookingIds),
           supabase
@@ -100,11 +105,18 @@ export default function AdminMasterCalendar() {
         const bookingsMap = new Map((bookingsRes.data || []).map((b) => [b.id, b]));
         const financialsMap = new Map((financialsRes.data || []).map((f) => [f.booking_id, f]));
 
-        // 4. Batch Fetch Customer Profiles
         const customerUids = Array.from(
           new Set(
             (bookingsRes.data || [])
               .map((b) => b.customer_user_id)
+              .filter(Boolean)
+          )
+        );
+
+        const estimateIds = Array.from(
+          new Set(
+            (bookingsRes.data || [])
+              .map((b) => b.estimate_request_id)
               .filter(Boolean)
           )
         );
@@ -121,13 +133,28 @@ export default function AdminMasterCalendar() {
           }
         }
 
-        const artistsMap = new Map((artistsData || []).map((a) => [a.id, a]));
+        let estimatesMap = new Map<string, any>();
+        if (estimateIds.length > 0) {
+          const { data: estimatesData } = await supabase
+            .from('estimate_requests')
+            .select('id, style, width_cm, height_cm, placement, reference_images, work_type, description')
+            .in('id', estimateIds);
 
-        // 5. Combine and Hydrate Calendar Events
-        const hydratedEvents: CalendarSessionEvent[] = rawSessions.map((s) => {
+          if (estimatesData) {
+            estimatesMap = new Map(estimatesData.map((e) => [e.id, e]));
+          }
+        }
+
+        const artistsMap = new Map(((artistsRes.data as CalendarArtist[]) || []).map((a) => [a.id, a]));
+
+        // Hydrate Booking Sessions
+        const hydratedSessionEvents: CalendarSessionEvent[] = rawSessions.map((s) => {
           const parentBooking = bookingsMap.get(s.booking_id) || null;
           const parentFinancial = financialsMap.get(s.booking_id) || null;
-          const customerInfo = parentBooking
+          const parentEstimate = parentBooking?.estimate_request_id
+            ? estimatesMap.get(parentBooking.estimate_request_id) || null
+            : null;
+          const customerInfo = parentBooking?.customer_user_id
             ? customersMap.get(parentBooking.customer_user_id) || null
             : null;
           const artistInfo = artistsMap.get(s.artist_id) || null;
@@ -144,12 +171,18 @@ export default function AdminMasterCalendar() {
             created_at: s.created_at,
             artist: artistInfo,
             booking: parentBooking,
-            customer: customerInfo,
+            estimate: parentEstimate,
+            customer: {
+              user_id: parentBooking?.customer_user_id || null,
+              display_name: customerInfo?.display_name || 'ลูกค้า',
+              phone: customerInfo?.phone || null,
+              email: customerInfo?.email || null,
+            },
             financial: parentFinancial,
           };
         });
 
-        setSessions(hydratedEvents);
+        setSessions(hydratedSessionEvents);
       } else {
         setSessions([]);
       }
@@ -164,27 +197,6 @@ export default function AdminMasterCalendar() {
   useEffect(() => {
     loadCalendarData();
   }, [loadCalendarData]);
-
-  // --------------------------------------------------------------------------
-  // Metrics Computation
-  // --------------------------------------------------------------------------
-  const metrics: CalendarSummaryMetrics = useMemo(() => {
-    const todaySessions = sessions.filter(
-      (s) => getDateStrBangkok(s.start_at) === todayStr
-    );
-    const inProgress = sessions.filter((s) => s.status === 'IN_PROGRESS');
-    const waitingDeposit = sessions.filter(
-      (s) => s.booking?.status === 'WAITING_DEPOSIT'
-    );
-    const activeArtistsToday = new Set(todaySessions.map((s) => s.artist_id));
-
-    return {
-      todaySessionsCount: todaySessions.length,
-      inProgressCount: inProgress.length,
-      waitingDepositCount: waitingDeposit.length,
-      activeArtistsCount: activeArtistsToday.size,
-    };
-  }, [sessions, todayStr]);
 
   // --------------------------------------------------------------------------
   // Filtering & Search Pipeline
@@ -280,7 +292,7 @@ export default function AdminMasterCalendar() {
   return (
     <div className="space-y-4">
       {/* 1. Header Section */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-1">
         <div>
           <h1 className="text-xl sm:text-2xl font-bold text-[#ECE4D3] tracking-tight">
             ปฏิทินงานสัก
@@ -291,10 +303,7 @@ export default function AdminMasterCalendar() {
         </div>
       </div>
 
-      {/* 2. Top Summary KPI Strip */}
-      <CalendarSummaryStrip metrics={metrics} />
-
-      {/* 3. Toolbar (Date Nav, Title, View Switcher) */}
+      {/* 2. Toolbar (Date Nav, Title, View Switcher) */}
       <CalendarToolbar
         viewMode={viewMode}
         onViewModeChange={setViewMode}
@@ -305,7 +314,25 @@ export default function AdminMasterCalendar() {
         isToday={selectedDateStr === todayStr}
         onRefresh={loadCalendarData}
         isLoading={isLoading}
+        onOpenBlockModal={() => setIsBlockModalOpen(true)}
       />
+
+      {/* Success Alert */}
+      {successMessage && (
+        <div className="bg-emerald-950/60 border border-emerald-800/80 rounded-xl p-3 flex items-center justify-between gap-3 text-xs text-emerald-400 animate-fadeIn">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 size={16} className="shrink-0" />
+            <span>{successMessage}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setSuccessMessage(null)}
+            className="text-emerald-400 hover:text-emerald-200"
+          >
+            ✕
+          </button>
+        </div>
+      )}
 
       {/* 4. Filter & Search Controls */}
       <CalendarFilters
@@ -328,7 +355,7 @@ export default function AdminMasterCalendar() {
           <button
             type="button"
             onClick={loadCalendarData}
-            className="px-3 py-1 bg-red-900/60 hover:bg-red-800/80 rounded text-xs font-semibold text-white transition-colors"
+            className="px-3 py-1 bg-red-900/60 hover:bg-red-800/80 rounded text-xs font-semibold text-[#ECE4D3] transition-colors"
           >
             ลองใหม่
           </button>
@@ -347,9 +374,11 @@ export default function AdminMasterCalendar() {
             <MonthCalendarView
               currentDateStr={selectedDateStr}
               events={filteredSessions}
+              artists={artists}
+              blockedDates={blockedDates}
+              selectedEvent={selectedEvent}
               onSelectDate={(date) => {
                 setSelectedDateStr(date);
-                setViewMode('DAY');
               }}
               onSelectEvent={setSelectedEvent}
               todayStr={todayStr}
@@ -360,6 +389,8 @@ export default function AdminMasterCalendar() {
             <WeekCalendarView
               selectedDateStr={selectedDateStr}
               events={filteredSessions}
+              artists={artists}
+              selectedEvent={selectedEvent}
               onSelectDate={(date) => {
                 setSelectedDateStr(date);
                 setViewMode('DAY');
@@ -383,10 +414,28 @@ export default function AdminMasterCalendar() {
         </>
       )}
 
-      {/* 7. Side Drawer / Bottom Sheet Detail */}
-      <CalendarSessionDetailDrawer
-        event={selectedEvent}
-        onClose={() => setSelectedEvent(null)}
+      {/* 7. Floating Side Drawer / Bottom Sheet Detail for MONTH & DAY views */}
+      {viewMode !== 'WEEK' && (
+        <CalendarSessionDetailDrawer
+          event={selectedEvent}
+          onClose={() => setSelectedEvent(null)}
+        />
+      )}
+
+      {/* 8. Availability Block Modal */}
+      <AvailabilityBlockModal
+        isOpen={isBlockModalOpen}
+        selectedDateStr={selectedDateStr}
+        artists={artists}
+        existingBlocks={blockedDates}
+        onClose={() => setIsBlockModalOpen(false)}
+        onSuccess={(msg) => {
+          setSuccessMessage(msg);
+          loadCalendarData();
+        }}
+        onError={(errMsg) => {
+          setErrorMessage(errMsg);
+        }}
       />
     </div>
   );

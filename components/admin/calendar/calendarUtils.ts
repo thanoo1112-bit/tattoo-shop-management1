@@ -260,3 +260,102 @@ export function getBookingStatusConfig(status: BookingStatus): {
       };
   }
 }
+
+/**
+ * Artist Color Theme System (Deterministic by artist.id)
+ */
+export interface ArtistColorTheme {
+  bg: string;
+  border: string;
+  text: string;
+  dotBg: string;
+  dotBorder: string;
+  badgeBg: string;
+}
+
+export const ARTIST_PALETTE: ArtistColorTheme[] = [
+  // 1. Muted Emerald
+  {
+    bg: 'bg-[#122419]',
+    border: 'border-emerald-800/70',
+    text: 'text-emerald-300',
+    dotBg: 'bg-emerald-500',
+    dotBorder: 'border-emerald-400',
+    badgeBg: 'bg-emerald-950',
+  },
+  // 2. Muted Blue
+  {
+    bg: 'bg-[#131f2c]',
+    border: 'border-blue-800/70',
+    text: 'text-blue-300',
+    dotBg: 'bg-blue-500',
+    dotBorder: 'border-blue-400',
+    badgeBg: 'bg-blue-950',
+  },
+  // 3. Muted Purple
+  {
+    bg: 'bg-[#201529]',
+    border: 'border-purple-800/70',
+    text: 'text-purple-300',
+    dotBg: 'bg-purple-500',
+    dotBorder: 'border-purple-400',
+    badgeBg: 'bg-purple-950',
+  },
+  // 4. Muted Amber/Bronze
+  {
+    bg: 'bg-[#281b11]',
+    border: 'border-amber-800/70',
+    text: 'text-amber-300',
+    dotBg: 'bg-amber-500',
+    dotBorder: 'border-amber-400',
+    badgeBg: 'bg-amber-950',
+  },
+  // 5. Muted Teal
+  {
+    bg: 'bg-[#112425]',
+    border: 'border-teal-800/70',
+    text: 'text-teal-300',
+    dotBg: 'bg-teal-500',
+    dotBorder: 'border-teal-400',
+    badgeBg: 'bg-teal-950',
+  },
+  // 6. Muted Rose/Crimson
+  {
+    bg: 'bg-[#28131a]',
+    border: 'border-rose-800/70',
+    text: 'text-rose-300',
+    dotBg: 'bg-rose-500',
+    dotBorder: 'border-rose-400',
+    badgeBg: 'bg-rose-950',
+  },
+  // 7. Muted Indigo
+  {
+    bg: 'bg-[#17172b]',
+    border: 'border-indigo-800/70',
+    text: 'text-indigo-300',
+    dotBg: 'bg-indigo-500',
+    dotBorder: 'border-indigo-400',
+    badgeBg: 'bg-indigo-950',
+  },
+];
+
+export const NEUTRAL_ARTIST_THEME: ArtistColorTheme = {
+  bg: 'bg-[#181715]',
+  border: 'border-[#4A443A]/50',
+  text: 'text-[#ECE4D3]',
+  dotBg: 'bg-zinc-500',
+  dotBorder: 'border-zinc-400',
+  badgeBg: 'bg-zinc-900',
+};
+
+export function getArtistColorTheme(artistId?: string | null): ArtistColorTheme {
+  if (!artistId) return NEUTRAL_ARTIST_THEME;
+
+  let hash = 0;
+  for (let i = 0; i < artistId.length; i++) {
+    hash = (hash << 5) - hash + artistId.charCodeAt(i);
+    hash |= 0;
+  }
+  const index = Math.abs(hash) % ARTIST_PALETTE.length;
+  return ARTIST_PALETTE[index];
+}

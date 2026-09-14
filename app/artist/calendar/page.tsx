@@ -15,7 +15,10 @@ import {
   Layers, 
   CheckCircle2, 
   RefreshCw,
-  Filter
+  Filter,
+  Lock,
+  Unlock,
+  Ban
 } from 'lucide-react';
 import { 
   getTodayBangkokStr, 
@@ -27,6 +30,7 @@ import {
   THAI_MONTHS_FULL, 
   THAI_DAYS_SHORT 
 } from '@/components/admin/calendar/calendarUtils';
+import { parseNoteWithPreferredTime } from '@/lib/noteUtils';
 
 export default function ArtistCalendarPage() {
   const { isStaffLoggedIn, staffRole, staffArtistId, staffArtistRecord, profile, authLoading } = useApp();
@@ -38,6 +42,10 @@ export default function ArtistCalendarPage() {
   const [customersMap, setCustomersMap] = useState<Map<string, any>>(new Map());
   const [profilesMap, setProfilesMap] = useState<Map<string, any>>(new Map());
   const [estimatesMap, setEstimatesMap] = useState<Map<string, any>>(new Map());
+  const [paymentSummaryMap, setPaymentSummaryMap] = useState<Map<string, any>>(new Map());
+  const [pendingSubmissions, setPendingSubmissions] = useState<any[]>([]);
+  const [blockedDates, setBlockedDates] = useState<string[]>([]);
+  const [blockLoading, setBlockLoading] = useState<boolean>(false);
 
   // Calendar View State
   const [currentYear, setCurrentYear] = useState<number>(() => new Date().getFullYear());
@@ -105,7 +113,7 @@ export default function ArtistCalendarPage() {
       if (estimateIds.length > 0) {
         const { data: estData } = await supabase
           .from('estimate_requests')
-          .select('*')
+          .select('id, customer_user_id, artist_id, reference_images, width_cm, height_cm, placement, style, description, preferred_date, status, quoted_price, estimated_duration_minutes, deposit_required, quote_note, quoted_at, accepted_at, rejected_at, created_at, updated_at, work_type, estimated_min_price, estimated_max_price, price_estimated_at, request_type')
           .in('id', estimateIds);
         dbEstimates = estData || [];
       }
@@ -114,23 +122,87 @@ export default function ArtistCalendarPage() {
       setEstimatesMap(estMap);
 
       // 4. Query linked customers & profiles
-      const customerUserIds = Array.from(new Set(dbBookings.map((b: any) => b.customer_user_id).filter(Boolean)));
+      const customerUserIds = Array.from(
+        new Set([
+          ...dbBookings.map((b: any) => b.customer_user_id),
+          ...dbEstimates.map((e: any) => e.customer_user_id),
+        ].filter(Boolean))
+      );
+
       if (customerUserIds.length > 0) {
+        const cMap = new Map<string, any>();
+        const pMap = new Map<string, any>();
+
+        // 4a. Query via secure Artist RPC (bypasses RLS restrictions for assigned artist customers)
+        const { data: contactsData, error: contactsErr } = await supabase
+          .rpc('artist_get_customer_contacts', {
+            p_customer_user_ids: customerUserIds
+          });
+
+        if (!contactsErr && contactsData) {
+          (contactsData || []).forEach((c: any) => {
+            if (c.user_id) {
+              cMap.set(c.user_id, c);
+              pMap.set(c.user_id, c);
+            }
+          });
+        }
+
+        // 4b. Direct table query to supplement extra fields
         const { data: cData } = await supabase
           .from('customers')
           .select('user_id, display_name, first_name, last_name, phone, email, eligibility_confirmed_at, profile_completed_at')
           .in('user_id', customerUserIds);
-        const cMap = new Map<string, any>();
-        (cData || []).forEach((c: any) => cMap.set(c.user_id, c));
-        setCustomersMap(cMap);
+
+        (cData || []).forEach((c: any) => {
+          const existing = cMap.get(c.user_id) || {};
+          cMap.set(c.user_id, { ...existing, ...c });
+        });
 
         const { data: pData } = await supabase
           .from('profiles')
           .select('user_id, display_name, email, phone')
           .in('user_id', customerUserIds);
-        const pMap = new Map<string, any>();
-        (pData || []).forEach((p: any) => pMap.set(p.user_id, p));
+
+        (pData || []).forEach((p: any) => {
+          const existing = pMap.get(p.user_id) || {};
+          pMap.set(p.user_id, { ...existing, ...p });
+        });
+
+        setCustomersMap(cMap);
         setProfilesMap(pMap);
+      }
+
+      // 4.5 Query booking_payment_summary & pending payment submissions
+      const dbBookingIds = dbBookings.map((b: any) => b.id);
+      if (dbBookingIds.length > 0) {
+        const { data: sumData } = await supabase
+          .from('booking_payment_summary')
+          .select('*')
+          .in('booking_id', dbBookingIds);
+        const sumMap = new Map<string, any>();
+        (sumData || []).forEach((s: any) => sumMap.set(s.booking_id, s));
+        setPaymentSummaryMap(sumMap);
+
+        const { data: subData } = await supabase
+          .from('booking_payment_submissions')
+          .select('*')
+          .in('booking_id', dbBookingIds)
+          .eq('status', 'PENDING');
+        setPendingSubmissions(subData || []);
+      }
+
+      // 5. Query artist_blocked_dates for staffArtistId
+      const { data: bDatesData, error: bDatesErr } = await supabase
+        .from('artist_blocked_dates')
+        .select('blocked_date')
+        .eq('artist_id', staffArtistId);
+
+      if (bDatesErr) {
+        console.error('Error fetching artist blocked dates:', bDatesErr);
+      } else {
+        const bList = (bDatesData || []).map((d: any) => d.blocked_date);
+        setBlockedDates(bList);
       }
     } catch (err) {
       console.error('Exception fetching artist calendar data:', err);
@@ -159,6 +231,49 @@ export default function ArtistCalendarPage() {
     return map;
   }, [sessions]);
 
+  // Set of blocked dates
+  const blockedDatesSet = useMemo(() => new Set(blockedDates), [blockedDates]);
+
+  // Status Priority for selected date: BOOKED > BLOCKED > AVAILABLE
+  const selectedDateStatus = useMemo(() => {
+    const daySessions = sessionsByDate.get(selectedDateStr) || [];
+    const hasActiveSession = daySessions.some(
+      (s) => s.status === 'SCHEDULED' || s.status === 'IN_PROGRESS' || s.status === 'COMPLETED'
+    );
+
+    if (hasActiveSession || daySessions.length > 0) {
+      return 'BOOKED';
+    }
+    if (blockedDatesSet.has(selectedDateStr)) {
+      return 'BLOCKED';
+    }
+    return 'AVAILABLE';
+  }, [sessionsByDate, selectedDateStr, blockedDatesSet]);
+
+  // Handler for toggling date block status via RPC
+  const handleToggleDayBlock = async (targetDateStr: string, blockStatus: boolean) => {
+    if (!targetDateStr || targetDateStr < todayStr) return;
+    setBlockLoading(true);
+    try {
+      const { error } = await supabase.rpc('artist_set_day_block', {
+        p_date: targetDateStr,
+        p_blocked: blockStatus,
+        p_reason: blockStatus ? 'ช่างปิดรับคิววันดังกล่าว' : null
+      });
+
+      if (error) {
+        alert(`ไม่สามารถดำเนินการได้: ${error.message}`);
+      } else {
+        await fetchArtistData();
+      }
+    } catch (err: any) {
+      console.error('Error toggling day block:', err);
+      alert('เกิดข้อผิดพลาดในการเปลี่ยนสถานะการรับคิว');
+    } finally {
+      setBlockLoading(false);
+    }
+  };
+
   // Calendar Grid Days Calculation
   const calendarDays = useMemo(() => {
     const firstDayOfMonth = new Date(currentYear, currentMonth, 1).getDay(); // 0 = Sunday
@@ -173,6 +288,7 @@ export default function ArtistCalendarPage() {
       isSelected: boolean;
       sessionCount: number;
       hasActive: boolean;
+      isBlocked: boolean;
     }> = [];
 
     // Previous month padding
@@ -180,7 +296,10 @@ export default function ArtistCalendarPage() {
       const dayNum = daysInPrevMonth - i;
       const prevDate = new Date(currentYear, currentMonth - 1, dayNum);
       const dateStr = prevDate.toISOString().split('T')[0];
-      const count = sessionsByDate.get(dateStr)?.length || 0;
+      const daySessions = sessionsByDate.get(dateStr) || [];
+      const count = daySessions.length;
+      const isBlocked = count === 0 && blockedDatesSet.has(dateStr);
+
       days.push({
         dateStr,
         dayNum,
@@ -188,7 +307,8 @@ export default function ArtistCalendarPage() {
         isToday: dateStr === todayStr,
         isSelected: dateStr === selectedDateStr,
         sessionCount: count,
-        hasActive: (sessionsByDate.get(dateStr) || []).some((s) => s.status === 'SCHEDULED' || s.status === 'IN_PROGRESS'),
+        hasActive: daySessions.some((s) => s.status === 'SCHEDULED' || s.status === 'IN_PROGRESS'),
+        isBlocked,
       });
     }
 
@@ -198,14 +318,18 @@ export default function ArtistCalendarPage() {
       const dStr = String(day).padStart(2, '0');
       const dateStr = `${currentYear}-${mStr}-${dStr}`;
       const daySessions = sessionsByDate.get(dateStr) || [];
+      const count = daySessions.length;
+      const isBlocked = count === 0 && blockedDatesSet.has(dateStr);
+
       days.push({
         dateStr,
         dayNum: day,
         isCurrentMonth: true,
         isToday: dateStr === todayStr,
         isSelected: dateStr === selectedDateStr,
-        sessionCount: daySessions.length,
+        sessionCount: count,
         hasActive: daySessions.some((s) => s.status === 'SCHEDULED' || s.status === 'IN_PROGRESS'),
+        isBlocked,
       });
     }
 
@@ -214,7 +338,10 @@ export default function ArtistCalendarPage() {
     for (let day = 1; day <= remaining; day++) {
       const nextDate = new Date(currentYear, currentMonth + 1, day);
       const dateStr = nextDate.toISOString().split('T')[0];
-      const count = sessionsByDate.get(dateStr)?.length || 0;
+      const daySessions = sessionsByDate.get(dateStr) || [];
+      const count = daySessions.length;
+      const isBlocked = count === 0 && blockedDatesSet.has(dateStr);
+
       days.push({
         dateStr,
         dayNum: day,
@@ -222,12 +349,13 @@ export default function ArtistCalendarPage() {
         isToday: dateStr === todayStr,
         isSelected: dateStr === selectedDateStr,
         sessionCount: count,
-        hasActive: (sessionsByDate.get(dateStr) || []).some((s) => s.status === 'SCHEDULED' || s.status === 'IN_PROGRESS'),
+        hasActive: daySessions.some((s) => s.status === 'SCHEDULED' || s.status === 'IN_PROGRESS'),
+        isBlocked,
       });
     }
 
     return days;
-  }, [currentYear, currentMonth, selectedDateStr, todayStr, sessionsByDate]);
+  }, [currentYear, currentMonth, selectedDateStr, todayStr, sessionsByDate, blockedDatesSet]);
 
   // Selected Date Sessions (filtered)
   const selectedDateSessions = useMemo(() => {
@@ -268,7 +396,7 @@ export default function ArtistCalendarPage() {
   };
 
   const getCleanCustomerName = (uid?: string | null) => {
-    if (!uid) return 'ลูกค้า';
+    if (!uid) return 'ไม่ระบุชื่อลูกค้า';
     const c = customersMap.get(uid);
     const p = profilesMap.get(uid);
     const candidate = (c?.display_name && c.display_name !== 'ลูกค้าประจำ')
@@ -283,7 +411,7 @@ export default function ArtistCalendarPage() {
     if (emailPrefix && emailPrefix !== 'ลูกค้าประจำ') {
       return emailPrefix;
     }
-    return 'ลูกค้า (ไม่ระบุชื่อ)';
+    return 'ไม่ระบุชื่อลูกค้า';
   };
 
   const getIsAgeConfirmed = (uid?: string | null) => {
@@ -295,10 +423,28 @@ export default function ArtistCalendarPage() {
   // Open detail drawer
   const handleOpenDetail = (sess: any) => {
     const booking = bookingsMap.get(sess.booking_id);
-    const customerUserId = booking?.customer_user_id;
+    const estimate = booking?.estimate_request_id ? estimatesMap.get(booking.estimate_request_id) : null;
+    const customerUserId = booking?.customer_user_id || estimate?.customer_user_id;
     const customer = customerUserId ? customersMap.get(customerUserId) : null;
     const prof = customerUserId ? profilesMap.get(customerUserId) : null;
-    const estimate = booking?.estimate_request_id ? estimatesMap.get(booking.estimate_request_id) : null;
+    const summary = paymentSummaryMap.get(sess.booking_id);
+    const hasPendingSlip = pendingSubmissions.some((sub: any) => sub.booking_id === sess.booking_id);
+    const depositReq = summary?.deposit_required ?? estimate?.deposit_required ?? 0;
+
+    let depositStatus = 'ยืนยันแล้ว';
+    if (booking?.status === 'CANCELLED' || booking?.status === 'REJECTED') {
+      depositStatus = 'เสียสิทธิ์';
+    } else if (Number(depositReq) > 0) {
+      if (summary?.deposit_paid || summary?.deposit_paid === true || booking?.status === 'CONFIRMED' || booking?.status === 'IN_PROGRESS' || booking?.status === 'COMPLETED') {
+        depositStatus = 'ยืนยันแล้ว';
+      } else if (hasPendingSlip) {
+        depositStatus = 'ส่งหลักฐานแล้ว';
+      } else {
+        depositStatus = 'รอมัดจำ';
+      }
+    } else {
+      depositStatus = 'ไม่ต้องมัดจำ';
+    }
 
     const siblingSessions = sessions
       .filter((s: any) => s.booking_id === sess.booking_id)
@@ -308,7 +454,7 @@ export default function ArtistCalendarPage() {
         start_at: s.start_at,
         end_at: s.end_at,
         status: s.status,
-        notes: s.notes,
+        notes: s.notes || s.session_notes || s.note || null,
       }))
       .sort((a, b) => a.session_number - b.session_number);
 
@@ -319,17 +465,17 @@ export default function ArtistCalendarPage() {
       start_at: sess.start_at,
       end_at: sess.end_at,
       session_status: sess.status,
-      session_notes: sess.notes,
+      session_notes: sess.session_notes || sess.notes || sess.note || null,
 
       booking_id: sess.booking_id,
       booking_status: booking?.status || 'CONFIRMED',
-      booking_source: booking?.booking_source,
-      artwork_title: booking?.artwork_title,
+      booking_source: null,
+      artwork_title: estimate?.style || null,
       artwork_image_url: booking?.artwork_image_url,
-      placement: booking?.placement || estimate?.placement,
-      width_cm: booking?.width_cm || estimate?.width_cm,
-      height_cm: booking?.height_cm || estimate?.height_cm,
-      description: booking?.description || estimate?.description,
+      placement: estimate?.placement || booking?.placement || null,
+      width_cm: estimate?.width_cm ?? booking?.width_cm ?? null,
+      height_cm: estimate?.height_cm ?? booking?.height_cm ?? null,
+      description: parseNoteWithPreferredTime(estimate?.description || booking?.description).cleanNote || null,
       customer_note: booking?.customer_note,
       staff_note: booking?.staff_note,
 
@@ -339,8 +485,21 @@ export default function ArtistCalendarPage() {
       is_age_confirmed: getIsAgeConfirmed(customerUserId),
 
       estimate_request_id: booking?.estimate_request_id,
-      style: estimate?.style || null,
+      request_type: estimate?.request_type || null,
+      work_type: estimate?.work_type || null,
+      style: estimate?.style || estimate?.style_preference || booking?.style_preference || null,
       reference_images: estimate?.reference_images || (booking?.artwork_image_url ? [booking.artwork_image_url] : null),
+
+      quoted_price: summary?.quoted_price ?? estimate?.quoted_price ?? null,
+      estimated_min_price: estimate?.estimated_min_price ?? null,
+      estimated_max_price: estimate?.estimated_max_price ?? null,
+      price_estimated_at: estimate?.price_estimated_at ?? null,
+      deposit_required: summary?.deposit_required ?? estimate?.deposit_required ?? null,
+      paid_total: summary?.paid_total ?? null,
+      remaining_balance: summary?.remaining_balance ?? null,
+      deposit_status: depositStatus,
+      is_deposit_paid: summary?.deposit_paid ?? false,
+      is_fully_paid: summary?.is_fully_paid ?? false,
 
       all_sessions: siblingSessions.length > 0 ? siblingSessions : undefined,
     };
@@ -468,7 +627,7 @@ export default function ArtistCalendarPage() {
                       )}
                     </div>
 
-                    {/* Session indicators */}
+                    {/* Session / Block indicators */}
                     <div className="pt-1">
                       {hasSessions ? (
                         <div className="flex items-center space-x-1">
@@ -478,6 +637,12 @@ export default function ArtistCalendarPage() {
                               : 'bg-emerald-950 text-emerald-400 border border-emerald-800/40'
                           }`}>
                             {day.sessionCount} คิว
+                          </span>
+                        </div>
+                      ) : day.isBlocked ? (
+                        <div className="flex items-center space-x-1">
+                          <span className="text-[10px] font-mono px-1.5 py-0.2 rounded font-semibold bg-zinc-800 text-zinc-400 border border-zinc-700/60">
+                            ปิดรับ
                           </span>
                         </div>
                       ) : (
@@ -492,6 +657,69 @@ export default function ArtistCalendarPage() {
 
           {/* Day Agenda View (5 Cols on LG) */}
           <div className="lg:col-span-5 bg-studio-card border border-studio-border rounded-xl p-4 sm:p-5 shadow-xl space-y-4">
+            {/* Date Availability Status & Action Card */}
+            <div className="bg-studio-sec/60 border border-studio-border p-3.5 sm:p-4 rounded-xl space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-studio-secondary font-medium">สถานะการรับคิวประจำวัน:</span>
+                {selectedDateStatus === 'BOOKED' && (
+                  <span className="text-xs font-semibold text-studio-red bg-studio-red/10 border border-studio-red/30 px-2.5 py-0.5 rounded-full inline-flex items-center space-x-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-studio-red" />
+                    <span>มีคิวยืนยันแล้ว</span>
+                  </span>
+                )}
+                {selectedDateStatus === 'BLOCKED' && (
+                  <span className="text-xs font-semibold text-zinc-400 bg-zinc-900 border border-zinc-700 px-2.5 py-0.5 rounded-full inline-flex items-center space-x-1">
+                    <Ban size={12} className="text-zinc-400" />
+                    <span>ปิดรับคิว</span>
+                  </span>
+                )}
+                {selectedDateStatus === 'AVAILABLE' && (
+                  <span className="text-xs font-semibold text-emerald-400 bg-emerald-950/40 border border-emerald-800/40 px-2.5 py-0.5 rounded-full inline-flex items-center space-x-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                    <span>เปิดรับคิว</span>
+                  </span>
+                )}
+              </div>
+
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2 border-t border-studio-border/50">
+                <div className="text-xs text-studio-muted">
+                  {selectedDateStatus === 'BOOKED' && (
+                    <span className="text-studio-secondary">ระบบปิดรับคิวอัตโนมัติ (1 ช่าง = 1 ลูกค้า / วัน)</span>
+                  )}
+                  {selectedDateStatus === 'BLOCKED' && (
+                    <span className="text-zinc-300">วันนี้คุณปิดรับการจอง</span>
+                  )}
+                  {selectedDateStatus === 'AVAILABLE' && (
+                    <span className="text-studio-muted">ยังไม่มีนัดหมาย</span>
+                  )}
+                </div>
+
+                {/* Block/Unblock Action Buttons (Current & Future dates only) */}
+                {selectedDateStr >= todayStr && selectedDateStatus !== 'BOOKED' && (
+                  <div>
+                    {selectedDateStatus === 'BLOCKED' ? (
+                      <button
+                        onClick={() => handleToggleDayBlock(selectedDateStr, false)}
+                        disabled={blockLoading}
+                        className="w-full sm:w-auto flex items-center justify-center space-x-1.5 px-3 py-1.5 bg-studio-card hover:bg-studio-sec border border-zinc-700 text-xs font-medium text-studio-primary hover:text-emerald-400 rounded-lg transition-colors cursor-pointer disabled:opacity-50"
+                      >
+                        <Unlock size={14} className="text-emerald-400" />
+                        <span>{blockLoading ? 'กำลังบันทึก...' : 'เปิดรับคิวอีกครั้ง'}</span>
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => handleToggleDayBlock(selectedDateStr, true)}
+                        disabled={blockLoading}
+                        className="w-full sm:w-auto flex items-center justify-center space-x-1.5 px-3 py-1.5 bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-xs font-medium text-zinc-300 hover:text-studio-red rounded-lg transition-colors cursor-pointer disabled:opacity-50"
+                      >
+                        <Lock size={14} className="text-zinc-400" />
+                        <span>{blockLoading ? 'กำลังบันทึก...' : 'ปิดรับคิววันนี้'}</span>
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
             {/* Agenda Header */}
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between border-b border-studio-border/60 pb-3 gap-2">
               <div>
@@ -555,11 +783,12 @@ export default function ArtistCalendarPage() {
               ) : (
                 selectedDateSessions.map((sess: any) => {
                   const booking = bookingsMap.get(sess.booking_id);
-                  const customerUserId = booking?.customer_user_id;
-                  const customer = customerUserId ? customersMap.get(customerUserId) : null;
-                  const prof = customerUserId ? profilesMap.get(customerUserId) : null;
-                  const customerName = prof?.display_name || customer?.first_name || 'ลูกค้าประจำ';
+                  const estimate = booking?.estimate_request_id ? estimatesMap.get(booking.estimate_request_id) : null;
+                  const customerUserId = booking?.customer_user_id || estimate?.customer_user_id;
+                  const customerName = getCleanCustomerName(customerUserId);
                   const sConf = getSessionStatusConfig(sess.status as any);
+                  const styleDisplay = estimate?.style || 'งานสัก';
+                  const placementDisplay = estimate?.placement || booking?.placement || 'ไม่ระบุตำแหน่ง';
 
                   return (
                     <div
@@ -578,7 +807,7 @@ export default function ArtistCalendarPage() {
 
                       <div className="space-y-0.5">
                         <h4 className="text-xs sm:text-sm font-semibold text-studio-primary group-hover:text-studio-red transition-colors">
-                          {booking?.artwork_title || 'งานสัก Custom'}
+                          {styleDisplay}
                         </h4>
                         <div className="flex items-center space-x-1.5 text-xs text-studio-secondary font-mono">
                           <Clock size={12} className="text-studio-muted" />
@@ -596,7 +825,7 @@ export default function ArtistCalendarPage() {
                         </div>
                         <div className="flex items-center space-x-1 truncate max-w-[120px]">
                           <Layers size={12} className="text-studio-secondary shrink-0" />
-                          <span className="truncate">{booking?.placement || 'ไม่ระบุ'}</span>
+                          <span className="truncate">{placementDisplay}</span>
                         </div>
                       </div>
                     </div>

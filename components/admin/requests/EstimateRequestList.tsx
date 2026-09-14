@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import { Search, Filter, FileText, ChevronRight, User, Calendar, Image as ImageIcon, CreditCard } from 'lucide-react';
+import { Search, Filter, FileText, ChevronRight, User, Calendar, Image as ImageIcon, CreditCard, TriangleAlert, Trash2 } from 'lucide-react';
 import { EstimateRequestItem, EstimateStatus, formatDateTimeBangkok } from './types';
 import CustomerReferenceImage from '@/components/common/CustomerReferenceImage';
 
@@ -10,6 +10,8 @@ interface EstimateRequestListProps {
   selectedEstimate: EstimateRequestItem | null;
   onSelectEstimate: (estimate: EstimateRequestItem) => void;
   onCheckSlip?: (bookingId: string) => void;
+  onDeleteRequest?: (estimate: EstimateRequestItem) => void;
+  initialFilter?: string;
 }
 
 export default function EstimateRequestList({
@@ -17,24 +19,41 @@ export default function EstimateRequestList({
   selectedEstimate,
   onSelectEstimate,
   onCheckSlip,
+  onDeleteRequest,
+  initialFilter,
 }: EstimateRequestListProps) {
-  const [statusFilter, setStatusFilter] = useState<string>('ALL');
+  const [statusFilter, setStatusFilter] = useState<string>(initialFilter || 'ALL');
   const [searchQuery, setSearchQuery] = useState('');
+
+  React.useEffect(() => {
+    if (initialFilter) {
+      setStatusFilter(initialFilter);
+    }
+  }, [initialFilter]);
 
   const filterPills: Array<{ id: string; label: string }> = [
     { id: 'ALL', label: 'ทั้งหมด' },
     { id: 'PENDING', label: 'รอตรวจสอบ' },
-    { id: 'ACCEPTED', label: 'ยืนยันแล้ว' },
+    { id: 'WAITING_DEPOSIT', label: 'รอมัดจำ' },
+    { id: 'WAITING_SLIP', label: 'สลิปรอตรวจ' },
     { id: 'REJECTED', label: 'ปฏิเสธ' },
   ];
 
   const filteredEstimates = useMemo(() => {
     return estimates.filter((e) => {
       const opKey = e.operational_status?.key || e.status;
+      const hasPendingSlip = Boolean(
+        e.has_pending_payment_submission ||
+        e.pending_submission?.status === 'PENDING' ||
+        opKey === 'WAITING_SLIP_VERIFICATION'
+      );
+
       if (statusFilter !== 'ALL') {
         if (statusFilter === 'PENDING' && opKey !== 'PENDING') return false;
+        if (statusFilter === 'QUOTED' && opKey !== 'WAITING_DEPOSIT') return false;
+        if (statusFilter === 'WAITING_DEPOSIT' && opKey !== 'WAITING_DEPOSIT') return false;
+        if (statusFilter === 'WAITING_SLIP' && opKey !== 'WAITING_SLIP_VERIFICATION') return false;
         if (statusFilter === 'REJECTED' && opKey !== 'REJECTED') return false;
-        if (statusFilter === 'ACCEPTED' && (opKey === 'PENDING' || opKey === 'REJECTED')) return false;
       }
       if (searchQuery.trim()) {
         const query = searchQuery.toLowerCase();
@@ -48,6 +67,26 @@ export default function EstimateRequestList({
       return true;
     });
   }, [estimates, statusFilter, searchQuery]);
+
+  const renderHealthAlertBadge = (est: EstimateRequestItem) => {
+    const hasAlert = Boolean(est.has_medical_condition || est.has_allergy);
+    if (hasAlert) {
+      return (
+        <span
+          title="มีข้อมูลสุขภาพ กรุณาตรวจสอบรายละเอียดก่อนให้บริการ"
+          className="bg-[#2A1212] text-[#E8B4B4] border border-[#9C2F2F] px-2 py-0.5 rounded text-[10px] font-semibold inline-flex items-center gap-1 cursor-help"
+        >
+          <TriangleAlert size={11} className="text-[#E8B4B4] shrink-0" />
+          <span>มีข้อมูล</span>
+        </span>
+      );
+    }
+    return (
+      <span className="bg-[#171512] text-[#9C9486] border border-[#4A443A] px-2 py-0.5 rounded text-[10px] font-medium inline-flex items-center">
+        ปกติ
+      </span>
+    );
+  };
 
   const renderStatusBadge = (est: EstimateRequestItem) => {
     if (
@@ -174,6 +213,7 @@ export default function EstimateRequestList({
                   <th className="py-3 px-3">ตำแหน่ง / ขนาด</th>
                   <th className="py-3 px-3">วันที่สะดวก</th>
                   <th className="py-3 px-3">สถานะ</th>
+                  <th className="py-3 px-3 text-center">แจ้งเตือนด้านสุขภาพ</th>
                   <th className="py-3 px-3 text-center">จัดการ</th>
                 </tr>
               </thead>
@@ -214,17 +254,36 @@ export default function EstimateRequestList({
                         {renderStatusBadge(est)}
                       </td>
                       <td className="py-3 px-3 text-center">
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onSelectEstimate(est);
-                          }}
-                          className="px-3 py-1 bg-[#0E0D0C] hover:bg-[#1F1D1A] text-[#ECE4D3] text-xs font-medium rounded border border-[#4A443A] hover:border-[#7A7265] transition-colors inline-flex items-center gap-1"
-                        >
-                          <span>จัดการคำขอจอง</span>
-                          <ChevronRight size={13} />
-                        </button>
+                        {renderHealthAlertBadge(est)}
+                      </td>
+                      <td className="py-3 px-3 text-center">
+                        <div className="flex items-center justify-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onSelectEstimate(est);
+                            }}
+                            className="px-2.5 py-1 bg-[#0E0D0C] hover:bg-[#1F1D1A] text-[#ECE4D3] text-xs font-medium rounded border border-[#4A443A] hover:border-[#7A7265] transition-colors inline-flex items-center gap-1"
+                          >
+                            <span>{est.status === 'REJECTED' ? 'ดูรายละเอียด' : 'จัดการคำขอจอง'}</span>
+                            <ChevronRight size={13} />
+                          </button>
+                          {est.status === 'REJECTED' && onDeleteRequest && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onDeleteRequest(est);
+                              }}
+                              title="ลบคำขอที่ปฏิเสธแล้วถาวร"
+                              className="px-2.5 py-1 bg-[#2A1212] hover:bg-[#3D1A1A] text-[#E8B4B4] text-xs font-semibold rounded border border-[#9C2F2F] hover:border-[#B53838] transition-all inline-flex items-center gap-1 cursor-pointer"
+                            >
+                              <Trash2 size={12} />
+                              <span>ลบรายการ</span>
+                            </button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   );
@@ -246,7 +305,10 @@ export default function EstimateRequestList({
                     <User size={13} className="text-[#9C2F2F]" />
                     {est.customer_name}
                   </span>
-                  {renderStatusBadge(est)}
+                  <div className="flex items-center gap-1.5">
+                    {renderHealthAlertBadge(est)}
+                    {renderStatusBadge(est)}
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-1.5 text-xs">
@@ -262,17 +324,32 @@ export default function EstimateRequestList({
 
                 <div className="flex items-center justify-between text-[11px] text-[#A89F91] pt-1">
                   <span>วันที่สะดวก: {est.preferred_date || 'ไม่ระบุ'}</span>
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onSelectEstimate(est);
-                    }}
-                    className="text-xs font-medium text-emerald-400 hover:text-emerald-300 flex items-center gap-0.5"
-                  >
-                    <span>จัดการคำขอจอง</span>
-                    <ChevronRight size={13} />
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onSelectEstimate(est);
+                      }}
+                      className="text-xs font-medium text-emerald-400 hover:text-emerald-300 flex items-center gap-0.5"
+                    >
+                      <span>{est.status === 'REJECTED' ? 'ดูรายละเอียด' : 'จัดการคำขอจอง'}</span>
+                      <ChevronRight size={13} />
+                    </button>
+                    {est.status === 'REJECTED' && onDeleteRequest && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onDeleteRequest(est);
+                        }}
+                        className="px-2 py-0.5 bg-[#2A1212] hover:bg-[#3D1A1A] text-[#E8B4B4] text-[11px] font-semibold rounded border border-[#9C2F2F] flex items-center gap-1 transition-all"
+                      >
+                        <Trash2 size={11} />
+                        <span>ลบรายการ</span>
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
             ))}

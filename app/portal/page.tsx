@@ -167,10 +167,10 @@ function CustomerPortalContent() {
     setDataLoading(true);
 
     try {
-      // 1. Fetch own estimate_requests
+      // 1. Fetch own estimate_requests (excluding health fields for list/summary views)
       const { data: estData } = await supabase
         .from('estimate_requests')
-        .select('*')
+        .select('id, customer_user_id, artist_id, reference_images, width_cm, height_cm, placement, style, description, preferred_date, status, quoted_price, estimated_duration_minutes, deposit_required, quote_note, quoted_at, accepted_at, rejected_at, created_at, updated_at, request_type, work_type, estimated_min_price, estimated_max_price, price_estimated_at')
         .eq('customer_user_id', user.id)
         .order('created_at', { ascending: false });
 
@@ -215,6 +215,16 @@ function CustomerPortalContent() {
           deposit_paid: Boolean(f.deposit_paid),
           is_fully_paid: Boolean(f.is_fully_paid),
         }));
+      }
+
+      // 4.5 Batch fetch pending payment submissions for own bookings
+      let rawSubmissions: any[] = [];
+      if (user.id) {
+        const { data: subData } = await supabase
+          .from('booking_payment_submissions')
+          .select('id, booking_id, status')
+          .eq('customer_user_id', user.id);
+        rawSubmissions = subData || [];
       }
 
       // 5. Batch fetch artists
@@ -265,6 +275,10 @@ function CustomerPortalContent() {
           ? matchingEst.reference_images
           : (b.artwork_image_url ? [b.artwork_image_url] : []);
 
+        const hasPendingSlip = rawSubmissions.some(
+          (s: any) => s.booking_id === b.id && s.status === 'PENDING'
+        );
+
         return {
           id: b.id,
           customer_user_id: b.customer_user_id,
@@ -273,11 +287,13 @@ function CustomerPortalContent() {
           booking_source: b.booking_source,
           source_ref: b.source_ref,
           artwork_title: b.artwork_title,
+          style: matchingEst?.style || null,
+          work_type: matchingEst?.work_type || null,
           artwork_image_url: b.artwork_image_url,
           reference_images: refImages,
-          placement: b.placement,
-          width_cm: b.width_cm ? Number(b.width_cm) : null,
-          height_cm: b.height_cm ? Number(b.height_cm) : null,
+          placement: b.placement || matchingEst?.placement || null,
+          width_cm: b.width_cm ? Number(b.width_cm) : (matchingEst?.width_cm ? Number(matchingEst.width_cm) : null),
+          height_cm: b.height_cm ? Number(b.height_cm) : (matchingEst?.height_cm ? Number(matchingEst.height_cm) : null),
           description: b.description,
           requested_date: b.requested_date,
           requested_start_time: b.requested_start_time,
@@ -288,6 +304,7 @@ function CustomerPortalContent() {
           started_at: b.started_at,
           completed_at: b.completed_at,
           created_at: b.created_at,
+          has_pending_payment_submission: hasPendingSlip,
           artist: bArtist,
           sessions: bSessions,
           financial: bFinancial,
@@ -298,6 +315,7 @@ function CustomerPortalContent() {
       const hydratedEstimates: CustomerPortalEstimate[] = rawEstimates.map((e: any) => {
         const eArtist = artistsList.find((a) => a.id === e.artist_id) || null;
         const linkedBooking = hydratedBookings.find((b) => b.estimate_request_id === e.id);
+        const hasPendingSlip = linkedBooking?.has_pending_payment_submission || false;
 
         return {
           id: e.id,
@@ -311,7 +329,12 @@ function CustomerPortalContent() {
           description: e.description || '',
           preferred_date: e.preferred_date || null,
           status: e.status,
+          request_type: e.request_type || null,
+          work_type: e.work_type || null,
           quoted_price: e.quoted_price ? Number(e.quoted_price) : null,
+          estimated_min_price: e.estimated_min_price ? Number(e.estimated_min_price) : null,
+          estimated_max_price: e.estimated_max_price ? Number(e.estimated_max_price) : null,
+          price_estimated_at: e.price_estimated_at || null,
           estimated_duration_minutes: e.estimated_duration_minutes
             ? Number(e.estimated_duration_minutes)
             : null,
@@ -321,6 +344,7 @@ function CustomerPortalContent() {
           accepted_at: e.accepted_at || null,
           rejected_at: e.rejected_at || null,
           created_at: e.created_at,
+          has_pending_payment_submission: hasPendingSlip,
           artist: eArtist,
           booking_id: linkedBooking?.id || null,
         };
@@ -390,10 +414,16 @@ function CustomerPortalContent() {
     (e) => e.status === 'PENDING' && !e.booking_id && !liveBookings.some((b) => b.estimate_request_id === e.id)
   );
 
+  // 1.1 Rejected estimate requests
+  const rejectedEstimates = liveEstimates.filter(
+    (e) => e.status === 'REJECTED' && !liveBookings.some((b) => b.estimate_request_id === e.id)
+  );
+
   // 2. Combine all unique jobs for the "ทั้งหมด" tab (1 Request = 1 Job throughout lifecycle)
   const allVisibleJobs = [
     ...liveBookings.map((b) => ({ item: b, type: 'booking' as const, sortTime: new Date(b.created_at || 0).getTime() })),
     ...pendingEstimates.map((e) => ({ item: e, type: 'estimate' as const, sortTime: new Date(e.created_at || 0).getTime() })),
+    ...rejectedEstimates.map((e) => ({ item: e, type: 'estimate' as const, sortTime: new Date(e.created_at || 0).getTime() })),
   ].sort((a, b) => b.sortTime - a.sortTime);
 
   // Financial Status Aggregations directly from live booking_payment_summary
@@ -465,7 +495,7 @@ function CustomerPortalContent() {
                         ? 'bg-studio-red/20 border-studio-red/50 text-studio-red animate-pulse'
                         : nextAppointment.booking.status === 'CONFIRMED'
                         ? 'bg-green-900/10 border-green-800/40 text-green-800'
-                        : 'bg-studio-red/10 border-studio-red/30 text-studio-red'
+                        : 'bg-[#D9A441]/10 border-[#D9A441]/45 text-[#D9A441]'
                     }`}
                   >
                     {nextAppointment.session.status === 'IN_PROGRESS'
@@ -491,28 +521,41 @@ function CustomerPortalContent() {
                     </div>
                     <div className="space-y-1">
                       <h3 className="text-lg font-heading font-normal text-studio-sec tracking-wide">
-                        {nextAppointment.booking.artwork_title || 'งานสัก Custom'}
+                        {(() => {
+                          const matchingEst = liveEstimates.find(
+                            (e) => e.id === nextAppointment.booking.estimate_request_id
+                          );
+                          const rawStyle = nextAppointment.booking.style || matchingEst?.style;
+                          const tattooStyle = (rawStyle && rawStyle !== 'Custom' && rawStyle !== 'CUSTOM') ? rawStyle : null;
+                          const rawTitle = nextAppointment.booking.artwork_title;
+                          const displayTitle = (rawTitle && rawTitle !== 'งานสัก Custom' && rawTitle !== 'Custom')
+                            ? rawTitle
+                            : (tattooStyle ? `สไตล์ ${tattooStyle}` : 'งานสัก Custom');
+
+                          return displayTitle;
+                        })()}
                         {nextAppointment.booking.sessions.length > 1 && (
                           <span className="text-xs font-sans text-studio-muted ml-2 font-normal">
                             (รอบ #{nextAppointment.session.session_number} จาก {nextAppointment.booking.sessions.length} รอบ)
                           </span>
                         )}
                       </h3>
-                      <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-studio-muted">
-                        <span className="flex items-center gap-1.5">
-                          <Calendar size={13} className="text-studio-red" />{' '}
-                          {formatThaiDate(nextAppointment.session.start_at, true)}
-                        </span>
-                        <span className="flex items-center gap-1.5">
-                          <Clock size={13} className="text-studio-red" />{' '}
-                          {formatTimeBangkok(nextAppointment.session.start_at)} -{' '}
-                          {formatTimeBangkok(nextAppointment.session.end_at)} (
-                          {calculateDurationHours(
-                            nextAppointment.session.start_at,
-                            nextAppointment.session.end_at
-                          )}{' '}
-                          ชม.)
-                        </span>
+                      <div className="space-y-1 text-xs">
+                        <div className="flex items-center gap-1.5 text-studio-sec font-semibold">
+                          <Calendar size={13} className="text-studio-red shrink-0" />
+                          <span>
+                            {formatThaiDate(nextAppointment.session.start_at, true)} · {formatTimeBangkok(nextAppointment.session.start_at)}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-1.5 text-[11px] text-studio-muted font-normal">
+                          <Clock size={12} className="text-studio-red/70 shrink-0" />
+                          <span>
+                            ระยะเวลาสักโดยประมาณ {calculateDurationHours(
+                              nextAppointment.session.start_at,
+                              nextAppointment.session.end_at
+                            )} ชม.
+                          </span>
+                        </div>
                       </div>
                       <div className="text-xs text-studio-sec">
                         ช่างสักผู้รับผิดชอบ:{' '}
@@ -579,7 +622,7 @@ function CustomerPortalContent() {
                   label: `ทั้งหมด (${allVisibleJobs.length})`,
                 },
                 { key: 'bookings', label: `คิวจองสัก (${liveBookings.length})` },
-                { key: 'estimates', label: `คำขอรอพิจารณา (${pendingEstimates.length})` },
+                { key: 'estimates', label: `รอตรวจสอบ (${pendingEstimates.length})` },
                 { key: 'flash', label: 'Flash ของฉัน' },
                 { key: 'profile', label: 'โปรไฟล์' },
               ].map((t) => (
@@ -614,6 +657,7 @@ function CustomerPortalContent() {
                       key={`${type}-${item.id}`}
                       item={item}
                       type={type}
+                      estimates={liveEstimates}
                       onClick={() => handleCardClick(item, type)}
                     />
                   ))
@@ -633,6 +677,7 @@ function CustomerPortalContent() {
                       key={b.id}
                       item={b}
                       type="booking"
+                      estimates={liveEstimates}
                       onClick={() => handleCardClick(b, 'booking')}
                     />
                   ))
@@ -644,7 +689,7 @@ function CustomerPortalContent() {
               <div className="space-y-3">
                 {pendingEstimates.length === 0 ? (
                   <p className="text-xs text-studio-muted py-12 bg-studio-card border border-studio-border rounded-[6px] text-center">
-                    ยังไม่มีรายการคำขอรอพิจารณาในระบบ
+                    ยังไม่มีรายการรอตรวจสอบในระบบ
                   </p>
                 ) : (
                   pendingEstimates.map((e) => (
@@ -652,6 +697,7 @@ function CustomerPortalContent() {
                       key={e.id}
                       item={e}
                       type="estimate"
+                      estimates={liveEstimates}
                       onClick={() => handleCardClick(e, 'estimate')}
                     />
                   ))
@@ -841,6 +887,7 @@ function CustomerPortalContent() {
         <CustomerBookingDetail
           item={selectedItem}
           type={selectedType || 'booking'}
+          estimates={liveEstimates}
           onClose={() => setSelectedItem(null)}
           onRefresh={fetchPortalData}
         />

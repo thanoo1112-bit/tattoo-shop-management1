@@ -14,9 +14,15 @@ export interface EstimateRequest {
   preferredDate?: string;
   submittedDate: string;
   status: 'PENDING' | 'QUOTED' | 'ACCEPTED' | 'REJECTED';
+  request_type?: 'ESTIMATE' | 'DIRECT_BOOKING';
+  work_type?: 'NEW_TATTOO' | 'REWORK' | 'COVER_UP' | 'SCAR_COVER' | null;
   quotedPrice?: number;
   quotedDeposit?: number;
   estimatedDuration?: number;
   quoteNote?: string;
+  hasMedicalCondition?: boolean;
+  medicalConditionNote?: string | null;
+  hasAllergy?: boolean;
+  allergyNote?: string | null;
 }
 

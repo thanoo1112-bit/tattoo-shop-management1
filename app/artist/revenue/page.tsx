@@ -63,7 +63,7 @@ export default function ArtistRevenuePage() {
       // 1. Fetch bookings assigned to current artist
       const { data: dbBookings, error: bErr } = await supabase
         .from('bookings')
-        .select('id, artwork_title, customer_user_id, status, estimate_request_id')
+        .select('id, customer_user_id, status, estimate_request_id')
         .eq('artist_id', staffArtistId);
 
       if (bErr) console.error('Error fetching artist bookings for revenue:', bErr);
@@ -163,7 +163,7 @@ export default function ArtistRevenuePage() {
           }
         }
 
-        const artworkTitle = booking?.artwork_title || estimate?.style || 'งานสัก Custom';
+        const artworkTitle = estimate?.style || 'งานสัก';
 
         return {
           id: p.id,

@@ -4,9 +4,11 @@ import React, { useState } from 'react';
 import { Calendar, Clock, Plus, X, AlertCircle } from 'lucide-react';
 import { BookingItem, toBangkokDateString } from './types';
 import { createClient } from '@/lib/supabase/client';
+import { BlockedDateRecord, checkDateAvailability } from '@/lib/availabilityUtils';
 
 interface CreateSessionDialogProps {
   booking: BookingItem;
+  blockedDates?: BlockedDateRecord[];
   existingSessionCount: number;
   onSuccess: () => void;
   onCancel: () => void;
@@ -14,6 +16,7 @@ interface CreateSessionDialogProps {
 
 export default function CreateSessionDialog({
   booking,
+  blockedDates = [],
   existingSessionCount,
   onSuccess,
   onCancel,
@@ -43,6 +46,18 @@ export default function CreateSessionDialog({
 
     if (!booking.artist_id) {
       setErrorMessage('คิวงานนี้ยังไม่ได้รับการมอบหมายช่างสัก ไม่สามารถสร้างรอบสักได้');
+      return;
+    }
+
+    const availCheck = checkDateAvailability(
+      sessionDate,
+      booking.artist_id,
+      blockedDates,
+      booking.artist_nickname || booking.artist_name
+    );
+
+    if (availCheck.isBlocked) {
+      setErrorMessage(availCheck.errorMessage || 'ไม่สามารถเลือกวันที่นี้ได้ ร้านหรือช่างปิดรับคิวในวันที่เลือก');
       return;
     }
 
@@ -175,7 +190,7 @@ export default function CreateSessionDialog({
               rows={2}
               value={sessionNote}
               onChange={(e) => setSessionNote(e.target.value)}
-              placeholder="เช่น รอบที่ 1 เดินเส้นและลงโครงสร้างหลัก..."
+              placeholder={existingSessionCount > 0 ? `เช่น รอบที่ ${existingSessionCount + 1} ลงสีและเก็บรายละเอียด...` : 'เช่น เดินเส้นและลงโครงสร้างหลัก...'}
               className="w-full bg-[#0E0D0C] border border-[#4A443A] rounded-lg p-2.5 text-xs text-[#ECE4D3] focus:outline-none focus:border-emerald-400 resize-none"
             />
           </div>

@@ -18,14 +18,26 @@ export default function EstimateRequestQueue({ singleArtistId = null }: Estimate
   // Local state for active confirm submission
   const [activeConfirmId, setActiveConfirmId] = useState<string | null>(null);
   const [appointmentDate, setAppointmentDate] = useState('');
-  const [startTime, setStartTime] = useState('13:00');
-  const [endTime, setEndTime] = useState('16:00');
+  const [durationHours, setDurationHours] = useState('5');
   const [priceInput, setPriceInput] = useState('0');
   const [depositInput, setDepositInput] = useState('0');
   const [noteInput, setNoteInput] = useState('');
   
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  // Helper function to calculate internal end_at from internal start_at + duration_hours
+  const calculateEndTime = (startHHMM: string, durationInHours: number): string => {
+    const [hStr, mStr] = startHHMM.split(':');
+    const startH = parseInt(hStr || '13', 10);
+    const startM = parseInt(mStr || '0', 10);
+
+    const totalMinutes = startH * 60 + startM + Math.round(durationInHours * 60);
+    const endH = Math.floor(totalMinutes / 60) % 24;
+    const endM = totalMinutes % 60;
+
+    return `${String(endH).padStart(2, '0')}:${String(endM).padStart(2, '0')}`;
+  };
 
   // Filter requests
   const displayedRequests = singleArtistId
@@ -35,8 +47,7 @@ export default function EstimateRequestQueue({ singleArtistId = null }: Estimate
   const handleOpenConfirmForm = (req: EstimateRequest) => {
     setActiveConfirmId(req.id);
     setAppointmentDate(new Date().toISOString().split('T')[0]);
-    setStartTime('13:00');
-    setEndTime('16:00');
+    setDurationHours('5');
     setPriceInput(req.quotedPrice ? String(req.quotedPrice) : '0');
     setDepositInput('0');
     setNoteInput('');
@@ -49,12 +60,9 @@ export default function EstimateRequestQueue({ singleArtistId = null }: Estimate
       setError('กรุณาระบุวันนัดจริง');
       return;
     }
-    if (!startTime || !endTime) {
-      setError('กรุณาระบุเวลาเริ่มและเวลาสิ้นสุด');
-      return;
-    }
-    if (endTime <= startTime) {
-      setError('เวลาสิ้นสุดต้องอยู่หลังเวลาเริ่ม');
+    const durationVal = parseFloat(durationHours);
+    if (!durationHours.trim() || isNaN(durationVal) || durationVal < 1) {
+      setError('กรุณาระบุระยะเวลาสักโดยประมาณ');
       return;
     }
 
@@ -73,8 +81,10 @@ export default function EstimateRequestQueue({ singleArtistId = null }: Estimate
     setLoading(true);
     try {
       const supabase = createClient();
-      const formattedStartTime = startTime.length === 5 ? `${startTime}:00` : startTime;
-      const formattedEndTime = endTime.length === 5 ? `${endTime}:00` : endTime;
+      const internalStartTime = '13:00';
+      const internalEndTime = calculateEndTime(internalStartTime, durationVal);
+      const formattedStartTime = `${internalStartTime}:00`;
+      const formattedEndTime = `${internalEndTime}:00`;
 
       if (!isNaN(priceVal)) {
         await supabase
@@ -97,6 +107,13 @@ export default function EstimateRequestQueue({ singleArtistId = null }: Estimate
           setError('ช่วงเวลานี้มีคิวของช่างอยู่แล้ว กรุณาเลือกเวลาอื่น');
         } else if (rpcErr.code === '42501') {
           setError('คุณไม่มีสิทธิ์ยืนยันคำขอนี้');
+        } else if (
+          rpcErr.code === '23505' ||
+          rpcErr.message?.includes('already exists') ||
+          rpcErr.message?.includes('must be PENDING') ||
+          rpcErr.message?.includes('is in status ACCEPTED')
+        ) {
+          setError('คำขอนี้ได้รับการยืนยันไปแล้ว');
         } else {
           setError(rpcErr.message || 'เกิดข้อผิดพลาดในการยืนยันคิวสัก');
         }
@@ -209,24 +226,23 @@ export default function EstimateRequestQueue({ singleArtistId = null }: Estimate
                             />
                           </div>
 
-                          <div className="grid grid-cols-2 gap-2">
-                            <div>
-                              <label className="text-[9px] uppercase tracking-wider text-studio-secondary block mb-1">เวลาเริ่ม</label>
+                          <div>
+                            <label className="text-[9px] uppercase tracking-wider text-studio-secondary block mb-1">
+                              ระยะเวลาสักโดยประมาณ *
+                            </label>
+                            <div className="relative flex items-center">
                               <input
-                                type="time"
-                                value={startTime}
-                                onChange={(e) => setStartTime(e.target.value)}
-                                className="bg-studio-card border border-studio-border focus:border-emerald-400 text-xs px-2 py-1.5 outline-none rounded-[3px] w-full"
+                                type="number"
+                                min="1"
+                                step="any"
+                                value={durationHours}
+                                onChange={(e) => setDurationHours(e.target.value)}
+                                placeholder="5"
+                                className="bg-studio-card border border-studio-border focus:border-emerald-400 text-xs px-2 py-1.5 outline-none rounded-[3px] w-full pr-12"
                               />
-                            </div>
-                            <div>
-                              <label className="text-[9px] uppercase tracking-wider text-studio-secondary block mb-1">เวลาสิ้นสุด</label>
-                              <input
-                                type="time"
-                                value={endTime}
-                                onChange={(e) => setEndTime(e.target.value)}
-                                className="bg-studio-card border border-studio-border focus:border-emerald-400 text-xs px-2 py-1.5 outline-none rounded-[3px] w-full"
-                              />
+                              <span className="absolute right-2 text-studio-secondary text-[10px] pointer-events-none">
+                                ชั่วโมง
+                              </span>
                             </div>
                           </div>
 

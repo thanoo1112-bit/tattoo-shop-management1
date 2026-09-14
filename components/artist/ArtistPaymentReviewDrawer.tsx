@@ -19,6 +19,7 @@ import CustomerReferenceImage from '@/components/common/CustomerReferenceImage';
 import PaymentSlipImage from '@/components/common/PaymentSlipImage';
 import PaymentSlipLightbox from '@/components/common/PaymentSlipLightbox';
 import { formatDateBangkok, formatTimeBangkok } from '@/components/admin/calendar/calendarUtils';
+import { createClient } from '@/lib/supabase/client';
 
 interface ArtistPaymentReviewDrawerProps {
   isOpen: boolean;
@@ -29,8 +30,6 @@ interface ArtistPaymentReviewDrawerProps {
   customerName: string;
   customerPhone: string;
   depositRequired: number;
-  onApprove: (subId: string, amount: number) => Promise<void>;
-  onReject: (subId: string) => Promise<void>;
 }
 
 export default function ArtistPaymentReviewDrawer({
@@ -42,21 +41,65 @@ export default function ArtistPaymentReviewDrawer({
   customerName,
   customerPhone,
   depositRequired,
-  onApprove,
-  onReject,
 }: ArtistPaymentReviewDrawerProps) {
-  const [submitting, setSubmitting] = useState(false);
-  const [isRejectDialogOpen, setIsRejectDialogOpen] = useState(false);
-  const [rejectionReason, setRejectionReason] = useState('');
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
 
+  const [confirmationState, setConfirmationState] = useState<'loading' | 'confirmed' | 'not_confirmed' | 'error'>('loading');
+
+  const customerUserId = estimate?.customer_user_id || booking?.customer_user_id || submission?.customer_user_id;
+
   useEffect(() => {
-    if (isOpen) {
-      setIsRejectDialogOpen(false);
-      setRejectionReason('');
+    if (!isOpen) return;
+
+    if (estimate?.is_age_confirmed === true || booking?.is_age_confirmed === true) {
+      setConfirmationState('confirmed');
+      return;
     }
-  }, [isOpen, submission]);
+
+    if (!customerUserId) {
+      setConfirmationState('not_confirmed');
+      return;
+    }
+
+    let isMounted = true;
+    setConfirmationState('loading');
+
+    const supabase = createClient();
+    async function fetchConfirmation() {
+      try {
+        const { data, error } = await supabase.rpc('artist_get_customer_confirmation', {
+          p_customer_user_id: customerUserId
+        });
+
+        if (!isMounted) return;
+
+        if (error) {
+          console.error('Error in artist_get_customer_confirmation RPC:', error);
+          setConfirmationState('error');
+          return;
+        }
+
+        const res = Array.isArray(data) ? data[0] : data;
+        if (res && res.is_confirmed !== undefined) {
+          setConfirmationState(res.is_confirmed ? 'confirmed' : 'not_confirmed');
+        } else if (res && res.is_confirmed === null) {
+          setConfirmationState('not_confirmed');
+        } else {
+          setConfirmationState('not_confirmed');
+        }
+      } catch (err) {
+        console.error('Confirmation fetch exception:', err);
+        if (isMounted) setConfirmationState('error');
+      }
+    }
+
+    fetchConfirmation();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [isOpen, customerUserId, estimate?.is_age_confirmed]);
 
   if (!isOpen || !submission) return null;
 
@@ -90,29 +133,6 @@ export default function ArtistPaymentReviewDrawer({
       minimumFractionDigits: 0,
       maximumFractionDigits: 2,
     });
-  };
-
-  const handleApproveClick = async () => {
-    setSubmitting(true);
-    try {
-      await onApprove(submission.id, Number(submission.claimed_amount));
-      onClose();
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const handleRejectSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!rejectionReason.trim()) return;
-
-    setSubmitting(true);
-    try {
-      await onReject(submission.id);
-      onClose();
-    } finally {
-      setSubmitting(false);
-    }
   };
 
   return (
@@ -181,11 +201,25 @@ export default function ArtistPaymentReviewDrawer({
               )}
             </div>
             <div className="flex items-center justify-between text-xs pt-1.5 border-t border-studio-border/40">
-              <span className="text-[11px] text-studio-muted">ยืนยันเงื่อนไขก่อนรับบริการ:</span>
-              <span className="text-emerald-400 bg-emerald-950/50 border border-emerald-800/60 px-2 py-0.5 rounded text-[10px] font-semibold flex items-center gap-1">
-                <CheckCircle2 size={11} />
-                <span>✓ ยืนยันแล้ว</span>
-              </span>
+              <span className="text-[11px] text-studio-muted">การยืนยันอายุและเงื่อนไข:</span>
+              {confirmationState === 'loading' ? (
+                <span className="text-studio-muted bg-studio-main px-2 py-0.5 rounded text-[10px]">
+                  กำลังตรวจสอบ...
+                </span>
+              ) : confirmationState === 'confirmed' ? (
+                <span className="text-emerald-400 bg-emerald-950/50 border border-emerald-800/60 px-2 py-0.5 rounded text-[10px] font-semibold flex items-center gap-1">
+                  <CheckCircle2 size={11} />
+                  <span>ยืนยันแล้ว</span>
+                </span>
+              ) : confirmationState === 'error' ? (
+                <span className="text-amber-400/80 bg-amber-950/30 border border-amber-800/30 px-2 py-0.5 rounded text-[10px]">
+                  ! ไม่สามารถตรวจสอบได้
+                </span>
+              ) : (
+                <span className="text-amber-400 bg-amber-950/50 border border-amber-800/60 px-2 py-0.5 rounded text-[10px] font-semibold">
+                  ยังไม่ยืนยัน
+                </span>
+              )}
             </div>
           </div>
 
@@ -319,64 +353,18 @@ export default function ArtistPaymentReviewDrawer({
               </div>
             </div>
 
-            {/* Inline Rejection Reason Form or Direct Action Buttons */}
-            {isRejectDialogOpen ? (
-              <form onSubmit={handleRejectSubmit} className="pt-2 border-t border-studio-border/40 space-y-2.5 animate-fadeIn">
-                <span className="text-[11px] text-red-400 font-semibold block">ระบุเหตุผลในการปฏิเสธสลิป</span>
-                <input
-                  type="text"
-                  required
-                  value={rejectionReason}
-                  onChange={(e) => setRejectionReason(e.target.value)}
-                  placeholder="เช่น สลิปไม่ชัดเจน, ไม่พบยอดเงินโอน..."
-                  className="w-full bg-studio-main border border-studio-border rounded-lg p-2 text-xs text-studio-primary focus:outline-none focus:border-red-400 font-prompt"
-                />
-                <div className="flex items-center justify-end gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setIsRejectDialogOpen(false)}
-                    className="px-3 py-1.5 bg-studio-main text-xs text-studio-secondary rounded border border-studio-border hover:text-studio-primary cursor-pointer"
-                  >
-                    ยกเลิก
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={submitting || !rejectionReason.trim()}
-                    className="px-4 py-1.5 bg-red-600 hover:bg-red-500 text-xs text-white rounded font-medium disabled:opacity-50 flex items-center gap-1.5 cursor-pointer"
-                  >
-                    {submitting ? (
-                      <>
-                        <RefreshCw size={13} className="animate-spin" />
-                        <span>กำลังบันทึก...</span>
-                      </>
-                    ) : (
-                      <span>ยืนยันปฏิเสธสลิป</span>
-                    )}
-                  </button>
-                </div>
-              </form>
-            ) : (
-              <div className="grid grid-cols-2 gap-2 pt-1">
-                <button
-                  type="button"
-                  disabled={submitting}
-                  onClick={handleApproveClick}
-                  className="px-3 py-2.5 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white text-xs font-bold rounded-lg transition-colors flex items-center justify-center gap-1.5 shadow cursor-pointer disabled:opacity-50 min-w-0"
-                >
-                  <CheckCircle2 size={15} className="shrink-0" />
-                  <span className="truncate">{submitting ? 'กำลังบันทึก...' : 'อนุมัติสลิป'}</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setIsRejectDialogOpen(true)}
-                  className="px-3 py-2.5 bg-red-950/80 hover:bg-red-900 active:bg-red-950 text-red-200 border border-red-800 text-xs font-bold rounded-lg transition-colors flex items-center justify-center gap-1.5 cursor-pointer min-w-0"
-                >
-                  <Ban size={15} className="shrink-0" />
-                  <span className="truncate">ปฏิเสธสลิป</span>
-                </button>
+            {/* Read-Only Notice for Artist */}
+            <div className="pt-2 border-t border-studio-border/40">
+              <div className="p-3 bg-studio-sec/80 border border-studio-border rounded-lg text-xs text-studio-secondary flex items-center justify-between">
+                <span className="flex items-center gap-1.5 text-amber-400 font-medium">
+                  <Clock size={14} />
+                  <span>รอ Admin ตรวจสอบการชำระเงิน</span>
+                </span>
+                <span className="text-[11px] text-studio-muted">
+                  (ร้านค้าเป็นผู้อนุมัติหลักฐาน)
+                </span>
               </div>
-            )}
+            </div>
           </div>
         </div>
       </div>

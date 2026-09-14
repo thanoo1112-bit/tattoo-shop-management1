@@ -4,53 +4,94 @@ import React from 'react';
 import { CustomerPortalBooking, CustomerPortalEstimate } from './types';
 import BookingStatusBadge from './BookingStatusBadge';
 import { Calendar, User, ChevronRight, Layers } from 'lucide-react';
-import { formatThaiDate, formatTimeBangkok } from './portalUtils';
+import { formatThaiDate, formatTimeBangkok, resolveCustomerDisplayStatus } from './portalUtils';
 import CustomerReferenceImage from '@/components/common/CustomerReferenceImage';
 
 interface CustomerBookingCardProps {
   item: CustomerPortalBooking | CustomerPortalEstimate;
   type: 'estimate' | 'booking';
+  estimates?: CustomerPortalEstimate[];
   onClick: () => void;
 }
 
-export default function CustomerBookingCard({ item, type, onClick }: CustomerBookingCardProps) {
+export default function CustomerBookingCard({
+  item,
+  type,
+  estimates,
+  onClick,
+}: CustomerBookingCardProps) {
   const isBooking = type === 'booking';
   const booking = item as CustomerPortalBooking;
   const estimate = item as CustomerPortalEstimate;
 
-  const artistDisplayName = item.artist?.name
-    ? `${item.artist.name}${item.artist.nickname ? ` (${item.artist.nickname})` : ''}`
-    : 'ช่างสักประจำร้าน';
+  const hasPendingSlip = Boolean((item as any).has_pending_payment_submission);
+  const displayStatus = resolveCustomerDisplayStatus(item.status, hasPendingSlip);
 
-  // Preview Image
-  const previewImage = isBooking
-    ? (booking.reference_images?.[0] || booking.artwork_image_url || null)
-    : (estimate.reference_images?.[0] || null);
-
-  // Title
-  const title = isBooking
-    ? booking.artwork_title || 'งานสัก Custom'
-    : `คำขอขนาด ${estimate.width_cm}x${estimate.height_cm} ซม. (${estimate.style || 'Custom'})`;
-
-  // Tag
-  const tagLabel = isBooking
-    ? `งานสัก ${booking.booking_source === 'FLASH' ? 'Flash' : 'Custom'}`
-    : 'คำขอจองคิว';
-
-  // Booking Session date summary
-  const nextSession = isBooking && booking.sessions && booking.sessions.length > 0
-    ? booking.sessions.find((s) => s.status === 'SCHEDULED' || s.status === 'IN_PROGRESS') || booking.sessions[0]
+  // Matching Estimate for fallback lookup
+  const matchingEst = isBooking
+    ? estimates?.find((e) => e.id === booking.estimate_request_id)
     : null;
 
-  const displayDate = isBooking
-    ? (nextSession
-        ? `${formatThaiDate(nextSession.start_at)} (${formatTimeBangkok(nextSession.start_at)} - ${formatTimeBangkok(nextSession.end_at)})`
-        : formatThaiDate(booking.requested_date))
-    : (estimate.preferred_date ? formatThaiDate(estimate.preferred_date) : formatThaiDate(estimate.created_at));
+  // 1. Resolve Artist Name
+  const artistDisplayName = item.artist?.nickname || item.artist?.name || 'ช่างสักประจำร้าน';
 
-  const dateLabel = isBooking
-    ? (nextSession ? 'เวลานัดหมาย:' : 'วันที่ระบุในคำขอ:')
-    : (estimate.preferred_date ? 'วันที่สะดวก:' : 'วันที่ส่งคำขอ:');
+  // 2. Resolve Preview Image
+  const previewImage = isBooking
+    ? (booking.reference_images?.[0] || booking.artwork_image_url || matchingEst?.reference_images?.[0] || null)
+    : (estimate.reference_images?.[0] || null);
+
+  // 3. Resolve Tattoo Style & Main Title
+  const rawStyle = isBooking
+    ? (booking.style || matchingEst?.style)
+    : estimate.style;
+
+  const realStyle = (rawStyle && rawStyle !== 'Custom' && rawStyle !== 'CUSTOM') ? rawStyle : null;
+
+  let mainTitle = '';
+  if (realStyle) {
+    mainTitle = `งานสัก ${realStyle}`;
+  } else if (isBooking && booking.artwork_title && booking.artwork_title !== 'งานสัก Custom' && booking.artwork_title !== 'Custom') {
+    mainTitle = booking.artwork_title;
+  } else {
+    mainTitle = isBooking ? 'งานสัก' : 'คำขอประเมินราคางานสัก';
+  }
+
+  // 4. Resolve Placement Display
+  const rawPlacement = isBooking
+    ? (booking.placement || matchingEst?.placement)
+    : estimate.placement;
+  const placementDisplay = rawPlacement && rawPlacement.trim() !== '' ? rawPlacement : 'ไม่ระบุตำแหน่ง';
+
+  // 5. Resolve Size Display
+  const w = isBooking ? (booking.width_cm || matchingEst?.width_cm) : estimate.width_cm;
+  const h = isBooking ? (booking.height_cm || matchingEst?.height_cm) : estimate.height_cm;
+  const sizeDisplay = (w && h) ? `${w} × ${h} ซม.` : 'ไม่ระบุขนาด';
+
+  // 6. Resolve Appointment Date & Time
+  const nextSession = isBooking && booking.sessions && booking.sessions.length > 0
+    ? (booking.sessions.find((s) => s.status === 'SCHEDULED' || s.status === 'IN_PROGRESS') || booking.sessions[0])
+    : null;
+
+  let appointmentDisplay = '';
+  if (isBooking) {
+    if (nextSession) {
+      const timeStr = formatTimeBangkok(nextSession.start_at);
+      appointmentDisplay = timeStr && timeStr !== '-'
+        ? `${formatThaiDate(nextSession.start_at)} · ${timeStr}`
+        : formatThaiDate(nextSession.start_at);
+    } else if (booking.requested_date) {
+      const timeStr = booking.requested_start_time ? formatTimeBangkok(booking.requested_start_time) : '';
+      appointmentDisplay = timeStr && timeStr !== '-'
+        ? `${formatThaiDate(booking.requested_date)} · ${timeStr}`
+        : formatThaiDate(booking.requested_date);
+    } else {
+      appointmentDisplay = 'ไม่ระบุวันนัด';
+    }
+  } else {
+    appointmentDisplay = estimate.preferred_date
+      ? formatThaiDate(estimate.preferred_date)
+      : formatThaiDate(estimate.created_at);
+  }
 
   const depositRequired = isBooking
     ? booking.financial?.deposit_required
@@ -62,7 +103,7 @@ export default function CustomerBookingCard({ item, type, onClick }: CustomerBoo
       className="bg-studio-card border border-studio-border hover:border-studio-red/40 p-4 rounded-[6px] transition-all duration-200 cursor-pointer flex justify-between items-center group"
     >
       <div className="flex items-center space-x-3.5 flex-1 min-w-0">
-        {/* Preview image */}
+        {/* Reference Image Thumbnail */}
         <div className="w-14 h-14 bg-studio-main border border-studio-border rounded-[4px] overflow-hidden shrink-0">
           <CustomerReferenceImage
             src={previewImage}
@@ -72,48 +113,43 @@ export default function CustomerBookingCard({ item, type, onClick }: CustomerBoo
         </div>
 
         {/* Details */}
-        <div className="min-w-0 flex-1">
+        <div className="min-w-0 flex-1 space-y-1">
+          {/* Row 1: Main Title + ID + Status Badge (+ Deposit Badge) */}
           <div className="flex items-center space-x-2 flex-wrap gap-y-1">
-            <span className="text-[10px] uppercase tracking-wider text-studio-red font-semibold">
-              {tagLabel}
-            </span>
+            <h4 className="text-xs font-bold text-studio-primary truncate">
+              {mainTitle}
+            </h4>
             <span className="text-[10px] text-studio-muted font-mono">
               #{item.id.slice(0, 8)}
             </span>
-            <BookingStatusBadge status={item.status as any} type={type} />
-            {item.status === 'WAITING_DEPOSIT' && depositRequired && depositRequired > 0 && (
-              <span className="text-[10px] bg-studio-red/10 border border-studio-red/30 text-studio-red px-1.5 py-0.2 rounded font-semibold">
+            <BookingStatusBadge status={displayStatus as any} type={type} />
+            {displayStatus === 'WAITING_DEPOSIT' && depositRequired && depositRequired > 0 && (
+              <span className="text-[10px] bg-[#D9A441]/10 border border-[#D9A441]/45 text-[#D9A441] px-1.5 py-0.2 rounded font-semibold">
                 มัดจำ ฿{depositRequired.toLocaleString()}
               </span>
             )}
           </div>
 
-          <h4 className="text-xs font-bold text-studio-primary mt-1 truncate">
-            {title}
-          </h4>
+          {/* Row 2: Job Summary (Artist · Placement · Size) */}
+          <div className="text-[11px] text-studio-secondary truncate">
+            {artistDisplayName} · {placementDisplay} · {sizeDisplay}
+          </div>
 
-          <div className="flex flex-wrap items-center gap-x-3.5 gap-y-1 mt-2 text-[10px] text-studio-secondary">
-            <span className="flex items-center space-x-1">
-              <User size={12} className="text-studio-red" />
-              <span>ช่าง: {artistDisplayName}</span>
-            </span>
-
-            <span className="flex items-center space-x-1">
-              <Calendar size={12} className="text-studio-red" />
-              <span>{dateLabel} {displayDate}</span>
-            </span>
-
+          {/* Row 3: Appointment (Date · Time) */}
+          <div className="flex items-center space-x-1.5 text-[11px] text-studio-secondary">
+            <Calendar size={12} className="text-studio-red shrink-0" />
+            <span className="truncate">{appointmentDisplay}</span>
             {isBooking && booking.sessions && booking.sessions.length > 1 && (
-              <span className="flex items-center space-x-1 text-[#C9A86A]">
+              <span className="flex items-center space-x-1 text-[#C9A86A] ml-1.5 shrink-0">
                 <Layers size={11} />
-                <span>{booking.sessions.length} รอบสัก</span>
+                <span>({booking.sessions.length} รอบ)</span>
               </span>
             )}
           </div>
         </div>
       </div>
 
-      {/* Right chevron arrow */}
+      {/* Chevron Right Icon */}
       <ChevronRight size={16} className="text-studio-muted group-hover:text-studio-red transition-colors ml-4 shrink-0" />
     </div>
   );

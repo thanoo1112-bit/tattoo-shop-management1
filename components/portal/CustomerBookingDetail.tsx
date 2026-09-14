@@ -23,15 +23,14 @@ import {
   ChevronRight,
   ZoomIn,
 } from 'lucide-react';
-import { formatThaiDate, formatTimeBangkok, formatCurrency } from './portalUtils';
+import { formatThaiDate, formatTimeBangkok, formatCurrency, resolveCustomerDisplayStatus } from './portalUtils';
 import CustomerReferenceImage from '@/components/common/CustomerReferenceImage';
 import CustomerDepositPaymentSection from './CustomerDepositPaymentSection';
-
-
 
 interface CustomerBookingDetailProps {
   item: CustomerPortalBooking | CustomerPortalEstimate;
   type: 'estimate' | 'booking';
+  estimates?: CustomerPortalEstimate[];
   onClose: () => void;
   onRefresh?: () => void;
   onTransitionToBooking?: (estimate: CustomerPortalEstimate) => void;
@@ -40,6 +39,7 @@ interface CustomerBookingDetailProps {
 export default function CustomerBookingDetail({
   item,
   type,
+  estimates,
   onClose,
   onRefresh,
 }: CustomerBookingDetailProps) {
@@ -50,6 +50,9 @@ export default function CustomerBookingDetail({
   const isBooking = type === 'booking';
   const booking = item as CustomerPortalBooking;
   const estimate = item as CustomerPortalEstimate;
+
+  const hasPendingSlip = Boolean((item as any).has_pending_payment_submission);
+  const displayStatus = resolveCustomerDisplayStatus(item.status, hasPendingSlip);
 
   const artistDisplayName = item.artist?.name
     ? `${item.artist.name}${item.artist.nickname ? ` (${item.artist.nickname})` : ''}`
@@ -145,7 +148,7 @@ export default function CustomerBookingDetail({
                   : `งานสักสไตล์ ${estimate.style || 'Custom'}`}
               </h3>
             </div>
-            <BookingStatusBadge status={item.status as any} type={type} />
+            <BookingStatusBadge status={displayStatus as any} type={type} />
           </div>
 
           {error && (

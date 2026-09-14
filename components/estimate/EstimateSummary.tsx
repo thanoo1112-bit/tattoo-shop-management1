@@ -3,6 +3,7 @@
 import React from 'react';
 import { Calendar, User, Ruler, Maximize2, ShieldAlert } from 'lucide-react';
 import CustomerReferenceImage from '@/components/common/CustomerReferenceImage';
+import { parseNoteWithPreferredTime } from '@/lib/noteUtils';
 
 interface EstimateSummaryProps {
   artistName: string;
@@ -13,6 +14,7 @@ interface EstimateSummaryProps {
   style: string;
   description: string;
   preferredDate?: string;
+  preferredTime?: string;
 }
 
 export default function EstimateSummary({
@@ -24,7 +26,13 @@ export default function EstimateSummary({
   style,
   description,
   preferredDate,
+  preferredTime,
 }: EstimateSummaryProps) {
+  const { cleanNote, extractedTime } = parseNoteWithPreferredTime(description);
+  const displayTime = preferredTime
+    ? (preferredTime.endsWith('น.') ? preferredTime : `${preferredTime} น.`)
+    : extractedTime;
+
   return (
     <div className="bg-paper text-studio-sec border border-studio-border p-5 rounded-[6px] w-full max-w-sm mx-auto flex flex-col space-y-3.5 shadow-md font-prompt">
       <div className="flex justify-between items-center border-b border-studio-border/50 pb-2">
@@ -70,11 +78,18 @@ export default function EstimateSummary({
           </div>
         )}
 
-        {description && (
+        {displayTime && (
+          <div className="flex justify-between border-b border-studio-border/30 pb-1.5">
+            <span className="text-studio-muted">เวลาที่สะดวก:</span>
+            <span className="font-semibold">{displayTime}</span>
+          </div>
+        )}
+
+        {cleanNote && (
           <div className="pt-1">
             <span className="text-studio-muted block text-[10px] uppercase tracking-wider">รายละเอียดเพิ่มเติม:</span>
             <p className="text-xs text-studio-sec mt-0.5 bg-paper-dark/30 p-2 rounded border border-studio-border/30 italic">
-              {`"${description}"`}
+              {`"${cleanNote}"`}
             </p>
           </div>
         )}

@@ -1,8 +1,10 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { createClient } from '@/lib/supabase/client';
 import { BookingItem } from './types';
+import { checkAdminCompletionEligibility, mapServerCompletionError } from './adminCompletionGuard';
 
 interface CompleteBookingDialogProps {
   booking: BookingItem;
@@ -17,10 +19,19 @@ export function CompleteBookingDialog({
   onClose,
   onSuccess,
 }: CompleteBookingDialogProps) {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  if (!isOpen) return null;
+  if (!isOpen || !mounted) return null;
+
+  const eligibility = checkAdminCompletionEligibility(booking);
+  const quotedPriceNum = Number(booking.financial?.quoted_price ?? (booking as any)?.quoted_price ?? 0);
+  const quotedPriceFormatted = quotedPriceNum > 0 ? quotedPriceNum.toLocaleString('th-TH') : null;
 
   const hasRemainingBalance = (booking.financial?.remaining_balance ?? 0) > 0;
   const remainingBalanceFormatted = Number(booking.financial?.remaining_balance ?? 0).toLocaleString('th-TH');
@@ -28,6 +39,13 @@ export function CompleteBookingDialog({
   const handleConfirm = async () => {
     setIsSubmitting(true);
     setErrorMessage(null);
+
+    // Pre-flight UI Guard check
+    if (!eligibility.allowed) {
+      setErrorMessage(eligibility.reason || 'ไม่สามารถจบงานสักได้');
+      setIsSubmitting(false);
+      return;
+    }
 
     try {
       const supabase = createClient();
@@ -37,7 +55,8 @@ export function CompleteBookingDialog({
 
       if (error) {
         console.error('complete_booking error:', error);
-        setErrorMessage(error.message || 'ไม่สามารถปิดงานสักได้ กรุณาลองใหม่อีกครั้ง');
+        setErrorMessage(mapServerCompletionError(error.message));
+        onSuccess(); // Trigger parent refresh on server rejection for stale state recovery
         return;
       }
 
@@ -45,15 +64,16 @@ export function CompleteBookingDialog({
       onClose();
     } catch (err: any) {
       console.error('complete_booking unexpected error:', err);
-      setErrorMessage(err.message || 'เกิดข้อผิดพลาดในการปิดงาน');
+      setErrorMessage(mapServerCompletionError(err.message));
+      onSuccess();
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="w-full max-w-md bg-zinc-900 border border-zinc-700/80 rounded-2xl shadow-2xl p-6 text-zinc-100">
+  return createPortal(
+    <div className="fixed inset-0 z-[90] flex items-center justify-center p-4 bg-black/80 backdrop-blur-xs animate-in fade-in duration-200 font-prompt">
+      <div className="w-full max-w-md bg-zinc-900 border border-zinc-700/80 rounded-2xl shadow-2xl p-6 text-zinc-100 my-auto max-h-[90dvh] overflow-y-auto">
         <div className="flex items-center gap-3 mb-4">
           <div className="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
             <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -61,14 +81,22 @@ export function CompleteBookingDialog({
             </svg>
           </div>
           <div>
-            <h3 className="text-lg font-bold text-white">ยืนยันปิดงานสัก?</h3>
+            <h3 className="text-lg font-bold text-white">ยืนยันจบงานสักทั้งหมด?</h3>
             <p className="text-xs text-zinc-400">คิวงาน #{booking.id.slice(0, 8)} • {booking.customer_name}</p>
           </div>
         </div>
 
         <p className="text-sm text-zinc-300 mb-4 leading-relaxed">
-          เมื่อยืนยัน งานนี้จะถูกเปลี่ยนสถานะเป็น <strong className="text-emerald-400">&ldquo;เสร็จสิ้น&rdquo;</strong> โดยประวัติรอบสักและการชำระเงินทั้งหมดจะยังคงอยู่ครบถ้วน
+          ตรวจสอบว่ารอบสักทั้งหมดที่ต้องดำเนินการเสร็จสิ้นแล้ว ก่อนยืนยันจบงาน
         </p>
+
+        {/* Read-only Actual Tattoo Price */}
+        {quotedPriceFormatted && (
+          <div className="mb-4 p-3 rounded-xl bg-zinc-800/80 border border-zinc-700/60 text-xs flex items-center justify-between">
+            <span className="text-zinc-400">ราคางานสักจริง:</span>
+            <span className="font-bold text-white font-mono">฿{quotedPriceFormatted}</span>
+          </div>
+        )}
 
         {/* Remaining balance non-blocking warning */}
         {hasRemainingBalance && (
@@ -83,9 +111,10 @@ export function CompleteBookingDialog({
           </div>
         )}
 
-        {errorMessage && (
-          <div className="mb-4 p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-xs">
-            {errorMessage}
+        {/* UI Guard Warning or Server Error Message */}
+        {(!eligibility.allowed || errorMessage) && (
+          <div className="mb-4 p-3.5 rounded-xl bg-red-500/10 border border-red-500/30 text-red-300 text-xs font-medium">
+            {errorMessage || eligibility.reason}
           </div>
         )}
 
@@ -101,7 +130,7 @@ export function CompleteBookingDialog({
           <button
             id="btn-confirm-complete-booking"
             type="button"
-            disabled={isSubmitting}
+            disabled={isSubmitting || !eligibility.allowed}
             onClick={handleConfirm}
             className="px-5 py-2 text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 rounded-xl transition-all shadow-lg shadow-emerald-600/20 disabled:opacity-50 flex items-center gap-2"
           >
@@ -119,6 +148,7 @@ export function CompleteBookingDialog({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

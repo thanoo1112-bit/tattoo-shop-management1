@@ -249,6 +249,8 @@ interface ArtistFormProps {
   handleToggleWorkingDay: (dayKey: string) => void;
   formStatus: 'AVAILABLE' | 'TATTOOING' | 'BREAK' | 'OFF_DUTY';
   setFormStatus: (val: 'AVAILABLE' | 'TATTOOING' | 'BREAK' | 'OFF_DUTY') => void;
+  formBasePrice: string;
+  setFormBasePrice: (val: string) => void;
   formIsVisible: boolean;
   setFormIsVisible: (val: boolean) => void;
   formIsActive: boolean;
@@ -283,6 +285,8 @@ function ArtistForm({
   handleToggleWorkingDay,
   formStatus,
   setFormStatus,
+  formBasePrice,
+  setFormBasePrice,
   formIsVisible,
   setFormIsVisible,
   formIsActive,
@@ -650,6 +654,7 @@ export default function AdminArtistManagement() {
   const [customSpecialtyInput, setCustomSpecialtyInput] = useState('');
   const [formWorkingDays, setFormWorkingDays] = useState<string[]>(['Mon', 'Tue', 'Wed', 'Thu', 'Fri']);
   const [formStatus, setFormStatus] = useState<'AVAILABLE' | 'TATTOOING' | 'BREAK' | 'OFF_DUTY'>('AVAILABLE');
+  const [formBasePrice, setFormBasePrice] = useState<string>('');
   const [formIsActive, setFormIsActive] = useState(true);
   const [formIsVisible, setFormIsVisible] = useState(true);
   const [formSortOrder, setFormSortOrder] = useState(0);
@@ -698,6 +703,7 @@ export default function AdminArtistManagement() {
           status: normalizeStatus(item.status),
           is_active: item.is_active,
           is_visible: item.is_visible,
+          base_price: item.base_price != null ? Number(item.base_price) : null,
           sort_order: item.sort_order,
           created_at: item.created_at,
           updated_at: item.updated_at,
@@ -761,6 +767,7 @@ export default function AdminArtistManagement() {
     setCustomSpecialtyInput('');
     setFormWorkingDays([]);
     setFormStatus('AVAILABLE');
+    setFormBasePrice('');
     setFormIsActive(true);
     setFormIsVisible(true);
     setFormSortOrder((artists.length + 1) * 10);
@@ -791,6 +798,7 @@ export default function AdminArtistManagement() {
     const loadedDays = artist.working_days || artist.availability || [];
     setFormWorkingDays(loadedDays);
     setFormStatus(normalizeStatus(artist.status));
+    setFormBasePrice(artist.base_price != null ? String(artist.base_price) : '');
     setFormIsActive(artist.is_active !== undefined ? artist.is_active : true);
     setFormIsVisible(artist.is_visible !== undefined ? artist.is_visible : true);
     setFormSortOrder(artist.sort_order ?? 0);
@@ -831,6 +839,17 @@ export default function AdminArtistManagement() {
     if (!formName.trim()) {
       setFormError('กรุณากรอกชื่อช่างสัก');
       return;
+    }
+
+    // Validate Base Price if provided
+    let parsedBasePrice: number | null = null;
+    if (formBasePrice.trim() !== '') {
+      const numPrice = Number(formBasePrice.trim());
+      if (isNaN(numPrice) || numPrice <= 0) {
+        setFormError('กรุณากรอกราคาฐานที่มากกว่า 0 บาท');
+        return;
+      }
+      parsedBasePrice = numPrice;
     }
 
     setIsSubmitting(true);
@@ -902,6 +921,7 @@ export default function AdminArtistManagement() {
         status: formStatus,
         is_active: formIsActive,
         is_visible: formIsVisible,
+        base_price: parsedBasePrice,
         sort_order: nextSortOrder,
       };
 
@@ -934,6 +954,17 @@ export default function AdminArtistManagement() {
     if (!formName.trim()) {
       setFormError('กรุณากรอกชื่อช่างสัก');
       return;
+    }
+
+    // Validate Base Price if provided
+    let parsedBasePrice: number | null = null;
+    if (formBasePrice.trim() !== '') {
+      const numPrice = Number(formBasePrice.trim());
+      if (isNaN(numPrice) || numPrice <= 0) {
+        setFormError('กรุณากรอกราคาฐานที่มากกว่า 0 บาท');
+        return;
+      }
+      parsedBasePrice = numPrice;
     }
 
     setIsSubmitting(true);
@@ -998,6 +1029,7 @@ export default function AdminArtistManagement() {
         status: formStatus,
         is_active: formIsActive,
         is_visible: formIsVisible,
+        base_price: parsedBasePrice,
         sort_order: selectedArtist.sort_order ?? formSortOrder ?? 0,
       };
 
@@ -1671,6 +1703,8 @@ export default function AdminArtistManagement() {
               handleToggleWorkingDay={handleToggleWorkingDay}
               formStatus={formStatus}
               setFormStatus={setFormStatus}
+              formBasePrice={formBasePrice}
+              setFormBasePrice={setFormBasePrice}
               formIsVisible={formIsVisible}
               setFormIsVisible={setFormIsVisible}
               formIsActive={formIsActive}
@@ -1899,6 +1933,8 @@ export default function AdminArtistManagement() {
                 handleToggleWorkingDay={handleToggleWorkingDay}
                 formStatus={formStatus}
                 setFormStatus={setFormStatus}
+                formBasePrice={formBasePrice}
+                setFormBasePrice={setFormBasePrice}
                 formIsVisible={formIsVisible}
                 setFormIsVisible={setFormIsVisible}
                 formIsActive={formIsActive}

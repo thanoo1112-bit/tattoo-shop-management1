@@ -135,3 +135,35 @@ export function formatCurrency(amount?: number | null): string {
     maximumFractionDigits: 2,
   });
 }
+
+/**
+ * Resolves derived display status for customer portal view
+ */
+export function resolveCustomerDisplayStatus(
+  status: string,
+  hasPendingSlip?: boolean
+): string {
+  if (status === 'CONFIRMED' || status === 'APPROVED') return 'CONFIRMED';
+  if (status === 'COMPLETED') return 'COMPLETED';
+  if (status === 'IN_PROGRESS') return 'IN_PROGRESS';
+  if (status === 'CANCELLED') return 'CANCELLED';
+  if (status === 'REJECTED') return 'REJECTED';
+
+  if (hasPendingSlip) {
+    return 'PENDING';
+  }
+
+  if (status === 'WAITING_DEPOSIT' || status === 'QUOTED') {
+    return 'WAITING_DEPOSIT';
+  }
+
+  if (status === 'PENDING') {
+    return 'PENDING';
+  }
+
+  if (status === 'ACCEPTED') {
+    return 'ACCEPTED';
+  }
+
+  return status;
+}

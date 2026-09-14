@@ -9,17 +9,7 @@ interface PortfolioFilterProps {
 }
 
 export default function PortfolioFilter({ activeFilter, onFilterChange, filters }: PortfolioFilterProps) {
-  const defaultFilters = [
-    'All',
-    'Fine Line',
-    'Blackwork',
-    'Japanese',
-    'Traditional',
-    'Minimal',
-    'Realism',
-  ];
-
-  const filterList = filters || defaultFilters;
+  const filterList = filters && filters.length > 0 ? filters : ['All'];
 
   return (
     <div className="flex overflow-x-auto pb-2 scrollbar-none gap-2 px-1 max-w-full justify-start md:justify-center font-prompt">

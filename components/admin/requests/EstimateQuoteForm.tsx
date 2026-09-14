@@ -4,23 +4,30 @@ import React, { useState } from 'react';
 import { Calendar, Clock, DollarSign, FileText, CheckCircle2, X, AlertCircle, Loader2 } from 'lucide-react';
 import { EstimateRequestItem } from './types';
 import { createClient } from '@/lib/supabase/client';
+import { parseNoteWithPreferredTime, getInitialStartTime } from '@/lib/noteUtils';
+import { BlockedDateRecord, checkDateAvailability } from '@/lib/availabilityUtils';
 
 interface EstimateQuoteFormProps {
   estimate: EstimateRequestItem;
+  blockedDates?: BlockedDateRecord[];
   onSuccess: (status?: string) => void;
   onCancel: () => void;
 }
 
 export default function EstimateQuoteForm({
   estimate,
+  blockedDates = [],
   onSuccess,
   onCancel,
 }: EstimateQuoteFormProps) {
   // 1. Initial State: Default date to customer preferred date or today
   const defaultDate = estimate.preferred_date || new Date().toISOString().split('T')[0];
+  const initialDurationHours = estimate.estimated_duration_minutes
+    ? String(Math.max(1, Math.round(estimate.estimated_duration_minutes / 60)))
+    : '5';
+
   const [appointmentDate, setAppointmentDate] = useState<string>(defaultDate);
-  const [startTime, setStartTime] = useState<string>('13:00');
-  const [endTime, setEndTime] = useState<string>('16:00');
+  const [durationHours, setDurationHours] = useState<string>(initialDurationHours);
   const [quotedPrice, setQuotedPrice] = useState<string>(
     estimate.quoted_price !== null && estimate.quoted_price !== undefined ? String(estimate.quoted_price) : '0'
   );
@@ -30,6 +37,46 @@ export default function EstimateQuoteForm({
   const [adminNote, setAdminNote] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  // Sync form state when estimate prop changes or modal opens
+  React.useEffect(() => {
+    const dDate = estimate.preferred_date || new Date().toISOString().split('T')[0];
+    const dDuration = estimate.estimated_duration_minutes
+      ? String(Math.max(1, Math.round(estimate.estimated_duration_minutes / 60)))
+      : '5';
+    setAppointmentDate(dDate);
+    setDurationHours(dDuration);
+    setQuotedPrice(
+      estimate.quoted_price !== null && estimate.quoted_price !== undefined ? String(estimate.quoted_price) : '0'
+    );
+    setDepositRequired(
+      estimate.deposit_required !== null && estimate.deposit_required !== undefined ? String(estimate.deposit_required) : '0'
+    );
+    setAdminNote('');
+    setErrorMessage(null);
+    setIsSubmitting(false);
+  }, [estimate.id, estimate.preferred_date, estimate.estimated_duration_minutes, estimate.quoted_price, estimate.deposit_required]);
+
+  // Helper function to calculate internal end_at from internal start_at + duration_hours
+  const calculateEndTime = (startHHMM: string, durationInHours: number): string => {
+    const [hStr, mStr] = startHHMM.split(':');
+    const startH = parseInt(hStr || '13', 10);
+    const startM = parseInt(mStr || '0', 10);
+
+    const startTotalMinutes = startH * 60 + startM;
+    const durationMinutes = Math.round(durationInHours * 60);
+    let totalMinutes = startTotalMinutes + durationMinutes;
+
+    // Cap at 23:59 so that end_time > start_time remains valid for single-day range
+    if (totalMinutes >= 24 * 60) {
+      totalMinutes = 23 * 60 + 59;
+    }
+
+    const endH = Math.floor(totalMinutes / 60);
+    const endM = totalMinutes % 60;
+
+    return `${String(endH).padStart(2, '0')}:${String(endM).padStart(2, '0')}`;
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -41,13 +88,21 @@ export default function EstimateQuoteForm({
       return;
     }
 
-    if (!startTime || !endTime) {
-      setErrorMessage('กรุณาระบุเวลาเริ่มและเวลาสิ้นสุด');
+    const availCheck = checkDateAvailability(
+      appointmentDate,
+      estimate.artist_id,
+      blockedDates,
+      estimate.artist_nickname || estimate.artist_name
+    );
+
+    if (availCheck.isBlocked) {
+      setErrorMessage(availCheck.errorMessage || 'ไม่สามารถเลือกวันที่นี้ได้ เนื่องจากเป็นวันที่ปิดรับคิว');
       return;
     }
 
-    if (endTime <= startTime) {
-      setErrorMessage('เวลาสิ้นสุดต้องอยู่หลังเวลาเริ่ม');
+    const durationVal = parseFloat(durationHours);
+    if (!durationHours.trim() || isNaN(durationVal) || durationVal < 1) {
+      setErrorMessage('กรุณาระบุระยะเวลาสักโดยประมาณ');
       return;
     }
 
@@ -66,8 +121,11 @@ export default function EstimateQuoteForm({
     setIsSubmitting(true);
     try {
       const supabase = createClient();
-      const formattedStartTime = startTime.length === 5 ? `${startTime}:00` : startTime;
-      const formattedEndTime = endTime.length === 5 ? `${endTime}:00` : endTime;
+      const internalStartTime = getInitialStartTime(estimate, '13:00');
+      const internalEndTime = calculateEndTime(internalStartTime, durationVal);
+
+      const formattedStartTime = internalStartTime.length === 5 ? `${internalStartTime}:00` : internalStartTime;
+      const formattedEndTime = internalEndTime.length === 5 ? `${internalEndTime}:00` : internalEndTime;
 
       // Update quoted_price on estimate_requests if provided
       if (!isNaN(priceVal)) {
@@ -99,10 +157,10 @@ export default function EstimateQuoteForm({
         } else if (error.code === 'P0002') {
           setErrorMessage('ไม่พบคำขอจองนี้ในระบบ');
         } else if (
-          error.code === '22023' ||
           error.code === '23505' ||
-          error.message?.includes('status') ||
-          error.message?.includes('already exists')
+          error.message?.includes('already exists') ||
+          error.message?.includes('must be PENDING') ||
+          error.message?.includes('is in status ACCEPTED')
         ) {
           setErrorMessage('คำขอนี้ได้รับการยืนยันไปแล้ว');
         } else {
@@ -121,103 +179,89 @@ export default function EstimateQuoteForm({
   };
 
   return (
-    <div className="bg-[#0E0D0C] border border-[#4A443A] rounded-xl p-4 sm:p-5 space-y-4 font-prompt animate-fadeIn">
+    <div className="bg-studio-card border border-studio-border rounded-2xl w-full max-w-md p-5 space-y-4 shadow-2xl animate-in zoom-in-95 duration-150 font-prompt">
       {/* Form Header */}
-      <div className="flex items-center justify-between border-b border-[#4A443A]/60 pb-3">
-        <div className="flex items-center gap-2">
-          <div className="w-7 h-7 rounded-md bg-[#171512] border border-[#4A443A] flex items-center justify-center text-emerald-400">
-            <Calendar size={15} />
-          </div>
-          <div>
-            <h4 className="text-sm font-heading font-semibold text-[#ECE4D3]">
-              จัดการคำขอจองคิวสัก
-            </h4>
-            <p className="text-[11px] text-[#A89F91]">
-              กำหนดวันเวลานัดหมายและมัดจำเพื่อลงตารางคิวสัก
-            </p>
-          </div>
-        </div>
+      <div className="flex items-center justify-between border-b border-studio-border pb-3">
+        <h3 className="font-semibold text-sm text-studio-primary">จัดการคำขอจองคิวสัก</h3>
         <button
           type="button"
           onClick={onCancel}
           disabled={isSubmitting}
-          className="text-[#7A7265] hover:text-[#ECE4D3] p-1 rounded"
+          className="text-studio-secondary hover:text-white cursor-pointer"
         >
-          <X size={15} />
+          <X size={16} />
         </button>
       </div>
 
       {/* Error Message Box */}
       {errorMessage && (
-        <div className="p-3 bg-red-950/40 border border-red-900/60 rounded-lg text-xs text-red-400 flex items-start gap-2">
+        <div className="p-3 bg-red-950/80 border border-red-800 text-red-200 rounded-xl text-xs flex items-start gap-2">
           <AlertCircle size={15} className="shrink-0 mt-0.5" />
           <span>{errorMessage}</span>
         </div>
       )}
 
       {/* Form Fields */}
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form onSubmit={handleSubmit} className="space-y-3 text-xs">
         {/* 1. Appointment Date */}
         <div>
-          <label className="block text-xs font-medium text-[#ECE4D3] mb-1">
-            วันนัดจริง (Appointment Date) <span className="text-[#9C2F2F]">*</span>
+          <label className="block text-studio-secondary mb-1">
+            วันนัดหมาย *
           </label>
-          <div className="relative">
-            <input
-              id="input-appointment-date"
-              type="date"
-              required
-              disabled={isSubmitting}
-              value={appointmentDate}
-              onChange={(e) => setAppointmentDate(e.target.value)}
-              className="w-full bg-[#171512] border border-[#4A443A] rounded-lg px-3 py-2 text-xs text-[#ECE4D3] focus:outline-none focus:border-emerald-400"
-            />
-          </div>
-          {estimate.preferred_date && (
-            <p className="text-[10px] text-[#7A7265] mt-1">
-              วันที่ลูกค้าสะดวก: <span className="text-[#ECE4D3]">{estimate.preferred_date}</span>
-            </p>
-          )}
+          <input
+            id="input-appointment-date"
+            type="date"
+            required
+            disabled={isSubmitting}
+            value={appointmentDate}
+            onChange={(e) => setAppointmentDate(e.target.value)}
+            className="w-full bg-studio-sec border border-studio-border rounded-xl px-3 py-2 text-studio-primary focus:outline-none focus:border-studio-red"
+          />
+          {(() => {
+            const { extractedTime } = parseNoteWithPreferredTime(estimate.description);
+            if (!estimate.preferred_date && !extractedTime) return null;
+            return (
+              <p className="text-[10px] text-studio-muted mt-1 flex flex-wrap gap-x-3">
+                {estimate.preferred_date && (
+                  <span>วันที่ลูกค้าสะดวก: <span className="text-studio-primary">{estimate.preferred_date}</span></span>
+                )}
+                {extractedTime && (
+                  <span>เวลาที่สะดวก: <span className="text-studio-primary">{extractedTime}</span></span>
+                )}
+              </p>
+            );
+          })()}
         </div>
 
-        {/* 2. Start Time & End Time */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div>
-            <label className="block text-xs font-medium text-[#ECE4D3] mb-1">
-              เวลาเริ่ม (Start Time) <span className="text-[#9C2F2F]">*</span>
-            </label>
+        {/* 2. Estimated Duration */}
+        <div>
+          <label htmlFor="input-duration-hours" className="block text-studio-secondary mb-1">
+            ระยะเวลาสักโดยประมาณ *
+          </label>
+          <div className="relative flex items-center">
             <input
-              id="input-start-time"
-              type="time"
+              id="input-duration-hours"
+              type="number"
+              min="1"
+              step="any"
               required
               disabled={isSubmitting}
-              value={startTime}
-              onChange={(e) => setStartTime(e.target.value)}
-              className="w-full bg-[#171512] border border-[#4A443A] rounded-lg px-3 py-2 text-xs text-[#ECE4D3] focus:outline-none focus:border-emerald-400"
+              value={durationHours}
+              onChange={(e) => setDurationHours(e.target.value)}
+              placeholder="5"
+              className="w-full bg-studio-sec border border-studio-border rounded-xl px-3 py-2 text-studio-primary font-mono focus:outline-none focus:border-studio-red pr-14"
             />
-          </div>
-
-          <div>
-            <label className="block text-xs font-medium text-[#ECE4D3] mb-1">
-              เวลาสิ้นสุด (End Time) <span className="text-[#9C2F2F]">*</span>
-            </label>
-            <input
-              id="input-end-time"
-              type="time"
-              required
-              disabled={isSubmitting}
-              value={endTime}
-              onChange={(e) => setEndTime(e.target.value)}
-              className="w-full bg-[#171512] border border-[#4A443A] rounded-lg px-3 py-2 text-xs text-[#ECE4D3] focus:outline-none focus:border-emerald-400"
-            />
+            <span className="absolute right-3 text-studio-secondary text-xs pointer-events-none">
+              ชั่วโมง
+            </span>
           </div>
         </div>
 
-        {/* 3. Tattoo Price & Deposit (Same Row on Desktop) */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        {/* 3. Tattoo Price & Deposit */}
+        <div className="grid grid-cols-2 gap-2">
           <div>
-            <label className="block text-xs font-medium text-[#ECE4D3] mb-1">
-              ราคางานสัก (บาท)
+            <label className="block text-studio-secondary mb-1">
+              ราคางานสัก (฿)
             </label>
             <input
               id="input-quoted-price"
@@ -228,16 +272,13 @@ export default function EstimateQuoteForm({
               value={quotedPrice}
               onChange={(e) => setQuotedPrice(e.target.value)}
               placeholder="0"
-              className="w-full bg-[#171512] border border-[#4A443A] rounded-lg px-3 py-2 text-xs text-[#ECE4D3] focus:outline-none focus:border-emerald-400"
+              className="w-full bg-studio-sec border border-studio-border rounded-xl px-3 py-2 text-studio-primary font-mono focus:outline-none focus:border-studio-red"
             />
-            <p className="text-[10px] text-[#7A7265] mt-1">
-              ระบุ 0 หากยังไม่กำหนดราคา
-            </p>
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-[#ECE4D3] mb-1">
-              เงินมัดจำ (บาท)
+            <label className="block text-studio-secondary mb-1">
+              เงินมัดจำ (฿)
             </label>
             <input
               id="input-deposit-required"
@@ -248,18 +289,15 @@ export default function EstimateQuoteForm({
               value={depositRequired}
               onChange={(e) => setDepositRequired(e.target.value)}
               placeholder="0"
-              className="w-full bg-[#171512] border border-[#4A443A] rounded-lg px-3 py-2 text-xs text-[#ECE4D3] focus:outline-none focus:border-emerald-400"
+              className="w-full bg-studio-sec border border-studio-border rounded-xl px-3 py-2 text-studio-primary font-mono focus:outline-none focus:border-studio-red"
             />
-            <p className="text-[10px] text-[#7A7265] mt-1">
-              ระบุ 0 หากไม่เรียกเก็บมัดจำ
-            </p>
           </div>
         </div>
 
         {/* 4. Admin / Shop Note */}
         <div>
-          <label className="block text-xs font-medium text-[#ECE4D3] mb-1">
-            หมายเหตุของร้าน/ช่าง (Admin Note)
+          <label className="block text-studio-secondary mb-1">
+            หมายเหตุของร้าน/ช่าง
           </label>
           <textarea
             id="input-admin-note"
@@ -267,18 +305,18 @@ export default function EstimateQuoteForm({
             disabled={isSubmitting}
             value={adminNote}
             onChange={(e) => setAdminNote(e.target.value)}
-            placeholder="ข้อความหรือคำแนะนำถึงลูกค้า / บันทึกภายในร้าน..."
-            className="w-full bg-[#171512] border border-[#4A443A] rounded-lg px-3 py-2 text-xs text-[#ECE4D3] focus:outline-none focus:border-emerald-400 resize-none"
+            placeholder="รายละเอียดเพิ่มเติมสำหรับการนัดหมาย..."
+            className="w-full bg-studio-sec border border-studio-border rounded-xl px-3 py-2 text-studio-primary focus:outline-none focus:border-studio-red resize-none"
           />
         </div>
 
         {/* Form Actions */}
-        <div className="flex items-center justify-end gap-2 pt-2 border-t border-[#4A443A]/60">
+        <div className="grid grid-cols-2 gap-2 pt-2 border-t border-studio-border">
           <button
             type="button"
             onClick={onCancel}
             disabled={isSubmitting}
-            className="px-4 py-2 bg-[#171512] hover:bg-[#1F1D1A] text-xs text-[#A89F91] hover:text-[#ECE4D3] rounded-lg border border-[#4A443A] transition-colors"
+            className="w-full py-2.5 px-3 rounded-xl border border-studio-border bg-studio-sec hover:bg-studio-card text-studio-secondary font-medium text-xs cursor-pointer"
           >
             ยกเลิก
           </button>
@@ -286,12 +324,12 @@ export default function EstimateQuoteForm({
             id="btn-confirm-booking-submit"
             type="submit"
             disabled={isSubmitting}
-            className="px-5 py-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed text-xs font-semibold text-white rounded-lg transition-colors flex items-center gap-1.5 shadow"
+            className="w-full py-2.5 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs shadow flex items-center justify-center space-x-1.5 cursor-pointer disabled:opacity-50"
           >
             {isSubmitting ? (
               <>
                 <Loader2 size={13} className="animate-spin" />
-                <span>กำลังยืนยันคิว...</span>
+                <span>กำลังบันทึก...</span>
               </>
             ) : (
               <>

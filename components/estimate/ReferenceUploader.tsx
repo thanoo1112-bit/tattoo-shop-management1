@@ -1,27 +1,33 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
-import { 
-  Upload, 
-  Image as ImageIcon, 
-  Loader2, 
-  AlertCircle, 
-  X, 
-  Plus, 
-  ChevronLeft, 
-  ChevronRight 
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { createPortal } from 'react-dom';
+import {
+  Upload,
+  Image as ImageIcon,
+  Loader2,
+  AlertCircle,
+  X,
+  Plus,
+  ZoomIn,
 } from 'lucide-react';
 import { uploadCustomerReference, getCustomerReferenceSignedUrl } from '@/lib/utils/storageUploader';
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Types
+// ─────────────────────────────────────────────────────────────────────────────
 interface ReferenceUploaderProps {
-  value?: string; // Legacy single image path or URL
-  values?: string[]; // Array of image paths or URLs
+  value?: string;          // Legacy single image path or URL
+  values?: string[];       // Array of image paths or URLs
   onChange?: (storagePathOrUrl: string) => void;
   onValuesChange?: (pathsOrUrls: string[]) => void;
-  maxImages?: number; // 5 for Custom Tattoo (default), 1 for Flash
+  maxImages?: number;      // 5 for Custom Tattoo (default), 1 for Flash
   disabled?: boolean;
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Helpers
+// ─────────────────────────────────────────────────────────────────────────────
 const isDirectUrl = (str: string) =>
   Boolean(
     str &&
@@ -31,6 +37,9 @@ const isDirectUrl = (str: string) =>
         str.startsWith('blob:'))
   );
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Component
+// ─────────────────────────────────────────────────────────────────────────────
 export default function ReferenceUploader({
   value = '',
   values,
@@ -39,464 +48,433 @@ export default function ReferenceUploader({
   maxImages = 5,
   disabled = false,
 }: ReferenceUploaderProps) {
-  const [isUploading, setIsUploading] = useState(false);
-  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [mounted, setMounted]             = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const [isUploading, setIsUploading]     = useState(false);
+  const [uploadError, setUploadError]     = useState<string | null>(null);
+  const [isDragging, setIsDragging]       = useState(false);
   const [previewSignedUrls, setPreviewSignedUrls] = useState<Record<string, string>>({});
-  const [localBlobUrls, setLocalBlobUrls] = useState<Record<string, string>>({});
-  const [loadingPreviews, setLoadingPreviews] = useState(false);
-  const [failedImagePaths, setFailedImagePaths] = useState<Record<string, boolean>>({});
+  const [loadingPreviews, setLoadingPreviews]     = useState(false);
+  const [failedImagePaths, setFailedImagePaths]   = useState<Record<string, boolean>>({});
 
-  // Carousel Active Slide Index
-  const [activeSlideIndex, setActiveSlideIndex] = useState(0);
+  // Lightbox state
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
 
-  // Touch Swipe Gesture References
-  const touchStartXRef = useRef<number | null>(null);
-  const touchEndXRef = useRef<number | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef    = useRef<HTMLInputElement>(null);
+  const dropZoneRef     = useRef<HTMLDivElement>(null);
 
-  // Normalize active list of image paths/urls
+  // ── Normalize active list ────────────────────────────────────────────────
   const activePaths: string[] = React.useMemo(() => {
-    if (Array.isArray(values)) {
-      return values.filter(Boolean);
-    }
-    if (value && value.trim()) {
-      return [value.trim()];
-    }
+    if (Array.isArray(values)) return values.filter(Boolean);
+    if (value && value.trim()) return [value.trim()];
     return [];
   }, [values, value]);
 
-  // Total slides count available to navigate
-  // If activePaths.length < maxImages, we add +1 slide for the Upload Placeholder
-  // If activePaths.length === maxImages, totalSlides = maxImages
-  const totalSlides = React.useMemo(() => {
-    if (maxImages <= 1) return 1;
-    return activePaths.length < maxImages ? activePaths.length + 1 : maxImages;
-  }, [activePaths.length, maxImages]);
+  const isLimitReached = activePaths.length >= maxImages;
+  const canAddMore     = !isLimitReached && !disabled && !isUploading;
 
-  // Ensure activeSlideIndex stays safely within valid bounds
-  useEffect(() => {
-    if (activeSlideIndex >= totalSlides && totalSlides > 0) {
-      setActiveSlideIndex(totalSlides - 1);
-    }
-  }, [totalSlides, activeSlideIndex]);
-
-  // Resolve Signed Preview URLs for all active paths simultaneously
+  // ── Resolve signed URLs ──────────────────────────────────────────────────
   useEffect(() => {
     let isMounted = true;
 
-    async function resolveAllPreviews() {
+    async function resolveAll() {
       if (activePaths.length === 0) {
-        if (isMounted) {
-          setPreviewSignedUrls({});
-          setLoadingPreviews(false);
-        }
+        if (isMounted) { setPreviewSignedUrls({}); setLoadingPreviews(false); }
         return;
       }
-
       setLoadingPreviews(true);
       const urlMap: Record<string, string> = {};
-
       try {
         await Promise.all(
           activePaths.map(async (pathStr) => {
             if (!pathStr) return;
-            if (isDirectUrl(pathStr)) {
-              urlMap[pathStr] = pathStr;
-              return;
-            }
-            // Check if we already have a resolved signed URL or local blob preview
+            if (isDirectUrl(pathStr)) { urlMap[pathStr] = pathStr; return; }
             if (previewSignedUrls[pathStr] && isDirectUrl(previewSignedUrls[pathStr])) {
               urlMap[pathStr] = previewSignedUrls[pathStr];
               return;
             }
             try {
-              const signedUrl = await getCustomerReferenceSignedUrl(pathStr, 3600);
-              urlMap[pathStr] = signedUrl || '';
-            } catch (err) {
-              console.error('[ReferenceUploader] Error resolving signed URL for path:', pathStr, err);
+              const signed = await getCustomerReferenceSignedUrl(pathStr, 3600);
+              urlMap[pathStr] = signed || '';
+            } catch {
               urlMap[pathStr] = '';
             }
           })
         );
-
-        if (isMounted) {
-          setPreviewSignedUrls((prev) => ({ ...prev, ...urlMap }));
-        }
+        if (isMounted) setPreviewSignedUrls((prev) => ({ ...prev, ...urlMap }));
       } finally {
-        if (isMounted) {
-          setLoadingPreviews(false);
-        }
+        if (isMounted) setLoadingPreviews(false);
       }
     }
 
-    resolveAllPreviews();
+    resolveAll();
+    return () => { isMounted = false; };
+  }, [activePaths]); // eslint-disable-line react-hooks/exhaustive-deps
 
-    return () => {
-      isMounted = false;
-    };
-  }, [activePaths]);
-
+  // ── Notify parent ────────────────────────────────────────────────────────
   const notifyChange = (newPaths: string[]) => {
-    if (onValuesChange) {
-      onValuesChange(newPaths);
-    }
-    if (onChange) {
-      onChange(newPaths[0] || '');
-    }
+    onValuesChange?.(newPaths);
+    onChange?.(newPaths[0] || '');
   };
 
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const selectedFiles = Array.from(e.target.files || []);
+  // ── Process files (shared by input change + drop) ────────────────────────
+  const processFiles = useCallback(async (selectedFiles: File[]) => {
     if (selectedFiles.length === 0) return;
-
-    // Reset error state
     setUploadError(null);
 
-    // 1. Check total count limit
-    const currentCount = activePaths.length;
-    if (currentCount + selectedFiles.length > maxImages) {
-      const limitMsg =
-        maxImages === 1
-          ? 'สามารถอัปโหลดรูปภาพอ้างอิงได้สูงสุด 1 รูป'
-          : 'สามารถอัปโหลดรูปภาพอ้างอิงได้สูงสุด 5 รูป';
-      setUploadError(limitMsg);
-      if (fileInputRef.current) fileInputRef.current.value = '';
-      return;
+    const remaining = maxImages - activePaths.length;
+    const filesToProcess = selectedFiles.slice(0, remaining);
+
+    if (selectedFiles.length > remaining) {
+      setUploadError(
+        `สามารถเพิ่มได้อีก ${remaining} รูป (สูงสุด ${maxImages} รูป)`
+      );
     }
 
-    // 2. Validate file types & sizes
     const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
-    const maxSizeBytes = 10 * 1024 * 1024; // 10 MB per file
+    const maxSizeBytes = 10 * 1024 * 1024;
 
-    for (const file of selectedFiles) {
+    for (const file of filesToProcess) {
       const ext = file.name.split('.').pop()?.toLowerCase() || '';
       const isTypeValid =
         allowedTypes.includes(file.type.toLowerCase()) ||
         ['jpg', 'jpeg', 'png', 'webp'].includes(ext);
-
       if (!isTypeValid) {
         setUploadError('รองรับเฉพาะไฟล์ JPG, PNG และ WEBP');
-        if (fileInputRef.current) fileInputRef.current.value = '';
         return;
       }
-
       if (file.size > maxSizeBytes) {
         setUploadError('รูปภาพแต่ละไฟล์ต้องมีขนาดไม่เกิน 10 MB');
-        if (fileInputRef.current) fileInputRef.current.value = '';
         return;
       }
     }
 
-    // 3. Generate instant local blob Object URLs for zero-latency preview
-    const tempBlobMap: Record<string, string> = {};
+    // Instant blob preview
+    const blobMap: Record<string, string> = {};
     const newBlobUrls: string[] = [];
-
-    selectedFiles.forEach((file) => {
+    filesToProcess.forEach((file) => {
       const blobUrl = URL.createObjectURL(file);
-      tempBlobMap[blobUrl] = blobUrl;
+      blobMap[blobUrl] = blobUrl;
       newBlobUrls.push(blobUrl);
     });
 
-    setLocalBlobUrls((prev) => ({ ...prev, ...tempBlobMap }));
-
-    // 4. Upload valid files sequentially and maintain order
     setIsUploading(true);
     const uploadedPaths: string[] = [];
 
     try {
-      for (let i = 0; i < selectedFiles.length; i++) {
-        const file = selectedFiles[i];
+      for (let i = 0; i < filesToProcess.length; i++) {
+        const file   = filesToProcess[i];
         const blobUrl = newBlobUrls[i];
         const result = await uploadCustomerReference(file);
         uploadedPaths.push(result.path);
-
-        // Pre-cache local blob URL for storage path until signed URL resolves
         if (blobUrl) {
           setPreviewSignedUrls((prev) => ({ ...prev, [result.path]: blobUrl }));
         }
       }
-
-      const updatedList = [...activePaths, ...uploadedPaths];
-      notifyChange(updatedList);
-
-      // Auto-advance to the next available slide (e.g. next upload slot or last filled image)
-      if (maxImages > 1) {
-        const targetSlide = Math.min(updatedList.length, maxImages - 1);
-        setActiveSlideIndex(targetSlide);
-      }
+      notifyChange([...activePaths, ...uploadedPaths]);
     } catch (err: any) {
-      console.error('[ReferenceUploader] Upload error:', err);
       setUploadError(err?.message || 'ไม่สามารถอัปโหลดรูปภาพได้ กรุณาลองใหม่อีกครั้ง');
     } finally {
       setIsUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
     }
+  }, [activePaths, maxImages]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── File input change ─────────────────────────────────────────────────────
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    processFiles(Array.from(e.target.files || []));
   };
 
+  // ── Remove ────────────────────────────────────────────────────────────────
   const handleRemove = (indexToRemove: number) => {
     setUploadError(null);
-    const targetPath = activePaths[indexToRemove];
-    if (targetPath && localBlobUrls[targetPath]) {
-      try {
-        URL.revokeObjectURL(localBlobUrls[targetPath]);
-      } catch (_) {}
-    }
-
     const updatedList = activePaths.filter((_, idx) => idx !== indexToRemove);
     notifyChange(updatedList);
     if (fileInputRef.current) fileInputRef.current.value = '';
-
-    // Safe active slide index transition
-    if (maxImages > 1) {
-      const newTotal = updatedList.length < maxImages ? updatedList.length + 1 : maxImages;
-      setActiveSlideIndex((prev) => Math.min(prev, newTotal - 1));
-    }
+    if (lightboxIndex !== null) setLightboxIndex(null);
   };
 
+  // ── Image error ───────────────────────────────────────────────────────────
   const handleImageError = (pathStr: string) => {
     setFailedImagePaths((prev) => ({ ...prev, [pathStr]: true }));
   };
 
-  // Carousel Navigation Handlers
-  const handlePrevSlide = () => {
-    setActiveSlideIndex((prev) => Math.max(0, prev - 1));
+  // ── Drag & Drop ───────────────────────────────────────────────────────────
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    if (canAddMore) setIsDragging(true);
   };
-
-  const handleNextSlide = () => {
-    setActiveSlideIndex((prev) => Math.min(totalSlides - 1, prev + 1));
-  };
-
-  // Touch Swipe Handlers for Mobile
-  const handleTouchStart = (e: React.TouchEvent) => {
-    touchStartXRef.current = e.touches[0].clientX;
-    touchEndXRef.current = null;
-  };
-
-  const handleTouchMove = (e: React.TouchEvent) => {
-    touchEndXRef.current = e.touches[0].clientX;
-  };
-
-  const handleTouchEnd = () => {
-    if (touchStartXRef.current !== null && touchEndXRef.current !== null) {
-      const diffX = touchStartXRef.current - touchEndXRef.current;
-      const swipeThreshold = 40;
-
-      if (diffX > swipeThreshold && activeSlideIndex < totalSlides - 1) {
-        handleNextSlide();
-      } else if (diffX < -swipeThreshold && activeSlideIndex > 0) {
-        handlePrevSlide();
-      }
+  const handleDragLeave = (e: React.DragEvent) => {
+    if (!dropZoneRef.current?.contains(e.relatedTarget as Node)) {
+      setIsDragging(false);
     }
-    touchStartXRef.current = null;
-    touchEndXRef.current = null;
+  };
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    if (!canAddMore) return;
+    const files = Array.from(e.dataTransfer.files).filter((f) =>
+      ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'].includes(f.type)
+    );
+    processFiles(files);
   };
 
-  const isLimitReached = activePaths.length >= maxImages;
-  const titleText =
-    maxImages === 1
-      ? 'รูปภาพอ้างอิง (สูงสุด 1 รูป)'
-      : 'รูปภาพอ้างอิง (สูงสุด 5 รูป)';
+  // ── Lightbox navigation ───────────────────────────────────────────────────
+  const openLightbox  = (idx: number) => setLightboxIndex(idx);
+  const closeLightbox = () => setLightboxIndex(null);
 
-  // Determine current slide content
-  const hasImageOnCurrentSlide = activeSlideIndex < activePaths.length;
-  const currentPathStr = hasImageOnCurrentSlide ? activePaths[activeSlideIndex] : null;
+  // ── Resolve display URL for a given path ─────────────────────────────────
+  const getDisplayUrl = (pathStr: string) => {
+    if (isDirectUrl(pathStr)) return pathStr;
+    return previewSignedUrls[pathStr] || '';
+  };
 
+  // ─────────────────────────────────────────────────────────────────────────
+  // Render
+  // ─────────────────────────────────────────────────────────────────────────
   return (
     <div className="bg-studio-main border border-studio-border p-4 rounded-[6px] flex flex-col space-y-3 font-prompt">
-      {/* Header & Counter */}
-      <div className="flex items-center justify-between">
-        <div>
-          <span className="text-xs uppercase tracking-wider text-[#ECE4D3] font-bold block">
-            {titleText}
-          </span>
-          <span className="text-[10px] text-[#A89F91] block mt-0.5">
-            รองรับ JPG, PNG, WEBP สูงสุด 10 MB
-          </span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <span className="text-[11px] font-mono font-semibold text-[#ECE4D3] bg-[#171512] px-2 py-0.5 rounded border border-[#4A443A]">
-            {activePaths.length} / {maxImages} รูป
-          </span>
-        </div>
-      </div>
 
-      {/* Hidden File Input */}
+      {/* ── Hidden File Input ─────────────────────────────────────────────── */}
       <input
         ref={fileInputRef}
         type="file"
         multiple={maxImages > 1}
-        accept="image/jpeg,image/png,image/webp"
+        accept="image/jpeg,image/jpg,image/png,image/webp"
         onChange={handleFileChange}
         disabled={isUploading || disabled || isLimitReached}
         className="hidden"
       />
 
-      {/* Uploading Spinner Banner */}
-      {isUploading && (
-        <div className="p-3 bg-[#171512] border border-dashed border-[#9C2F2F] rounded-[6px] flex items-center justify-center gap-2 text-xs text-[#ECE4D3] animate-pulse">
-          <Loader2 size={16} className="animate-spin text-[#9C2F2F]" />
-          <span>กำลังอัปโหลดรูปภาพอ้างอิง...</span>
-        </div>
-      )}
 
-      {/* Main Single Slide Frame (Viewport) */}
-      <div
-        className="relative w-full h-56 sm:h-64 rounded-[6px] border border-[#4A443A] bg-[#0E0D0C] overflow-hidden group shadow-inner flex items-center justify-center select-none"
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
-      >
-        {/* Navigation Arrow: Previous (Desktop) */}
-        {maxImages > 1 && totalSlides > 1 && activeSlideIndex > 0 && (
-          <button
-            type="button"
-            onClick={handlePrevSlide}
-            className="absolute left-2.5 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/80 hover:bg-[#9C2F2F] text-white border border-white/20 flex items-center justify-center transition-all z-20 shadow-lg"
-            title="รูปก่อนหน้า (Previous Slide)"
-          >
-            <ChevronLeft size={20} />
-          </button>
-        )}
 
-        {/* Navigation Arrow: Next (Desktop) */}
-        {maxImages > 1 && totalSlides > 1 && activeSlideIndex < totalSlides - 1 && (
-          <button
-            type="button"
-            onClick={handleNextSlide}
-            className="absolute right-2.5 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/80 hover:bg-[#9C2F2F] text-white border border-white/20 flex items-center justify-center transition-all z-20 shadow-lg"
-            title="รูปถัดไป (Next Slide)"
-          >
-            <ChevronRight size={20} />
-          </button>
-        )}
+      {/* ── 5-Slot Layout (Active Upload + Thumbnails + Empty Placeholders) ──── */}
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5 sm:gap-3 w-full">
+        {Array.from({ length: maxImages }).map((_, idx) => {
+          const pathStr = activePaths[idx];
+          const isActiveUploadCard = !pathStr && idx === activePaths.length && !isLimitReached && !disabled;
 
-        {/* Slide Content: 1. Uploaded Image Preview */}
-        {hasImageOnCurrentSlide && currentPathStr ? (
-          (() => {
-            const signedUrl = previewSignedUrls[currentPathStr];
-            const directUrl = isDirectUrl(currentPathStr) ? currentPathStr : null;
-            const displayUrl = signedUrl || directUrl;
-            const isFailed = Boolean(failedImagePaths[currentPathStr]);
-            const isPendingUrl = !displayUrl && !isFailed;
+          if (pathStr) {
+            const displayUrl = getDisplayUrl(pathStr);
+            const isFailed   = Boolean(failedImagePaths[pathStr]);
+            const isPending  = !displayUrl && !isFailed;
 
             return (
-              <div className="relative w-full h-full flex items-center justify-center bg-[#0E0D0C]">
-                {isPendingUrl ? (
-                  <div className="w-full h-full flex flex-col items-center justify-center bg-[#171512] text-[#A89F91]">
-                    <Loader2 size={22} className="animate-spin text-[#9C2F2F] mb-1.5" />
-                    <span className="text-xs font-medium">กำลังโหลดรูปภาพ #{activeSlideIndex + 1}...</span>
+              <div
+                key={pathStr + idx}
+                onClick={() => {
+                  if (displayUrl && !isFailed) {
+                    openLightbox(idx);
+                  }
+                }}
+                className="relative w-full h-[85px] sm:h-[95px] rounded-[6px] overflow-hidden border border-[#4A443A] bg-[#0E0D0C] group cursor-pointer hover:border-[#9C2F2F] transition-colors"
+              >
+                {/* Image / Loading / Error */}
+                {isPending || loadingPreviews ? (
+                  <div className="w-full h-full flex items-center justify-center bg-[#171512]">
+                    <Loader2 size={16} className="animate-spin text-[#9C2F2F]" />
                   </div>
                 ) : isFailed || !displayUrl ? (
-                  <div className="w-full h-full flex flex-col items-center justify-center bg-[#171512] text-[#A89F91] p-4 text-center">
-                    <ImageIcon size={28} className="text-[#4A443A] mb-2" />
-                    <span className="text-xs text-[#A89F91]">ไม่สามารถแสดงรูปภาพ #{activeSlideIndex + 1}</span>
+                  <div className="w-full h-full flex flex-col items-center justify-center bg-[#171512] p-1 text-center">
+                    <ImageIcon size={18} className="text-[#4A443A] mb-0.5" />
+                    <span className="text-[8px] text-[#A89F91]">โหลดไม่ได้</span>
                   </div>
                 ) : (
                   <img
                     src={displayUrl}
-                    alt={`Reference Slide ${activeSlideIndex + 1}`}
-                    className="w-full h-full object-contain bg-black/40"
-                    onError={() => handleImageError(currentPathStr)}
+                    alt={`Reference ${idx + 1}`}
+                    className="w-full h-full object-cover cursor-pointer"
+                    onError={() => handleImageError(pathStr)}
                   />
                 )}
 
-                {/* Index Badge */}
-                <span className="absolute top-2.5 left-2.5 bg-black/85 text-[10px] font-mono font-bold text-[#ECE4D3] px-2 py-0.5 rounded border border-white/15 shadow-md">
-                  Slide {activeSlideIndex + 1} / {maxImages} (รูปภาพ #{activeSlideIndex + 1})
+                {/* Index badge */}
+                <span className="absolute bottom-1 left-1 bg-black/80 text-[9px] font-mono text-[#ECE4D3] px-1.5 py-0.5 rounded border border-white/10 pointer-events-none">
+                  {idx + 1}
                 </span>
 
-                {/* Remove Button (×) */}
+                {/* Zoom hint on hover */}
+                {displayUrl && !isFailed && (
+                  <div
+                    className="absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 group-hover:opacity-100 transition-all pointer-events-none"
+                  >
+                    <ZoomIn size={18} className="text-white drop-shadow" />
+                  </div>
+                )}
+
+                {/* Remove button (× circle button top-right) */}
                 {!disabled && !isUploading && (
                   <button
                     type="button"
-                    onClick={() => handleRemove(activeSlideIndex)}
-                    className="absolute top-2.5 right-2.5 w-7 h-7 rounded-full bg-black/85 hover:bg-[#9C2F2F] text-white border border-white/20 flex items-center justify-center transition-colors shadow-lg z-10"
-                    title="ลบรูปภาพนี้"
+                    onClick={(e) => { e.stopPropagation(); handleRemove(idx); }}
+                    className="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/80 hover:bg-[#9C2F2F] text-white border border-white/20 flex items-center justify-center transition-colors shadow z-10 text-xs font-bold leading-none cursor-pointer"
+                    title="ลบรูปนี้"
                   >
-                    <X size={15} />
+                    ×
                   </button>
                 )}
               </div>
             );
-          })()
-        ) : (
-          /* Slide Content: 2. Upload Placeholder Slide */
-          <button
-            type="button"
-            disabled={isUploading || disabled || isLimitReached}
-            onClick={() => fileInputRef.current?.click()}
-            className="w-full h-full p-6 flex flex-col items-center justify-center text-center transition-all cursor-pointer bg-[#171512]/60 hover:bg-[#171512] focus:outline-none group"
-          >
-            <div className="w-12 h-12 rounded-full bg-[#0E0D0C] border border-[#4A443A] group-hover:border-[#9C2F2F] flex items-center justify-center mb-3 transition-colors shadow-md">
-              {activePaths.length > 0 ? (
-                <Plus size={24} className="text-[#A89F91] group-hover:text-[#9C2F2F] transition-colors" />
-              ) : (
-                <Upload size={24} className="text-[#A89F91] group-hover:text-[#9C2F2F] transition-colors" />
-              )}
+          }
+
+          if (isActiveUploadCard) {
+            return (
+              <div
+                key={`upload-card-${idx}`}
+                ref={dropZoneRef}
+                role="button"
+                tabIndex={0}
+                onClick={() => fileInputRef.current?.click()}
+                onKeyDown={(e) => e.key === 'Enter' && fileInputRef.current?.click()}
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
+                className={`
+                  w-full h-[85px] sm:h-[95px] rounded-[6px] border border-dashed
+                  flex flex-col items-center justify-center gap-1 p-2
+                  cursor-pointer select-none transition-all duration-200 text-center group
+                  ${isDragging
+                    ? 'border-[#9C2F2F] bg-[#9C2F2F]/10'
+                    : 'border-[#4A443A] bg-[#0E0D0C] hover:border-[#9C2F2F] hover:bg-[#171512]'
+                  }
+                `}
+              >
+                {isUploading ? (
+                  <>
+                    <Loader2 size={18} className="animate-spin text-[#9C2F2F]" />
+                    <span className="text-[10px] text-[#A89F91]">กำลังอัปโหลด...</span>
+                  </>
+                ) : (
+                  <>
+                    <div className="flex items-center gap-1 text-xs font-semibold text-[#ECE4D3] group-hover:text-white transition-colors">
+                      <Plus size={14} className="text-[#9C2F2F]" />
+                      <span>เพิ่มรูปภาพ</span>
+                    </div>
+                    <span className="text-[9px] text-[#A89F91] group-hover:text-[#ECE4D3] transition-colors leading-tight">
+                      PNG, JPG (&le;10MB)
+                    </span>
+                  </>
+                )}
+              </div>
+            );
+          }
+
+          // Empty Placeholder Slot
+          return (
+            <div
+              key={`empty-slot-${idx}`}
+              className="w-full h-[85px] sm:h-[95px] rounded-[6px] border border-dashed border-[#4A443A]/30 bg-[#0E0D0C]/50 flex flex-col items-center justify-center gap-1 p-2 select-none text-center"
+            >
+              <ImageIcon size={16} className="text-[#4A443A]/50" />
+              <span className="text-[10px] text-[#7A7265]/70 font-mono">
+                รูปที่ {idx + 1}
+              </span>
             </div>
-            <p className="text-xs sm:text-sm text-[#ECE4D3] font-semibold mb-1 group-hover:text-[#9C2F2F] transition-colors">
-              {activePaths.length > 0
-                ? `คลิกเพื่อเพิ่มรูปภาพอ้างอิง (รูปที่ ${activeSlideIndex + 1})`
-                : 'คลิกเพื่อเลือกรูปภาพอ้างอิง'}
-            </p>
-            <span className="text-[10px] text-[#A89F91] font-light max-w-xs leading-relaxed">
-              รองรับ JPG, PNG, WEBP สูงสุด 10 MB
-            </span>
-          </button>
-        )}
+          );
+        })}
       </div>
 
-      {/* Footer Carousel Indicators & Slide Counter (Custom Booking: maxImages > 1) */}
-      {maxImages > 1 && (
-        <div className="flex items-center justify-between pt-1">
-          {/* Dots Indicator (5 slots) */}
-          <div className="flex items-center space-x-1.5">
-            {Array.from({ length: maxImages }).map((_, idx) => {
-              const isSlotFilled = idx < activePaths.length;
-              const isCurrentSlide = idx === activeSlideIndex;
-              const isClickable = idx < totalSlides;
 
-              return (
-                <button
-                  key={idx}
-                  type="button"
-                  disabled={!isClickable || disabled || isUploading}
-                  onClick={() => isClickable && setActiveSlideIndex(idx)}
-                  className={`h-2 rounded-full transition-all duration-200 ${
-                    isCurrentSlide
-                      ? 'w-5 bg-studio-red border border-studio-red'
-                      : isSlotFilled
-                      ? 'w-2 bg-[#A89F91] hover:bg-[#ECE4D3] border border-[#4A443A] cursor-pointer'
-                      : isClickable
-                      ? 'w-2 bg-[#26221D] hover:bg-[#A89F91] border border-[#4A443A] cursor-pointer'
-                      : 'w-2 bg-[#171512] border border-[#332E27] opacity-40 cursor-not-allowed'
-                  }`}
-                  title={
-                    isSlotFilled
-                      ? `รูปภาพที่ ${idx + 1}`
-                      : idx === activePaths.length
-                      ? `เพิ่มรูปภาพที่ ${idx + 1}`
-                      : `ช่องอัปโหลดที่ ${idx + 1}`
-                  }
-                />
-              );
-            })}
-          </div>
-
-          {/* Text Counter Badge */}
-          <div className="text-[11px] font-mono font-semibold text-[#ECE4D3] bg-[#171512] px-2.5 py-0.5 rounded border border-[#4A443A]">
-            Slide {activeSlideIndex + 1} / {maxImages}
-          </div>
-        </div>
-      )}
-
-      {/* Upload Error Banner */}
+      {/* ── Upload Error Banner ──────────────────────────────────────────── */}
       {uploadError && (
         <div className="bg-red-950/60 border border-red-800/80 p-2.5 rounded-[4px] flex items-start space-x-2 text-xs text-red-300">
           <AlertCircle size={15} className="shrink-0 mt-0.5 text-red-400" />
           <span className="font-medium">{uploadError}</span>
         </div>
       )}
+
+      {/* ── Customer Reference Lightbox Modal ───────────────────────────── */}
+      {lightboxIndex !== null && activePaths[lightboxIndex] && (() => {
+        const modalContent = (
+          <div
+            className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-black/90 p-3 sm:p-4 backdrop-blur-sm animate-fadeIn font-prompt"
+            onClick={closeLightbox}
+          >
+            <div
+              className="relative flex flex-col items-center max-w-[calc(100vw-24px)] sm:max-w-[90vw] max-h-[calc(100vh-24px)] sm:max-h-[90vh] w-fit h-fit bg-[#0E0D0C] border border-[#4A443A] rounded-[8px] p-2.5 sm:p-3.5 shadow-2xl overflow-hidden"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Close Button */}
+              <button
+                type="button"
+                onClick={closeLightbox}
+                aria-label="ปิดรูปภาพ"
+                className="absolute top-2 right-2 w-8 h-8 rounded-full bg-black/80 hover:bg-[#9C2F2F] text-white border border-white/20 flex items-center justify-center transition-colors z-20 cursor-pointer shadow"
+              >
+                <X size={16} />
+              </button>
+
+              {/* Image Preview Container */}
+              <div className="relative max-w-[calc(100vw-44px)] sm:max-w-[85vw] max-h-[calc(100vh-140px)] sm:max-h-[78vh] flex items-center justify-center rounded-[6px] overflow-hidden bg-black/40">
+                {(() => {
+                  const pathStr    = activePaths[lightboxIndex];
+                  const displayUrl = getDisplayUrl(pathStr);
+                  const isFailed   = Boolean(failedImagePaths[pathStr]);
+                  if (!displayUrl || isFailed) {
+                    return (
+                      <div className="w-48 h-48 flex flex-col items-center justify-center text-[#A89F91]">
+                        <ImageIcon size={32} className="mb-2 text-[#4A443A]" />
+                        <span className="text-xs">ไม่สามารถโหลดรูปภาพได้</span>
+                      </div>
+                    );
+                  }
+                  return (
+                    <img
+                      src={displayUrl}
+                      alt={`Reference ${lightboxIndex + 1}`}
+                      className="w-auto h-auto max-w-[calc(100vw-44px)] sm:max-w-[85vw] max-h-[calc(100vh-140px)] sm:max-h-[78vh] object-contain block rounded-[6px]"
+                      onError={() => handleImageError(pathStr)}
+                    />
+                  );
+                })()}
+              </div>
+
+              {/* Footer Bar: Caption + Delete Button */}
+              <div className="flex items-center justify-between w-full pt-2.5 px-1 border-t border-[#4A443A]/40 mt-2 shrink-0">
+                <span className="text-[11px] font-mono text-[#ECE4D3]">
+                  รูปที่ {lightboxIndex + 1} / {activePaths.length}
+                </span>
+                {!disabled && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const idxToRemove = lightboxIndex;
+                      closeLightbox();
+                      handleRemove(idxToRemove);
+                    }}
+                    className="flex items-center gap-1 text-[11px] text-red-400 hover:text-red-300 transition-colors font-medium cursor-pointer"
+                  >
+                    <X size={12} />
+                    <span>ลบรูปนี้</span>
+                  </button>
+                )}
+              </div>
+
+              {/* Dot nav if multiple */}
+              {activePaths.length > 1 && (
+                <div className="flex gap-1.5 pt-2 justify-center shrink-0">
+                  {activePaths.map((_, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => setLightboxIndex(idx)}
+                      className={`h-1.5 rounded-full transition-all cursor-pointer ${
+                        idx === lightboxIndex
+                          ? 'w-5 bg-[#9C2F2F]'
+                          : 'w-1.5 bg-[#4A443A] hover:bg-[#A89F91]'
+                      }`}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        );
+        return mounted && typeof document !== 'undefined' ? createPortal(modalContent, document.body) : modalContent;
+      })()}
     </div>
   );
 }

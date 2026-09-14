@@ -7,11 +7,11 @@ import AdminMobileBottomNav from '@/components/admin/AdminMobileBottomNav';
 import KPICard from '@/components/admin/KPICard';
 import ArtistTimeline from '@/components/admin/ArtistTimeline';
 import UnifiedActionQueue from '@/components/admin/UnifiedActionQueue';
-import { Calendar, User, Clock, ClipboardList, DollarSign, ShieldCheck, Sparkles } from 'lucide-react';
+import { Calendar, User, Clock, Inbox, ClipboardCheck, ShieldCheck, Sparkles } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 
-// Helper for Bangkok Date YYYY-MM-DD
-function getBangkokTodayDateString() {
+// Helper for Bangkok Date ISO Boundaries
+function getBangkokTodayISO() {
   const options: Intl.DateTimeFormatOptions = {
     timeZone: 'Asia/Bangkok',
     year: 'numeric',
@@ -22,7 +22,12 @@ function getBangkokTodayDateString() {
   const year = parts.find((p) => p.type === 'year')?.value;
   const month = parts.find((p) => p.type === 'month')?.value;
   const day = parts.find((p) => p.type === 'day')?.value;
-  return `${year}-${month}-${day}`;
+  const todayStr = `${year}-${month}-${day}`;
+
+  const startTodayISO = new Date(`${todayStr}T00:00:00+07:00`).toISOString();
+  const endTodayISO = new Date(`${todayStr}T23:59:59.999+07:00`).toISOString();
+
+  return { startTodayISO, endTodayISO };
 }
 
 export default function AdminDashboardPage() {
@@ -30,13 +35,11 @@ export default function AdminDashboardPage() {
 
   const [authTimedOut, setAuthTimedOut] = useState(false);
 
-  // Live Metrics State
-  const [confirmedTodayCount, setConfirmedTodayCount] = useState<number>(0);
-  const [pendingRequestsCount, setPendingRequestsCount] = useState<number>(0);
+  // Live 4 Operational Dashboard KPI State
+  const [todaySessionsCount, setTodaySessionsCount] = useState<number>(0);
+  const [upcomingSessionsCount, setUpcomingSessionsCount] = useState<number>(0);
+  const [awaitingEvaluationCount, setAwaitingEvaluationCount] = useState<number>(0);
   const [pendingSubmissionsCount, setPendingSubmissionsCount] = useState<number>(0);
-  const [tattooingCount, setTattooingCount] = useState<number>(0);
-  const [totalActiveArtistsCount, setTotalActiveArtistsCount] = useState<number>(0);
-  const [verifiedDepositTotal, setVerifiedDepositTotal] = useState<number>(0);
   const [isMetricsLoading, setIsMetricsLoading] = useState<boolean>(true);
 
   // Authentication timeout safety guard (10s)
@@ -63,81 +66,39 @@ export default function AdminDashboardPage() {
     setIsMetricsLoading(true);
     try {
       const supabase = createClient();
-      const bangkokTodayStr = getBangkokTodayDateString();
+      const { startTodayISO, endTodayISO } = getBangkokTodayISO();
 
-      // 1. KPI: คิวคอนเฟิร์มวันนี้ (Today's actual appointment sessions in Asia/Bangkok)
-      const { data: rawSessions } = await supabase
+      // 1. KPI: คิววันนี้ (booking_sessions with start_at today in Bangkok, excluding CANCELLED)
+      const { count: todayQueue } = await supabase
         .from('booking_sessions')
-        .select('id, start_at, status, booking_id, bookings(id, status)')
+        .select('*', { count: 'exact', head: true })
+        .gte('start_at', startTodayISO)
+        .lte('start_at', endTodayISO)
         .neq('status', 'CANCELLED');
+      setTodaySessionsCount(todayQueue || 0);
 
-      let todaySessionsCount = 0;
-      (rawSessions || []).forEach((ses: any) => {
-        const b = Array.isArray(ses.bookings) ? ses.bookings[0] : ses.bookings;
-        if (b && !['CANCELLED', 'REJECTED'].includes(b.status) && ses.start_at) {
-          try {
-            const sesBangkokDate = new Date(ses.start_at).toLocaleDateString('en-CA', {
-              timeZone: 'Asia/Bangkok',
-            });
-            if (sesBangkokDate === bangkokTodayStr) {
-              todaySessionsCount += 1;
-            }
-          } catch (_) {}
-        }
-      });
-      setConfirmedTodayCount(todaySessionsCount);
+      // 2. KPI: คิวที่จะมาถึง (booking_sessions with start_at in future after today in Bangkok, excluding COMPLETED, CANCELLED)
+      const { count: upcomingQueue } = await supabase
+        .from('booking_sessions')
+        .select('*', { count: 'exact', head: true })
+        .gt('start_at', endTodayISO)
+        .not('status', 'in', '("COMPLETED","CANCELLED")');
+      setUpcomingSessionsCount(upcomingQueue || 0);
 
-      // 2. KPI: คำขอรอดำเนินการ (Live estimate_requests with status = 'PENDING')
-      const { count: reqCount } = await supabase
+      // 3. KPI: รอช่างประเมิน (estimate_requests with status = 'PENDING' and request_type = 'ESTIMATE')
+      const { count: awaitEval } = await supabase
         .from('estimate_requests')
         .select('*', { count: 'exact', head: true })
-        .eq('status', 'PENDING');
-      setPendingRequestsCount(reqCount || 0);
+        .eq('status', 'PENDING')
+        .neq('request_type', 'DIRECT_BOOKING');
+      setAwaitingEvaluationCount(awaitEval || 0);
 
-      // 3. KPI: รอตรวจสอบมัดจำ / สลิปรอตรวจ (Live booking_payment_submissions with status = 'PENDING')
+      // 4. KPI: สลิปรอตรวจ (booking_payment_submissions with status = 'PENDING')
       const { count: slipCount } = await supabase
         .from('booking_payment_submissions')
         .select('*', { count: 'exact', head: true })
         .eq('status', 'PENDING');
       setPendingSubmissionsCount(slipCount || 0);
-
-      // 4. KPI: ช่างกำลังทำงาน (Distinct artists with an active IN_PROGRESS session)
-      const { data: artistList } = await supabase
-        .from('artists')
-        .select('id, is_active');
-      
-      const activeArtists = (artistList || []).filter((a: any) => a.is_active === true);
-      setTotalActiveArtistsCount(activeArtists.length);
-
-      // Fetch live booking_sessions with status IN_PROGRESS joined with bookings
-      const { data: inProgressSessions } = await supabase
-        .from('booking_sessions')
-        .select('id, artist_id, booking_id, bookings(id, artist_id, status)')
-        .eq('status', 'IN_PROGRESS');
-
-      const workingArtistIds = new Set<string>();
-
-      (inProgressSessions || []).forEach((ses: any) => {
-        const b = Array.isArray(ses.bookings) ? ses.bookings[0] : ses.bookings;
-        if (b && !['CANCELLED', 'REJECTED'].includes(b.status)) {
-          const resolvedArtistId = ses.artist_id || b.artist_id;
-          if (resolvedArtistId) {
-            workingArtistIds.add(resolvedArtistId);
-          }
-        }
-      });
-
-      setTattooingCount(workingArtistIds.size);
-
-      // 5. KPI: มัดจำสะสมที่ตรวจแล้ว (Sum of approved DEPOSIT payments in booking_payments)
-      const { data: depositPayments } = await supabase
-        .from('booking_payments')
-        .select('amount')
-        .eq('payment_type', 'DEPOSIT')
-        .eq('status', 'RECORDED');
-      
-      const depositTotal = (depositPayments || []).reduce((sum: number, p: any) => sum + Number(p.amount || 0), 0);
-      setVerifiedDepositTotal(depositTotal);
 
     } catch (err) {
       console.error('Error fetching dashboard live metrics:', err);
@@ -201,27 +162,34 @@ export default function AdminDashboardPage() {
           </span>
         </div>
 
-        {/* 1. TOP: 3 Primary Operational KPI Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+        {/* 1. TOP: 4 Primary Operational Dashboard KPI Cards */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
           <KPICard
             title="คิววันนี้"
-            value={`${isMetricsLoading ? '...' : confirmedTodayCount} คิว`}
+            value={`${isMetricsLoading ? '...' : todaySessionsCount} คิว`}
             icon={Calendar}
-            change="นัดหมายวันนี้"
+            change="คิวงานสักที่มีในวันนี้"
             changeType="neutral"
           />
           <KPICard
-            title="คำขอรอดำเนินการ"
-            value={`${isMetricsLoading ? '...' : pendingRequestsCount} คำขอ`}
-            icon={ClipboardList}
-            change="คำขอจองใหม่"
-            changeType={pendingRequestsCount > 0 ? 'positive' : 'neutral'}
+            title="คิวที่จะมาถึง"
+            value={`${isMetricsLoading ? '...' : upcomingSessionsCount} คิว`}
+            icon={Clock}
+            change="คิวงานในอนาคตที่รอดำเนินการ"
+            changeType="neutral"
+          />
+          <KPICard
+            title="รอช่างประเมิน"
+            value={`${isMetricsLoading ? '...' : awaitingEvaluationCount} รายการ`}
+            icon={ClipboardCheck}
+            change="คำขอที่รอช่างกำหนดราคา/รายละเอียด"
+            changeType={awaitingEvaluationCount > 0 ? 'positive' : 'neutral'}
           />
           <KPICard
             title="สลิปรอตรวจ"
             value={`${isMetricsLoading ? '...' : pendingSubmissionsCount} รายการ`}
             icon={ShieldCheck}
-            change="สลิปโอนเงินรอตรวจ"
+            change="หลักฐานการชำระที่รอตรวจสอบ"
             changeType={pendingSubmissionsCount > 0 ? 'positive' : 'neutral'}
           />
         </div>

@@ -92,7 +92,7 @@ function FlashContent() {
         artist_id: d.artist_id,
         title: d.title,
         description: d.description,
-        style: d.style || 'Fine Line',
+        style: d.style || '',
         size_label: d.size_label,
         price: Number(d.price) || 0,
         deposit_amount: Number(d.deposit_amount) || 0,
@@ -171,6 +171,21 @@ function FlashContent() {
     return list;
   }, [flashDesigns, filter, searchQuery, sortBy]);
 
+  const dynamicFilters = useMemo(() => {
+    const seen = new Set<string>();
+    const styles: string[] = [];
+    for (const d of flashDesigns) {
+      if (!d.style || d.style.trim() === '') continue;
+      const key = d.style.trim().toLowerCase();
+      if (!seen.has(key)) {
+        seen.add(key);
+        styles.push(d.style.trim());
+      }
+    }
+    styles.sort((a, b) => a.localeCompare(b, 'th'));
+    return ['All', ...styles];
+  }, [flashDesigns]);
+
   const handleItemSelect = (item: FlashDesignData) => {
     setSelectedArtwork(item);
     setActiveImageIndex(0);
@@ -242,7 +257,7 @@ function FlashContent() {
 
             {/* Filter Bar + Search & Sort Controls */}
             <div className="flex flex-col xl:flex-row gap-4 justify-between items-start xl:items-center bg-studio-card/60 p-3 rounded-[6px] border border-studio-border">
-              <PortfolioFilter activeFilter={filter} onFilterChange={setFilter} />
+              <PortfolioFilter activeFilter={filter} onFilterChange={setFilter} filters={dynamicFilters} />
 
               <div className="flex items-center gap-3 w-full xl:w-auto shrink-0">
                 <div className="relative flex-1 xl:w-48">

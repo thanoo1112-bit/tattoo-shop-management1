@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { createClient } from '@/lib/supabase/client';
 import { 
   X, 
@@ -15,9 +16,12 @@ import {
   Maximize2, 
   ChevronLeft, 
   ChevronRight,
-  ShieldCheck
+  ShieldCheck,
+  AlertTriangle,
+  CheckCircle2
 } from 'lucide-react';
 import { formatDateBangkok } from '@/components/admin/calendar/calendarUtils';
+import { parseNoteWithPreferredTime, getInitialStartTime } from '@/lib/noteUtils';
 
 export interface ArtistPendingEstimateDetail {
   id: string;
@@ -33,6 +37,10 @@ export interface ArtistPendingEstimateDetail {
   style_preference?: string | null;
   preferred_date?: string | null;
   reference_images?: string[] | null;
+  has_medical_condition?: boolean;
+  medical_condition_note?: string | null;
+  has_allergy?: boolean;
+  allergy_note?: string | null;
   status: string;
   created_at?: string | null;
   is_age_confirmed?: boolean;
@@ -48,16 +56,82 @@ interface Props {
 export default function ArtistRequestDetailDrawer({ estimate, isOpen, onClose, onSuccess }: Props) {
   const supabase = createClient();
 
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   const [signedImageUrls, setSignedImageUrls] = useState<{ path: string; url: string }[]>([]);
   const [loadingImages, setLoadingImages] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+
+  // Secure Customer Confirmation Resolution State
+  const [confirmationState, setConfirmationState] = useState<'loading' | 'confirmed' | 'not_confirmed' | 'error'>('loading');
+
+  useEffect(() => {
+    if (!estimate) {
+      setConfirmationState('not_confirmed');
+      return;
+    }
+
+    if (estimate.is_age_confirmed === true) {
+      setConfirmationState('confirmed');
+      return;
+    }
+
+    const customerUserId = estimate.customer_user_id;
+    if (!customerUserId) {
+      setConfirmationState('not_confirmed');
+      return;
+    }
+
+    let isMounted = true;
+    setConfirmationState('loading');
+
+    async function fetchConfirmation() {
+      try {
+        const { data, error } = await supabase.rpc('artist_get_customer_confirmation', {
+          p_customer_user_id: customerUserId
+        });
+
+        if (!isMounted) return;
+
+        if (error) {
+          console.error('Error in artist_get_customer_confirmation RPC:', error);
+          setConfirmationState('error');
+          return;
+        }
+
+        const res = Array.isArray(data) ? data[0] : data;
+        if (res && res.is_confirmed !== undefined) {
+          setConfirmationState(res.is_confirmed ? 'confirmed' : 'not_confirmed');
+        } else if (res && res.is_confirmed === null) {
+          setConfirmationState('not_confirmed');
+        } else {
+          // If 0 rows returned (e.g. denied or not found)
+          setConfirmationState('not_confirmed');
+        }
+      } catch (err) {
+        console.error('Confirmation fetch exception:', err);
+        if (isMounted) setConfirmationState('error');
+      }
+    }
+
+    fetchConfirmation();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [estimate]);
 
   // Accept / Reject Modal State
   const [showAcceptModal, setShowAcceptModal] = useState(false);
   const [showRejectModal, setShowRejectModal] = useState(false);
 
+  const initialStartTime = getInitialStartTime(estimate, '10:00');
+
   const [acceptDate, setAcceptDate] = useState('');
-  const [acceptStartTime, setAcceptStartTime] = useState('10:00');
+  const [acceptStartTime, setAcceptStartTime] = useState(initialStartTime);
   const [acceptEndTime, setAcceptEndTime] = useState('13:00');
   const [acceptPrice, setAcceptPrice] = useState<number>(0);
   const [acceptDeposit, setAcceptDeposit] = useState<number>(500);
@@ -73,7 +147,7 @@ export default function ArtistRequestDetailDrawer({ estimate, isOpen, onClose, o
   const handleOpenAccept = () => {
     setErrorMsg(null);
     setAcceptDate(estimate?.preferred_date || '');
-    setAcceptStartTime('10:00');
+    setAcceptStartTime(getInitialStartTime(estimate, '10:00'));
     setAcceptEndTime('13:00');
     setAcceptPrice(0);
     setAcceptDeposit(500);
@@ -219,7 +293,7 @@ export default function ArtistRequestDetailDrawer({ estimate, isOpen, onClose, o
               {requestCode}
             </span>
             <span className="text-xs px-2.5 py-0.5 rounded-full border bg-amber-950/60 text-amber-400 border-amber-800/60 font-medium">
-              คำขอใหม่ (รอ Admin ยืนยัน)
+              คำขอใหม่
             </span>
           </div>
           <button
@@ -236,9 +310,9 @@ export default function ArtistRequestDetailDrawer({ estimate, isOpen, onClose, o
           <div className="p-3.5 bg-studio-sec/80 border border-studio-border rounded-xl flex items-start space-x-3 text-studio-secondary">
             <ShieldCheck size={16} className="text-studio-red shrink-0 mt-0.5" />
             <div className="space-y-0.5">
-              <span className="font-semibold text-studio-primary block text-xs">ข้อมูลสำหรับช่างสัก (Read-Only)</span>
+              <span className="font-semibold text-studio-primary block text-xs">รายละเอียดคำขอจองงานสัก (Artist View)</span>
               <p className="text-[11px] text-studio-muted leading-relaxed">
-                คำขอนี้อยู่ระหว่างรอผู้ดูแลระบบ (Admin) ตรวจสอบ คอนเฟิร์มวันเวลา และจัดตั้งคิวนัดหมาย โดยการคอนเฟิร์มคิวจะดำเนินการผ่าน Admin เท่านั้น
+                คำขอใหม่ที่ลูกค้าระบุช่างสักเข้ามาโดยตรง ท่านสามารถเปิดดูรายละเอียด ภาพอ้างอิง และเตรียมความพร้อมสำหรับคิวนัดหมายได้ทันที
               </p>
             </div>
           </div>
@@ -273,11 +347,19 @@ export default function ArtistRequestDetailDrawer({ estimate, isOpen, onClose, o
                 </div>
               )}
               <div className="flex justify-between items-center pt-2">
-                <span className="text-studio-muted">ยืนยันเงื่อนไขก่อนรับบริการ:</span>
-                {estimate.is_age_confirmed ? (
+                <span className="text-studio-muted">การยืนยันอายุและเงื่อนไข:</span>
+                {confirmationState === 'loading' ? (
+                  <span className="inline-flex items-center space-x-1 text-studio-muted bg-studio-card/80 border border-studio-border px-2.5 py-0.5 rounded text-[11px]">
+                    <span>กำลังตรวจสอบ...</span>
+                  </span>
+                ) : confirmationState === 'confirmed' ? (
                   <span className="inline-flex items-center space-x-1 text-emerald-400 bg-emerald-950/50 border border-emerald-800/60 px-2.5 py-0.5 rounded text-[11px] font-medium">
                     <ShieldCheck size={12} />
-                    <span>✓ ยืนยันแล้ว</span>
+                    <span>ยืนยันแล้ว</span>
+                  </span>
+                ) : confirmationState === 'error' ? (
+                  <span className="inline-flex items-center space-x-1 text-amber-400/80 bg-amber-950/30 border border-amber-800/30 px-2.5 py-0.5 rounded text-[11px]">
+                    <span>! ไม่สามารถตรวจสอบได้</span>
                   </span>
                 ) : (
                   <span className="inline-flex items-center space-x-1 text-amber-400 bg-amber-950/50 border border-amber-800/60 px-2.5 py-0.5 rounded text-[11px] font-medium">
@@ -288,70 +370,158 @@ export default function ArtistRequestDetailDrawer({ estimate, isOpen, onClose, o
             </div>
           </div>
 
-          {/* Dates Card */}
-          <div className="bg-studio-card border border-studio-border rounded-xl p-4 space-y-3">
-            <div className="flex items-center space-x-2 text-studio-secondary text-[11px] uppercase tracking-wider font-semibold">
-              <Calendar size={14} className="text-studio-red" />
-              <span>วันที่ต้องการสัก & วันที่ส่งคำขอ</span>
-            </div>
-            <div className="grid grid-cols-2 gap-3 pt-1">
-              <div>
-                <span className="text-studio-muted text-[10px] block">วันที่ลูกค้าสะดวก</span>
-                <span className="text-sm font-semibold text-studio-primary">
-                  {estimate.preferred_date ? formatDateBangkok(estimate.preferred_date) : 'ไม่ระบุ'}
-                </span>
+          {/* Health Disclosure Card (Artist View) */}
+          <div className="bg-[#171512] border border-[#4A443A] rounded-xl p-4 space-y-3 font-prompt">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2 text-[#ECE4D3] text-[11px] uppercase tracking-wider font-semibold">
+                <AlertTriangle size={14} className={estimate.has_medical_condition || estimate.has_allergy ? "text-amber-400 shrink-0" : "text-emerald-400 shrink-0"} />
+                <span>ข้อมูลสุขภาพที่ลูกค้าแจ้ง</span>
               </div>
-              <div>
-                <span className="text-studio-muted text-[10px] block">วันที่ส่งคำขอ</span>
-                <span className="text-xs font-medium text-studio-secondary">
-                  {estimate.created_at ? formatDateBangkok(estimate.created_at, true) : '-'}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* Tattoo Specs */}
-          <div className="bg-studio-card border border-studio-border rounded-xl p-4 space-y-3">
-            <div className="flex items-center space-x-2 text-studio-secondary text-[11px] uppercase tracking-wider font-semibold">
-              <Layers size={14} className="text-studio-red" />
-              <span>รายละเอียดงานสักที่ต้องการ</span>
-            </div>
-            <div className="space-y-2 pt-1 divide-y divide-studio-border/50">
-              <div className="flex justify-between items-center pb-2">
-                <span className="text-studio-muted">ตำแหน่งที่สัก:</span>
-                <span className="text-studio-primary font-medium">{estimate.placement || 'ไม่ระบุ'}</span>
-              </div>
-              {(estimate.width_cm || estimate.height_cm) && (
-                <div className="flex justify-between items-center py-2">
-                  <span className="text-studio-muted">ขนาดประมาณ:</span>
-                  <span className="text-studio-primary font-mono">
-                    {estimate.width_cm || '-'} x {estimate.height_cm || '-'} ซม.
-                  </span>
-                </div>
-              )}
-              {(estimate.style_preference || (estimate as any).style) && (
-                <div className="flex justify-between items-center py-2">
-                  <span className="text-studio-muted">สไตล์ลายสัก:</span>
-                  <span className="text-studio-primary font-medium">{estimate.style_preference || (estimate as any).style}</span>
-                </div>
-              )}
-              {estimate.preferred_date && (
-                <div className="flex justify-between items-center py-2">
-                  <span className="text-studio-muted">วันที่ต้องการ:</span>
-                  <span className="text-studio-primary font-medium">{formatDateBangkok(estimate.preferred_date)}</span>
-                </div>
-              )}
             </div>
 
-            {estimate.description && (
-              <div className="pt-2 border-t border-studio-border/60">
-                <span className="text-studio-muted text-[10px] block mb-1">รายละเอียดเพิ่มเติมจากลูกค้า:</span>
-                <p className="text-studio-primary text-xs bg-studio-sec p-3 rounded-lg border border-studio-border whitespace-pre-wrap leading-relaxed">
-                  {estimate.description}
-                </p>
+            {!estimate.has_medical_condition && !estimate.has_allergy ? (
+              <div className="flex items-center space-x-2 text-xs text-emerald-400 bg-emerald-950/30 border border-emerald-800/40 p-2.5 rounded-lg">
+                <CheckCircle2 size={15} className="shrink-0 text-emerald-400" />
+                <span>สุขภาพปกติ (ไม่มีโรคประจำตัวและประวัติภูมิแพ้)</span>
+              </div>
+            ) : (
+              <div className="space-y-3 pt-1">
+                {/* โรคประจำตัว */}
+                {estimate.has_medical_condition ? (
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-[#ECE4D3] font-medium flex items-center gap-1.5">
+                        <span className="w-1.5 h-1.5 rounded-full bg-red-500"></span>
+                        โรคประจำตัว
+                      </span>
+                      <span className="inline-flex items-center space-x-1 text-red-400 bg-red-950/50 border border-red-800/60 px-2.5 py-0.5 rounded text-[11px] font-medium">
+                        <AlertTriangle size={11} className="shrink-0" />
+                        <span>มีโรคประจำตัว</span>
+                      </span>
+                    </div>
+                    <p className="text-xs text-red-200/90 bg-[#0E0D0C] p-2.5 rounded-lg border border-red-900/50 whitespace-pre-wrap leading-relaxed">
+                      {estimate.medical_condition_note?.trim() || 'ลูกค้าแจ้งว่ามี แต่ไม่ได้ระบุรายละเอียด'}
+                    </p>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-between text-xs py-0.5">
+                    <span className="text-studio-muted">โรคประจำตัว:</span>
+                    <span className="text-emerald-400 font-medium flex items-center gap-1 text-[11px]">
+                      <CheckCircle2 size={12} /> ไม่มี
+                    </span>
+                  </div>
+                )}
+
+                {/* ประวัติภูมิแพ้ */}
+                {estimate.has_allergy ? (
+                  <div className={`space-y-1.5 ${estimate.has_medical_condition ? 'pt-2.5 border-t border-[#4A443A]/40' : ''}`}>
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-[#ECE4D3] font-medium flex items-center gap-1.5">
+                        <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+                        ประวัติภูมิแพ้ / แพ้ยา
+                      </span>
+                      <span className="inline-flex items-center space-x-1 text-amber-400 bg-amber-950/50 border border-amber-800/60 px-2.5 py-0.5 rounded text-[11px] font-medium">
+                        <AlertTriangle size={11} className="shrink-0" />
+                        <span>มีประวัติภูมิแพ้</span>
+                      </span>
+                    </div>
+                    <p className="text-xs text-amber-200/90 bg-[#0E0D0C] p-2.5 rounded-lg border border-amber-900/50 whitespace-pre-wrap leading-relaxed">
+                      {estimate.allergy_note?.trim() || 'ลูกค้าแจ้งว่ามี แต่ไม่ได้ระบุรายละเอียด'}
+                    </p>
+                  </div>
+                ) : (
+                  <div className={`flex items-center justify-between text-xs py-0.5 ${estimate.has_medical_condition ? 'pt-2.5 border-t border-[#4A443A]/40' : ''}`}>
+                    <span className="text-studio-muted">ประวัติภูมิแพ้ / แพ้ยา:</span>
+                    <span className="text-emerald-400 font-medium flex items-center gap-1 text-[11px]">
+                      <CheckCircle2 size={12} /> ไม่มี
+                    </span>
+                  </div>
+                )}
               </div>
             )}
           </div>
+
+          {/* Dates Card */}
+          {(() => {
+            const { cleanNote, extractedTime } = parseNoteWithPreferredTime(estimate.description);
+            return (
+              <>
+                <div className="bg-studio-card border border-studio-border rounded-xl p-4 space-y-3">
+                  <div className="flex items-center space-x-2 text-studio-secondary text-[11px] uppercase tracking-wider font-semibold">
+                    <Calendar size={14} className="text-studio-red" />
+                    <span>วันที่ต้องการสัก & วันที่ส่งคำขอ</span>
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 pt-1">
+                    <div>
+                      <span className="text-studio-muted text-[10px] block">วันที่ลูกค้าสะดวก</span>
+                      <span className="text-sm font-semibold text-studio-primary">
+                        {estimate.preferred_date ? formatDateBangkok(estimate.preferred_date) : 'ไม่ระบุ'}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-studio-muted text-[10px] block">เวลาที่สะดวก</span>
+                      <span className="text-sm font-semibold text-studio-primary">
+                        {extractedTime || 'ไม่ระบุ'}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-studio-muted text-[10px] block">วันที่ส่งคำขอ</span>
+                      <span className="text-xs font-medium text-studio-secondary">
+                        {estimate.created_at ? formatDateBangkok(estimate.created_at, true) : '-'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Tattoo Specs */}
+                <div className="bg-studio-card border border-studio-border rounded-xl p-4 space-y-3">
+                  <div className="flex items-center space-x-2 text-studio-secondary text-[11px] uppercase tracking-wider font-semibold">
+                    <Layers size={14} className="text-studio-red" />
+                    <span>รายละเอียดงานสักที่ต้องการ</span>
+                  </div>
+                  <div className="space-y-2 pt-1 divide-y divide-studio-border/50">
+                    <div className="flex justify-between items-center pb-2">
+                      <span className="text-studio-muted">ตำแหน่งที่สัก:</span>
+                      <span className="text-studio-primary font-medium">{estimate.placement || 'ไม่ระบุ'}</span>
+                    </div>
+                    {(estimate.width_cm || estimate.height_cm) && (
+                      <div className="flex justify-between items-center py-2">
+                        <span className="text-studio-muted">ขนาดประมาณ:</span>
+                        <span className="text-studio-primary font-mono">
+                          {estimate.width_cm || '-'} x {estimate.height_cm || '-'} ซม.
+                        </span>
+                      </div>
+                    )}
+                    {(estimate.style_preference || (estimate as any).style) && (
+                      <div className="flex justify-between items-center py-2">
+                        <span className="text-studio-muted">สไตล์ลายสัก:</span>
+                        <span className="text-studio-primary font-medium">{estimate.style_preference || (estimate as any).style}</span>
+                      </div>
+                    )}
+                    {estimate.preferred_date && (
+                      <div className="flex justify-between items-center py-2">
+                        <span className="text-studio-muted">วันที่ต้องการ:</span>
+                        <span className="text-studio-primary font-medium">{formatDateBangkok(estimate.preferred_date)}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between items-center py-2">
+                      <span className="text-studio-muted">เวลาที่สะดวก:</span>
+                      <span className="text-studio-primary font-medium">{extractedTime || 'ไม่ระบุ'}</span>
+                    </div>
+                  </div>
+
+                  {cleanNote && (
+                    <div className="pt-2 border-t border-studio-border/60">
+                      <span className="text-studio-muted text-[10px] block mb-1">รายละเอียดเพิ่มเติมจากลูกค้า:</span>
+                      <p className="text-studio-primary text-xs bg-studio-sec p-3 rounded-lg border border-studio-border whitespace-pre-wrap leading-relaxed">
+                        {cleanNote}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </>
+            );
+          })()}
 
           {/* Section 3: Reference Images */}
           <div className="bg-studio-card border border-studio-border rounded-xl p-4 space-y-3">
@@ -425,12 +595,12 @@ export default function ArtistRequestDetailDrawer({ estimate, isOpen, onClose, o
       </div>
 
       {/* Accept Request Modal Form */}
-      {showAcceptModal && (
-        <div className="fixed inset-0 z-60 bg-black/80 backdrop-blur-xs flex items-center justify-center p-4 font-prompt">
-          <div className="bg-studio-card border border-studio-border rounded-2xl w-full max-w-md p-5 space-y-4 shadow-2xl animate-in zoom-in-95 duration-150">
+      {showAcceptModal && mounted && createPortal(
+        <div className="fixed inset-0 z-[90] bg-black/80 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 font-prompt overflow-y-auto">
+          <div className="bg-studio-card border border-studio-border rounded-2xl w-full max-w-md p-5 space-y-4 shadow-2xl animate-in zoom-in-95 duration-150 my-auto max-h-[90dvh] overflow-y-auto">
             <div className="flex items-center justify-between border-b border-studio-border pb-3">
               <h3 className="font-semibold text-sm text-studio-primary">รับงานและกำหนดวันนัดหมาย</h3>
-              <button onClick={() => setShowAcceptModal(false)} className="text-studio-secondary hover:text-white">
+              <button onClick={() => setShowAcceptModal(false)} className="text-studio-secondary hover:text-white cursor-pointer">
                 <X size={16} />
               </button>
             </div>
@@ -513,7 +683,7 @@ export default function ArtistRequestDetailDrawer({ estimate, isOpen, onClose, o
                 type="button"
                 onClick={() => setShowAcceptModal(false)}
                 disabled={submitting}
-                className="w-full py-2.5 px-3 rounded-xl border border-studio-border bg-studio-sec hover:bg-studio-card text-studio-secondary font-medium text-xs"
+                className="w-full py-2.5 px-3 rounded-xl border border-studio-border bg-studio-sec hover:bg-studio-card text-studio-secondary font-medium text-xs cursor-pointer"
               >
                 ยกเลิก
               </button>
@@ -521,22 +691,23 @@ export default function ArtistRequestDetailDrawer({ estimate, isOpen, onClose, o
                 type="button"
                 onClick={handleConfirmAccept}
                 disabled={submitting}
-                className="w-full py-2.5 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs shadow flex items-center justify-center space-x-1.5"
+                className="w-full py-2.5 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs shadow flex items-center justify-center space-x-1.5 cursor-pointer disabled:opacity-50"
               >
                 {submitting ? 'กำลังบันทึก...' : 'ยืนยันรับงาน'}
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Reject Request Modal Form */}
-      {showRejectModal && (
-        <div className="fixed inset-0 z-60 bg-black/80 backdrop-blur-xs flex items-center justify-center p-4 font-prompt">
-          <div className="bg-studio-card border border-studio-border rounded-2xl w-full max-w-sm p-5 space-y-4 shadow-2xl animate-in zoom-in-95 duration-150">
+      {showRejectModal && mounted && createPortal(
+        <div className="fixed inset-0 z-[90] bg-black/80 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 font-prompt overflow-y-auto">
+          <div className="bg-studio-card border border-studio-border rounded-2xl w-full max-w-sm p-5 space-y-4 shadow-2xl animate-in zoom-in-95 duration-150 my-auto max-h-[90dvh] overflow-y-auto">
             <div className="flex items-center justify-between border-b border-studio-border pb-3">
               <h3 className="font-semibold text-sm text-studio-primary">ปฏิเสธคำขอใหม่</h3>
-              <button onClick={() => setShowRejectModal(false)} className="text-studio-secondary hover:text-white">
+              <button onClick={() => setShowRejectModal(false)} className="text-studio-secondary hover:text-white cursor-pointer">
                 <X size={16} />
               </button>
             </div>
@@ -565,7 +736,7 @@ export default function ArtistRequestDetailDrawer({ estimate, isOpen, onClose, o
                 type="button"
                 onClick={() => setShowRejectModal(false)}
                 disabled={submitting}
-                className="w-full py-2.5 px-3 rounded-xl border border-studio-border bg-studio-sec hover:bg-studio-card text-studio-secondary font-medium text-xs"
+                className="w-full py-2.5 px-3 rounded-xl border border-studio-border bg-studio-sec hover:bg-studio-card text-studio-secondary font-medium text-xs cursor-pointer"
               >
                 ยกเลิก
               </button>
@@ -573,21 +744,22 @@ export default function ArtistRequestDetailDrawer({ estimate, isOpen, onClose, o
                 type="button"
                 onClick={handleConfirmReject}
                 disabled={submitting}
-                className="w-full py-2.5 px-3 rounded-xl bg-red-800 hover:bg-red-900 text-white font-semibold text-xs shadow flex items-center justify-center space-x-1.5"
+                className="w-full py-2.5 px-3 rounded-xl bg-red-800 hover:bg-red-900 text-white font-semibold text-xs shadow flex items-center justify-center space-x-1.5 cursor-pointer disabled:opacity-50"
               >
                 {submitting ? 'กำลังบันทึก...' : 'ยืนยันปฏิเสธ'}
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Lightbox Modal */}
-      {lightboxIndex !== null && signedImageUrls[lightboxIndex] && (
-        <div className="fixed inset-0 z-50 bg-black/90 flex flex-col items-center justify-center p-4">
+      {lightboxIndex !== null && signedImageUrls[lightboxIndex] && mounted && createPortal(
+        <div className="fixed inset-0 z-[100] bg-black/90 flex flex-col items-center justify-center p-4 font-prompt">
           <button
             onClick={() => setLightboxIndex(null)}
-            className="absolute top-4 right-4 text-white hover:text-studio-red p-2"
+            className="absolute top-4 right-4 text-white hover:text-studio-red p-2 cursor-pointer"
           >
             <X size={24} />
           </button>
@@ -602,7 +774,7 @@ export default function ArtistRequestDetailDrawer({ estimate, isOpen, onClose, o
             <div className="flex items-center space-x-4 mt-4 text-white">
               <button
                 onClick={() => setLightboxIndex((prev) => (prev! > 0 ? prev! - 1 : signedImageUrls.length - 1))}
-                className="p-2 bg-studio-card border border-studio-border rounded-full hover:bg-studio-red"
+                className="p-2 bg-studio-card border border-studio-border rounded-full hover:bg-studio-red cursor-pointer"
               >
                 <ChevronLeft size={20} />
               </button>
@@ -611,13 +783,14 @@ export default function ArtistRequestDetailDrawer({ estimate, isOpen, onClose, o
               </span>
               <button
                 onClick={() => setLightboxIndex((prev) => (prev! < signedImageUrls.length - 1 ? prev! + 1 : 0))}
-                className="p-2 bg-studio-card border border-studio-border rounded-full hover:bg-studio-red"
+                className="p-2 bg-studio-card border border-studio-border rounded-full hover:bg-studio-red cursor-pointer"
               >
                 <ChevronRight size={20} />
               </button>
             </div>
           )}
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

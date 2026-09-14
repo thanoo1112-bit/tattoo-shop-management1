@@ -26,7 +26,14 @@ yarn-debug.log*
 yarn-error.log*
 
 # local env files
+.env
 .env*.local
+
+# scratch and temporary scripts
+scratch/
+scratch_*.mjs
+temp_*.mjs
+test_*.mjs
 
 # vercel
 .vercel

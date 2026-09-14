@@ -217,7 +217,7 @@ export default function AdminCustomerArchive() {
                 phone: c.phone || p?.phone || '-',
                 avatar_url: c.avatar_url || undefined,
                 is_active: p?.is_active ?? true,
-                eligibility_confirmed_at: c.eligibility_confirmed_at || null,
+                eligibility_confirmed_at: c.eligibility_confirmed_at || c.profile_completed_at || null,
               };
             });
         }
@@ -244,8 +244,8 @@ export default function AdminCustomerArchive() {
           setMasterCustomers(joinedCusts);
         }
 
-        // 2. Fetch Estimates for joining
-        const { data: eData } = await supabase.from('estimate_requests').select('*');
+        // 2. Fetch Estimates for joining (excluding health disclosure fields)
+        const { data: eData } = await supabase.from('estimate_requests').select('id, customer_user_id, artist_id, reference_images, width_cm, height_cm, placement, style, description, preferred_date, status, quoted_price, estimated_duration_minutes, deposit_required, quote_note, quoted_at, accepted_at, rejected_at, created_at, updated_at');
 
         // Map estimates
         if (eData && isMounted) {
@@ -1241,7 +1241,7 @@ export default function AdminCustomerArchive() {
                       </div>
                       <div>
                         <span className="text-[#7A7265] text-[10px] block">
-                          ยืนยันเงื่อนไขก่อนรับบริการ:
+                          การยืนยันอายุและเงื่อนไข:
                         </span>
                         {selectedCustomer.eligibilityConfirmedAt ||
                         selectedCustomer.bookings.some((b) => (b as any).is_age_confirmed) ||

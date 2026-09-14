@@ -79,8 +79,8 @@ export default function FlashReservationModal({
       return;
     }
 
-    if (requestedDate && requestedDate <= getThailandTodayStr()) {
-      setError('กรุณาเลือกวันนัดหมายตั้งแต่วันพรุ่งนี้เป็นต้นไป');
+    if (requestedDate && requestedDate < getThailandTodayStr()) {
+      setError('ไม่สามารถเลือกวันที่ย้อนหลังได้');
       return;
     }
 

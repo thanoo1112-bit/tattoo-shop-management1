@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import {
   X,
   User,
@@ -14,31 +15,48 @@ import {
   Maximize2,
   FileText,
   AlertCircle,
+  AlertTriangle,
   XCircle,
   CheckCircle2,
   Image as ImageIcon,
   CreditCard,
   Eye,
+  Layers,
+  Trash2,
 } from 'lucide-react';
-import { EstimateRequestItem, formatCurrency, formatDateTimeBangkok, formatDateBangkok, formatTimeBangkok } from './types';
+import { EstimateRequestItem, formatCurrency, formatDateTimeBangkok, formatDateBangkok, formatTimeBangkok, getTattooWorkTypeLabel, getColorTechniqueLabel } from './types';
 import EstimateQuoteForm from './EstimateQuoteForm';
 import { createClient } from '@/lib/supabase/client';
+import { parseNoteWithPreferredTime } from '@/lib/noteUtils';
 import CustomerReferenceImage from '@/components/common/CustomerReferenceImage';
 import PaymentSlipImage from '@/components/common/PaymentSlipImage';
+import { useApp } from '@/components/AppContext';
+import { BlockedDateRecord, checkExistingDateWarning } from '@/lib/availabilityUtils';
 
 interface EstimateDetailPanelProps {
   estimate: EstimateRequestItem | null;
+  blockedDates?: BlockedDateRecord[];
   onClose: () => void;
   onRefresh: () => void;
   onCheckSlip?: (bookingId: string) => void;
+  onDeleteRequest?: (estimate: EstimateRequestItem) => void;
 }
 
 export default function EstimateDetailPanel({
   estimate,
+  blockedDates = [],
   onClose,
   onRefresh,
   onCheckSlip,
+  onDeleteRequest,
 }: EstimateDetailPanelProps) {
+  const { artists } = useApp();
+
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   const [isManaging, setIsManaging] = useState(false);
   const [previewModal, setPreviewModal] = useState<{ src: string; type: 'reference' | 'slip' } | null>(null);
   const [isRejecting, setIsRejecting] = useState(false);
@@ -46,12 +64,110 @@ export default function EstimateDetailPanel({
   const [isSubmittingReject, setIsSubmittingReject] = useState(false);
   const [successToast, setSuccessToast] = useState<string | null>(null);
 
+  // Admin Review Gate State
+  const [isSendingToArtist, setIsSendingToArtist] = useState(false);
+  const [selectedArtistForReview, setSelectedArtistForReview] = useState<string>(estimate?.artist_id || '');
+  const [sendError, setSendError] = useState<string | null>(null);
+
   // Payment Slip Actions State
   const [isApprovingSlip, setIsApprovingSlip] = useState(false);
   const [isRejectingSlip, setIsRejectingSlip] = useState(false);
   const [slipRejectReason, setSlipRejectReason] = useState('');
   const [isSubmittingSlipReject, setIsSubmittingSlipReject] = useState(false);
   const [slipError, setSlipError] = useState<string | null>(null);
+
+  // Customer Confirmation Resolution State
+  const [confirmationState, setConfirmationState] = useState<'loading' | 'confirmed' | 'not_confirmed' | 'error'>('loading');
+
+  React.useEffect(() => {
+    if (!estimate) {
+      setConfirmationState('not_confirmed');
+      return;
+    }
+
+    if (estimate.is_age_confirmed === true) {
+      setConfirmationState('confirmed');
+      return;
+    }
+
+    const customerUserId = estimate.customer_user_id || estimate.linked_booking?.customer_user_id;
+    if (!customerUserId) {
+      setConfirmationState('not_confirmed');
+      return;
+    }
+
+    let isMounted = true;
+    setConfirmationState('loading');
+    const supabase = createClient();
+
+    async function fetchStatus() {
+      try {
+        const { data, error } = await supabase
+          .from('customers')
+          .select('eligibility_confirmed_at, profile_completed_at')
+          .eq('user_id', customerUserId)
+          .maybeSingle();
+
+        if (!isMounted) return;
+
+        if (error) {
+          console.error('Error fetching admin customer confirmation:', error);
+          setConfirmationState('error');
+          return;
+        }
+
+        if (data) {
+          const isConfirmed = Boolean(data.eligibility_confirmed_at || data.profile_completed_at);
+          setConfirmationState(isConfirmed ? 'confirmed' : 'not_confirmed');
+        } else {
+          setConfirmationState('not_confirmed');
+        }
+      } catch (err) {
+        console.error('Exception fetching admin customer confirmation:', err);
+        if (isMounted) setConfirmationState('error');
+      }
+    }
+
+    fetchStatus();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [estimate?.id, estimate?.customer_user_id, estimate?.linked_booking?.customer_user_id, estimate?.is_age_confirmed]);
+
+  const handleSendToArtist = async () => {
+    if (!estimate) return;
+    const targetArtistId = selectedArtistForReview || estimate.artist_id;
+    if (!targetArtistId) {
+      setSendError('กรุณาเลือกช่างสักก่อนย้ายช่างผู้รับผิดชอบ');
+      return;
+    }
+
+    setIsSendingToArtist(true);
+    setSendError(null);
+    try {
+      const supabase = createClient();
+      const { error: updateError } = await supabase
+        .from('estimate_requests')
+        .update({
+          artist_id: targetArtistId,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', estimate.id);
+
+      if (updateError) throw updateError;
+
+      setSuccessToast('ย้ายช่างผู้รับผิดชอบเรียบร้อยแล้ว');
+      setTimeout(() => {
+        onRefresh();
+      }, 800);
+    } catch (err: any) {
+      console.error('Error reassigning artist:', err);
+      setSendError(err.message || 'เกิดข้อผิดพลาดในการย้ายช่างผู้รับผิดชอบ');
+    } finally {
+      setIsSendingToArtist(false);
+    }
+  };
 
   if (!estimate) return null;
 
@@ -61,6 +177,18 @@ export default function EstimateDetailPanel({
 
   const customerName = linkedBooking?.customer_name || estimate.customer_name;
   const customerPhone = linkedBooking?.customer_phone || estimate.customer_phone;
+  const customerEmail = estimate.customer_email || linkedBooking?.customer_email || '';
+
+  const isHealthUnknown =
+    estimate.has_medical_condition === undefined ||
+    estimate.has_medical_condition === null ||
+    estimate.has_allergy === undefined ||
+    estimate.has_allergy === null;
+
+  const isHealthy =
+    !isHealthUnknown &&
+    estimate.has_medical_condition === false &&
+    estimate.has_allergy === false;
 
   const rawArtistName = linkedBooking?.artist_name || estimate.artist_name || 'ยังไม่ระบุช่าง';
   const rawArtistNickname = linkedBooking?.artist_nickname || estimate.artist_nickname;
@@ -78,25 +206,33 @@ export default function EstimateDetailPanel({
     ? formatDateBangkok(activeSession.start_at)
     : linkedBooking?.requested_date
     ? formatDateBangkok(linkedBooking.requested_date)
-    : estimate.preferred_date || 'ไม่ระบุวัน';
+    : estimate.preferred_date ? formatDateBangkok(estimate.preferred_date) : 'ไม่ระบุวัน';
 
-  const appointmentTimeDisplay = activeSession?.start_at && activeSession?.end_at
-    ? `${formatTimeBangkok(activeSession.start_at)} – ${formatTimeBangkok(activeSession.end_at)} น.`
-    : linkedBooking?.requested_time || 'ไม่ระบุเวลา';
+  const appointmentStartTimeDisplay = activeSession?.start_at
+    ? `${formatTimeBangkok(activeSession.start_at)} น.`
+    : linkedBooking?.requested_time
+    ? (linkedBooking.requested_time.length >= 5 ? `${linkedBooking.requested_time.slice(0, 5)} น.` : linkedBooking.requested_time)
+    : 'ไม่ระบุเวลา';
 
-  const preferredDateDisplay = estimate.preferred_date || 'ไม่ระบุวันสะดวก';
+  const preferredDateDisplay = estimate.preferred_date ? formatDateBangkok(estimate.preferred_date) : 'ไม่ระบุวันสะดวก';
+
+  const rawDescription = linkedBooking?.description || estimate.description || '';
+  const { cleanNote, extractedTime } = parseNoteWithPreferredTime(rawDescription);
+  const preferredTimeDisplay = extractedTime || 'ไม่ระบุ';
 
   const quotedPrice = linkedBooking?.financial?.quoted_price ?? estimate.quoted_price ?? 0;
   const depositRequired = linkedBooking?.financial?.deposit_required ?? estimate.deposit_required ?? 0;
 
-  const descriptionDisplay = linkedBooking?.description || estimate.description || 'ไม่มีคำอธิบายเพิ่มเติม';
+  const descriptionDisplay = cleanNote || 'ไม่มีคำอธิบายเพิ่มเติม';
   const refImages = (linkedBooking?.reference_images && linkedBooking.reference_images.length > 0)
     ? linkedBooking.reference_images
     : (estimate.reference_images || []);
 
+  const requestCode = `REQ-${estimate.id.slice(0, 8).toUpperCase()}`;
+
   const handleApproveSlip = async () => {
     if (!pendingSubmission) return;
-    if (!window.confirm(`ยืนยันอนุมัติหลักฐานการชำระเงินมัดจำจำนวน ฿${formatCurrency(pendingSubmission.claimed_amount)} หรือไม่?`)) {
+    if (!window.confirm(`ยืนยันอนุมัติหลักฐานการชำระเงินมัดจำจำนวน ${formatCurrency(pendingSubmission.claimed_amount)} หรือไม่?`)) {
       return;
     }
 
@@ -242,50 +378,40 @@ export default function EstimateDetailPanel({
       {/* Backdrop */}
       <div
         onClick={onClose}
-        className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 animate-fadeIn"
+        className="fixed inset-0 bg-black/70 backdrop-blur-xs z-50 animate-fadeIn"
       />
 
-      {/* Drawer */}
-      <div className="fixed inset-y-0 right-0 z-50 w-full sm:w-[500px] md:w-[560px] bg-[#171512] border-l border-[#4A443A] shadow-2xl flex flex-col font-prompt animate-slideInRight">
-        {/* Header */}
-        <div className="p-4 sm:p-5 border-b border-[#4A443A] flex items-center justify-between bg-[#0E0D0C]">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-[#171512] border border-[#4A443A] flex items-center justify-center text-[#ECE4D3]">
-              <FileText size={16} />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h3 className="text-sm sm:text-base font-heading font-semibold text-[#ECE4D3]">
-                  คำขอจองคิวสัก
-                </h3>
-                {(estimate.operational_status?.key === 'WAITING_SLIP_VERIFICATION' || estimate.has_pending_payment_submission) &&
-                estimate.linked_booking?.id &&
-                onCheckSlip ? (
-                  <button
-                    type="button"
-                    onClick={() => onCheckSlip(estimate.linked_booking!.id)}
-                    title="กดเพื่อตรวจสลิป"
-                    className="bg-amber-950/80 hover:bg-amber-900 text-amber-300 border border-amber-800/80 px-2.5 py-0.5 rounded text-xs font-semibold inline-flex items-center animate-pulse transition-colors cursor-pointer"
-                  >
-                    <span>สลิปรอตรวจ</span>
-                  </button>
-                ) : estimate.operational_status ? (
-                  <span className={`${estimate.operational_status.badgeClass} px-2.5 py-0.5 rounded text-xs font-semibold`}>
-                    {estimate.operational_status.label}
-                  </span>
-                ) : (
-                  getStatusBadge(estimate.status)
-                )}
-              </div>
-              <p className="text-[10px] text-[#7A7265] mt-0.5">
-                รหัส: #{estimate.id.slice(0, 8)} • ยื่นเมื่อ: {formatDateTimeBangkok(estimate.created_at)}
-              </p>
-            </div>
+      {/* Drawer Body */}
+      <div className="fixed inset-y-0 right-0 z-50 w-full sm:w-[500px] md:w-[560px] bg-studio-card border-l border-studio-border shadow-2xl flex flex-col font-prompt animate-slideInRight overflow-hidden">
+        
+        {/* SECTION 0: HEADER */}
+        <div className="p-4 sm:p-5 border-b border-studio-border flex items-center justify-between bg-studio-card/95">
+          <div className="flex items-center space-x-2.5">
+            <span className="text-xs font-mono font-bold text-studio-primary bg-studio-sec px-2.5 py-1 rounded border border-studio-border">
+              {requestCode}
+            </span>
+            {(estimate.operational_status?.key === 'WAITING_SLIP_VERIFICATION' || estimate.has_pending_payment_submission) &&
+            estimate.linked_booking?.id &&
+            onCheckSlip ? (
+              <button
+                type="button"
+                onClick={() => onCheckSlip(estimate.linked_booking!.id)}
+                title="กดเพื่อตรวจสลิป"
+                className="bg-amber-950/80 hover:bg-amber-900 text-amber-300 border border-amber-800/80 px-2.5 py-0.5 rounded text-xs font-semibold inline-flex items-center animate-pulse transition-colors cursor-pointer"
+              >
+                <span>สลิปรอตรวจ</span>
+              </button>
+            ) : estimate.operational_status ? (
+              <span className={`${estimate.operational_status.badgeClass} px-2.5 py-0.5 rounded text-xs font-semibold`}>
+                {estimate.operational_status.label}
+              </span>
+            ) : (
+              getStatusBadge(estimate.status)
+            )}
           </div>
-
           <button
             onClick={onClose}
-            className="p-1.5 text-[#7A7265] hover:text-[#ECE4D3] hover:bg-[#1F1D1A] rounded-lg transition-colors"
+            className="p-1.5 rounded-lg text-studio-secondary hover:text-studio-primary hover:bg-studio-sec border border-studio-border transition-colors cursor-pointer"
           >
             <X size={18} />
           </button>
@@ -300,358 +426,599 @@ export default function EstimateDetailPanel({
         )}
 
         {/* Scrollable Content */}
-        <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-5">
-          {/* Customer Information */}
-          <div className="bg-[#0E0D0C] border border-[#4A443A]/70 rounded-xl p-3.5 space-y-2">
-            <span className="text-[11px] font-semibold text-[#7A7265] uppercase tracking-wider block">
-              ข้อมูลลูกค้า
-            </span>
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-semibold text-[#ECE4D3] flex items-center gap-1.5">
-                <User size={14} className="text-[#9C2F2F]" />
-                {customerName}
+        <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-5 pb-24 text-xs">
+          
+          {/* SECTION 1: ADMIN VIEW INTRO */}
+          <div className="p-3.5 bg-studio-sec/80 border border-studio-border rounded-xl flex items-start space-x-3 text-studio-secondary">
+            <ShieldCheck size={16} className="text-studio-red shrink-0 mt-0.5" />
+            <div className="space-y-0.5">
+              <span className="font-semibold text-studio-primary block text-xs">
+                รายละเอียดคำขอจองงานสัก (Admin View)
               </span>
-              {customerPhone ? (
-                <a
-                  href={`tel:${customerPhone}`}
-                  className="text-xs text-[#A89F91] hover:text-[#ECE4D3] flex items-center gap-1 bg-[#171512] px-2 py-0.5 rounded border border-[#4A443A]/50"
-                >
-                  <Phone size={11} className="text-emerald-400" />
-                  {customerPhone}
-                </a>
-              ) : (
-                <span className="text-xs text-[#7A7265] bg-[#171512] px-2 py-0.5 rounded border border-[#4A443A]/50">
-                  ไม่ระบุเบอร์โทร
-                </span>
-              )}
-            </div>
-            <div className="flex items-center justify-between text-xs pt-1.5 border-t border-[#4A443A]/40">
-              <span className="text-[11px] text-[#7A7265]">ยืนยันเงื่อนไขก่อนรับบริการ:</span>
-              {estimate.is_age_confirmed ? (
-                <span className="text-emerald-400 bg-emerald-950/50 border border-emerald-800/60 px-2 py-0.5 rounded text-[10px] font-semibold flex items-center gap-1">
-                  <CheckCircle2 size={11} />
-                  <span>✓ ยืนยันแล้ว</span>
-                </span>
-              ) : (
-                <span className="text-amber-400 bg-amber-950/50 border border-amber-800/60 px-2 py-0.5 rounded text-[10px] font-semibold">
-                  ยังไม่ยืนยัน
-                </span>
-              )}
+              <p className="text-[11px] text-studio-muted leading-relaxed">
+                ดูรายละเอียดคำขอ ติดตามสถานะ และจัดการขั้นตอนของงานสัก
+              </p>
             </div>
           </div>
 
-          {/* Request / Queue Details (2-Column Grid) */}
-          <div className="bg-[#0E0D0C] border border-[#4A443A]/70 rounded-xl p-3.5 space-y-3">
-            <span className="text-[11px] font-semibold text-[#7A7265] uppercase tracking-wider block">
-              {hasBooking ? 'รายละเอียดคิวงาน' : 'รายละเอียดคำขอ'}
-            </span>
-
-            <div className="grid grid-cols-2 gap-2 text-xs">
-              {/* Row 1: Artist & Style */}
-              <div className="bg-[#171512] p-2.5 rounded-lg border border-[#4A443A]/40 min-w-0">
-                <span className="text-[10px] text-[#7A7265] block">{hasBooking ? 'ช่างสัก' : 'ช่างที่ต้องการ'}</span>
-                <span className="font-medium text-[#ECE4D3] mt-0.5 block truncate">{artistDisplay}</span>
+          {/* SECTION 2: ข้อมูลลูกค้าที่ติดต่อ */}
+          <div className="bg-studio-card border border-studio-border rounded-xl p-4 space-y-3">
+            <div className="flex items-center space-x-2 text-studio-secondary text-[11px] uppercase tracking-wider font-semibold">
+              <User size={14} className="text-studio-red" />
+              <span>ข้อมูลลูกค้าที่ติดต่อ</span>
+            </div>
+            <div className="space-y-2.5 pt-1 divide-y divide-studio-border/50">
+              <div className="flex justify-between items-center pb-2">
+                <span className="text-studio-muted">ชื่อลูกค้า:</span>
+                <span className="text-studio-primary font-medium">{customerName || 'ลูกค้า (ไม่ระบุชื่อ)'}</span>
               </div>
-
-              <div className="bg-[#171512] p-2.5 rounded-lg border border-[#4A443A]/40 min-w-0">
-                <span className="text-[10px] text-[#7A7265] block">{hasBooking ? 'สไตล์งาน' : 'สไตล์ที่ต้องการ'}</span>
-                <span className="font-medium text-[#ECE4D3] mt-0.5 block truncate">{styleDisplay}</span>
-              </div>
-
-              {/* Row 3: Placement & Size */}
-              <div className="bg-[#171512] p-2.5 rounded-lg border border-[#4A443A]/40 min-w-0">
-                <span className="text-[10px] text-[#7A7265] block">{hasBooking ? 'ตำแหน่งสัก' : 'ตำแหน่งที่ต้องการ'}</span>
-                <span className="font-medium text-[#ECE4D3] mt-0.5 block truncate">{placementDisplay}</span>
-              </div>
-
-              <div className="bg-[#171512] p-2.5 rounded-lg border border-[#4A443A]/40 min-w-0">
-                <span className="text-[10px] text-[#7A7265] block">{hasBooking ? 'ขนาดงาน' : 'ขนาดที่ต้องการ'}</span>
-                <span className="font-medium text-[#ECE4D3] mt-0.5 block truncate">{sizeDisplay}</span>
-              </div>
-
-              {/* Row 4 & 5: Appointment Date/Time & Price/Deposit OR Preferred Date */}
-              {hasBooking ? (
-                <>
-                  <div className="bg-[#171512] p-2.5 rounded-lg border border-[#4A443A]/40 min-w-0">
-                    <span className="text-[10px] text-[#7A7265] block">วันนัดหมาย</span>
-                    <span className="font-medium text-[#ECE4D3] mt-0.5 block truncate">{appointmentDateDisplay}</span>
-                  </div>
-
-                  <div className="bg-[#171512] p-2.5 rounded-lg border border-[#4A443A]/40 min-w-0">
-                    <span className="text-[10px] text-[#7A7265] block">เวลา</span>
-                    <span className="font-medium text-[#ECE4D3] mt-0.5 block truncate">{appointmentTimeDisplay}</span>
-                  </div>
-
-                  <div className="bg-[#171512] p-2.5 rounded-lg border border-[#4A443A]/40 min-w-0">
-                    <span className="text-[10px] text-[#7A7265] block">ราคางานสัก</span>
-                    <span className="font-semibold text-[#ECE4D3] mt-0.5 block truncate">
-                      {quotedPrice > 0 ? formatCurrency(quotedPrice) : 'ไม่ระบุ'}
-                    </span>
-                  </div>
-
-                  <div className="bg-[#171512] p-2.5 rounded-lg border border-[#4A443A]/40 min-w-0">
-                    <span className="text-[10px] text-[#7A7265] block">เงินมัดจำ</span>
-                    <span className="font-semibold text-emerald-400 mt-0.5 block truncate">
-                      {depositRequired > 0 ? formatCurrency(depositRequired) : 'ไม่มีมัดจำ'}
-                    </span>
-                  </div>
-                </>
+              {customerEmail ? (
+                <div className="flex justify-between items-center py-2">
+                  <span className="text-studio-muted">อีเมล:</span>
+                  <span className="text-studio-secondary font-mono truncate max-w-[220px]">{customerEmail}</span>
+                </div>
               ) : (
-                <div className="bg-[#171512] p-2.5 rounded-lg border border-[#4A443A]/40 min-w-0 col-span-2">
-                  <span className="text-[10px] text-[#7A7265] block">วันที่ลูกค้าสะดวก</span>
-                  <span className="font-medium text-[#ECE4D3] mt-0.5 block truncate">{preferredDateDisplay}</span>
+                <div className="flex justify-between items-center py-2">
+                  <span className="text-studio-muted">อีเมล:</span>
+                  <span className="text-studio-muted text-xs">ไม่ระบุอีเมล</span>
                 </div>
               )}
+              {customerPhone ? (
+                <div className="flex justify-between items-center py-2">
+                  <span className="text-studio-muted">เบอร์โทรศัพท์:</span>
+                  <a
+                    href={`tel:${customerPhone}`}
+                    className="flex items-center space-x-1.5 text-emerald-400 hover:text-emerald-300 font-mono bg-emerald-950/40 border border-emerald-800/40 px-2.5 py-1 rounded transition-colors"
+                  >
+                    <Phone size={12} />
+                    <span>{customerPhone}</span>
+                  </a>
+                </div>
+              ) : (
+                <div className="flex justify-between items-center py-2">
+                  <span className="text-studio-muted">เบอร์โทรศัพท์:</span>
+                  <span className="text-studio-muted text-xs">ไม่ระบุเบอร์โทร</span>
+                </div>
+              )}
+              <div className="flex justify-between items-center pt-2">
+                <span className="text-studio-muted">การยืนยันอายุและเงื่อนไข:</span>
+                {confirmationState === 'loading' ? (
+                  <span className="inline-flex items-center space-x-1 text-studio-muted bg-studio-card/80 border border-studio-border px-2.5 py-0.5 rounded text-[11px]">
+                    <span>กำลังตรวจสอบ...</span>
+                  </span>
+                ) : confirmationState === 'confirmed' ? (
+                  <span className="inline-flex items-center space-x-1 text-emerald-400 bg-emerald-950/50 border border-emerald-800/60 px-2.5 py-0.5 rounded text-[11px] font-medium">
+                    <CheckCircle2 size={12} />
+                    <span>ยืนยันแล้ว</span>
+                  </span>
+                ) : confirmationState === 'error' ? (
+                  <span className="inline-flex items-center space-x-1 text-amber-400/80 bg-amber-950/30 border border-amber-800/30 px-2.5 py-0.5 rounded text-[11px]">
+                    <span>! ไม่สามารถตรวจสอบได้</span>
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center space-x-1 text-amber-400 bg-amber-950/50 border border-amber-800/60 px-2.5 py-0.5 rounded text-[11px] font-medium">
+                    <span>ยังไม่ยืนยัน</span>
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
 
-              {/* Full Width: Description */}
-              <div className="bg-[#171512] p-2.5 rounded-lg border border-[#4A443A]/40 min-w-0 col-span-2">
-                <span className="text-[10px] text-[#7A7265] block mb-1">รายละเอียดงานสัก</span>
-                <p className="text-[#ECE4D3] font-light leading-relaxed whitespace-pre-wrap break-words">
-                  {descriptionDisplay}
+          {/* SECTION 2.5: ข้อมูลสุขภาพที่ลูกค้าแจ้ง */}
+          <div className="bg-[#171512] border border-[#4A443A] rounded-xl p-4 space-y-3 font-prompt">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2 text-[#ECE4D3] text-[11px] uppercase tracking-wider font-semibold">
+                <AlertTriangle size={14} className={isHealthUnknown ? "text-[#A89F91] shrink-0" : isHealthy ? "text-emerald-400 shrink-0" : "text-amber-400 shrink-0"} />
+                <span>ข้อมูลสุขภาพที่ลูกค้าแจ้ง</span>
+              </div>
+            </div>
+
+            {isHealthUnknown ? (
+              <div className="flex items-center space-x-2 text-xs text-[#A89F91] bg-studio-sec/60 border border-[#4A443A]/50 p-2.5 rounded-lg">
+                <AlertCircle size={15} className="shrink-0 text-[#A89F91]" />
+                <span>ไม่มีข้อมูลสุขภาพ</span>
+              </div>
+            ) : isHealthy ? (
+              <div className="flex items-center space-x-2 text-xs text-emerald-400 bg-emerald-950/30 border border-emerald-800/40 p-2.5 rounded-lg">
+                <CheckCircle2 size={15} className="shrink-0 text-emerald-400" />
+                <span>สุขภาพปกติ (ไม่มีโรคประจำตัวและไม่มีประวัติการแพ้)</span>
+              </div>
+            ) : (
+              <div className="space-y-3 pt-1">
+                {/* โรคประจำตัว */}
+                {estimate.has_medical_condition ? (
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-[#ECE4D3] font-medium flex items-center gap-1.5">
+                        <span className="w-1.5 h-1.5 rounded-full bg-red-500"></span>
+                        โรคประจำตัว
+                      </span>
+                      <span className="inline-flex items-center space-x-1 text-red-400 bg-red-950/50 border border-red-800/60 px-2.5 py-0.5 rounded text-[11px] font-medium">
+                        <AlertTriangle size={11} className="shrink-0" />
+                        <span>มีโรคประจำตัว</span>
+                      </span>
+                    </div>
+                    {estimate.medical_condition_note?.trim() ? (
+                      <p className="text-xs text-red-200/90 bg-[#0E0D0C] p-2.5 rounded-lg border border-red-900/50 whitespace-pre-wrap leading-relaxed">
+                        {estimate.medical_condition_note.trim()}
+                      </p>
+                    ) : (
+                      <p className="text-xs text-red-300/70 bg-[#0E0D0C] p-2 rounded-lg border border-red-900/40 font-light italic">
+                        ลูกค้าแจ้งว่ามีโรคประจำตัว (ไม่ได้ระบุรายละเอียด)
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-between text-xs py-0.5">
+                    <span className="text-studio-muted">โรคประจำตัว:</span>
+                    <span className="text-emerald-400 font-medium flex items-center gap-1 text-[11px]">
+                      <CheckCircle2 size={12} /> ไม่มี
+                    </span>
+                  </div>
+                )}
+
+                {/* ประวัติการแพ้ */}
+                {estimate.has_allergy ? (
+                  <div className={`space-y-1.5 ${estimate.has_medical_condition ? 'pt-2.5 border-t border-[#4A443A]/40' : ''}`}>
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-[#ECE4D3] font-medium flex items-center gap-1.5">
+                        <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+                        ประวัติการแพ้
+                      </span>
+                      <span className="inline-flex items-center space-x-1 text-amber-400 bg-amber-950/50 border border-amber-800/60 px-2.5 py-0.5 rounded text-[11px] font-medium">
+                        <AlertTriangle size={11} className="shrink-0" />
+                        <span>มีประวัติการแพ้</span>
+                      </span>
+                    </div>
+                    {estimate.allergy_note?.trim() ? (
+                      <p className="text-xs text-amber-200/90 bg-[#0E0D0C] p-2.5 rounded-lg border border-amber-900/50 whitespace-pre-wrap leading-relaxed">
+                        {estimate.allergy_note.trim()}
+                      </p>
+                    ) : (
+                      <p className="text-xs text-amber-300/70 bg-[#0E0D0C] p-2 rounded-lg border border-amber-900/40 font-light italic">
+                        ลูกค้าแจ้งว่ามีประวัติการแพ้ (ไม่ได้ระบุรายละเอียด)
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  <div className={`flex items-center justify-between text-xs py-0.5 ${estimate.has_medical_condition ? 'pt-2.5 border-t border-[#4A443A]/40' : ''}`}>
+                    <span className="text-studio-muted">ประวัติการแพ้:</span>
+                    <span className="text-emerald-400 font-medium flex items-center gap-1 text-[11px]">
+                      <CheckCircle2 size={12} /> ไม่มี
+                    </span>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* SECTION 3: วันที่ต้องการสัก & วันที่ส่งคำขอ */}
+          {(() => {
+            const prefWarning = estimate.preferred_date
+              ? checkExistingDateWarning(estimate.preferred_date, estimate.artist_id, blockedDates, rawArtistNickname || rawArtistName)
+              : { hasWarning: false, warningMessage: null };
+
+            return (
+              <div className="bg-studio-card border border-studio-border rounded-xl p-4 space-y-3">
+                <div className="flex items-center space-x-2 text-studio-secondary text-[11px] uppercase tracking-wider font-semibold">
+                  <Calendar size={14} className="text-studio-red" />
+                  <span>วันที่ต้องการสัก & วันที่ส่งคำขอ</span>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 pt-1">
+                  <div>
+                    <span className="text-studio-muted text-[10px] block">วันที่ลูกค้าสะดวก</span>
+                    <span className="text-sm font-semibold text-studio-primary">
+                      {estimate.preferred_date ? formatDateBangkok(estimate.preferred_date) : 'ไม่ระบุ'}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-studio-muted text-[10px] block">เวลาที่สะดวก</span>
+                    <span className="text-sm font-semibold text-studio-primary">
+                      {preferredTimeDisplay}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-studio-muted text-[10px] block">วันที่ส่งคำขอ</span>
+                    <span className="text-xs font-medium text-studio-secondary">
+                      {estimate.created_at ? formatDateTimeBangkok(estimate.created_at) : '-'}
+                    </span>
+                  </div>
+                </div>
+                {prefWarning.hasWarning && (
+                  <div className="p-2.5 bg-amber-950/40 border border-amber-800/60 rounded-xl text-xs text-amber-300 flex items-center gap-2 mt-2">
+                    <AlertTriangle size={15} className="shrink-0 text-amber-400" />
+                    <span>{prefWarning.warningMessage}</span>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+
+          {/* SECTION 4: รายละเอียดงานสักที่ต้องการ */}
+          <div className="bg-studio-card border border-studio-border rounded-xl p-4 space-y-3">
+            <div className="flex items-center space-x-2 text-studio-secondary text-[11px] uppercase tracking-wider font-semibold">
+              <Layers size={14} className="text-studio-red" />
+              <span>รายละเอียดงานสักที่ต้องการ</span>
+            </div>
+            <div className="space-y-2 pt-1 divide-y divide-studio-border/50">
+              <div className="flex justify-between items-center pb-2">
+                <span className="text-studio-muted">ตำแหน่งที่สัก:</span>
+                <span className="text-studio-primary font-medium">{placementDisplay}</span>
+              </div>
+              <div className="flex justify-between items-center py-2">
+                <span className="text-studio-muted">ขนาดประมาณ:</span>
+                <span className="text-studio-primary font-mono">{sizeDisplay}</span>
+              </div>
+              {estimate.work_type && (
+                <div className="flex justify-between items-center py-2">
+                  <span className="text-studio-muted">ประเภทงานสัก:</span>
+                  <span className="text-studio-primary font-medium">{getTattooWorkTypeLabel(estimate.work_type)}</span>
+                </div>
+              )}
+              {estimate.color_technique && (
+                <div className="flex justify-between items-center py-2">
+                  <span className="text-studio-muted">ลักษณะการลงสี:</span>
+                  <span className="text-studio-primary font-medium">{getColorTechniqueLabel(estimate.color_technique)}</span>
+                </div>
+              )}
+              <div className="flex justify-between items-center py-2">
+                <span className="text-studio-muted">สไตล์ลายสัก:</span>
+                <span className="text-studio-primary font-medium">{styleDisplay}</span>
+              </div>
+              <div className="flex justify-between items-center py-2">
+                <span className="text-studio-muted">วันที่ต้องการ:</span>
+                <span className="text-studio-primary font-medium">{preferredDateDisplay}</span>
+              </div>
+              <div className="flex justify-between items-center py-2">
+                <span className="text-studio-muted">เวลาที่สะดวก:</span>
+                <span className="text-studio-primary font-medium">{preferredTimeDisplay}</span>
+              </div>
+            </div>
+
+            {cleanNote && (
+              <div className="pt-2 border-t border-studio-border/60">
+                <span className="text-studio-muted text-[10px] block mb-1">รายละเอียดเพิ่มเติมจากลูกค้า:</span>
+                <p className="text-studio-primary text-xs bg-studio-sec p-3 rounded-lg border border-studio-border whitespace-pre-wrap leading-relaxed">
+                  {cleanNote}
                 </p>
               </div>
-
-              {/* Full Width: Reference Gallery */}
-              {refImages.length > 0 && (
-                <div className="col-span-2 pt-1">
-                  <span className="text-[10px] text-[#7A7265] block mb-1.5 flex items-center gap-1">
-                    <ImageIcon size={12} />
-                    รูปภาพอ้างอิง ({refImages.length} รูป)
-                  </span>
-                  <div className="flex flex-wrap gap-2">
-                    {refImages.map((imgUrl: string, idx: number) => (
-                      <div
-                        key={idx}
-                        onClick={() => setPreviewModal({ src: imgUrl, type: 'reference' })}
-                        className="w-16 h-16 sm:w-20 sm:h-20 rounded-lg overflow-hidden border border-[#4A443A] bg-[#171512] cursor-pointer hover:border-[#ECE4D3] transition-all relative group"
-                      >
-                        <CustomerReferenceImage src={imgUrl} alt={`Reference ${idx + 1}`} className="w-full h-full object-cover" />
-                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center text-[#ECE4D3] transition-opacity">
-                          <Maximize2 size={14} />
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
+            )}
           </div>
 
-          {/* Pending Deposit Payment Submission Section */}
-          {pendingSubmission && (
-            <div className="bg-[#0E0D0C] border border-amber-800/60 rounded-xl p-3.5 space-y-3 font-prompt">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-amber-400 uppercase tracking-wider block">
-                  หลักฐานการชำระเงินมัดจำ
-                </span>
-                <span className="bg-amber-950/80 text-amber-300 border border-amber-800/80 px-2.5 py-0.5 rounded text-xs font-semibold animate-pulse">
-                  สลิปรอตรวจ
-                </span>
-              </div>
-
-              <div className="space-y-2 bg-[#171512] p-2.5 rounded-lg border border-[#4A443A]/40 text-xs">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-[#A89F91]">ยอดเงินที่ลูกค้าแจ้ง:</span>
-                  <span className="text-sm font-bold text-amber-300 font-mono">
-                    {formatCurrency(pendingSubmission.claimed_amount)}
-                  </span>
-                </div>
-
-                <div className="flex items-center justify-between gap-2 pt-2 border-t border-[#4A443A]/30">
-                  <span className="text-[#A89F91]">หลักฐานที่ส่ง:</span>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const slipUrl = pendingSubmission.proof_image_url || pendingSubmission.slip_path || null;
-                      if (slipUrl) setPreviewModal({ src: slipUrl, type: 'slip' });
-                    }}
-                    className="px-3 py-1 bg-amber-950/70 hover:bg-amber-900 active:bg-amber-950 text-amber-300 border border-amber-800/80 rounded-lg text-xs font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer shadow-sm"
+          {/* SECTION 5: รูปภาพอ้างอิง */}
+          <div className="bg-studio-card border border-studio-border rounded-xl p-4 space-y-3">
+            <span className="text-studio-secondary text-[11px] uppercase tracking-wider font-semibold block">
+              รูปภาพอ้างอิง
+            </span>
+            {refImages.length > 0 ? (
+              <div className="flex flex-wrap gap-2 pt-1">
+                {refImages.map((imgUrl: string, idx: number) => (
+                  <div
+                    key={idx}
+                    onClick={() => setPreviewModal({ src: imgUrl, type: 'reference' })}
+                    className="w-16 h-16 sm:w-20 sm:h-20 rounded-lg overflow-hidden border border-studio-border bg-studio-sec cursor-pointer hover:border-studio-red/60 transition-colors relative group"
                   >
-                    <Eye size={14} />
-                    <span>ดูสลิป</span>
-                  </button>
-                </div>
+                    <CustomerReferenceImage src={imgUrl} alt={`Reference ${idx + 1}`} className="w-full h-full object-cover" />
+                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white transition-opacity">
+                      <Maximize2 size={14} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="p-4 bg-studio-sec/40 border border-studio-border/60 rounded-lg text-center text-studio-muted text-[11px]">
+                ไม่มีภาพอ้างอิงแนบมากับคำขอนี้
+              </div>
+            )}
+          </div>
+
+          {/* SECTION 6: มอบหมายช่างผู้รับผิดชอบ (ADMIN CONTROL) */}
+          <div className="bg-studio-card border border-studio-border rounded-xl p-4 space-y-3">
+            <span className="text-studio-secondary text-[11px] uppercase tracking-wider font-semibold block">
+              มอบหมายช่างผู้รับผิดชอบ
+            </span>
+            <p className="text-[11px] text-studio-muted leading-relaxed">
+              เลือกช่างที่รับผิดชอบงานนี้ โดยสามารถเปลี่ยนมอบหมายให้ช่างคนอื่นได้
+            </p>
+            <div className="space-y-2 pt-1">
+              <div className="flex justify-between items-center">
+                <span className="text-studio-muted">ช่างปัจจุบัน:</span>
+                <span className="text-studio-primary font-medium">{artistDisplay}</span>
               </div>
 
-              {/* Slip Error Feedback */}
-              {slipError && (
-                <div className="p-2.5 bg-red-950/40 border border-red-900/60 rounded-lg text-xs text-red-400 flex items-center gap-1.5">
-                  <AlertCircle size={14} className="shrink-0" />
-                  <span>{slipError}</span>
+              {sendError && (
+                <div className="p-2 bg-red-950/40 border border-red-900/60 rounded text-xs text-red-400 text-left">
+                  {sendError}
                 </div>
               )}
 
-              {/* Actions: Side-by-side buttons */}
-              {isRejectingSlip ? (
-                <form onSubmit={handleRejectSlip} className="pt-2 border-t border-[#4A443A]/40 space-y-2.5 animate-fadeIn">
-                  <span className="text-[11px] text-red-400 font-semibold block">ระบุเหตุผลในการปฏิเสธสลิป</span>
-                  <input
-                    type="text"
-                    required
-                    value={slipRejectReason}
-                    onChange={(e) => setSlipRejectReason(e.target.value)}
-                    placeholder="เช่น สลิปไม่ชัดเจน, ไม่พบยอดเงินโอน..."
-                    className="w-full bg-[#171512] border border-[#4A443A] rounded-lg p-2 text-xs text-[#ECE4D3] focus:outline-none focus:border-red-400"
-                  />
-                  <div className="flex items-center justify-end gap-2">
+              <div className="pt-2 border-t border-studio-border/50 space-y-1.5">
+                <label className="text-[11px] text-studio-muted font-medium block">ช่างผู้รับผิดชอบ:</label>
+                <div className="flex items-center gap-2">
+                  <select
+                    value={selectedArtistForReview || estimate.artist_id || ''}
+                    onChange={(e) => setSelectedArtistForReview(e.target.value)}
+                    className="flex-1 bg-studio-sec border border-studio-border rounded-xl p-2.5 text-xs text-studio-primary focus:outline-none focus:border-studio-red"
+                  >
+                    <option value="">-- กรุณาเลือกช่างสัก --</option>
+                    {artists.map((a) => (
+                      <option key={a.id} value={a.id}>
+                        {a.name} {a.nickname ? `(${a.nickname})` : ''}
+                      </option>
+                    ))}
+                  </select>
+                  {selectedArtistForReview && selectedArtistForReview !== estimate.artist_id && (
                     <button
                       type="button"
-                      onClick={() => setIsRejectingSlip(false)}
-                      className="px-3 py-1.5 bg-[#171512] text-xs text-[#A89F91] rounded border border-[#4A443A] hover:text-[#ECE4D3]"
+                      disabled={isSendingToArtist}
+                      onClick={handleSendToArtist}
+                      className="px-3.5 py-2.5 bg-studio-red hover:bg-[#b53838] text-xs font-semibold text-white rounded-xl transition-colors shrink-0 disabled:opacity-50 cursor-pointer"
                     >
-                      ยกเลิก
+                      {isSendingToArtist ? 'กำลังบันทึก...' : 'ย้ายช่าง'}
                     </button>
-                    <button
-                      type="submit"
-                      disabled={isSubmittingSlipReject}
-                      className="px-4 py-1.5 bg-red-600 hover:bg-red-500 text-xs text-white rounded font-medium disabled:opacity-50"
-                    >
-                      {isSubmittingSlipReject ? 'กำลังบันทึก...' : 'ยืนยันปฏิเสธสลิป'}
-                    </button>
-                  </div>
-                </form>
-              ) : (
-                <div className="grid grid-cols-2 gap-2 pt-1">
-                  <button
-                    type="button"
-                    disabled={isApprovingSlip}
-                    onClick={handleApproveSlip}
-                    className="px-3 py-2.5 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white text-xs font-bold rounded-lg transition-colors flex items-center justify-center gap-1.5 shadow cursor-pointer disabled:opacity-50 min-w-0"
-                  >
-                    <CheckCircle2 size={15} className="shrink-0" />
-                    <span className="truncate">{isApprovingSlip ? 'กำลังบันทึก...' : 'ยืนยันการชำระเงิน'}</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setIsRejectingSlip(true)}
-                    className="px-3 py-2.5 bg-red-950/60 hover:bg-red-900/80 active:bg-red-900 text-red-300 border border-red-800/80 text-xs font-bold rounded-lg transition-colors flex items-center justify-center gap-1.5 cursor-pointer min-w-0"
-                  >
-                    <XCircle size={15} className="shrink-0" />
-                    <span className="truncate">ปฏิเสธสลิป</span>
-                  </button>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Action / Confirmation Form */}
-          {estimate.status === 'PENDING' ? (
-            isManaging ? (
-              <EstimateQuoteForm
-                estimate={estimate}
-                onSuccess={handleConfirmSuccess}
-                onCancel={() => setIsManaging(false)}
-              />
-            ) : isRejecting ? (
-              <form onSubmit={handleReject} className="bg-[#0E0D0C] border border-red-900/60 rounded-xl p-4 space-y-3 animate-fadeIn">
-                <span className="text-xs font-semibold text-red-400 block">ระบุเหตุผลในการปฏิเสธคำขอ</span>
-                <textarea
-                  required
-                  rows={2}
-                  value={rejectReason}
-                  onChange={(e) => setRejectReason(e.target.value)}
-                  placeholder="เช่น คิวงานเต็ม หรือสไตล์ไม่ตรงกับทางร้าน..."
-                  className="w-full bg-[#171512] border border-[#4A443A] rounded-lg p-2.5 text-xs text-[#ECE4D3] focus:outline-none focus:border-red-400"
-                />
-                <div className="flex items-center justify-end gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setIsRejecting(false)}
-                    className="px-3 py-1.5 bg-[#171512] text-xs text-[#A89F91] rounded border border-[#4A443A]"
-                  >
-                    ยกเลิก
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={isSubmittingReject}
-                    className="px-4 py-1.5 bg-red-600 hover:bg-red-500 text-xs text-white rounded font-medium"
-                  >
-                    {isSubmittingReject ? 'กำลังบันทึก...' : 'ยืนยันปฏิเสธ'}
-                  </button>
-                </div>
-              </form>
-            ) : (
-              <div className="p-4 bg-[#0E0D0C] border border-[#4A443A] rounded-xl space-y-3 text-center">
-                <p className="text-xs text-[#A89F91]">
-                  คำขอนี้รอการตรวจสอบ กรุณากำหนดวันและเวลานัดหมายเพื่อลงคิวสัก
-                </p>
-                <div className="flex items-center justify-center gap-2">
-                  <button
-                    id="btn-open-manage-form"
-                    type="button"
-                    onClick={() => setIsManaging(true)}
-                    className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-xs font-semibold text-white rounded-lg transition-colors flex items-center gap-1.5 shadow"
-                  >
-                    <Calendar size={14} />
-                    <span>จัดการคำขอจอง</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setIsRejecting(true)}
-                    className="px-3 py-2 bg-[#171512] hover:bg-red-950/40 text-xs text-[#A89F91] hover:text-red-400 rounded-lg border border-[#4A443A] hover:border-red-900/60 transition-colors"
-                  >
-                    ปฏิเสธคำขอ
-                  </button>
+                  )}
                 </div>
               </div>
-            )
-          ) : (
-            /* Accepted / Rejected Overview */
-            <div className="bg-[#0E0D0C] border border-[#4A443A]/70 rounded-xl p-3.5 space-y-3">
-              <span className="text-[11px] font-semibold text-[#7A7265] uppercase tracking-wider block">
-                สถานะการดำเนินการ (Booking Resolution)
+            </div>
+          </div>
+
+          {/* SECTION 8: สถานะการจอง / การชำระเงิน */}
+          {(hasBooking || pendingSubmission) && (
+            <div className="bg-studio-card border border-studio-border rounded-xl p-4 space-y-3">
+              <span className="text-studio-secondary text-[11px] uppercase tracking-wider font-semibold block">
+                สถานะการจองและการชำระเงิน
               </span>
 
-              {estimate.status === 'ACCEPTED' && (
-                <div className="p-3 bg-emerald-950/30 border border-emerald-800/40 rounded-lg space-y-2.5 text-xs">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[#A89F91]">สถานะการดำเนินงาน:</span>
+              {hasBooking && (
+                <div className="space-y-2 pt-1 divide-y divide-studio-border/50">
+                  <div className="flex justify-between items-center pb-2">
+                    <span className="text-studio-muted">สถานะคิวงาน:</span>
                     {estimate.operational_status ? (
                       <span className={`${estimate.operational_status.badgeClass} px-2.5 py-0.5 rounded text-xs font-semibold`}>
                         {estimate.operational_status.label}
                       </span>
                     ) : (
-                      <span className="text-emerald-400 font-semibold">ร้านยืนยันคิวแล้ว</span>
+                      <span className="text-studio-primary font-medium">{linkedBooking?.status || estimate.status}</span>
                     )}
                   </div>
-                  {estimate.deposit_required !== null && (
-                    <div className="flex items-center justify-between">
-                      <span className="text-[#A89F91]">เงินมัดจำ:</span>
-                      <span className="text-[#ECE4D3] font-semibold">
-                        {estimate.deposit_required > 0 ? formatCurrency(estimate.deposit_required) : 'ไม่มีมัดจำ'}
-                      </span>
-                    </div>
-                  )}
-                  {estimate.quote_note && (
-                    <div className="pt-2 border-t border-emerald-900/40">
-                      <span className="text-[10px] text-[#7A7265] block mb-0.5">หมายเหตุของร้าน:</span>
-                      <p className="text-[#ECE4D3] font-light">{estimate.quote_note}</p>
-                    </div>
+                  {appointmentDateDisplay !== 'ไม่ระบุวัน' && (
+                    <>
+                      <div className="flex justify-between items-center py-2">
+                        <span className="text-studio-muted">วันที่นัด:</span>
+                        <span className="text-studio-primary font-medium">{appointmentDateDisplay}</span>
+                      </div>
+                      <div className="flex justify-between items-center py-2">
+                        <span className="text-studio-muted">เวลานัด:</span>
+                        <span className="text-studio-primary font-medium">{appointmentStartTimeDisplay}</span>
+                      </div>
+                    </>
                   )}
                 </div>
               )}
 
-              {estimate.status === 'REJECTED' && (
-                <div className="p-3 bg-red-950/30 border border-red-800/40 rounded-lg space-y-2 text-xs">
+              {/* Pending Deposit Payment Submission */}
+              {pendingSubmission && (
+                <div className="bg-studio-sec border border-amber-800/60 rounded-xl p-3.5 space-y-3 mt-2 font-prompt">
                   <div className="flex items-center justify-between">
-                    <span className="text-[#A89F91]">สถานะคำขอ:</span>
-                    <span className="text-red-400 font-semibold">ปฏิเสธคำขอแล้ว</span>
+                    <span className="text-xs font-semibold text-amber-400 uppercase tracking-wider block">
+                      หลักฐานการชำระเงินมัดจำ
+                    </span>
                   </div>
-                  {estimate.quote_note && (
-                    <p className="text-[#ECE4D3] font-light text-xs">{estimate.quote_note}</p>
+
+                  <div className="space-y-2 bg-studio-card p-2.5 rounded-lg border border-studio-border text-xs">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-studio-muted">ยอดเงินที่ลูกค้าแจ้ง:</span>
+                      <span className="text-sm font-bold text-amber-300 font-mono">
+                        {formatCurrency(pendingSubmission.claimed_amount)}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center justify-between gap-2 pt-2 border-t border-studio-border/50">
+                      <span className="text-studio-muted">หลักฐานที่ส่ง:</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const slipUrl = pendingSubmission.proof_image_url || pendingSubmission.slip_path || null;
+                          if (slipUrl) setPreviewModal({ src: slipUrl, type: 'slip' });
+                        }}
+                        className="px-3 py-1 bg-amber-950/70 hover:bg-amber-900 text-amber-300 border border-amber-800/80 rounded-lg text-xs font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer"
+                      >
+                        <Eye size={14} />
+                        <span>ดูสลิป</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Slip Error Feedback */}
+                  {slipError && (
+                    <div className="p-2.5 bg-red-950/40 border border-red-900/60 rounded-lg text-xs text-red-400 flex items-center gap-1.5">
+                      <AlertCircle size={14} className="shrink-0" />
+                      <span>{slipError}</span>
+                    </div>
+                  )}
+
+                  {/* Slip Actions */}
+                  {isRejectingSlip ? (
+                    <form onSubmit={handleRejectSlip} className="pt-2 border-t border-studio-border/50 space-y-2.5 animate-fadeIn">
+                      <span className="text-[11px] text-red-400 font-semibold block">ระบุเหตุผลในการปฏิเสธสลิป</span>
+                      <input
+                        type="text"
+                        required
+                        value={slipRejectReason}
+                        onChange={(e) => setSlipRejectReason(e.target.value)}
+                        placeholder="เช่น สลิปไม่ชัดเจน, ไม่พบยอดเงินโอน..."
+                        className="w-full bg-studio-card border border-studio-border rounded-lg p-2 text-xs text-studio-primary focus:outline-none focus:border-red-400"
+                      />
+                      <div className="flex items-center justify-end gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setIsRejectingSlip(false)}
+                          className="px-3 py-1.5 bg-studio-card text-xs text-studio-muted rounded border border-studio-border hover:text-studio-primary"
+                        >
+                          ยกเลิก
+                        </button>
+                        <button
+                          type="submit"
+                          disabled={isSubmittingSlipReject}
+                          className="px-4 py-1.5 bg-red-600 hover:bg-red-500 text-xs text-white rounded font-medium disabled:opacity-50"
+                        >
+                          {isSubmittingSlipReject ? 'กำลังบันทึก...' : 'ยืนยันปฏิเสธสลิป'}
+                        </button>
+                      </div>
+                    </form>
+                  ) : (
+                    <div className="grid grid-cols-2 gap-2 pt-1">
+                      <button
+                        type="button"
+                        disabled={isApprovingSlip}
+                        onClick={handleApproveSlip}
+                        className="px-3 py-2.5 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white text-xs font-bold rounded-xl transition-colors flex items-center justify-center gap-1.5 shadow cursor-pointer disabled:opacity-50 min-w-0"
+                      >
+                        <CheckCircle2 size={15} className="shrink-0" />
+                        <span className="truncate">{isApprovingSlip ? 'กำลังบันทึก...' : 'ยืนยันการชำระเงิน'}</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setIsRejectingSlip(true)}
+                        className="px-3 py-2.5 bg-red-950/60 hover:bg-red-900/80 text-red-300 border border-red-800/80 text-xs font-bold rounded-xl transition-colors flex items-center justify-center gap-1.5 cursor-pointer min-w-0"
+                      >
+                        <XCircle size={15} className="shrink-0" />
+                        <span className="truncate">ปฏิเสธสลิป</span>
+                      </button>
+                    </div>
                   )}
                 </div>
               )}
             </div>
           )}
+
+          {/* SECTION 9: ADMIN ACTIONS */}
+          {estimate.status === 'PENDING' && (
+            <div className="bg-studio-card border border-studio-border rounded-xl p-4 space-y-3">
+              <div className="space-y-3">
+                <div className="flex items-center justify-between border-b border-studio-border/50 pb-2">
+                  <span className="text-xs font-bold text-studio-primary">จัดการคำขอจองคิวสัก</span>
+                  <span className="text-[10px] bg-amber-950/60 text-amber-300 border border-amber-800/80 px-2 py-0.5 rounded font-mono font-semibold">
+                    คำขอใหม่
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 pt-1">
+                  <button
+                    id="btn-open-manage-form"
+                    type="button"
+                    onClick={() => setIsManaging(true)}
+                    className="px-3 py-2.5 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-xs font-bold text-white rounded-xl transition-colors flex items-center justify-center gap-1.5 shadow cursor-pointer min-w-0"
+                  >
+                    <Calendar size={15} className="shrink-0" />
+                    <span className="truncate">กำหนดราคา/ลงคิว</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsRejecting(true)}
+                    className="px-3 py-2.5 bg-red-950/80 hover:bg-red-900 text-red-200 border border-red-800 rounded-xl font-semibold text-xs transition-colors flex items-center justify-center gap-1.5 cursor-pointer min-w-0"
+                  >
+                    <XCircle size={15} className="shrink-0" />
+                    <span className="truncate">ปฏิเสธคำขอ</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {estimate.status === 'REJECTED' && onDeleteRequest && (
+            <div className="bg-studio-card border border-red-900/60 rounded-xl p-4 space-y-3">
+              <div className="space-y-3">
+                <div className="flex items-center justify-between border-b border-studio-border/50 pb-2">
+                  <span className="text-xs font-bold text-red-400">การจัดการคำขอที่ถูกปฏิเสธ</span>
+                  <span className="text-[10px] bg-red-950/80 text-red-300 border border-red-800/80 px-2 py-0.5 rounded font-semibold">
+                    ปฏิเสธแล้ว
+                  </span>
+                </div>
+                <p className="text-[11px] text-[#A89F91] leading-relaxed">
+                  คำขอนี้ถูกปฏิเสธแล้ว คุณสามารถลบคำขอนี้ออกจากระบบแบบถาวรได้
+                </p>
+                <button
+                  type="button"
+                  onClick={() => onDeleteRequest(estimate)}
+                  className="w-full py-2.5 px-4 bg-[#9C2F2F] hover:bg-[#B53838] active:scale-[0.99] text-xs font-bold text-white rounded-xl transition-all shadow-md flex items-center justify-center gap-1.5 cursor-pointer border border-[#B53838]/40"
+                >
+                  <Trash2 size={15} />
+                  <span>ลบคำขอนี้ถาวร</span>
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
+
+      {/* Quote / Schedule Child Modal Overlay */}
+      {isManaging && mounted && createPortal(
+        <div className="fixed inset-0 z-[90] bg-black/80 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 font-prompt overflow-y-auto">
+          <div className="w-full max-w-md my-auto max-h-[90dvh] overflow-y-auto rounded-2xl shadow-2xl">
+            <EstimateQuoteForm
+              estimate={estimate}
+              blockedDates={blockedDates}
+              onSuccess={handleConfirmSuccess}
+              onCancel={() => setIsManaging(false)}
+            />
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* Admin Reject Request Child Modal Overlay */}
+      {isRejecting && mounted && createPortal(
+        <div className="fixed inset-0 z-[90] bg-black/80 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 font-prompt overflow-y-auto">
+          <div className="bg-studio-card border border-studio-border rounded-2xl w-full max-w-md p-5 space-y-4 shadow-2xl font-prompt my-auto max-h-[90dvh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-studio-border pb-3">
+              <h3 className="font-semibold text-sm text-red-400">ระบุเหตุผลในการปฏิเสธคำขอ</h3>
+              <button
+                type="button"
+                onClick={() => setIsRejecting(false)}
+                className="text-studio-secondary hover:text-white cursor-pointer"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <form onSubmit={handleReject} className="space-y-4 text-xs">
+              <textarea
+                required
+                rows={3}
+                value={rejectReason}
+                onChange={(e) => setRejectReason(e.target.value)}
+                placeholder="เช่น คิวงานเต็ม หรือสไตล์ไม่ตรงกับทางร้าน..."
+                className="w-full bg-studio-sec border border-studio-border rounded-xl p-3 text-xs text-studio-primary focus:outline-none focus:border-red-400"
+              />
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-studio-border">
+                <button
+                  type="button"
+                  onClick={() => setIsRejecting(false)}
+                  className="px-4 py-2 bg-studio-sec hover:bg-studio-card text-xs text-studio-secondary rounded-xl border border-studio-border font-medium cursor-pointer"
+                >
+                  ยกเลิก
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmittingReject}
+                  className="px-4 py-2 bg-red-600 hover:bg-red-500 text-xs text-white rounded-xl font-semibold cursor-pointer disabled:opacity-50"
+                >
+                  {isSubmittingReject ? 'กำลังบันทึก...' : 'ยืนยันปฏิเสธ'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>,
+        document.body
+      )}
+
       {/* Lightbox Modal for Image Preview */}
-      {previewModal && (
+      {previewModal && mounted && createPortal(
         <div
           onClick={() => setPreviewModal(null)}
-          className="fixed inset-0 bg-black/90 z-[70] flex items-center justify-center p-4 cursor-pointer animate-fadeIn"
+          className="fixed inset-0 bg-black/90 z-[100] flex items-center justify-center p-4 cursor-pointer animate-fadeIn font-prompt"
         >
           <div className="max-w-full max-h-[90vh] overflow-hidden rounded-lg shadow-2xl flex items-center justify-center">
             {previewModal.type === 'reference' ? (
@@ -670,11 +1037,12 @@ export default function EstimateDetailPanel({
           </div>
           <button
             onClick={() => setPreviewModal(null)}
-            className="absolute top-4 right-4 text-[#ECE4D3] bg-[#171512] border border-[#4A443A] p-2 rounded-full hover:border-[#9C2F2F] transition-colors"
+            className="absolute top-4 right-4 text-[#ECE4D3] bg-[#171512] border border-[#4A443A] p-2 rounded-full hover:border-[#9C2F2F] transition-colors cursor-pointer"
           >
             <X size={20} />
           </button>
-        </div>
+        </div>,
+        document.body
       )}
     </>
   );

@@ -328,7 +328,7 @@ function CompleteProfileContent() {
                 className="mt-0.5 w-4 h-4 rounded border-[#4A443A] bg-[#0E0D0C] text-[#9C2F2F] focus:ring-[#9C2F2F] focus:ring-offset-0 transition-colors shrink-0 accent-[#9C2F2F]"
               />
               <span className="text-xs text-[#A89F91] leading-relaxed group-hover:text-[#ECE4D3] transition-colors">
-                ฉันยืนยันว่ามีอายุ 18 ปีบริบูรณ์ขึ้นไป และไม่มีภาวะสุขภาพที่ทราบว่าอาจส่งผลต่อความปลอดภัยในการสัก หากมีข้อมูลสุขภาพที่เกี่ยวข้อง ฉันจะแจ้งร้านก่อนรับบริการ
+                ฉันยืนยันว่ามีอายุ 18 ปีบริบูรณ์ขึ้นไป และยอมรับข้อกำหนดการใช้งานและนโยบายความเป็นส่วนตัว
               </span>
             </label>
             {disclaimerError && (

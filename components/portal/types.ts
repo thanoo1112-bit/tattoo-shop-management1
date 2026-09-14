@@ -19,6 +19,7 @@ export interface CustomerPortalArtist {
   avatar_url?: string | null;
   specialties?: string[] | null;
   working_days?: string[] | null;
+  base_price?: number | null;
 }
 
 export interface CustomerPortalSession {
@@ -47,6 +48,12 @@ export interface CustomerPortalFinancialSummary {
   is_fully_paid: boolean;
 }
 
+export type TattooWorkType = 'NEW_TATTOO' | 'REWORK' | 'COVER_UP' | 'SCAR_COVER';
+
+export type ColorTechnique = 'LINEWORK' | 'BLACK_AND_GREY' | 'FULL_COLOR';
+
+export type EstimatedSizeTier = 'MICRO' | 'SMALL_MED' | 'LARGE' | 'XL' | 'FULL_PROJECT';
+
 export interface CustomerPortalEstimate {
   id: string;
   customer_user_id: string;
@@ -59,7 +66,20 @@ export interface CustomerPortalEstimate {
   description: string;
   preferred_date: string | null;
   status: EstimateStatus;
+  request_type?: 'ESTIMATE' | 'DIRECT_BOOKING';
+  work_type?: TattooWorkType | null;
+  color_technique?: ColorTechnique | null;
   quoted_price: number | null;
+  estimated_min_price?: number | null;
+  estimated_max_price?: number | null;
+  estimated_base_price_snapshot?: number | null;
+  estimated_size_tier?: EstimatedSizeTier | string | null;
+  estimated_size_multiplier?: number | null;
+  estimated_color_multiplier?: number | null;
+  estimated_work_type_multiplier?: number | null;
+  estimated_range_factor?: number | null;
+  estimated_rounding_increment?: number | null;
+  price_estimated_at?: string | null;
   estimated_duration_minutes: number | null;
   deposit_required: number | null;
   quote_note: string | null;
@@ -71,6 +91,7 @@ export interface CustomerPortalEstimate {
   artist?: CustomerPortalArtist | null;
   // Linked booking if already booked
   booking_id?: string | null;
+  has_pending_payment_submission?: boolean;
 }
 
 export interface CustomerPortalBooking {
@@ -81,6 +102,8 @@ export interface CustomerPortalBooking {
   booking_source?: string;
   source_ref?: string | null;
   artwork_title?: string | null;
+  style?: string | null;
+  work_type?: TattooWorkType | string | null;
   artwork_image_url?: string | null;
   reference_images?: string[] | null;
   placement?: string | null;
@@ -96,6 +119,7 @@ export interface CustomerPortalBooking {
   started_at: string | null;
   completed_at: string | null;
   created_at: string;
+  has_pending_payment_submission?: boolean;
   // Joined Relations
   artist?: CustomerPortalArtist | null;
   sessions: CustomerPortalSession[];

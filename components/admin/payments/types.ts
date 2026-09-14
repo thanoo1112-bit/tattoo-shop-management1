@@ -15,6 +15,7 @@ export interface BookingPaymentSummaryRow {
 export interface BookingPaymentRecord {
   id: string;
   booking_id: string;
+  booking_session_id?: string | null;
   payment_type: 'DEPOSIT' | 'BALANCE' | 'FULL_PAYMENT' | 'OTHER';
   amount: number;
   payment_method: 'CASH' | 'BANK_TRANSFER' | 'QR' | 'OTHER';
