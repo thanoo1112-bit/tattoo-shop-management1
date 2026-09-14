@@ -167,3 +167,27 @@ export function resolveCustomerDisplayStatus(
 
   return status;
 }
+
+/**
+ * Formats service_type code to Thai display label for Customer Portal
+ */
+export function formatServiceTypeLabel(serviceType?: string | null): string | null {
+  if (!serviceType) return null;
+  switch (serviceType) {
+    case 'NEW_SMALL':
+      return 'สักลายใหม่ — ไซส์เล็ก';
+    case 'NEW_MEDIUM':
+      return 'สักลายใหม่ — ไซส์กลาง';
+    case 'NEW_LARGE':
+      return 'สักลายใหม่ — ไซส์ใหญ่';
+    case 'COVER_UP':
+      return 'งานแก้ลาย / ทับลายเดิม';
+    case 'CUSTOM':
+      return 'งานออกแบบใหม่ตามสั่ง';
+    case 'CONSULTATION':
+      return 'ปรึกษาช่างก่อน';
+    default:
+      return null;
+  }
+}
+

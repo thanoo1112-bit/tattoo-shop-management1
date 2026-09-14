@@ -131,6 +131,7 @@ function BookingContent() {
               preselectedArtworkImage={preselectedArtworkImage}
               preselectedStyle={preselectedStyle}
               preselectedType={preselectedType}
+              serviceType={selectedService}
               onSuccess={(requestId) => {
                 // EstimateForm handles success UI and navigation to portal
               }}

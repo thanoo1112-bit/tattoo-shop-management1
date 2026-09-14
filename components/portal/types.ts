@@ -67,6 +67,7 @@ export interface CustomerPortalEstimate {
   preferred_date: string | null;
   status: EstimateStatus;
   request_type?: 'ESTIMATE' | 'DIRECT_BOOKING';
+  service_type?: string | null;
   work_type?: TattooWorkType | null;
   color_technique?: ColorTechnique | null;
   quoted_price: number | null;
@@ -103,6 +104,7 @@ export interface CustomerPortalBooking {
   source_ref?: string | null;
   artwork_title?: string | null;
   style?: string | null;
+  service_type?: string | null;
   work_type?: TattooWorkType | string | null;
   artwork_image_url?: string | null;
   reference_images?: string[] | null;

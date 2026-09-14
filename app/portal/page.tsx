@@ -183,7 +183,7 @@ function CustomerPortalContent() {
       // 1. Fetch own estimate_requests (excluding health fields for list/summary views)
       const { data: estData } = await supabase
         .from('estimate_requests')
-        .select('id, customer_user_id, artist_id, reference_images, width_cm, height_cm, placement, style, description, preferred_date, status, quoted_price, estimated_duration_minutes, deposit_required, quote_note, quoted_at, accepted_at, rejected_at, created_at, updated_at, request_type, work_type, estimated_min_price, estimated_max_price, price_estimated_at')
+        .select('id, customer_user_id, artist_id, reference_images, width_cm, height_cm, placement, style, description, preferred_date, status, quoted_price, estimated_duration_minutes, deposit_required, quote_note, quoted_at, accepted_at, rejected_at, created_at, updated_at, request_type, service_type, work_type, estimated_min_price, estimated_max_price, price_estimated_at')
         .eq('customer_user_id', user.id)
         .order('created_at', { ascending: false });
 

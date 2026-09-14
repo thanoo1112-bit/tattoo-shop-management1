@@ -54,6 +54,7 @@ interface EstimateFormProps {
   preselectedArtworkImage?: string;
   preselectedStyle?: string;
   preselectedType?: 'ESTIMATE' | 'DIRECT_BOOKING';
+  serviceType?: string | null;
   flashId?: string;
   compact?: boolean;
   onSuccess?: (requestId: string, bookingId?: string) => void;
@@ -71,6 +72,9 @@ export type TattooWorkType = 'NEW_TATTOO' | 'REWORK' | 'COVER_UP' | 'SCAR_COVER'
 
 const translateRpcError = (msg: string): string => {
   if (!msg) return 'เกิดข้อผิดพลาดในการส่งคำขอจองคิว';
+  if (msg.includes('INVALID_SERVICE_TYPE')) {
+    return 'กรุณาเลือกประเภทงานสักให้ถูกต้องก่อนดำเนินการต่อ';
+  }
   if (msg.includes('ARTIST_DATE_BLOCKED')) {
     return 'ช่างปิดรับคิวในวันที่เลือก กรุณาเลือกวันอื่น';
   }
@@ -101,6 +105,7 @@ export default function EstimateForm({
   preselectedArtworkImage,
   preselectedStyle,
   preselectedType,
+  serviceType,
   flashId,
   compact = false,
   onSuccess 
@@ -425,6 +430,11 @@ export default function EstimateForm({
     }
 
 
+    if (!flashId && !serviceType) {
+      setError('กรุณาเลือกประเภทงานสักก่อนดำเนินการต่อ');
+      return;
+    }
+
     if (!isLoggedIn || !user) {
       saveDraft();
       setShowLogin(true);
@@ -464,6 +474,7 @@ export default function EstimateForm({
         p_customer_note: description ? description.trim() : null,
         p_work_type: null,
         p_color_technique: null,
+        p_service_type: serviceType || null,
       });
 
       if (rpcErr || !rpcRes) {

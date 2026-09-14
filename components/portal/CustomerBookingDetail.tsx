@@ -23,7 +23,7 @@ import {
   ChevronRight,
   ZoomIn,
 } from 'lucide-react';
-import { formatThaiDate, formatTimeBangkok, formatCurrency, resolveCustomerDisplayStatus } from './portalUtils';
+import { formatThaiDate, formatTimeBangkok, formatCurrency, resolveCustomerDisplayStatus, formatServiceTypeLabel } from './portalUtils';
 import CustomerReferenceImage from '@/components/common/CustomerReferenceImage';
 import CustomerDepositPaymentSection from './CustomerDepositPaymentSection';
 
