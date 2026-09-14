@@ -64,7 +64,7 @@ BEGIN
   END IF;
 
   -- 4b. Validate 24-Hour Deposit Deadline
-  IF v_booking.approved_at IS NOT NULL AND pg_catalog.now() > (v_booking.approved_at + INTERVAL '24 hours') THEN
+  IF v_booking.approved_at IS NOT NULL AND pg_catalog.now() >= (v_booking.approved_at + INTERVAL '24 hours') THEN
     RAISE EXCEPTION 'DEPOSIT_DEADLINE_EXPIRED: หมดเวลาชำระเงินมัดจำแล้ว (เกินกำหนด 24 ชั่วโมง)'
       USING ERRCODE = 'P0001';
   END IF;

@@ -231,7 +231,11 @@ export default function CustomerBookingDetail({
             <div className="bg-red-950/30 border border-red-900/40 p-3.5 rounded-[6px] space-y-1">
               <div className="flex items-center gap-2 text-xs font-bold text-red-400">
                 <AlertTriangle size={14} />
-                <span>ไม่สามารถรับคำขอนี้ได้</span>
+                <span>
+                  {(booking.rejection_reason || estimate.quote_note || '').includes('มัดจำ')
+                    ? 'ปฏิเสธ — ไม่ได้ชำระมัดจำภายในเวลาที่กำหนด'
+                    : 'ไม่สามารถรับคำขอนี้ได้'}
+                </span>
               </div>
               <p className="text-[11px] text-red-300/80 leading-relaxed font-light">
                 {booking.rejection_reason || estimate.quote_note || 'ขออภัย ทางร้านไม่สามารถรับคำขอจองนี้ได้เนื่องจากคิวงานเต็มหรือไม่ตรงตามเงื่อนไข'}
