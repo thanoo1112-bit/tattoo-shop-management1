@@ -7,7 +7,7 @@ import {
   BookingPaymentSubmission,
   PaymentSetting,
 } from './types';
-import { formatThaiDate, formatTimeBangkok, formatCurrency } from './portalUtils';
+import { formatThaiDate, formatTimeBangkok, formatCurrency, getDepositDeadlineInfo } from './portalUtils';
 import {
   Wallet,
   QrCode,
@@ -248,6 +248,10 @@ export default function CustomerDepositPaymentSection({
           }
         }
 
+        if (rpcErr.message?.includes('DEPOSIT_DEADLINE_EXPIRED')) {
+          if (onRefresh) onRefresh();
+          throw new Error('หมดเวลาชำระมัดจำแล้ว กรุณาติดต่อร้าน');
+        }
         if (rpcErr.message?.includes('already pending')) {
           throw new Error('หลักฐานของคุณกำลังรอตรวจสอบ');
         }
@@ -273,11 +277,25 @@ export default function CustomerDepositPaymentSection({
 
   };
 
+  // Real-time timer state to tick countdown every 30 seconds
+  const [currentTime, setCurrentTime] = useState(Date.now());
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(Date.now());
+    }, 30000);
+    return () => clearInterval(timer);
+  }, []);
+
   // Derive active submission states
   const pendingSubmission = submissions.find((s) => s.status === 'PENDING');
   const latestSubmission = submissions[0] || null;
   const isBookingWaitingDeposit = booking.status === 'WAITING_DEPOSIT';
   const isBookingConfirmed = booking.status === 'CONFIRMED';
+
+  // 24-hour Deposit Deadline calculation (only when WAITING_DEPOSIT and no pending submission)
+  const deadlineInfo = isBookingWaitingDeposit && !pendingSubmission ? getDepositDeadlineInfo(booking.approved_at) : null;
+  const isDeadlineExpired = Boolean(deadlineInfo?.isExpired);
 
   // Check if active bank/QR settings exist
   const hasActivePaymentSettings =
@@ -443,8 +461,44 @@ export default function CustomerDepositPaymentSection({
         </div>
       )}
 
-      {/* 3. Shop Payment Information & QR Display (Only when WAITING_DEPOSIT and no pending) */}
-      {isBookingWaitingDeposit && !pendingSubmission && (
+      {/* E. Expired Deposit Deadline Banner */}
+      {!pendingSubmission && isBookingWaitingDeposit && isDeadlineExpired && (
+        <div className="bg-red-950/40 border border-red-900/60 p-4 rounded-[6px] space-y-2">
+          <div className="flex items-center gap-2 text-xs font-bold text-red-400">
+            <AlertTriangle size={16} />
+            <span>หมดเวลาชำระมัดจำ</span>
+          </div>
+          <p className="text-[11px] text-red-200/90 leading-relaxed font-light">
+            คิวนี้เกินกำหนดเวลาชำระเงินมัดจำ 24 ชั่วโมงแล้ว (ครบกำหนดเมื่อ{' '}
+            <span className="font-medium text-red-100">{deadlineInfo?.deadlineDateStr || 'ไม่ระบุ'}</span>)
+          </p>
+          <p className="text-[11px] text-[#ECE4D3] font-medium pt-1">
+            กรุณาติดต่อร้านเพื่อดำเนินการเกี่ยวกับคิวนี้
+          </p>
+        </div>
+      )}
+
+      {/* F. Active 24-Hour Deposit Deadline Countdown Banner */}
+      {!pendingSubmission && isBookingWaitingDeposit && deadlineInfo && !isDeadlineExpired && (
+        <div className="bg-[#171512] border border-[#D9A441]/50 p-3.5 rounded-[6px] space-y-1.5">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 text-xs font-bold text-[#D9A441]">
+              <Clock size={14} className="animate-pulse" />
+              <span>กำหนดชำระมัดจำภายใน 24 ชั่วโมง</span>
+            </div>
+            <span className="text-xs font-mono font-bold text-[#D9A441] bg-[#D9A441]/10 border border-[#D9A441]/40 px-2 py-0.5 rounded">
+              เหลือเวลา {deadlineInfo.remainingText}
+            </span>
+          </div>
+          <p className="text-[11px] text-[#A89F91] leading-relaxed font-light">
+            มัดจำที่ต้องชำระ <span className="font-bold text-[#ECE4D3]">฿{formatCurrency(depositOutstanding)}</span> ภายใน{' '}
+            <span className="font-medium text-[#ECE4D3]">{deadlineInfo.deadlineDateStr}</span>
+          </p>
+        </div>
+      )}
+
+      {/* 3. Shop Payment Information & QR Display (Only when WAITING_DEPOSIT, no pending, and NOT expired) */}
+      {isBookingWaitingDeposit && !pendingSubmission && !isDeadlineExpired && (
         <div className="bg-studio-main border border-studio-border p-4 rounded-[6px] space-y-4">
           <div className="border-b border-studio-border/40 pb-2 flex items-center justify-between">
             <span className="text-[11px] uppercase tracking-wider font-bold text-studio-secondary flex items-center gap-1.5">
@@ -572,8 +626,8 @@ export default function CustomerDepositPaymentSection({
         </div>
       )}
 
-      {/* 4. Slip Upload & Form Section (Visible when WAITING_DEPOSIT or re-upload and no pending) */}
-      {(isBookingWaitingDeposit || showReUploadForm) && !pendingSubmission && (
+      {/* 4. Slip Upload & Form Section (Visible when WAITING_DEPOSIT or re-upload, no pending, and NOT expired) */}
+      {(isBookingWaitingDeposit || showReUploadForm) && !pendingSubmission && !isDeadlineExpired && (
         <div className="bg-studio-main border border-studio-border p-4 rounded-[6px] space-y-4">
           <div className="border-b border-studio-border/40 pb-2 flex items-center justify-between">
             <span className="text-[11px] uppercase tracking-wider font-bold text-studio-secondary flex items-center gap-1.5">

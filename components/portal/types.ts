@@ -119,6 +119,7 @@ export interface CustomerPortalBooking {
   admin_note: string | null;
   rejection_reason?: string | null;
   status: BookingStatus;
+  approved_at?: string | null;
   started_at: string | null;
   completed_at: string | null;
   created_at: string;

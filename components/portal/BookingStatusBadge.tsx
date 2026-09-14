@@ -4,7 +4,7 @@ import React from 'react';
 
 type StatusType = 
   | 'PENDING' | 'APPROVED' | 'WAITING_DEPOSIT' | 'CONFIRMED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED'
-  | 'QUOTED' | 'ACCEPTED' | 'REJECTED';
+  | 'QUOTED' | 'ACCEPTED' | 'REJECTED' | 'EXPIRED';
 
 interface BookingStatusBadgeProps {
   status: StatusType;
@@ -73,6 +73,12 @@ export default function BookingStatusBadge({ status, type = 'booking' }: Booking
       dot: 'bg-[#7F2424]',
       container: 'bg-[#171512] border-red-900/30',
       text: 'text-[#A89F91]',
+    },
+    EXPIRED: {
+      label: 'หมดเวลาชำระมัดจำ',
+      dot: 'bg-[#7F2424]',
+      container: 'bg-[#171512] border-red-900/50',
+      text: 'text-[#E57373]',
     },
   };
 

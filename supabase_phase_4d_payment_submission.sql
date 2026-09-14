@@ -224,7 +224,7 @@ BEGIN
   END IF;
 
   -- 4. Validate Booking Ownership & Status
-  SELECT id, customer_user_id, status
+  SELECT id, customer_user_id, status, approved_at
   INTO v_booking
   FROM public.bookings
   WHERE id = p_booking_id
@@ -243,6 +243,12 @@ BEGIN
   IF v_booking.status != 'WAITING_DEPOSIT' THEN
     RAISE EXCEPTION 'Cannot submit payment slip for booking % in % status; booking must be in WAITING_DEPOSIT status',
       p_booking_id, v_booking.status
+      USING ERRCODE = 'P0001';
+  END IF;
+
+  -- 4b. Validate 24-Hour Deposit Deadline
+  IF v_booking.approved_at IS NOT NULL AND pg_catalog.now() > (v_booking.approved_at + INTERVAL '24 hours') THEN
+    RAISE EXCEPTION 'DEPOSIT_DEADLINE_EXPIRED: หมดเวลาชำระเงินมัดจำแล้ว (เกินกำหนด 24 ชั่วโมง)'
       USING ERRCODE = 'P0001';
   END IF;
 

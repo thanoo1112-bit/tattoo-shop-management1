@@ -21,6 +21,7 @@ import {
   formatTimeBangkok,
   calculateDurationHours,
   formatCurrency,
+  getDepositDeadlineInfo,
 } from '@/components/portal/portalUtils';
 import {
   Calendar,
@@ -314,6 +315,7 @@ function CustomerPortalContent() {
           admin_note: b.admin_note,
           rejection_reason: b.rejection_reason,
           status: b.status,
+          approved_at: b.approved_at || null,
           started_at: b.started_at,
           completed_at: b.completed_at,
           created_at: b.created_at,
@@ -587,15 +589,46 @@ function CustomerPortalContent() {
                   </div>
 
                   <div className="text-right shrink-0 w-full sm:w-auto pt-3 sm:pt-0 border-t sm:border-none border-studio-border/30 flex sm:flex-col justify-between items-center sm:items-end">
-                    <span className="text-base font-bold text-studio-red">
-                      {nextAppointment.booking.status === 'CONFIRMED'
-                        ? (Number(nextAppointment.booking.financial?.remaining_balance ?? 0) > 0
-                            ? `คงเหลือชำระหน้าร้าน ฿${formatCurrency(nextAppointment.booking.financial?.remaining_balance)}`
-                            : 'ยืนยันคิวเรียบร้อย')
-                        : `มัดจำที่ต้องชำระ ฿${formatCurrency(
+                    {nextAppointment.booking.status === 'CONFIRMED' ? (
+                      <span className="text-base font-bold text-studio-red">
+                        {Number(nextAppointment.booking.financial?.remaining_balance ?? 0) > 0
+                          ? `คงเหลือชำระหน้าร้าน ฿${formatCurrency(nextAppointment.booking.financial?.remaining_balance)}`
+                          : 'ยืนยันคิวเรียบร้อย'}
+                      </span>
+                    ) : (
+                      <div className="text-right space-y-0.5">
+                        <span className="text-base font-bold text-studio-red block">
+                          มัดจำที่ต้องชำระ ฿{formatCurrency(
                             nextAppointment.booking.financial?.deposit_required
-                          )}`}
-                    </span>
+                          )}
+                        </span>
+                        {(() => {
+                          const hasPending = nextAppointment.booking.has_pending_payment_submission;
+                          if (hasPending) {
+                            return (
+                              <span className="text-[10px] text-[#C9A86A] font-medium block">
+                                ส่งหลักฐานแล้ว — รอตรวจสอบ
+                              </span>
+                            );
+                          }
+                          const dlInfo = getDepositDeadlineInfo(nextAppointment.booking.approved_at);
+                          if (!dlInfo) return null;
+                          if (dlInfo.isExpired) {
+                            return (
+                              <span className="text-[10px] text-red-400 font-bold block">
+                                หมดเวลาชำระมัดจำ
+                              </span>
+                            );
+                          }
+                          return (
+                            <div className="text-[10px] text-[#D9A441] font-mono leading-tight">
+                              <div>ชำระภายใน {dlInfo.deadlineDateStr}</div>
+                              <div className="font-bold">เหลือเวลา {dlInfo.remainingText}</div>
+                            </div>
+                          );
+                        })()}
+                      </div>
+                    )}
                     <span className="text-xs text-studio-red group-hover:underline flex items-center gap-1 mt-1 font-semibold">
                       ดูรายละเอียด <ArrowRight size={12} />
                     </span>

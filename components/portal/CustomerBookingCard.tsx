@@ -4,7 +4,7 @@ import React from 'react';
 import { CustomerPortalBooking, CustomerPortalEstimate } from './types';
 import BookingStatusBadge from './BookingStatusBadge';
 import { Calendar, User, ChevronRight, Layers } from 'lucide-react';
-import { formatThaiDate, formatTimeBangkok, resolveCustomerDisplayStatus } from './portalUtils';
+import { formatThaiDate, formatTimeBangkok, resolveCustomerDisplayStatus, getDepositDeadlineInfo } from './portalUtils';
 import CustomerReferenceImage from '@/components/common/CustomerReferenceImage';
 import { parseNoteWithPreferredTime, extractHHMM } from '@/lib/noteUtils';
 
@@ -26,7 +26,14 @@ export default function CustomerBookingCard({
   const estimate = item as CustomerPortalEstimate;
 
   const hasPendingSlip = Boolean((item as any).has_pending_payment_submission);
-  const displayStatus = resolveCustomerDisplayStatus(item.status, hasPendingSlip);
+
+  // Check 24-hour Deposit Deadline for WAITING_DEPOSIT
+  const approvedAt = isBooking ? booking.approved_at : (estimate as any).approved_at;
+  const deadlineInfo = item.status === 'WAITING_DEPOSIT' && !hasPendingSlip ? getDepositDeadlineInfo(approvedAt) : null;
+  const isExpired = Boolean(deadlineInfo?.isExpired);
+
+  const rawDisplayStatus = resolveCustomerDisplayStatus(item.status, hasPendingSlip);
+  const displayStatus = (rawDisplayStatus === 'WAITING_DEPOSIT' && isExpired) ? 'EXPIRED' : rawDisplayStatus;
 
   // Matching Estimate for fallback lookup
   const matchingEst = isBooking
@@ -133,6 +140,11 @@ export default function CustomerBookingCard({
               #{item.id.slice(0, 8)}
             </span>
             <BookingStatusBadge status={displayStatus as any} type={type} />
+            {displayStatus === 'WAITING_DEPOSIT' && deadlineInfo && !deadlineInfo.isExpired && (
+              <span className="text-[10px] bg-[#D9A441]/10 border border-[#D9A441]/45 text-[#D9A441] px-1.5 py-0.2 rounded font-semibold font-mono">
+                เหลือ {deadlineInfo.remainingText}
+              </span>
+            )}
             {displayStatus === 'WAITING_DEPOSIT' && depositRequired && depositRequired > 0 && (
               <span className="text-[10px] bg-[#D9A441]/10 border border-[#D9A441]/45 text-[#D9A441] px-1.5 py-0.2 rounded font-semibold">
                 มัดจำ ฿{depositRequired.toLocaleString()}

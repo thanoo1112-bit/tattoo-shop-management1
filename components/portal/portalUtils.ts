@@ -191,3 +191,74 @@ export function formatServiceTypeLabel(serviceType?: string | null): string | nu
   }
 }
 
+export interface DepositDeadlineInfo {
+  deadlineMs: number;
+  deadlineDateStr: string;
+  isExpired: boolean;
+  remainingMs: number;
+  remainingHours: number;
+  remainingMinutes: number;
+  remainingText: string;
+}
+
+/**
+ * Calculates 24-hour deposit deadline from approvedAt timestamp
+ */
+export function getDepositDeadlineInfo(approvedAt?: string | null): DepositDeadlineInfo | null {
+  if (!approvedAt) return null;
+  try {
+    const approvedTime = new Date(approvedAt).getTime();
+    if (isNaN(approvedTime)) return null;
+
+    const deadlineMs = approvedTime + 24 * 60 * 60 * 1000;
+    const now = Date.now();
+    const remainingMs = deadlineMs - now;
+    const isExpired = remainingMs <= 0;
+
+    const deadlineDate = new Date(deadlineMs);
+    const day = deadlineDate.toLocaleDateString('en-US', { timeZone: TIMEZONE, day: 'numeric' });
+    const monthIndex = parseInt(deadlineDate.toLocaleDateString('en-US', { timeZone: TIMEZONE, month: 'numeric' }), 10) - 1;
+    const yearCE = parseInt(deadlineDate.toLocaleDateString('en-US', { timeZone: TIMEZONE, year: 'numeric' }), 10);
+    const yearBE = yearCE + 543;
+    const monthName = THAI_MONTHS_SHORT[monthIndex];
+    const timeFormatted = formatTimeBangkok(deadlineDate.toISOString());
+
+    const formattedDeadlineDate = `${day} ${monthName} ${yearBE} เวลา ${timeFormatted}`;
+
+    if (isExpired) {
+      return {
+        deadlineMs,
+        deadlineDateStr: formattedDeadlineDate,
+        isExpired: true,
+        remainingMs: 0,
+        remainingHours: 0,
+        remainingMinutes: 0,
+        remainingText: 'หมดเวลาชำระมัดจำ',
+      };
+    }
+
+    const totalMinutes = Math.floor(remainingMs / (1000 * 60));
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes % 60;
+
+    let remainingText = '';
+    if (hours > 0) {
+      remainingText = `${hours} ชม. ${minutes} นาที`;
+    } else {
+      remainingText = `${minutes} นาที`;
+    }
+
+    return {
+      deadlineMs,
+      deadlineDateStr: formattedDeadlineDate,
+      isExpired: false,
+      remainingMs,
+      remainingHours: hours,
+      remainingMinutes: minutes,
+      remainingText,
+    };
+  } catch {
+    return null;
+  }
+}
+
