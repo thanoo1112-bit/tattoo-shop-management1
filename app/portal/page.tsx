@@ -341,6 +341,7 @@ function CustomerPortalContent() {
           style: e.style || 'Fine Line',
           description: e.description || '',
           preferred_date: e.preferred_date || null,
+          preferred_time: e.preferred_time || null,
           status: e.status,
           request_type: e.request_type || null,
           work_type: e.work_type || null,
