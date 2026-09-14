@@ -40,6 +40,12 @@ function CompleteProfileContent() {
       if (decoded.startsWith('/') && !decoded.startsWith('//') && !decoded.includes('://')) {
         return decoded;
       }
+      if (typeof window !== 'undefined') {
+        const parsed = new URL(decoded, window.location.origin);
+        if (parsed.pathname && parsed.pathname.startsWith('/')) {
+          return parsed.pathname + parsed.search + parsed.hash;
+        }
+      }
     } catch (_) {}
     return '/portal';
   };

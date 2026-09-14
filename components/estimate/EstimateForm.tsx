@@ -430,11 +430,6 @@ export default function EstimateForm({
     }
 
 
-    if (!flashId && !serviceType) {
-      setError('กรุณาเลือกประเภทงานสักก่อนดำเนินการต่อ');
-      return;
-    }
-
     if (!isLoggedIn || !user) {
       saveDraft();
       setShowLogin(true);
@@ -454,52 +449,31 @@ export default function EstimateForm({
         ? referenceImages 
         : (referenceImage ? [referenceImage] : []);
 
-      const formattedTime = preferredTime ? `${preferredTime}:00` : '13:00:00';
-
-      // Step 1: Create Direct Booking Request & Booking Record in DB via RPC
-      const { data: rpcRes, error: rpcErr } = await supabase.rpc('create_direct_booking_request', {
-        p_artist_id: artistId,
-        p_requested_date: preferredDate,
-        p_requested_start_time: formattedTime,
-        p_placement: placement.trim(),
-        p_style: style.trim(),
-        p_width_cm: Number(width),
-        p_height_cm: Number(height),
-        p_description: description ? description.trim() : null,
-        p_reference_images: finalRefImages,
-        p_has_medical_condition: hasMedicalCondition,
-        p_medical_condition_note: hasMedicalCondition ? medicalConditionNote.trim() : null,
-        p_has_allergy: hasAllergy,
-        p_allergy_note: hasAllergy ? allergyNote.trim() : null,
-        p_customer_note: description ? description.trim() : null,
-        p_work_type: null,
-        p_color_technique: null,
-        p_service_type: serviceType || null,
+      // Submit Estimate Request (request_type = 'ESTIMATE', status = 'PENDING')
+      const reqId = await addEstimateRequest({
+        artistId,
+        style,
+        referenceImage: finalRefImages[0] || '',
+        referenceImages: finalRefImages,
+        width: Number(width),
+        height: Number(height),
+        placement: placement.trim(),
+        description: description ? description.trim() : '',
+        preferredDate: preferredDate || undefined,
+        hasMedicalCondition,
+        medicalConditionNote: hasMedicalCondition ? medicalConditionNote.trim() : '',
+        hasAllergy,
+        allergyNote: hasAllergy ? allergyNote.trim() : '',
       });
 
-      if (rpcErr || !rpcRes) {
-        console.error('RPC Error creating direct booking request:', rpcErr);
-        throw new Error(translateRpcError(rpcErr?.message || 'เกิดข้อผิดพลาดในการสร้างคำขอจองคิว'));
-      }
-
-      const resBookingId = rpcRes.booking_id;
-      const resEstimateId = rpcRes.estimate_request_id;
-
-      if (!resBookingId) {
-        throw new Error('ไม่สามารถสร้างคิวงานได้ กรุณาลองใหม่อีกครั้ง');
-      }
-
-      setNewRequestId(resEstimateId || resBookingId);
-      setNewBookingId(resBookingId);
+      setNewRequestId(reqId);
       setIsFlashSubmission(false);
-      
-      if (onSuccess) onSuccess(resEstimateId || resBookingId, resBookingId);
+      setSubmitted(true);
 
-      // Redirect immediately to existing Payment Page in Customer Portal
-      router.push(`/portal?booking_id=${resBookingId}&tab=bookings`);
+      if (onSuccess) onSuccess(reqId);
     } catch (err: any) {
-      console.error('Error submitting customer booking request:', err);
-      setError(err?.message || 'เกิดข้อผิดพลาดในการส่งคำขอจองคิว กรุณาลองใหม่อีกครั้ง');
+      console.error('Error submitting estimate request:', err);
+      setError(err?.message || 'เกิดข้อผิดพลาดในการส่งคำขอประเมินราคา กรุณาลองใหม่อีกครั้ง');
     } finally {
       setLoading(false);
     }

@@ -56,8 +56,16 @@ export default function CustomerLoginPage({ initialFlipped = false }: CustomerLo
     if (!urlParam) return '/portal';
     try {
       const decoded = decodeURIComponent(urlParam);
+      // Relative path (e.g. /booking or /booking?artist=123)
       if (decoded.startsWith('/') && !decoded.startsWith('//') && !decoded.includes('://')) {
         return decoded;
+      }
+      // Absolute URL - extract relative pathname & search to preserve current origin
+      if (typeof window !== 'undefined') {
+        const parsed = new URL(decoded, window.location.origin);
+        if (parsed.pathname && parsed.pathname.startsWith('/')) {
+          return parsed.pathname + parsed.search + parsed.hash;
+        }
       }
     } catch (_) {}
     return '/portal';
@@ -93,7 +101,7 @@ export default function CustomerLoginPage({ initialFlipped = false }: CustomerLo
   const handleGoogleSignIn = async () => {
     setCustomerError('');
     setGoogleLoading(true);
-    const res = await loginWithGoogle();
+    const res = await loginWithGoogle(redirectUrl);
     if (!res.success) {
       setCustomerError(res.error || 'เกิดข้อผิดพลาดในการเชื่อมต่อกับ Google');
       setGoogleLoading(false);

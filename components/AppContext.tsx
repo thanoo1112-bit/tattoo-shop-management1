@@ -51,7 +51,7 @@ interface AppContextType {
   
   loginCustomer: (email: string, password?: string) => Promise<{ success: boolean; isProfileComplete?: boolean; error?: string }>;
   signUpCustomer: (email: string, password?: string, displayName?: string, phone?: string, eligibilityConfirmed?: boolean) => Promise<{ success: boolean; error?: string }>;
-  loginWithGoogle: () => Promise<{ success: boolean; error?: string }>;
+  loginWithGoogle: (returnUrl?: string) => Promise<{ success: boolean; error?: string }>;
   updateCustomerPhone: (phone: string) => Promise<{ success: boolean; error?: string }>;
   completeCustomerProfile: (displayName: string, phone: string, eligibilityConfirmed: boolean) => Promise<{ success: boolean; error?: string }>;
   logoutCustomer: () => Promise<void>;
@@ -869,13 +869,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const loginWithGoogle = async () => {
+  const loginWithGoogle = async (returnUrl?: string) => {
     try {
       const siteUrl = typeof window !== 'undefined' ? window.location.origin : '';
+      const safeTarget = returnUrl && returnUrl.startsWith('/') && !returnUrl.startsWith('//') ? returnUrl : '/portal';
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${siteUrl}/portal`,
+          redirectTo: `${siteUrl}${safeTarget}`,
         },
       });
       if (error) {

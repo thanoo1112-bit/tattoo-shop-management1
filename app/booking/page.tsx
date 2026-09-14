@@ -5,10 +5,7 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import CustomerHeader from '@/components/customer/CustomerHeader';
 import MobileBottomNav from '@/components/customer/MobileBottomNav';
 import EstimateForm from '@/components/estimate/EstimateForm';
-import BookingStepper from '@/components/booking/BookingStepper';
-import TattooServiceSelector, { TattooServiceType } from '@/components/booking/TattooServiceSelector';
 import { useApp } from '@/components/AppContext';
-import { ArrowLeft } from 'lucide-react';
 
 function BookingContent() {
   const searchParams = useSearchParams();
@@ -23,11 +20,7 @@ function BookingContent() {
   const [preselectedStyle, setPreselectedStyle] = useState<string | undefined>(undefined);
   const [preselectedArtistId, setPreselectedArtistId] = useState<string | undefined>(artistParam || undefined);
 
-  // STEP 1 State: Default to step 1 unless flashParam or artworkParam is present
-  const [currentStep, setCurrentStep] = useState<number>(flashParam || artworkParam ? 2 : 1);
-  const [selectedService, setSelectedService] = useState<TattooServiceType | null>(null);
-
-  // 1. Mandatory Customer Auth Guard: Redirect unauthenticated users to /login with full return path
+  // Mandatory Customer Auth Guard: Redirect unauthenticated users to /login with full return path
   useEffect(() => {
     if (!authLoading) {
       if (!isLoggedIn || !user) {
@@ -83,60 +76,31 @@ function BookingContent() {
       <CustomerHeader />
 
       <main className="max-w-4xl mx-auto px-4 sm:px-6 md:px-8 py-6 md:py-10">
-        {/* Step Progress Indicator */}
-        <BookingStepper currentStep={currentStep} />
-
         <div className="border-b border-studio-border pb-4 mb-6 md:mb-8 flex flex-col sm:flex-row sm:items-end justify-between gap-4">
           <div>
             <span className="text-[10px] uppercase tracking-widest text-studio-red font-bold">157 TATTOO STUDIO</span>
             <h1 className="text-xl md:text-3xl font-bold tracking-wider text-studio-primary mt-0.5">
-              {currentStep === 1 
-                ? 'เลือกประเภทงานสัก' 
-                : flashParam 
-                ? 'ส่งคำขอจองแบบลายสัก Flash' 
-                : 'จองคิวสัก'}
+              {flashParam ? 'ส่งคำขอจองแบบลายสัก Flash' : 'ส่งคำขอจองคิว / ประเมินราคา'}
             </h1>
             <p className="text-xs text-studio-secondary mt-1 font-light">
-              {currentStep === 1
-                ? 'เลือกบริการที่ใกล้เคียงกับงานที่คุณต้องการมากที่สุด'
-                : flashParam 
+              {flashParam 
                 ? 'จองแบบลายสักพร้อมสักราคาคงที่ ระบุวันที่และตำแหน่งที่ต้องการสักเพื่อส่งคำขอจองคิวงาน' 
-                : 'กรอกรายละเอียดงาน เลือกวันเวลาที่สะดวก และส่งคำขอจองเพื่อดำเนินการชำระมัดจำในขั้นตอนถัดไป'}
+                : 'กรอกรายละเอียดงาน เลือกวันเวลาที่สะดวก และส่งคำขอเพื่อให้ทางร้านประเมินและแจ้งราคา'}
             </p>
           </div>
-
-          {currentStep > 1 && !flashParam && !artworkParam && (
-            <button
-              type="button"
-              onClick={() => setCurrentStep(1)}
-              className="inline-flex items-center gap-1.5 text-xs text-studio-secondary hover:text-studio-primary transition-colors py-1 px-3 rounded border border-studio-border bg-studio-sec/50 self-start sm:self-auto"
-            >
-              <ArrowLeft className="w-3.5 h-3.5" />
-              <span>เปลี่ยนประเภทงานสัก</span>
-            </button>
-          )}
         </div>
 
         <div className="bg-studio-card border border-studio-border p-4 sm:p-6 rounded-[8px] shadow-xl">
-          {currentStep === 1 ? (
-            <TattooServiceSelector
-              selectedService={selectedService}
-              onSelectService={setSelectedService}
-              onNext={() => setCurrentStep(2)}
-            />
-          ) : (
-            <EstimateForm
-              flashId={flashParam || undefined}
-              preselectedArtistId={preselectedArtistId}
-              preselectedArtworkImage={preselectedArtworkImage}
-              preselectedStyle={preselectedStyle}
-              preselectedType={preselectedType}
-              serviceType={selectedService}
-              onSuccess={(requestId) => {
-                // EstimateForm handles success UI and navigation to portal
-              }}
-            />
-          )}
+          <EstimateForm
+            flashId={flashParam || undefined}
+            preselectedArtistId={preselectedArtistId}
+            preselectedArtworkImage={preselectedArtworkImage}
+            preselectedStyle={preselectedStyle}
+            preselectedType={preselectedType}
+            onSuccess={(requestId) => {
+              // EstimateForm handles success UI and navigation to portal
+            }}
+          />
         </div>
       </main>
 
@@ -152,3 +116,4 @@ export default function BookingPage() {
     </Suspense>
   );
 }
+
