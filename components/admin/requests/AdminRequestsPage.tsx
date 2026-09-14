@@ -243,6 +243,7 @@ export default function AdminRequestsPage() {
           style_preference: e.style || e.style_preference || null,
           style: e.style || e.style_preference || null,
           preferred_date: e.preferred_date,
+          preferred_time: e.preferred_time || e.preferredTime || null,
           reference_images: e.reference_images,
           status: e.status,
           request_type: e.request_type,
