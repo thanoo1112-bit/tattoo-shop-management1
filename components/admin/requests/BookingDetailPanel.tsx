@@ -76,6 +76,10 @@ export default function BookingDetailPanel({
   const [isSubmittingReschedule, setIsSubmittingReschedule] = useState<boolean>(false);
   const [rescheduleError, setRescheduleError] = useState<string | null>(null);
 
+  // Complete Active Session Dialog State
+  const [completingSessionModal, setCompletingSessionModal] = useState<BookingSessionItem | null>(null);
+  const [completingNote, setCompletingNote] = useState<string>('');
+
   const openRescheduleForSession = (session: BookingSessionItem) => {
     setReschedulingSession(session);
     setRescheduleError(null);
@@ -536,10 +540,6 @@ export default function BookingDetailPanel({
       setIsStartingSession(false);
     }
   };
-
-  // Complete Active Session Dialog State
-  const [completingSessionModal, setCompletingSessionModal] = useState<BookingSessionItem | null>(null);
-  const [completingNote, setCompletingNote] = useState<string>('');
 
   const handleOpenCompleteActiveSessionModal = () => {
     if (!booking) return;
