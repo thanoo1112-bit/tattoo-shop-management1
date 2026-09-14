@@ -446,49 +446,35 @@ export default function EstimateForm({
 
       const formattedTime = preferredTime ? `${preferredTime}:00` : '13:00:00';
 
-      // Step 1: Create Direct Booking Request & Booking Record in DB via RPC
-      const { data: rpcRes, error: rpcErr } = await supabase.rpc('create_direct_booking_request', {
-        p_artist_id: artistId,
-        p_requested_date: preferredDate,
-        p_requested_start_time: formattedTime,
-        p_placement: placement.trim(),
-        p_style: style.trim(),
-        p_width_cm: Number(width),
-        p_height_cm: Number(height),
-        p_description: description ? description.trim() : null,
-        p_reference_images: finalRefImages,
-        p_has_medical_condition: hasMedicalCondition,
-        p_medical_condition_note: hasMedicalCondition ? medicalConditionNote.trim() : null,
-        p_has_allergy: hasAllergy,
-        p_allergy_note: hasAllergy ? allergyNote.trim() : null,
-        p_customer_note: description ? description.trim() : null,
-        p_work_type: null,
-        p_color_technique: null,
+      // Step 1: Submit Customer Estimate Request via addEstimateRequest
+      const selectedArtistObj = artists.find((a) => a.id === artistId);
+      const artistName = selectedArtistObj ? selectedArtistObj.name : 'ช่างประจำร้าน';
+
+      const resId = await addEstimateRequest({
+        artistId,
+        artistName,
+        referenceImage: referenceImages[0] || referenceImage || '',
+        referenceImages: referenceImages.length > 0 ? referenceImages : (referenceImage ? [referenceImage] : []),
+        width: Number(width),
+        height: Number(height),
+        placement: placement.trim(),
+        style: style.trim(),
+        work_type: null,
+        description: preferredTime ? `${description ? description.trim() + '\n' : ''}[เวลาสะดวก: ${preferredTime} น.]` : (description ? description.trim() : ''),
+        preferredDate: preferredDate || undefined,
+        hasMedicalCondition,
+        medicalConditionNote: hasMedicalCondition ? medicalConditionNote.trim() : null,
+        hasAllergy,
+        allergyNote: hasAllergy ? allergyNote.trim() : null,
       });
 
-      if (rpcErr || !rpcRes) {
-        console.error('RPC Error creating direct booking request:', rpcErr);
-        throw new Error(translateRpcError(rpcErr?.message || 'เกิดข้อผิดพลาดในการสร้างคำขอจองคิว'));
-      }
-
-      const resBookingId = rpcRes.booking_id;
-      const resEstimateId = rpcRes.estimate_request_id;
-
-      if (!resBookingId) {
-        throw new Error('ไม่สามารถสร้างคิวงานได้ กรุณาลองใหม่อีกครั้ง');
-      }
-
-      setNewRequestId(resEstimateId || resBookingId);
-      setNewBookingId(resBookingId);
+      setNewRequestId(resId);
       setIsFlashSubmission(false);
-      
-      if (onSuccess) onSuccess(resEstimateId || resBookingId, resBookingId);
-
-      // Redirect immediately to existing Payment Page in Customer Portal
-      router.push(`/portal?booking_id=${resBookingId}&tab=bookings`);
+      setSubmitted(true);
+      if (onSuccess) onSuccess(resId);
     } catch (err: any) {
       console.error('Error submitting customer booking request:', err);
-      setError(err?.message || 'เกิดข้อผิดพลาดในการส่งคำขอจองคิว กรุณาลองใหม่อีกครั้ง');
+      setError(translateRpcError(err?.message || 'เกิดข้อผิดพลาดในการส่งคำขอประเมินราคา กรุณาลองใหม่อีกครั้ง'));
     } finally {
       setLoading(false);
     }
@@ -551,61 +537,30 @@ export default function EstimateForm({
       );
     }
 
-    // DIRECT DEPOSIT SUBMISSION SUCCESS SCREEN
-    const selectedArtistObj = artists.find((a) => a.id === artistId);
+    // Normal Customer Estimate Submission Success Screen
     return (
       <div className="bg-studio-card border border-studio-border p-6 sm:p-8 rounded-[8px] text-center space-y-4 font-prompt animate-fadeIn">
-        <div className="w-14 h-14 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 rounded-full flex items-center justify-center mx-auto mb-2">
-          <CheckCircle2 size={28} />
+        <div className="w-12 h-12 bg-green-500/10 border border-green-500/30 text-green-500 rounded-full flex items-center justify-center mx-auto mb-2">
+          <CheckCircle2 size={24} />
         </div>
-        <div className="inline-flex items-center space-x-1.5 bg-emerald-950/60 border border-emerald-800/60 px-3 py-1 rounded text-emerald-300 text-[11px] uppercase font-bold tracking-widest">
-          <Sparkles size={12} />
-          <span>BOOKING REQUEST SUBMITTED</span>
-        </div>
-        <h3 className="text-xl font-bold text-studio-primary">ส่งคำขอจองคิวสำเร็จแล้ว!</h3>
-        
-        <div className="bg-studio-main border border-emerald-900/40 p-4 rounded-[6px] max-w-md mx-auto text-left space-y-2 text-xs">
-          <div className="flex justify-between items-center pb-2 border-b border-studio-border/60">
-            <span className="text-studio-muted">รหัสคิวงาน:</span>
-            <strong className="text-emerald-300 font-mono">#{newBookingId ? newBookingId.slice(0, 8).toUpperCase() : newRequestId.slice(0, 8).toUpperCase()}</strong>
-          </div>
-          <div className="flex justify-between items-center">
-            <span className="text-studio-muted">สถานะ:</span>
-            <span className="bg-blue-950/80 text-blue-300 border border-blue-800/80 px-2 py-0.5 rounded text-[10px] font-bold">
-              รอตรวจสอบ
-            </span>
-          </div>
-          <div className="flex justify-between items-center">
-            <span className="text-studio-muted">เงินมัดจำล็อกคิว:</span>
-            <strong className="text-emerald-300 font-mono font-bold">฿500 (ชำระแล้วเรียบร้อย)</strong>
-          </div>
-          <div className="flex justify-between items-center">
-            <span className="text-studio-muted">ช่างสักที่เลือก:</span>
-            <span className="text-studio-primary">{selectedArtistObj?.name || 'ช่างประจำร้าน'}</span>
-          </div>
-          <div className="flex justify-between items-center">
-            <span className="text-studio-muted">วันที่ขอจอง:</span>
-            <span className="text-studio-primary">{preferredDate} {preferredTime ? `(${preferredTime} น.)` : ''}</span>
-          </div>
-        </div>
-
-        <p className="text-xs text-studio-secondary leading-relaxed max-w-md mx-auto font-light">
-          ทางร้านจะทำการตรวจสอบรายละเอียดงานสักและหลักฐานการโอนเงินเพื่อยืนยันคิวให้คุณโดยเร็วที่สุด คุณสามารถติดตามสถานะการจองได้ที่ Customer Portal
+        <h3 className="text-lg font-bold text-studio-primary">ส่งคำขอประเมินราคาเรียบร้อยแล้ว</h3>
+        <p className="text-xs text-studio-secondary leading-relaxed">
+          รหัสคำขอจอง: <strong className="text-studio-red font-mono">#{newRequestId.slice(0, 8).toUpperCase()}</strong>
         </p>
-
-        <div className="pt-2 flex flex-col sm:flex-row gap-3 justify-center max-w-md mx-auto">
-          <button
-            type="button"
-            onClick={() => {
-              if (typeof window !== 'undefined') {
-                window.location.href = '/portal?tab=bookings';
-              }
-            }}
-            className="min-h-[44px] flex-1 bg-studio-red hover:bg-tattoo-red-dark text-white text-xs uppercase tracking-wider py-3 px-4 font-semibold transition-all rounded-[4px] border border-studio-red flex items-center justify-center cursor-pointer shadow-lg"
-          >
-            ดูสถานะการจองใน Customer Portal
-          </button>
-        </div>
+        <p className="text-xs text-studio-secondary mb-6 leading-relaxed font-light">
+          ช่างจะตรวจสอบรายละเอียด รูปอ้างอิง และขนาดงาน ก่อนส่งราคากลับมาให้คุณใน Customer Portal
+        </p>
+        <button
+          type="button"
+          onClick={() => {
+            if (typeof window !== 'undefined') {
+              window.location.href = '/portal?tab=estimates';
+            }
+          }}
+          className="min-h-[44px] w-full bg-studio-red hover:bg-[#802222] text-studio-paper text-xs uppercase tracking-wider py-3 px-4 font-semibold transition-all rounded-[4px] border border-studio-red cursor-pointer"
+        >
+          ไปที่หน้ารายการคำขอจอง (Portal)
+        </button>
       </div>
     );
   }
@@ -626,10 +581,10 @@ export default function EstimateForm({
           <span>157 TATTOO STUDIO</span>
         </div>
         <h2 className="text-2xl sm:text-3xl font-heading font-normal tracking-wide text-studio-primary">
-          แบบฟอร์มจองคิวสัก
+          แบบฟอร์มประเมินราคางานสัก
         </h2>
         <p className="text-xs text-studio-secondary mt-1 font-light">
-          กรอกรายละเอียดงานสักของคุณ ชำระเงินมัดจำ และแนบสลิปเพื่อส่งคำขอจองคิว
+          กรอกรายละเอียดงานสักของคุณเพื่อให้ช่างสักประจำร้านประเมินราคาและระยะเวลาดำเนินการ
         </p>
       </div>
 
@@ -884,10 +839,10 @@ export default function EstimateForm({
           <div className="p-4 bg-[#171512] border border-[#4A443A] rounded-[6px] space-y-1.5 text-xs text-[#ECE4D3] font-prompt">
             <div className="flex items-center space-x-2 font-bold text-amber-300">
               <Sparkles size={16} className="text-amber-400 shrink-0" />
-              <span>9. ขั้นตอนถัดไปหลังส่งคำขอจองคิว</span>
+              <span>9. ขั้นตอนถัดไปหลังส่งคำขอ</span>
             </div>
             <p className="text-[11px] text-[#A89F91] leading-relaxed font-light">
-              เมื่อคุณกดส่งคำขอเรียบร้อยแล้ว ระบบจะนำคุณไปยังหน้าชำระเงินมัดจำเพื่อสแกน QR Code หรือโอนเงินและแนบสลิปเพื่อยืนยันคิวงาน
+              ช่างจะตรวจสอบรายละเอียด รูปอ้างอิง และขนาดงาน ก่อนเสนอราคากลับมาให้คุณ เมื่อได้รับราคาแล้ว คุณสามารถกดยืนยันและชำระค่าจองคิว 500 บาทเพื่อล็อกวันนัดหมาย
             </p>
           </div>
 
@@ -915,17 +870,17 @@ export default function EstimateForm({
               {loading ? (
                 <>
                   <Loader2 size={15} className="mr-2 animate-spin" />
-                  <span>กำลังสร้างคำขอจอง...</span>
+                  <span>กำลังส่งคำขอ...</span>
                 </>
               ) : (
                 <>
                   <Send size={14} className="mr-2" />
-                  <span>ส่งคำขอจองและดำเนินการชำระมัดจำ</span>
+                  <span>ส่งคำขอให้ช่างประเมิน</span>
                 </>
               )}
             </button>
             <span className="text-[10px] text-[#A89F91] font-light text-center sm:text-right">
-              ระบบจะพาคุณเข้าสู่ขั้นตอนชำระเงินมัดจำทันทีหลังส่งคำขอจอง
+              ช่างจะตรวจสอบรายละเอียด รูปอ้างอิง และขนาดงาน ก่อนเสนอราคางานสักกลับมาให้คุณ
             </span>
           </div>
         </div>
