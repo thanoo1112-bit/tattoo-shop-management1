@@ -8,10 +8,10 @@ interface BookingStepperProps {
 
 export default function BookingStepper({ currentStep }: BookingStepperProps) {
   const steps = [
-    { number: 1, shortLabel: 'งาน', label: 'ช่าง / ผลงาน' },
-    { number: 2, shortLabel: 'วัน', label: 'เลือกวันที่' },
-    { number: 3, shortLabel: 'เวลา', label: 'เลือกเวลา' },
-    { number: 4, shortLabel: 'สรุป', label: 'สรุปรายการ' },
+    { number: 1, shortLabel: 'ประเภท', label: 'เลือกประเภทงาน' },
+    { number: 2, shortLabel: 'วัน/เวลา', label: 'วันและเวลา' },
+    { number: 3, shortLabel: 'รายละเอียด', label: 'รายละเอียด' },
+    { number: 4, shortLabel: 'ตรวจสอบ', label: 'ตรวจสอบ' },
   ];
 
   return (
