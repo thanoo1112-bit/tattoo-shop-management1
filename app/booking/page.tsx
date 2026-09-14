@@ -5,9 +5,7 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import CustomerHeader from '@/components/customer/CustomerHeader';
 import MobileBottomNav from '@/components/customer/MobileBottomNav';
 import EstimateForm from '@/components/estimate/EstimateForm';
-import BookingTypeSelection from '@/components/booking/BookingTypeSelection';
 import { useApp } from '@/components/AppContext';
-import { ChevronLeft } from 'lucide-react';
 
 function BookingContent() {
   const searchParams = useSearchParams();
@@ -17,17 +15,10 @@ function BookingContent() {
   const artistParam = searchParams.get('artist');
   const artworkParam = searchParams.get('artwork');
   const flashParam = searchParams.get('flash');
-  const typeParam = searchParams.get('type');
 
   const [preselectedArtworkImage, setPreselectedArtworkImage] = useState<string | undefined>(undefined);
   const [preselectedStyle, setPreselectedStyle] = useState<string | undefined>(undefined);
   const [preselectedArtistId, setPreselectedArtistId] = useState<string | undefined>(artistParam || undefined);
-
-  // Auto show EstimateForm if URL has explicit pre-selection (e.g. flash, artist, artwork, type)
-  const hasPreselection = !!(flashParam || artworkParam || artistParam || typeParam);
-  const [selectedMethod, setSelectedMethod] = useState<'selection' | 'estimate'>(
-    hasPreselection ? 'estimate' : 'selection'
-  );
 
   // 1. Mandatory Customer Auth Guard: Redirect unauthenticated users to /login with full return path
   useEffect(() => {
@@ -77,56 +68,38 @@ function BookingContent() {
     );
   }
 
-  const preselectedType = (typeParam === 'ESTIMATE' || typeParam === 'DIRECT_BOOKING') ? typeParam : 'ESTIMATE';
+  const typeParam = searchParams.get('type');
+  const preselectedType = (typeParam === 'ESTIMATE' || typeParam === 'DIRECT_BOOKING') ? typeParam : 'DIRECT_BOOKING';
 
   return (
     <div className="min-h-screen bg-studio-main pb-28 md:pb-16 text-studio-primary font-prompt">
       <CustomerHeader />
 
       <main className="max-w-4xl mx-auto px-4 sm:px-6 md:px-8 py-6 md:py-10">
-        {selectedMethod === 'selection' ? (
-          <BookingTypeSelection 
-            onSelectEstimate={() => setSelectedMethod('estimate')}
+        <div className="border-b border-studio-border pb-4 mb-6 md:mb-8">
+          <span className="text-[10px] uppercase tracking-widest text-studio-red font-bold">157 TATTOO STUDIO</span>
+          <h1 className="text-xl md:text-3xl font-bold tracking-wider text-studio-primary mt-0.5">
+            {flashParam ? 'ส่งคำขอจองแบบลายสัก Flash' : 'จองคิวสัก'}
+          </h1>
+          <p className="text-xs text-studio-secondary mt-1 font-light">
+            {flashParam 
+              ? 'จองแบบลายสักพร้อมสักราคาคงที่ ระบุวันที่และตำแหน่งที่ต้องการสักเพื่อส่งคำขอจองคิวงาน' 
+              : 'กรอกรายละเอียดงาน เลือกวันเวลาที่สะดวก และยืนยันการจองด้วยเงินมัดจำ 500 บาท'}
+          </p>
+        </div>
+
+        <div className="bg-studio-card border border-studio-border p-4 sm:p-6 rounded-[8px] shadow-xl">
+          <EstimateForm
+            flashId={flashParam || undefined}
+            preselectedArtistId={preselectedArtistId}
+            preselectedArtworkImage={preselectedArtworkImage}
+            preselectedStyle={preselectedStyle}
+            preselectedType={preselectedType}
+            onSuccess={(requestId) => {
+              // EstimateForm handles success UI and navigation to portal
+            }}
           />
-        ) : (
-          <div className="animate-fadeIn">
-            {/* Back to selection button */}
-            {!hasPreselection && (
-              <button
-                onClick={() => setSelectedMethod('selection')}
-                className="inline-flex items-center space-x-1 text-xs text-studio-secondary hover:text-studio-red transition-colors mb-4 cursor-pointer"
-              >
-                <ChevronLeft size={16} />
-                <span>เปลี่ยนวิธีการจอง</span>
-              </button>
-            )}
-
-            <div className="border-b border-studio-border pb-4 mb-6 md:mb-8">
-              <span className="text-[10px] uppercase tracking-widest text-studio-red font-bold">157 TATTOO STUDIO</span>
-              <h1 className="text-xl md:text-3xl font-bold tracking-wider text-studio-primary mt-0.5">
-                {flashParam ? 'ส่งคำขอจองแบบลายสัก Flash' : 'ขอประเมินราคาคิวสัก'}
-              </h1>
-              <p className="text-xs text-studio-secondary mt-1 font-light">
-                {flashParam 
-                  ? 'จองแบบลายสักพร้อมสักราคาคงที่ ระบุวันที่และตำแหน่งที่ต้องการสักเพื่อส่งคำขอจองคิวงาน' 
-                  : 'กรอกรายละเอียดงานสักของคุณ ให้ช่างพิจารณาและประเมินราคาก่อนชำระมัดจำ'}
-              </p>
-            </div>
-
-            <div className="bg-studio-card border border-studio-border p-4 sm:p-6 rounded-[8px] shadow-xl">
-              <EstimateForm
-                flashId={flashParam || undefined}
-                preselectedArtistId={preselectedArtistId}
-                preselectedArtworkImage={preselectedArtworkImage}
-                preselectedStyle={preselectedStyle}
-                preselectedType={preselectedType}
-                onSuccess={(requestId) => {
-                  // EstimateForm handles success UI and navigation to portal
-                }}
-              />
-            </div>
-          </div>
-        )}
+        </div>
       </main>
 
       <MobileBottomNav />
