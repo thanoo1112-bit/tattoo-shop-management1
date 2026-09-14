@@ -154,6 +154,8 @@ export default function AdminCustomerArchive() {
   }[]>([]);
   const [fetchedBookings, setFetchedBookings] = useState<Booking[]>([]);
   const [fetchedEstimates, setFetchedEstimates] = useState<EstimateRequest[]>([]);
+  const [approvedSubmissions, setApprovedSubmissions] = useState<any[]>([]);
+  const [recordedPayments, setRecordedPayments] = useState<any[]>([]);
 
   // Close dropdowns on outside click
   useEffect(() => {
@@ -316,9 +318,28 @@ export default function AdminCustomerArchive() {
               deposit: est?.deposit_required || 0,
               depositPaid: (est?.deposit_required || 0) > 0,
               sessions: b.booking_sessions || [],
+              approved_at: b.approved_at,
+              approvedAt: b.approved_at,
+              artist_id: b.artist_id,
             } as any;
           });
           setFetchedBookings(mappedBookings);
+        }
+
+        // 4. Approved Payment Submissions & Recorded Payments for Archive Membership
+        const { data: appSubs } = await supabase
+          .from('booking_payment_submissions')
+          .select('id, booking_id, customer_user_id, status')
+          .eq('status', 'APPROVED');
+
+        const { data: recPays } = await supabase
+          .from('booking_payments')
+          .select('id, booking_id, amount, status')
+          .neq('status', 'VOIDED');
+
+        if (isMounted) {
+          if (appSubs) setApprovedSubmissions(appSubs);
+          if (recPays) setRecordedPayments(recPays);
         }
       } catch (err) {
         console.error('Error hydrating customer archive:', err);
@@ -477,26 +498,52 @@ export default function AdminCustomerArchive() {
         b.submittedDate.localeCompare(a.submittedDate)
       );
 
-      // Completed Bookings ONLY for completedCount (1 Booking = 1 Job)
+      const hBookingIds = new Set(h.bookings.map((b) => b.id));
+
+      // CANONICAL BUSINESS RULE: Customer Archive = Artist Confirmed Clients ONLY
+      // Customer MUST have at least 1 job explicitly confirmed by artist:
+      // - estimate_requests.status === 'ACCEPTED'
+      // - bookings.approved_at && bookings.artist_id
+      const hasArtistConfirmedEstimate = h.estimates.some(
+        (e) => e.status === 'ACCEPTED'
+      );
+
+      const hasArtistConfirmedBooking = h.bookings.some(
+        (b) => Boolean(((b as any).approved_at || (b as any).approvedAt) && ((b as any).artist_id || (b as any).artistId))
+      );
+
+      const isArtistConfirmedMember = hasArtistConfirmedEstimate || hasArtistConfirmedBooking;
+
+      if (!isArtistConfirmedMember) {
+        return; // Skip accounts that have never had a job explicitly confirmed by an artist
+      }
+
+      // Valid jobs associated with artist confirmed bookings/estimates
+      const confirmedJobBookings = sortedBookings.filter(
+        (b) => Boolean(((b as any).approved_at || (b as any).approvedAt) && ((b as any).artist_id || (b as any).artistId))
+      );
       const completedBookings = sortedBookings.filter((b) => b.status === 'COMPLETED');
-      const completedCount = completedBookings.length;
+
+      // Completed / Confirmed Job Count
+      const acceptedEstimatesCount = sortedEstimates.filter((e) => e.status === 'ACCEPTED').length;
+      const confirmedCount = Math.max(confirmedJobBookings.length, acceptedEstimatesCount);
+      const completedCount = completedBookings.length > 0 ? completedBookings.length : (confirmedCount > 0 ? confirmedCount : 1);
 
       // Active Bookings (WAITING_DEPOSIT, CONFIRMED, IN_PROGRESS)
       const activeBookings = sortedBookings.filter(
         (b) => b.status === 'WAITING_DEPOSIT' || b.status === 'CONFIRMED' || b.status === 'IN_PROGRESS'
       );
 
-      // Total spent
-      const totalSpent = sortedBookings
-        .filter((b) => b.status === 'CONFIRMED' || b.status === 'COMPLETED' || b.status === 'IN_PROGRESS')
+      // Total spent on confirmed/completed jobs
+      const totalSpent = (confirmedJobBookings.length > 0 ? confirmedJobBookings : sortedBookings)
         .reduce((sum, b) => sum + (b.price || 0), 0);
 
-      // Most recent artist & artwork
-      const lastBooking = sortedBookings[0];
-      const lastEstimate = sortedEstimates[0];
-      const lastArtistName = lastBooking?.artistName || lastEstimate?.artistName || 'ช่างสักประจำร้าน';
-      const lastArtworkTitle = lastBooking?.artworkTitle || (lastEstimate ? `งานสไตล์ ${lastEstimate.style}` : 'งานสัก');
-      const lastDate = lastBooking?.date || lastEstimate?.submittedDate || '-';
+      // Most recent job (Prefer latest confirmed/completed booking or accepted estimate with explicit artist confirmation evidence)
+      const latestConfirmedBooking = confirmedJobBookings[0] || sortedBookings.find((b) => Boolean(((b as any).approved_at || (b as any).approvedAt) && ((b as any).artist_id || (b as any).artistId)));
+      const latestAcceptedEstimate = sortedEstimates.find((e) => e.status === 'ACCEPTED');
+      const lastArtistName = latestConfirmedBooking?.artistName || latestAcceptedEstimate?.artistName || 'ช่างสักประจำร้าน';
+      const lastArtworkTitle = latestConfirmedBooking?.artworkTitle || (latestAcceptedEstimate ? `งานสไตล์ ${latestAcceptedEstimate.style}` : 'งานสัก');
+      const lastDate = latestConfirmedBooking?.date || latestAcceptedEstimate?.submittedDate || '-';
 
       // Next upcoming appointment
       const activeUpcoming = sortedBookings.find(
@@ -536,7 +583,7 @@ export default function AdminCustomerArchive() {
     });
 
     return records;
-  }, [combinedBookings, combinedEstimates, masterCustomers]);
+  }, [combinedBookings, combinedEstimates, masterCustomers, approvedSubmissions, recordedPayments]);
 
   // Filtered & Sorted Customer Records
   const filteredCustomers = useMemo(() => {
