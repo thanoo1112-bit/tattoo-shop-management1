@@ -104,9 +104,9 @@ export default function TattooServiceSelector({
               </div>
               <div className="flex items-center justify-between text-studio-secondary">
                 <span className="text-studio-muted flex items-center gap-1">
-                  <Clock className="w-3 h-3 text-studio-muted" /> เวลา:
+                  <Clock className="w-3 h-3 text-studio-muted" /> เวลาสักประมาณ:
                 </span>
-                <span>ประมาณ 2–3 ชั่วโมง</span>
+                <span>2–3 ชั่วโมง</span>
               </div>
             </div>
           </div>
@@ -157,9 +157,9 @@ export default function TattooServiceSelector({
               </div>
               <div className="flex items-center justify-between text-studio-secondary">
                 <span className="text-studio-muted flex items-center gap-1">
-                  <Clock className="w-3 h-3 text-studio-muted" /> เวลา:
+                  <Clock className="w-3 h-3 text-studio-muted" /> เวลาสักประมาณ:
                 </span>
-                <span>ประมาณ 3–4 ชั่วโมง</span>
+                <span>3–4 ชั่วโมง</span>
               </div>
             </div>
           </div>
@@ -210,9 +210,9 @@ export default function TattooServiceSelector({
               </div>
               <div className="flex items-center justify-between text-studio-secondary">
                 <span className="text-studio-muted flex items-center gap-1">
-                  <Clock className="w-3 h-3 text-studio-muted" /> เวลา:
+                  <Clock className="w-3 h-3 text-studio-muted" /> เวลาสักประมาณ:
                 </span>
-                <span>ประมาณ 6–8 ชั่วโมง</span>
+                <span>6–8 ชั่วโมง</span>
               </div>
             </div>
           </div>
