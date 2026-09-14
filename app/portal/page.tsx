@@ -151,8 +151,21 @@ function CustomerPortalContent() {
       setActiveTab(tabParam as any);
     }
   }, [searchParams]);
+
   const [selectedItem, setSelectedItem] = useState<CustomerPortalBooking | CustomerPortalEstimate | null>(null);
   const [selectedType, setSelectedType] = useState<'booking' | 'estimate' | null>(null);
+
+  // Auto-select booking modal if booking_id parameter is present in URL
+  useEffect(() => {
+    const bookingIdParam = searchParams.get('booking_id');
+    if (bookingIdParam && liveBookings.length > 0) {
+      const foundBooking = liveBookings.find((b) => b.id === bookingIdParam);
+      if (foundBooking) {
+        setSelectedItem(foundBooking);
+        setSelectedType('booking');
+      }
+    }
+  }, [searchParams, liveBookings]);
 
   // Phone Edit States
   const [editingPhone, setEditingPhone] = useState(false);

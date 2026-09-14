@@ -141,10 +141,6 @@ export default function EstimateForm({
   const [hasAllergy, setHasAllergy] = useState(false);
   const [allergyNote, setAllergyNote] = useState('');
 
-  // Deposit Payment Slip Upload State
-  const [slipFile, setSlipFile] = useState<File | null>(null);
-  const [slipFilePreview, setSlipFilePreview] = useState<string | null>(null);
-
   // Submission State
   const [submitted, setSubmitted] = useState(false);
   const [isFlashSubmission, setIsFlashSubmission] = useState(false);
@@ -242,36 +238,6 @@ export default function EstimateForm({
       setEstimateDraft(null);
     }
   }, [estimateDraft, isLoggedIn, user, setEstimateDraft]);
-
-  // Handle Slip File Input Selection
-  const handleSlipFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
-    if (!allowedTypes.includes(file.type.toLowerCase())) {
-      setError('รองรับเฉพาะไฟล์รูปภาพ JPG, PNG และ WEBP เท่านั้น');
-      return;
-    }
-
-    if (file.size > 5 * 1024 * 1024) {
-      setError('ไฟล์สลิปต้องมีขนาดไม่เกิน 5 MB');
-      return;
-    }
-
-    setError('');
-    setSlipFile(file);
-    const objectUrl = URL.createObjectURL(file);
-    setSlipFilePreview(objectUrl);
-  };
-
-  const handleRemoveSlipFile = () => {
-    setSlipFile(null);
-    if (slipFilePreview) {
-      URL.revokeObjectURL(slipFilePreview);
-      setSlipFilePreview(null);
-    }
-  };
 
   // Save Draft helper for guest users
   const saveDraft = () => {
@@ -458,11 +424,6 @@ export default function EstimateForm({
       return;
     }
 
-    // MANDATORY SLIP FILE VALIDATION FOR DIRECT DEPOSIT FLOW
-    if (!slipFile) {
-      setError('กรุณาอัปโหลดหลักฐานการชำระเงิน (สลิปมัดจำ)');
-      return;
-    }
 
     if (!isLoggedIn || !user) {
       saveDraft();
@@ -517,42 +478,14 @@ export default function EstimateForm({
         throw new Error('ไม่สามารถสร้างคิวงานได้ กรุณาลองใหม่อีกครั้ง');
       }
 
-      // Step 2: Upload Deposit Payment Slip file to Storage bucket 'booking-payment-slips'
-      const fileExt = slipFile.name.split('.').pop()?.toLowerCase() || 'jpg';
-      const randomId = crypto.randomUUID();
-      const storagePath = `${user.id}/${resBookingId}/${randomId}.${fileExt}`;
-
-      const { error: uploadErr } = await supabase.storage
-        .from('booking-payment-slips')
-        .upload(storagePath, slipFile, {
-          contentType: slipFile.type,
-          upsert: false,
-        });
-
-      if (uploadErr) {
-        console.error('Storage error uploading payment slip:', uploadErr);
-        throw new Error('อัปโหลดสลิปมัดจำไม่สำเร็จ กรุณาลองใหม่อีกครั้ง');
-      }
-
-      // Step 3: Submit Payment Slip via Canonical RPC: submit_booking_payment_slip
-      const { error: subErr } = await supabase.rpc('submit_booking_payment_slip', {
-        p_booking_id: resBookingId,
-        p_claimed_amount: 500,
-        p_slip_path: storagePath,
-        p_reference_no: null,
-        p_customer_note: description ? description.trim() : null,
-      });
-
-      if (subErr) {
-        console.error('Error submitting payment slip RPC:', subErr);
-        throw new Error(subErr?.message || 'เกิดข้อผิดพลาดในการบันทึกหลักฐานการชำระเงิน');
-      }
-
       setNewRequestId(resEstimateId || resBookingId);
       setNewBookingId(resBookingId);
       setIsFlashSubmission(false);
-      setSubmitted(true);
+      
       if (onSuccess) onSuccess(resEstimateId || resBookingId, resBookingId);
+
+      // Redirect immediately to existing Payment Page in Customer Portal
+      router.push(`/portal?booking_id=${resBookingId}&tab=bookings`);
     } catch (err: any) {
       console.error('Error submitting customer booking request:', err);
       setError(err?.message || 'เกิดข้อผิดพลาดในการส่งคำขอจองคิว กรุณาลองใหม่อีกครั้ง');
@@ -947,78 +880,14 @@ export default function EstimateForm({
             </div>
           </div>
 
-          {/* 9. Payment Deposit & Slip Upload */}
-          <div className="bg-[#171512] border border-[#4A443A] p-4 sm:p-5 rounded-[6px] space-y-4 font-prompt">
-            <div className="flex items-center justify-between pb-3 border-b border-[#4A443A]/60">
-              <div className="flex items-center space-x-2 text-[#ECE4D3] text-xs font-semibold">
-                <DollarSign size={16} className="text-amber-400 shrink-0" />
-                <span>9. ชำระเงินมัดจำล็อกคิวงาน (DEPOSIT PAYMENT) <span className="text-studio-red">*</span></span>
-              </div>
-              <span className="bg-amber-950/80 border border-amber-800/80 text-amber-300 px-2.5 py-0.5 rounded text-[11px] font-bold">
-                มัดจำ ฿500
-              </span>
-            </div>
-
-            <div className="bg-[#0E0D0C] border border-[#4A443A]/60 p-3.5 rounded-[4px] space-y-2 text-xs text-[#A89F91]">
-              <p className="text-xs text-[#ECE4D3] font-medium">
-                กรุณาโอนเงินมัดจำ <strong className="text-amber-300 font-bold">500 บาท</strong> เพื่อยืนยันการจองคิว และแนบสลิปโอนเงินด้านล่าง:
-              </p>
-              <div className="bg-[#171512] border border-[#4A443A]/40 p-3 rounded text-xs space-y-1 font-mono text-[#ECE4D3]">
-                <div>ธนาคาร: <strong className="text-amber-300">กสิกรไทย (KBANK)</strong></div>
-                <div>เลขที่บัญชี: <strong className="text-amber-300 select-all font-bold">012-3-45678-9</strong></div>
-                <div>ชื่อบัญชี: <strong>ร้าน 157 Tattoo Studio</strong></div>
-              </div>
-            </div>
-
-            {/* Slip File Upload Input */}
-            <div>
-              <label className="text-[11px] uppercase tracking-wider text-[#A89F91] block mb-1.5 font-semibold flex items-center justify-between">
-                <span>หลักฐานการชำระเงิน (สลิปโอนเงินมัดจำ) <span className="text-studio-red">*</span></span>
-                <span className="text-[10px] text-[#A89F91] font-normal">JPG, PNG, WEBP (สูงสุด 5MB)</span>
-              </label>
-
-              {slipFilePreview ? (
-                <div className="relative border border-emerald-800/60 bg-emerald-950/20 p-3 rounded-[4px] flex items-center space-x-3">
-                  <img src={slipFilePreview} alt="สลิปมัดจำ" className="w-16 h-20 object-cover rounded border border-emerald-800/40" />
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center space-x-1 text-emerald-400 text-xs font-semibold">
-                      <CheckCircle2 size={14} />
-                      <span>เลือกสลิปเรียบร้อยแล้ว</span>
-                    </div>
-                    <p className="text-[11px] text-studio-secondary truncate mt-0.5">{slipFile?.name}</p>
-                    <button
-                      type="button"
-                      onClick={handleRemoveSlipFile}
-                      className="text-[11px] text-red-400 hover:underline mt-1 cursor-pointer block"
-                    >
-                      ยกเลิก / เลือกรูปใหม่
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <label className="border border-dashed border-[#4A443A] hover:border-[#9C2F2F] bg-[#0E0D0C] p-4 rounded-[4px] flex flex-col items-center justify-center cursor-pointer transition-colors space-y-1.5 text-center">
-                  <Upload size={20} className="text-[#A89F91]" />
-                  <span className="text-xs text-[#ECE4D3] font-medium">คลิกหรือลากไฟล์สลิปมาวางที่นี่</span>
-                  <span className="text-[10px] text-[#A89F91]">กรุณาแนบสลิปมัดจำ 500 บาท เพื่อส่งคำขอจองคิว</span>
-                  <input
-                    type="file"
-                    accept="image/jpeg,image/png,image/webp"
-                    onChange={handleSlipFileChange}
-                    className="hidden"
-                  />
-                </label>
-              )}
-            </div>
-          </div>
-
-          {/* 10. Steps After Submit Notice Box */}
+          {/* 9. Steps After Submit Notice Box */}
           <div className="p-4 bg-[#171512] border border-[#4A443A] rounded-[6px] space-y-1.5 text-xs text-[#ECE4D3] font-prompt">
             <div className="flex items-center space-x-2 font-bold text-amber-300">
               <Sparkles size={16} className="text-amber-400 shrink-0" />
-              <span>10. ขั้นตอนถัดไปหลังส่งคำขอจองคิว</span>
+              <span>9. ขั้นตอนถัดไปหลังส่งคำขอจองคิว</span>
             </div>
             <p className="text-[11px] text-[#A89F91] leading-relaxed font-light">
-              เมื่อคุณแนบสลิปมัดจำและกดส่งคำขอเรียบร้อยแล้ว ทางร้านจะทำการตรวจสอบรายละเอียดงานและหลักฐานการโอนเงินเพื่อยืนยันคิวให้คุณโดยเร็วที่สุด
+              เมื่อคุณกดส่งคำขอเรียบร้อยแล้ว ระบบจะนำคุณไปยังหน้าชำระเงินมัดจำเพื่อสแกน QR Code หรือโอนเงินและแนบสลิปเพื่อยืนยันคิวงาน
             </p>
           </div>
 
@@ -1033,8 +902,7 @@ export default function EstimateForm({
             </div>
             <div className="text-[11px]">
               ขนาด: <strong className="text-studio-red">{width}×{height} ซม.</strong> • 
-              มัดจำ: <strong className="text-amber-300 font-bold">฿500</strong> • 
-              สลิป: <strong className={slipFile ? "text-emerald-400" : "text-amber-400"}>{slipFile ? 'แนบแล้ว' : 'ยังไม่ได้แนบ'}</strong>
+              ตำแหน่ง: <strong className="text-studio-primary">{placement || 'ยังไม่ระบุ'}</strong>
             </div>
           </div>
 
@@ -1047,17 +915,17 @@ export default function EstimateForm({
               {loading ? (
                 <>
                   <Loader2 size={15} className="mr-2 animate-spin" />
-                  <span>กำลังส่งคำขอจอง...</span>
+                  <span>กำลังสร้างคำขอจอง...</span>
                 </>
               ) : (
                 <>
                   <Send size={14} className="mr-2" />
-                  <span>ส่งคำขอจอง (พร้อมสลิปมัดจำ ฿500)</span>
+                  <span>ส่งคำขอจองและดำเนินการชำระมัดจำ</span>
                 </>
               )}
             </button>
             <span className="text-[10px] text-[#A89F91] font-light text-center sm:text-right">
-              ทางร้านจะตรวจสอบรายละเอียดงานและหลักฐานการโอนเงินเพื่อยืนยันคิว
+              ระบบจะพาคุณเข้าสู่ขั้นตอนชำระเงินมัดจำทันทีหลังส่งคำขอจอง
             </span>
           </div>
         </div>
