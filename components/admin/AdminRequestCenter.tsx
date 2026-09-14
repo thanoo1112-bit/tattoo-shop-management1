@@ -28,7 +28,7 @@ import {
   Eye,
   ArrowUpDown,
 } from 'lucide-react';
-import { parseNoteWithPreferredTime } from '@/lib/noteUtils';
+import { parseNoteWithPreferredTime, extractHHMM } from '@/lib/noteUtils';
 
 export default function AdminRequestCenter() {
   const {
@@ -1481,7 +1481,15 @@ export default function AdminRequestCenter() {
                     </span>
                   </div>
                   {(() => {
+                    const rawTime = selectedEstimate.preferred_time || (selectedEstimate as any).preferredTime;
                     const { cleanNote, extractedTime } = parseNoteWithPreferredTime(selectedEstimate.description);
+                    let timeStr = 'ไม่ระบุ';
+                    if (rawTime) {
+                      const hhmm = extractHHMM(rawTime) || rawTime;
+                      timeStr = hhmm.endsWith('น.') || hhmm.endsWith('น') ? hhmm : `${hhmm} น.`;
+                    } else if (extractedTime) {
+                      timeStr = extractedTime;
+                    }
                     return (
                       <>
                         <div>
@@ -1493,7 +1501,7 @@ export default function AdminRequestCenter() {
                         <div>
                           <span className="text-[#7A7265] text-[10px] block">เวลาที่สะดวก:</span>
                           <span className="text-[#ECE4D3] font-mono">
-                            {extractedTime || 'ไม่ระบุ'}
+                            {timeStr}
                           </span>
                         </div>
                       </>

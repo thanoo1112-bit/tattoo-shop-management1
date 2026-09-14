@@ -6,6 +6,7 @@ import BookingStatusBadge from './BookingStatusBadge';
 import { Calendar, User, ChevronRight, Layers } from 'lucide-react';
 import { formatThaiDate, formatTimeBangkok, resolveCustomerDisplayStatus } from './portalUtils';
 import CustomerReferenceImage from '@/components/common/CustomerReferenceImage';
+import { parseNoteWithPreferredTime, extractHHMM } from '@/lib/noteUtils';
 
 interface CustomerBookingCardProps {
   item: CustomerPortalBooking | CustomerPortalEstimate;
@@ -88,8 +89,17 @@ export default function CustomerBookingCard({
       appointmentDisplay = 'ไม่ระบุวันนัด';
     }
   } else {
+    const rawTime = estimate.preferred_time || (estimate as any).preferredTime;
+    let timeLabel: string | null = null;
+    if (rawTime) {
+      const hhmm = extractHHMM(rawTime) || rawTime;
+      timeLabel = hhmm.endsWith('น.') || hhmm.endsWith('น') ? hhmm : `${hhmm} น.`;
+    } else {
+      const { extractedTime } = parseNoteWithPreferredTime(estimate.description);
+      timeLabel = extractedTime;
+    }
     appointmentDisplay = estimate.preferred_date
-      ? formatThaiDate(estimate.preferred_date)
+      ? (timeLabel ? `${formatThaiDate(estimate.preferred_date)} · ${timeLabel}` : formatThaiDate(estimate.preferred_date))
       : formatThaiDate(estimate.created_at);
   }
 

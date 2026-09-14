@@ -4,6 +4,7 @@ import React, { useState, useMemo } from 'react';
 import { Search, Filter, FileText, ChevronRight, User, Calendar, Image as ImageIcon, CreditCard, TriangleAlert, Trash2 } from 'lucide-react';
 import { EstimateRequestItem, EstimateStatus, formatDateTimeBangkok } from './types';
 import CustomerReferenceImage from '@/components/common/CustomerReferenceImage';
+import { parseNoteWithPreferredTime, extractHHMM } from '@/lib/noteUtils';
 
 interface EstimateRequestListProps {
   estimates: EstimateRequestItem[];
@@ -248,7 +249,19 @@ export default function EstimateRequestList({
                         )}
                       </td>
                       <td className="py-3 px-3 text-[#A89F91]">
-                        {est.preferred_date || 'ไม่ระบุ'}
+                        {(() => {
+                          const rawTime = est.preferred_time || (est as any).preferredTime;
+                          let timeStr = '';
+                          if (rawTime) {
+                            const hhmm = extractHHMM(rawTime) || rawTime;
+                            const formatted = hhmm.endsWith('น.') || hhmm.endsWith('น') ? hhmm : `${hhmm} น.`;
+                            timeStr = ` · ${formatted}`;
+                          } else {
+                            const { extractedTime } = parseNoteWithPreferredTime(est.description);
+                            if (extractedTime) timeStr = ` · ${extractedTime}`;
+                          }
+                          return est.preferred_date ? `${est.preferred_date}${timeStr}` : 'ไม่ระบุ';
+                        })()}
                       </td>
                       <td className="py-3 px-3">
                         {renderStatusBadge(est)}
@@ -323,7 +336,21 @@ export default function EstimateRequestList({
                 </div>
 
                 <div className="flex items-center justify-between text-[11px] text-[#A89F91] pt-1">
-                  <span>วันที่สะดวก: {est.preferred_date || 'ไม่ระบุ'}</span>
+                  <span>
+                    วันที่สะดวก: {(() => {
+                      const rawTime = est.preferred_time || (est as any).preferredTime;
+                      let timeStr = '';
+                      if (rawTime) {
+                        const hhmm = extractHHMM(rawTime) || rawTime;
+                        const formatted = hhmm.endsWith('น.') || hhmm.endsWith('น') ? hhmm : `${hhmm} น.`;
+                        timeStr = ` · ${formatted}`;
+                      } else {
+                        const { extractedTime } = parseNoteWithPreferredTime(est.description);
+                        if (extractedTime) timeStr = ` · ${extractedTime}`;
+                      }
+                      return est.preferred_date ? `${est.preferred_date}${timeStr}` : 'ไม่ระบุ';
+                    })()}
+                  </span>
                   <div className="flex items-center gap-2">
                     <button
                       type="button"

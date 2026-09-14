@@ -204,7 +204,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
     const { data: dbEstimates, error: errEst } = await supabase
       .from('estimate_requests')
-      .select('id, customer_user_id, artist_id, reference_images, width_cm, height_cm, placement, style, description, preferred_date, status, quoted_price, estimated_duration_minutes, deposit_required, quote_note, quoted_at, accepted_at, rejected_at, created_at, updated_at')
+      .select('id, customer_user_id, artist_id, reference_images, width_cm, height_cm, placement, style, description, preferred_date, preferred_time, status, quoted_price, estimated_duration_minutes, deposit_required, quote_note, quoted_at, accepted_at, rejected_at, created_at, updated_at')
       .order('created_at', { ascending: false });
 
     if (errEst) {
@@ -256,6 +256,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         style: item.style || 'Fine Line',
         description: item.description || '',
         preferredDate: item.preferred_date || undefined,
+        preferredTime: item.preferred_time || undefined,
+        preferred_time: item.preferred_time || null,
         submittedDate: new Date(item.created_at).toISOString().split('T')[0],
         status: item.status as any,
         quotedPrice: item.quoted_price ? Number(item.quoted_price) : undefined,
@@ -1295,6 +1297,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       throw new Error('สามารถแนบรูปภาพอ้างอิงได้สูงสุด 5 รูปเท่านั้น');
     }
 
+    const rawTime = estimate.preferred_time || estimate.preferredTime;
+    const formattedPreferredTime = rawTime && rawTime.trim()
+      ? (rawTime.trim().length === 5 ? `${rawTime.trim()}:00` : rawTime.trim())
+      : null;
+
     const newDbEstimate: any = {
       customer_user_id: user.id,
       artist_id: estimate.artistId,
@@ -1305,6 +1312,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       style: estimate.style.trim(),
       description: estimate.description || '',
       preferred_date: estimate.preferredDate || null,
+      preferred_time: formattedPreferredTime,
       has_medical_condition: Boolean(estimate.hasMedicalCondition),
       medical_condition_note: estimate.hasMedicalCondition && estimate.medicalConditionNote?.trim() ? estimate.medicalConditionNote.trim() : null,
       has_allergy: Boolean(estimate.hasAllergy),

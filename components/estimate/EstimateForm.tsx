@@ -449,6 +449,11 @@ export default function EstimateForm({
         ? referenceImages 
         : (referenceImage ? [referenceImage] : []);
 
+      const rawDesc = description ? description.trim() : '';
+      const formattedPreferredTime = preferredTime && preferredTime.trim()
+        ? (preferredTime.trim().length === 5 ? `${preferredTime.trim()}:00` : preferredTime.trim())
+        : undefined;
+
       // Submit Estimate Request (request_type = 'ESTIMATE', status = 'PENDING')
       const reqId = await addEstimateRequest({
         artistId,
@@ -458,8 +463,10 @@ export default function EstimateForm({
         width: Number(width),
         height: Number(height),
         placement: placement.trim(),
-        description: description ? description.trim() : '',
+        description: rawDesc,
         preferredDate: preferredDate || undefined,
+        preferredTime: formattedPreferredTime,
+        preferred_time: formattedPreferredTime,
         hasMedicalCondition,
         medicalConditionNote: hasMedicalCondition ? medicalConditionNote.trim() : '',
         hasAllergy,

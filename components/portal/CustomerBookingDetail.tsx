@@ -26,6 +26,7 @@ import {
 import { formatThaiDate, formatTimeBangkok, formatCurrency, resolveCustomerDisplayStatus, formatServiceTypeLabel } from './portalUtils';
 import CustomerReferenceImage from '@/components/common/CustomerReferenceImage';
 import CustomerDepositPaymentSection from './CustomerDepositPaymentSection';
+import { parseNoteWithPreferredTime, extractHHMM } from '@/lib/noteUtils';
 
 interface CustomerBookingDetailProps {
   item: CustomerPortalBooking | CustomerPortalEstimate;
@@ -478,51 +479,74 @@ export default function CustomerBookingDetail({
                     {formatThaiDate(estimate.preferred_date, true)}
                   </span>
                 </div>
+                {(() => {
+                  const rawTime = estimate.preferred_time || (estimate as any).preferredTime || null;
+                  const { cleanNote } = parseNoteWithPreferredTime(estimate.description);
+                  let preferredTimeDisplay: string | null = null;
+                  if (rawTime && rawTime.trim()) {
+                    const hhmm = extractHHMM(rawTime.trim()) || rawTime.trim();
+                    preferredTimeDisplay = hhmm.endsWith('น.') || hhmm.endsWith('น') ? hhmm : `${hhmm} น.`;
+                  }
+                  return (
+                    <>
+                      {preferredTimeDisplay && (
+                        <div className="flex justify-between">
+                          <span className="text-studio-secondary flex items-center gap-1.5">
+                            <Clock size={13} /> เวลาที่สะดวก
+                          </span>
+                          <span className="font-semibold text-studio-primary">
+                            {preferredTimeDisplay}
+                          </span>
+                        </div>
+                      )}
 
-                {/* Financial Summary Breakdown */}
-                {(estimate.quoted_price || estimate.deposit_required) && (
-                  <div className="pt-2 border-t border-studio-border/30 space-y-1.5">
-                    {Boolean(estimate.quoted_price && estimate.quoted_price > 0) && (
-                      <div className="flex justify-between items-center text-xs">
-                        <span className="text-studio-secondary flex items-center gap-1.5">
-                          <BadgeDollarSign size={13} /> ราคางานสัก
-                        </span>
-                        <span className="font-semibold text-studio-primary">
-                          ฿{formatCurrency(estimate.quoted_price!)}
-                        </span>
-                      </div>
-                    )}
-                    {Boolean(estimate.deposit_required && estimate.deposit_required > 0) && (
-                      <div className="flex justify-between items-center text-xs">
-                        <span className="text-studio-secondary flex items-center gap-1.5">
-                          <Wallet size={13} /> มัดจำ
-                        </span>
-                        <span className="font-semibold text-studio-red">
-                          ฿{formatCurrency(estimate.deposit_required!)}
-                        </span>
-                      </div>
-                    )}
-                    {Boolean(estimate.quoted_price && estimate.quoted_price > 0) && (
-                      <div className="flex justify-between items-center text-xs pt-1 border-t border-studio-border/20">
-                        <span className="text-studio-primary font-bold flex items-center gap-1.5">
-                          ชำระวันจริง
-                        </span>
-                        <span className="font-bold text-emerald-400">
-                          ฿{formatCurrency((estimate.quoted_price || 0) - (estimate.deposit_required || 0))}
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                )}
+                      {/* Financial Summary Breakdown */}
+                      {(estimate.quoted_price || estimate.deposit_required) && (
+                        <div className="pt-2 border-t border-studio-border/30 space-y-1.5">
+                          {Boolean(estimate.quoted_price && estimate.quoted_price > 0) && (
+                            <div className="flex justify-between items-center text-xs">
+                              <span className="text-studio-secondary flex items-center gap-1.5">
+                                <BadgeDollarSign size={13} /> ราคางานสัก
+                              </span>
+                              <span className="font-semibold text-studio-primary">
+                                ฿{formatCurrency(estimate.quoted_price!)}
+                              </span>
+                            </div>
+                          )}
+                          {Boolean(estimate.deposit_required && estimate.deposit_required > 0) && (
+                            <div className="flex justify-between items-center text-xs">
+                              <span className="text-studio-secondary flex items-center gap-1.5">
+                                <Wallet size={13} /> มัดจำ
+                              </span>
+                              <span className="font-semibold text-studio-red">
+                                ฿{formatCurrency(estimate.deposit_required!)}
+                              </span>
+                            </div>
+                          )}
+                          {Boolean(estimate.quoted_price && estimate.quoted_price > 0) && (
+                            <div className="flex justify-between items-center text-xs pt-1 border-t border-studio-border/20">
+                              <span className="text-studio-primary font-bold flex items-center gap-1.5">
+                                ชำระวันจริง
+                              </span>
+                              <span className="font-bold text-emerald-400">
+                                ฿{formatCurrency((estimate.quoted_price || 0) - (estimate.deposit_required || 0))}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      )}
 
-                {estimate.description && (
-                  <div className="pt-2 border-t border-studio-border/20">
-                    <span className="text-studio-secondary block mb-1">รายละเอียดเพิ่มเติม:</span>
-                    <p className="text-[11px] text-studio-secondary leading-relaxed bg-studio-card/85 p-2 border border-studio-border/40 rounded-[4px] font-light">
-                      {estimate.description}
-                    </p>
-                  </div>
-                )}
+                      {cleanNote && (
+                        <div className="pt-2 border-t border-studio-border/20">
+                          <span className="text-studio-secondary block mb-1">รายละเอียดเพิ่มเติม:</span>
+                          <p className="text-[11px] text-studio-secondary leading-relaxed bg-studio-card/85 p-2 border border-studio-border/40 rounded-[4px] font-light">
+                            {cleanNote}
+                          </p>
+                        </div>
+                      )}
+                    </>
+                  );
+                })()}
               </>
             )}
           </div>

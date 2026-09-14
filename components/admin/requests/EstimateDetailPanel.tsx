@@ -27,7 +27,7 @@ import {
 import { EstimateRequestItem, formatCurrency, formatDateTimeBangkok, formatDateBangkok, formatTimeBangkok, getTattooWorkTypeLabel, getColorTechniqueLabel } from './types';
 import EstimateQuoteForm from './EstimateQuoteForm';
 import { createClient } from '@/lib/supabase/client';
-import { parseNoteWithPreferredTime } from '@/lib/noteUtils';
+import { parseNoteWithPreferredTime, extractHHMM } from '@/lib/noteUtils';
 import CustomerReferenceImage from '@/components/common/CustomerReferenceImage';
 import PaymentSlipImage from '@/components/common/PaymentSlipImage';
 import { useApp } from '@/components/AppContext';
@@ -218,7 +218,14 @@ export default function EstimateDetailPanel({
 
   const rawDescription = linkedBooking?.description || estimate.description || '';
   const { cleanNote, extractedTime } = parseNoteWithPreferredTime(rawDescription);
-  const preferredTimeDisplay = extractedTime || 'ไม่ระบุ';
+  const rawPreferredTime = estimate.preferred_time || (estimate as any).preferredTime;
+  let preferredTimeDisplay = 'ไม่ระบุ';
+  if (rawPreferredTime) {
+    const hhmm = extractHHMM(rawPreferredTime) || rawPreferredTime;
+    preferredTimeDisplay = hhmm.endsWith('น.') || hhmm.endsWith('น') ? hhmm : `${hhmm} น.`;
+  } else if (extractedTime) {
+    preferredTimeDisplay = extractedTime;
+  }
 
   const quotedPrice = linkedBooking?.financial?.quoted_price ?? estimate.quoted_price ?? 0;
   const depositRequired = linkedBooking?.financial?.deposit_required ?? estimate.deposit_required ?? 0;

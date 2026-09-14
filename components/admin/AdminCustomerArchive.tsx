@@ -245,7 +245,7 @@ export default function AdminCustomerArchive() {
         }
 
         // 2. Fetch Estimates for joining (excluding health disclosure fields)
-        const { data: eData } = await supabase.from('estimate_requests').select('id, customer_user_id, artist_id, reference_images, width_cm, height_cm, placement, style, description, preferred_date, status, quoted_price, estimated_duration_minutes, deposit_required, quote_note, quoted_at, accepted_at, rejected_at, created_at, updated_at');
+        const { data: eData } = await supabase.from('estimate_requests').select('id, customer_user_id, artist_id, reference_images, width_cm, height_cm, placement, style, description, preferred_date, preferred_time, status, quoted_price, estimated_duration_minutes, deposit_required, quote_note, quoted_at, accepted_at, rejected_at, created_at, updated_at');
 
         // Map estimates
         if (eData && isMounted) {

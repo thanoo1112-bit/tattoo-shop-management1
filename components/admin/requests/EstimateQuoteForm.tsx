@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { Calendar, Clock, DollarSign, FileText, CheckCircle2, X, AlertCircle, Loader2 } from 'lucide-react';
 import { EstimateRequestItem } from './types';
 import { createClient } from '@/lib/supabase/client';
-import { parseNoteWithPreferredTime, getInitialStartTime } from '@/lib/noteUtils';
+import { parseNoteWithPreferredTime, getInitialStartTime, extractHHMM } from '@/lib/noteUtils';
 import { BlockedDateRecord, checkDateAvailability } from '@/lib/availabilityUtils';
 
 interface EstimateQuoteFormProps {
@@ -218,15 +218,23 @@ export default function EstimateQuoteForm({
             className="w-full bg-studio-sec border border-studio-border rounded-xl px-3 py-2 text-studio-primary focus:outline-none focus:border-studio-red"
           />
           {(() => {
+            const rawTime = estimate.preferred_time || (estimate as any).preferredTime;
             const { extractedTime } = parseNoteWithPreferredTime(estimate.description);
-            if (!estimate.preferred_date && !extractedTime) return null;
+            let displayTime: string | null = null;
+            if (rawTime) {
+              const hhmm = extractHHMM(rawTime) || rawTime;
+              displayTime = hhmm.endsWith('น.') || hhmm.endsWith('น') ? hhmm : `${hhmm} น.`;
+            } else if (extractedTime) {
+              displayTime = extractedTime;
+            }
+            if (!estimate.preferred_date && !displayTime) return null;
             return (
               <p className="text-[10px] text-studio-muted mt-1 flex flex-wrap gap-x-3">
                 {estimate.preferred_date && (
                   <span>วันที่ลูกค้าสะดวก: <span className="text-studio-primary">{estimate.preferred_date}</span></span>
                 )}
-                {extractedTime && (
-                  <span>เวลาที่สะดวก: <span className="text-studio-primary">{extractedTime}</span></span>
+                {displayTime && (
+                  <span>เวลาที่สะดวก: <span className="text-studio-primary">{displayTime}</span></span>
                 )}
               </p>
             );

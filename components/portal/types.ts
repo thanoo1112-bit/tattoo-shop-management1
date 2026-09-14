@@ -65,6 +65,7 @@ export interface CustomerPortalEstimate {
   style: string;
   description: string;
   preferred_date: string | null;
+  preferred_time?: string | null;
   status: EstimateStatus;
   request_type?: 'ESTIMATE' | 'DIRECT_BOOKING';
   service_type?: string | null;

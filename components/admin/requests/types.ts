@@ -76,6 +76,7 @@ export interface EstimateRequestItem {
   style_preference?: string | null;
   style?: string | null;
   preferred_date?: string | null;
+  preferred_time?: string | null;
   reference_images?: string[] | null;
   status: EstimateStatus;
   request_type?: 'ESTIMATE' | 'DIRECT_BOOKING';

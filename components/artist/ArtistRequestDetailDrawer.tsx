@@ -21,7 +21,7 @@ import {
   CheckCircle2
 } from 'lucide-react';
 import { formatDateBangkok } from '@/components/admin/calendar/calendarUtils';
-import { parseNoteWithPreferredTime, getInitialStartTime } from '@/lib/noteUtils';
+import { parseNoteWithPreferredTime, getInitialStartTime, extractHHMM } from '@/lib/noteUtils';
 
 export interface ArtistPendingEstimateDetail {
   id: string;
@@ -36,6 +36,7 @@ export interface ArtistPendingEstimateDetail {
   height_cm?: number | null;
   style_preference?: string | null;
   preferred_date?: string | null;
+  preferred_time?: string | null;
   reference_images?: string[] | null;
   has_medical_condition?: boolean;
   medical_condition_note?: string | null;
@@ -443,7 +444,15 @@ export default function ArtistRequestDetailDrawer({ estimate, isOpen, onClose, o
 
           {/* Dates Card */}
           {(() => {
+            const rawTime = estimate.preferred_time || (estimate as any).preferredTime;
             const { cleanNote, extractedTime } = parseNoteWithPreferredTime(estimate.description);
+            let timeDisplay = 'ไม่ระบุ';
+            if (rawTime) {
+              const hhmm = extractHHMM(rawTime) || rawTime;
+              timeDisplay = hhmm.endsWith('น.') || hhmm.endsWith('น') ? hhmm : `${hhmm} น.`;
+            } else if (extractedTime) {
+              timeDisplay = extractedTime;
+            }
             return (
               <>
                 <div className="bg-studio-card border border-studio-border rounded-xl p-4 space-y-3">
@@ -461,7 +470,7 @@ export default function ArtistRequestDetailDrawer({ estimate, isOpen, onClose, o
                     <div>
                       <span className="text-studio-muted text-[10px] block">เวลาที่สะดวก</span>
                       <span className="text-sm font-semibold text-studio-primary">
-                        {extractedTime || 'ไม่ระบุ'}
+                        {timeDisplay}
                       </span>
                     </div>
                     <div>
@@ -506,7 +515,7 @@ export default function ArtistRequestDetailDrawer({ estimate, isOpen, onClose, o
                     )}
                     <div className="flex justify-between items-center py-2">
                       <span className="text-studio-muted">เวลาที่สะดวก:</span>
-                      <span className="text-studio-primary font-medium">{extractedTime || 'ไม่ระบุ'}</span>
+                      <span className="text-studio-primary font-medium">{timeDisplay}</span>
                     </div>
                   </div>
 

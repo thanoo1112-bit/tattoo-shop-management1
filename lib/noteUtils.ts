@@ -67,24 +67,31 @@ export function extractHHMM(timeStr?: string | null): string | null {
 /**
  * Priority resolution for Start Time:
  * 1. Existing Session / Booking Start Time
- * 2. Customer Preferred Time (from note / description)
+ * 2. Customer Preferred Time (from preferred_time / preferredTime OR fallback to note / description)
  * 3. Fallback time (e.g. '13:00' for Admin, '10:00' for Artist)
  */
 export function getInitialStartTime(
   estimate?: {
     description?: string | null;
+    preferred_time?: string | null;
+    preferredTime?: string | null;
     linked_booking?: any;
   } | null,
   fallbackTime: string = '13:00'
 ): string {
   if (!estimate) return fallbackTime;
-  const rawDescription = estimate?.linked_booking?.description || estimate?.description || '';
-  const { extractedTime } = parseNoteWithPreferredTime(rawDescription);
   const savedStartTime = extractHHMM(
     estimate?.linked_booking?.sessions?.[0]?.start_at ||
       estimate?.linked_booking?.requested_start_time ||
       estimate?.linked_booking?.requested_time
   );
+  if (savedStartTime) return savedStartTime;
+
+  const directPreferredTime = extractHHMM(estimate.preferred_time || estimate.preferredTime);
+  if (directPreferredTime) return directPreferredTime;
+
+  const rawDescription = estimate?.linked_booking?.description || estimate?.description || '';
+  const { extractedTime } = parseNoteWithPreferredTime(rawDescription);
   const preferredStartTime = extractHHMM(extractedTime);
-  return savedStartTime || preferredStartTime || fallbackTime;
+  return preferredStartTime || fallbackTime;
 }
