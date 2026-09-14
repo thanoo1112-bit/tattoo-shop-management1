@@ -12,6 +12,7 @@ export interface EstimateRequest {
   style: string;
   description: string;
   preferredDate?: string;
+  preferredTime?: string;
   submittedDate: string;
   status: 'PENDING' | 'QUOTED' | 'ACCEPTED' | 'REJECTED';
   request_type?: 'ESTIMATE' | 'DIRECT_BOOKING';
