@@ -446,35 +446,49 @@ export default function EstimateForm({
 
       const formattedTime = preferredTime ? `${preferredTime}:00` : '13:00:00';
 
-      // Step 1: Submit Customer Estimate Request via addEstimateRequest
-      const selectedArtistObj = artists.find((a) => a.id === artistId);
-      const artistName = selectedArtistObj ? selectedArtistObj.name : 'ช่างประจำร้าน';
-
-      const resId = await addEstimateRequest({
-        artistId,
-        artistName,
-        referenceImage: referenceImages[0] || referenceImage || '',
-        referenceImages: referenceImages.length > 0 ? referenceImages : (referenceImage ? [referenceImage] : []),
-        width: Number(width),
-        height: Number(height),
-        placement: placement.trim(),
-        style: style.trim(),
-        work_type: null,
-        description: preferredTime ? `${description ? description.trim() + '\n' : ''}[เวลาสะดวก: ${preferredTime} น.]` : (description ? description.trim() : ''),
-        preferredDate: preferredDate || undefined,
-        hasMedicalCondition,
-        medicalConditionNote: hasMedicalCondition ? medicalConditionNote.trim() : null,
-        hasAllergy,
-        allergyNote: hasAllergy ? allergyNote.trim() : null,
+      // Step 1: Create Direct Booking Request & Booking Record in DB via RPC
+      const { data: rpcRes, error: rpcErr } = await supabase.rpc('create_direct_booking_request', {
+        p_artist_id: artistId,
+        p_requested_date: preferredDate,
+        p_requested_start_time: formattedTime,
+        p_placement: placement.trim(),
+        p_style: style.trim(),
+        p_width_cm: Number(width),
+        p_height_cm: Number(height),
+        p_description: description ? description.trim() : null,
+        p_reference_images: finalRefImages,
+        p_has_medical_condition: hasMedicalCondition,
+        p_medical_condition_note: hasMedicalCondition ? medicalConditionNote.trim() : null,
+        p_has_allergy: hasAllergy,
+        p_allergy_note: hasAllergy ? allergyNote.trim() : null,
+        p_customer_note: description ? description.trim() : null,
+        p_work_type: null,
+        p_color_technique: null,
       });
 
-      setNewRequestId(resId);
+      if (rpcErr || !rpcRes) {
+        console.error('RPC Error creating direct booking request:', rpcErr);
+        throw new Error(translateRpcError(rpcErr?.message || 'เกิดข้อผิดพลาดในการสร้างคำขอจองคิว'));
+      }
+
+      const resBookingId = rpcRes.booking_id;
+      const resEstimateId = rpcRes.estimate_request_id;
+
+      if (!resBookingId) {
+        throw new Error('ไม่สามารถสร้างคิวงานได้ กรุณาลองใหม่อีกครั้ง');
+      }
+
+      setNewRequestId(resEstimateId || resBookingId);
+      setNewBookingId(resBookingId);
       setIsFlashSubmission(false);
-      setSubmitted(true);
-      if (onSuccess) onSuccess(resId);
+      
+      if (onSuccess) onSuccess(resEstimateId || resBookingId, resBookingId);
+
+      // Redirect immediately to existing Payment Page in Customer Portal
+      router.push(`/portal?booking_id=${resBookingId}&tab=bookings`);
     } catch (err: any) {
       console.error('Error submitting customer booking request:', err);
-      setError(translateRpcError(err?.message || 'เกิดข้อผิดพลาดในการส่งคำขอประเมินราคา กรุณาลองใหม่อีกครั้ง'));
+      setError(err?.message || 'เกิดข้อผิดพลาดในการส่งคำขอจองคิว กรุณาลองใหม่อีกครั้ง');
     } finally {
       setLoading(false);
     }
@@ -581,10 +595,10 @@ export default function EstimateForm({
           <span>157 TATTOO STUDIO</span>
         </div>
         <h2 className="text-2xl sm:text-3xl font-heading font-normal tracking-wide text-studio-primary">
-          แบบฟอร์มประเมินราคางานสัก
+          แบบฟอร์มจองคิวสัก
         </h2>
         <p className="text-xs text-studio-secondary mt-1 font-light">
-          กรอกรายละเอียดงานสักของคุณเพื่อให้ช่างสักประจำร้านประเมินราคาและระยะเวลาดำเนินการ
+          กรอกรายละเอียดงานสักของคุณเพื่อส่งคำขอจองคิวและดำเนินการชำระเงินมัดจำ
         </p>
       </div>
 
@@ -839,10 +853,10 @@ export default function EstimateForm({
           <div className="p-4 bg-[#171512] border border-[#4A443A] rounded-[6px] space-y-1.5 text-xs text-[#ECE4D3] font-prompt">
             <div className="flex items-center space-x-2 font-bold text-amber-300">
               <Sparkles size={16} className="text-amber-400 shrink-0" />
-              <span>9. ขั้นตอนถัดไปหลังส่งคำขอ</span>
+              <span>9. ขั้นตอนถัดไปหลังส่งคำขอจองคิว</span>
             </div>
             <p className="text-[11px] text-[#A89F91] leading-relaxed font-light">
-              ช่างจะตรวจสอบรายละเอียด รูปอ้างอิง และขนาดงาน ก่อนเสนอราคากลับมาให้คุณ เมื่อได้รับราคาแล้ว คุณสามารถกดยืนยันและชำระค่าจองคิว 500 บาทเพื่อล็อกวันนัดหมาย
+              เมื่อคุณกดส่งคำขอเรียบร้อยแล้ว ระบบจะนำคุณไปยังหน้าชำระเงินมัดจำเพื่อสแกน QR Code หรือโอนเงินและแนบสลิปเพื่อยืนยันคิวงาน
             </p>
           </div>
 
@@ -870,17 +884,17 @@ export default function EstimateForm({
               {loading ? (
                 <>
                   <Loader2 size={15} className="mr-2 animate-spin" />
-                  <span>กำลังส่งคำขอ...</span>
+                  <span>กำลังสร้างคำขอจอง...</span>
                 </>
               ) : (
                 <>
                   <Send size={14} className="mr-2" />
-                  <span>ส่งคำขอให้ช่างประเมิน</span>
+                  <span>ส่งคำขอจองและดำเนินการชำระมัดจำ</span>
                 </>
               )}
             </button>
             <span className="text-[10px] text-[#A89F91] font-light text-center sm:text-right">
-              ช่างจะตรวจสอบรายละเอียด รูปอ้างอิง และขนาดงาน ก่อนเสนอราคางานสักกลับมาให้คุณ
+              ระบบจะพาคุณเข้าสู่ขั้นตอนชำระเงินมัดจำทันทีหลังส่งคำขอจอง
             </span>
           </div>
         </div>
