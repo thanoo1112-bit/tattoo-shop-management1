@@ -1,14 +1,12 @@
 'use client';
 
 import React from 'react';
-import { useRouter } from 'next/navigation';
 import { 
   CheckCircle2, 
   ArrowRight, 
-  Sparkles, 
   Clock, 
   Maximize2, 
-  ExternalLink,
+  HelpCircle,
   Layers,
   Palette
 } from 'lucide-react';
@@ -33,14 +31,8 @@ export default function TattooServiceSelector({
   onSelectService,
   onNext,
 }: TattooServiceSelectorProps) {
-  const router = useRouter();
-
   const handleNextClick = () => {
     if (!selectedService) return;
-    if (selectedService === 'FLASH') {
-      router.push('/flash');
-      return;
-    }
     onNext();
   };
 
@@ -230,39 +222,39 @@ export default function TattooServiceSelector({
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {/* CARD 4: ลาย Flash ของร้าน */}
+          {/* CARD 4: ไม่แน่ใจขนาด / ปรึกษาช่างก่อน */}
           <div
-            onClick={() => onSelectService('FLASH')}
+            onClick={() => onSelectService('CONSULTATION')}
             className={`relative rounded-lg p-4 sm:p-5 cursor-pointer transition-all duration-200 flex flex-col justify-between border ${
-              selectedService === 'FLASH'
+              selectedService === 'CONSULTATION'
                 ? 'bg-studio-sec border-studio-red ring-1 ring-studio-red/50 shadow-md'
                 : 'bg-studio-card border-studio-border hover:border-studio-secondary/60'
             }`}
           >
-            {selectedService === 'FLASH' && (
+            {selectedService === 'CONSULTATION' && (
               <div className="absolute top-3 right-3 text-studio-red">
                 <CheckCircle2 className="w-5 h-5 fill-studio-red/10" />
               </div>
             )}
             <div>
               <div className="flex items-center gap-2 pr-6">
-                <Sparkles className="w-4 h-4 text-studio-red shrink-0" />
+                <HelpCircle className="w-4 h-4 text-studio-secondary shrink-0" />
                 <h3 className="font-bold text-sm sm:text-base text-studio-primary">
-                  ลาย Flash ของร้าน
+                  ไม่แน่ใจขนาด / ปรึกษาช่างก่อน
                 </h3>
               </div>
               <span className="inline-block mt-1 text-[11px] uppercase tracking-wider text-studio-secondary font-mono bg-studio-main px-2 py-0.5 rounded border border-studio-border/60">
-                Flash Collection
+                Consultation
               </span>
 
               <p className="mt-3 text-xs text-studio-secondary leading-relaxed">
-                เลือกลายสำเร็จจากคอลเลกชัน Flash ของร้าน
+                เหมาะสำหรับผู้ที่ยังไม่แน่ใจเรื่องขนาด รูปแบบ หรือต้องการปรึกษาช่างก่อน
               </p>
             </div>
 
-            <div className="mt-4 pt-3 border-t border-studio-border/60 flex items-center justify-between text-xs text-studio-red font-medium">
-              <span>เลือกดูคอลเลกชัน Flash</span>
-              <ExternalLink className="w-3.5 h-3.5" />
+            <div className="mt-4 pt-3 border-t border-studio-border/60 flex items-center justify-between text-xs text-studio-secondary">
+              <span className="text-studio-muted">มัดจำ:</span>
+              <span className="font-bold text-studio-paper">฿500</span>
             </div>
           </div>
 
@@ -344,55 +336,6 @@ export default function TattooServiceSelector({
         </div>
       </div>
 
-      {/* SECTION C: สำหรับผู้ที่ต้องการปรึกษา */}
-      <div>
-        <div className="flex items-center gap-2 mb-4">
-          <span className="text-studio-red text-sm">✦</span>
-          <h2 className="text-base sm:text-lg font-bold text-studio-primary tracking-wide">
-            สำหรับผู้ที่ต้องการปรึกษา
-          </h2>
-          <span className="text-studio-red text-sm">✦</span>
-        </div>
-
-        {/* CARD 7: Consultation Card with Subtle Emphasis */}
-        <div
-          onClick={() => onSelectService('CONSULTATION')}
-          className={`relative rounded-lg p-5 sm:p-6 cursor-pointer transition-all duration-200 border ${
-            selectedService === 'CONSULTATION'
-              ? 'bg-studio-sec border-studio-red ring-1 ring-studio-red/60 shadow-lg shadow-studio-red/5'
-              : 'bg-studio-card/90 border-studio-border/80 hover:border-studio-secondary/70'
-          }`}
-        >
-          {selectedService === 'CONSULTATION' && (
-            <div className="absolute top-4 right-4 text-studio-red">
-              <CheckCircle2 className="w-5 h-5 fill-studio-red/10" />
-            </div>
-          )}
-
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div className="space-y-2 max-w-xl">
-              <div className="flex items-center gap-2">
-                <span className="text-lg">❓</span>
-                <h3 className="font-bold text-base sm:text-lg text-studio-primary">
-                  ไม่แน่ใจขนาด / ปรึกษาช่างก่อน
-                </h3>
-                <span className="text-[11px] uppercase tracking-wider text-studio-paper font-mono bg-studio-red/20 text-studio-paper px-2.5 py-0.5 rounded border border-studio-red/40 font-semibold">
-                  Consultation
-                </span>
-              </div>
-              <p className="text-xs sm:text-sm text-studio-secondary leading-relaxed sm:pl-7">
-                เหมาะสำหรับผู้ที่ยังไม่แน่ใจเรื่องขนาด รูปแบบ หรือต้องการปรึกษาช่างก่อน
-              </p>
-            </div>
-
-            <div className="sm:text-right shrink-0 pt-3 sm:pt-0 border-t sm:border-t-0 border-studio-border/60">
-              <div className="text-xs text-studio-muted">มัดจำล็อกคิว</div>
-              <div className="text-lg sm:text-xl font-bold text-studio-paper">฿500</div>
-            </div>
-          </div>
-        </div>
-      </div>
-
       {/* DISCLAIMER */}
       <div className="pt-2 border-t border-studio-border/40">
         <p className="text-xs text-studio-muted font-light leading-relaxed">
@@ -412,16 +355,11 @@ export default function TattooServiceSelector({
               : 'bg-studio-red text-studio-paper border border-studio-red hover:bg-tattoo-red-dark cursor-pointer shadow-md shadow-studio-red/20'
           }`}
         >
-          <span>
-            {selectedService === 'FLASH' ? 'ไปยังคอลเลกชัน Flash' : 'ถัดไป'}
-          </span>
-          {selectedService === 'FLASH' ? (
-            <ExternalLink className="w-4 h-4" />
-          ) : (
-            <ArrowRight className="w-4 h-4" />
-          )}
+          <span>ถัดไป</span>
+          <ArrowRight className="w-4 h-4" />
         </button>
       </div>
     </div>
   );
 }
+
