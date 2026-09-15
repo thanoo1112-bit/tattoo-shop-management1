@@ -71,7 +71,7 @@ export default function BookingFinancialSummary({
               </span>
             ) : (
               <span className="bg-red-950/60 text-red-400 border border-red-800/60 px-2 py-0.5 rounded text-[10px] font-semibold">
-                ค้างชำระ {formatCurrency(Math.max(0, currentPrice - fin.total_paid))}
+                ค้างชำระ ฿{formatCurrency(Math.max(0, currentPrice - fin.total_paid))}
               </span>
             )
           ) : fin.is_fully_paid || (currentPrice > 0 && fin.total_paid >= currentPrice) ? (
@@ -145,64 +145,61 @@ export default function BookingFinancialSummary({
             <Sparkles size={12} className="text-amber-400" /> ราคาประเมินโดยระบบ
           </span>
           <span className="text-xs font-heading font-semibold text-amber-400">
-            {formatCurrency(booking.estimated_min_price)} – {formatCurrency(booking.estimated_max_price)}
+            ฿{formatCurrency(booking.estimated_min_price)} – ฿{formatCurrency(booking.estimated_max_price)}
           </span>
         </div>
       )}
 
-      {/* Pricing Row: 2 equal-width cards */}
-      <div className="grid grid-cols-2 gap-2 text-xs">
-        {/* Initial Price */}
-        <div className="bg-[#171512] p-2.5 rounded-lg border border-[#4A443A]/40">
-          <span className="text-[10px] text-[#7A7265] block font-medium">ราคาเบื้องต้น</span>
-          <span className="text-sm font-heading font-semibold text-[#ECE4D3] mt-0.5 block">
-            {initialPrice && initialPrice > 0 ? `฿${formatCurrency(initialPrice)}` : 'ยังไม่กำหนดราคา'}
-          </span>
+      {/* Unified Financial Metrics Container Panel */}
+      <div className="bg-[#171512] border border-[#4A443A]/60 rounded-xl p-3.5 space-y-3 text-xs">
+        {/* Top: Pricing Breakdown */}
+        <div className="grid grid-cols-2 gap-3 pb-2.5 border-b border-[#4A443A]/40">
+          <div>
+            <span className="text-[10px] text-[#7A7265] block font-medium">ราคาเบื้องต้น</span>
+            <span className="text-sm font-heading font-semibold text-[#ECE4D3] mt-0.5 block">
+              {initialPrice && initialPrice > 0 ? `฿${formatCurrency(initialPrice)}` : 'ยังไม่กำหนดราคา'}
+            </span>
+          </div>
+          <div className="text-right">
+            <span className="text-[10px] text-[#7A7265] block font-medium">
+              {isCompleted ? 'ราคาสรุปสุดท้าย' : 'ราคาปัจจุบัน'}
+            </span>
+            <span className="text-sm font-heading font-semibold text-amber-300 mt-0.5 block">
+              {currentPrice && currentPrice > 0 ? `฿${formatCurrency(currentPrice)}` : 'ยังไม่กำหนดราคา'}
+            </span>
+          </div>
         </div>
 
-        {/* Current Price / Final Lock */}
-        <div className="bg-[#171512] p-2.5 rounded-lg border border-[#4A443A]/40">
-          <span className="text-[10px] text-[#7A7265] block font-medium">
-            {isCompleted ? 'ราคาสรุปสุดท้าย' : 'ราคาปัจจุบัน'}
-          </span>
-          <span className="text-sm font-heading font-semibold text-amber-300 mt-0.5 block">
-            {currentPrice && currentPrice > 0 ? `฿${formatCurrency(currentPrice)}` : 'ยังไม่กำหนดราคา'}
-          </span>
-        </div>
-      </div>
+        {/* Bottom: Payment Breakdown */}
+        <div className="grid grid-cols-3 gap-2 items-center">
+          <div>
+            <span className="text-[10px] text-[#7A7265] block font-medium">มัดจำที่กำหนด</span>
+            <span className="text-xs sm:text-sm font-heading font-semibold text-blue-400 mt-0.5 block">
+              ฿{formatCurrency(fin.deposit_required)}
+            </span>
+          </div>
 
-      {/* Payment Row: 3 equal-width cards (Desktop 3 cols, Mobile 2 cols with Remaining Balance spanning full width) */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs">
-        {/* Deposit Required */}
-        <div className="bg-[#171512] p-2.5 rounded-lg border border-[#4A443A]/40">
-          <span className="text-[10px] text-[#7A7265] block font-medium">มัดจำที่กำหนด</span>
-          <span className="text-sm font-heading font-semibold text-blue-400 mt-0.5 block">
-            ฿{formatCurrency(fin.deposit_required)}
-          </span>
-        </div>
+          <div className="text-center">
+            <span className="text-[10px] text-[#7A7265] block font-medium">ชำระแล้ว</span>
+            <span className="text-xs sm:text-sm font-heading font-semibold text-emerald-400 mt-0.5 block">
+              ฿{formatCurrency(fin.total_paid)}
+            </span>
+          </div>
 
-        {/* Paid Total */}
-        <div className="bg-[#171512] p-2.5 rounded-lg border border-[#4A443A]/40">
-          <span className="text-[10px] text-[#7A7265] block font-medium">ชำระแล้ว</span>
-          <span className="text-sm font-heading font-semibold text-emerald-400 mt-0.5 block">
-            ฿{formatCurrency(fin.total_paid)}
-          </span>
-        </div>
-
-        {/* Remaining Balance (Visual Priority: highlighted border) */}
-        <div className="col-span-2 sm:col-span-1 bg-[#171512] p-2.5 rounded-lg border border-amber-500/40">
-          <span className="text-[10px] text-amber-300/80 block font-medium">ยอดคงเหลือ</span>
-          <span
-            className={`text-sm font-heading font-bold mt-0.5 block ${
-              currentPrice && currentPrice > 0 && fin.remaining_balance > 0
-                ? 'text-amber-400'
-                : 'text-emerald-400'
-            }`}
-          >
-            {currentPrice && currentPrice > 0
-              ? `฿${formatCurrency(fin.remaining_balance)}`
-              : 'คำนวณหลังจากกำหนดราคา'}
-          </span>
+          <div className="text-right bg-amber-950/30 border border-amber-500/30 rounded-lg p-1.5 sm:p-2">
+            <span className="text-[10px] text-amber-300/80 block font-medium">ยอดคงเหลือ</span>
+            <span
+              className={`text-xs sm:text-sm font-heading font-bold mt-0.5 block ${
+                currentPrice && currentPrice > 0 && fin.remaining_balance > 0
+                  ? 'text-amber-400'
+                  : 'text-emerald-400'
+              }`}
+            >
+              {currentPrice && currentPrice > 0
+                ? `฿${formatCurrency(fin.remaining_balance)}`
+                : 'รอราคา'}
+            </span>
+          </div>
         </div>
       </div>
 

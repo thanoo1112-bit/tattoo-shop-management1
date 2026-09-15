@@ -181,7 +181,7 @@ export default function BookingList({
       const outstanding = Math.max(0, quoted - received);
       return (
         <span className="bg-red-950/60 text-red-400 border border-red-800/60 px-2 py-0.5 rounded text-[10px] font-semibold">
-          ค้างชำระ {formatCurrency(outstanding)}
+          ค้างชำระ ฿{formatCurrency(outstanding)}
         </span>
       );
     }
@@ -299,11 +299,11 @@ export default function BookingList({
                       </td>
                       <td className="py-3 px-3 text-right font-medium text-[#ECE4D3]">
                         {book.financial?.quoted_price && book.financial.quoted_price > 0
-                          ? formatCurrency(book.financial.quoted_price)
+                          ? `฿${formatCurrency(book.financial.quoted_price)}`
                           : 'ยังไม่กำหนดราคา'}
                       </td>
                       <td className="py-3 px-3 text-right font-semibold text-emerald-400">
-                        {formatCurrency(book.financial?.total_paid || 0)}
+                        ฿{formatCurrency(book.financial?.total_paid || 0)}
                       </td>
                       <td className="py-3 px-3 text-center text-[#7A7265]">
                         <ChevronRight size={14} className="inline-block" />
@@ -347,10 +347,10 @@ export default function BookingList({
                     <div className="text-right w-full">
                       <span className="text-[10px] text-[#7A7265] mr-1">รับเงินแล้ว:</span>
                       <span className="font-semibold text-emerald-400">
-                        {formatCurrency(book.financial?.total_paid || 0)}
+                        ฿{formatCurrency(book.financial?.total_paid || 0)}
                       </span>
                       <span className="text-[10px] text-[#7A7265] ml-1">
-                        / {book.financial?.quoted_price && book.financial.quoted_price > 0 ? formatCurrency(book.financial.quoted_price) : 'ยังไม่กำหนดราคา'}
+                        / {book.financial?.quoted_price && book.financial.quoted_price > 0 ? `฿${formatCurrency(book.financial.quoted_price)}` : 'ยังไม่กำหนดราคา'}
                       </span>
                     </div>
                   </div>
