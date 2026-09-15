@@ -900,39 +900,7 @@ function CustomerPortalContent() {
               </div>
             </div>
 
-            {/* Financial Summary Card */}
-            <div className="bg-studio-card border border-studio-border p-6 rounded-[8px] space-y-4 shadow-md">
-              <span className="text-xs uppercase tracking-wider font-heading text-studio-secondary block">
-                Financial Status • สถานะการเงิน
-              </span>
-
-              <div className="space-y-3 text-xs">
-                <div className="bg-studio-main p-3.5 rounded-[4px] border border-studio-border space-y-1">
-                  <span className="text-[10px] text-studio-muted uppercase tracking-wider block">
-                    ยอดมัดจำที่ยืนยันแล้ว
-                  </span>
-                  <span className="text-xl font-bold text-studio-primary">
-                    ฿{formatCurrency(verifiedDepositsTotal)}
-                  </span>
-                </div>
-
-                <div className="bg-studio-main p-3.5 rounded-[4px] border border-studio-border space-y-1">
-                  <span className="text-[10px] text-studio-muted uppercase tracking-wider block">
-                    ยอดคงเหลือชำระหน้าร้าน
-                  </span>
-                  <span className="text-xl font-bold text-studio-red">
-                    ฿{formatCurrency(remainingBalanceTotal)}
-                  </span>
-                </div>
-              </div>
-
-              <div className="text-[11px] text-studio-muted pt-2 border-t border-studio-border/40 space-y-1 leading-relaxed font-light">
-                <p>• การชำระมัดจำทุกยอดจะต้องผ่านการตรวจสอบหลักฐานสลิปโดยผู้จัดการร้าน</p>
-                <p>• ยอดคงเหลือชำระในวันเข้ารับบริการจริงที่สตูดิโอ (เงินสด/โอนเงิน)</p>
-              </div>
-            </div>
-
-            {/* Post-Confirmation Guide Card (Desktop Only, displayed after deposit slip approval) */}
+            {/* Post-Confirmation Guide Card (Displayed after deposit slip approval) */}
             <CustomerPostConfirmationGuide hasApprovedSubmission={hasApprovedDeposit} />
           </div>
         </div>
