@@ -6,6 +6,7 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { AlertTriangle, ArrowLeft, Sparkles, ShieldCheck, Eye, EyeOff, CheckCircle, Shield, ArrowRight } from 'lucide-react';
 import { sanitizeDigitsOnly, validateCustomerPhone } from '@/lib/phoneUtils';
+import { getSafeReturnUrl } from '@/lib/urlUtils';
 
 interface CustomerLoginPageProps {
   initialFlipped?: boolean;
@@ -51,26 +52,6 @@ export default function CustomerLoginPage({ initialFlipped = false }: CustomerLo
   const [staffLoading, setStaffLoading] = useState(false);
 
   const rawNext = searchParams.get('next') || searchParams.get('redirect') || '';
-
-  const getSafeReturnUrl = (urlParam: string | null): string => {
-    if (!urlParam) return '/portal';
-    try {
-      const decoded = decodeURIComponent(urlParam);
-      // Relative path (e.g. /booking or /booking?artist=123)
-      if (decoded.startsWith('/') && !decoded.startsWith('//') && !decoded.includes('://')) {
-        return decoded;
-      }
-      // Absolute URL - extract relative pathname & search to preserve current origin
-      if (typeof window !== 'undefined') {
-        const parsed = new URL(decoded, window.location.origin);
-        if (parsed.pathname && parsed.pathname.startsWith('/')) {
-          return parsed.pathname + parsed.search + parsed.hash;
-        }
-      }
-    } catch (_) {}
-    return '/portal';
-  };
-
   const redirectUrl = getSafeReturnUrl(rawNext);
 
   // Auto redirect if already logged in as Customer

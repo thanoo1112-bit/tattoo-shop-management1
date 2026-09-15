@@ -97,10 +97,11 @@ const translateRpcError = (msg: string): string => {
 };
 
 const STEPS = [
-  { step: 1, title: 'เลือกคิว', subtitle: 'เลือกช่างและวันเวลาที่สะดวก' },
-  { step: 2, title: 'รายละเอียดงาน', subtitle: 'รายละเอียดงานสัก' },
-  { step: 3, title: 'สุขภาพ', subtitle: 'ข้อมูลสุขภาพและการยินยอม' },
-  { step: 4, title: 'ตรวจสอบ', subtitle: 'ตรวจสอบข้อมูลก่อนส่ง' },
+  { step: 1, title: 'เลือกช่าง', subtitle: 'เลือกช่างสัก' },
+  { step: 2, title: 'วันและเวลา', subtitle: 'เลือกวันและเวลา' },
+  { step: 3, title: 'รายละเอียดงาน', subtitle: 'รายละเอียดงานสัก' },
+  { step: 4, title: 'สุขภาพ', subtitle: 'ข้อมูลสุขภาพ' },
+  { step: 5, title: 'ตรวจสอบ', subtitle: 'ตรวจสอบคำขอ' },
 ];
 
 export default function EstimateForm({ 
@@ -127,7 +128,7 @@ export default function EstimateForm({
     setEstimateDraft 
   } = useApp();
 
-  // Multi-Step Form State
+  // Multi-Step Form State (5 Steps)
   const [currentStep, setCurrentStep] = useState<number>(1);
 
   // Flash Design State
@@ -281,14 +282,19 @@ export default function EstimateForm({
   // STEP VALIDATIONS
   // =========================================================================
 
-  // STEP 1 VALIDATION (เลือกคิว)
-  const validateStep1 = async (): Promise<boolean> => {
+  // STEP 1 VALIDATION (เลือกช่างสัก - ARTIST ONLY)
+  const validateStep1 = (): boolean => {
     setError('');
-
     if (!artistId) {
       setError('กรุณาเลือกช่างสักที่ต้องการ');
       return false;
     }
+    return true;
+  };
+
+  // STEP 2 VALIDATION (เลือกวันและเวลา - DATE & TIME)
+  const validateStep2 = async (): Promise<boolean> => {
+    setError('');
 
     if (!preferredDate) {
       setError('กรุณาเลือกวันที่ต้องการจองคิว');
@@ -332,8 +338,8 @@ export default function EstimateForm({
     return true;
   };
 
-  // STEP 2 VALIDATION (รายละเอียดงานสัก)
-  const validateStep2 = (): boolean => {
+  // STEP 3 VALIDATION (รายละเอียดงานสัก)
+  const validateStep3 = (): boolean => {
     setError('');
 
     if (flashId && flashData) {
@@ -375,8 +381,8 @@ export default function EstimateForm({
     return true;
   };
 
-  // STEP 3 VALIDATION (ข้อมูลสุขภาพ)
-  const validateStep3 = (): boolean => {
+  // STEP 4 VALIDATION (ข้อมูลสุขภาพ)
+  const validateStep4 = (): boolean => {
     setError('');
 
     if (hasMedicalCondition && (!medicalConditionNote || !medicalConditionNote.trim())) {
@@ -397,17 +403,19 @@ export default function EstimateForm({
     setLoading(true);
     let ok = false;
     if (currentStep === 1) {
-      ok = await validateStep1();
+      ok = validateStep1();
     } else if (currentStep === 2) {
-      ok = validateStep2();
+      ok = await validateStep2();
     } else if (currentStep === 3) {
       ok = validateStep3();
+    } else if (currentStep === 4) {
+      ok = validateStep4();
     }
     setLoading(false);
 
     if (ok) {
       setError('');
-      setCurrentStep((prev) => Math.min(prev + 1, 4));
+      setCurrentStep((prev) => Math.min(prev + 1, 5));
       scrollToTop();
     }
   };
@@ -418,20 +426,20 @@ export default function EstimateForm({
     scrollToTop();
   };
 
-  // MAIN FORM SUBMIT HANDLER (STEP 4 FINAL SUBMIT)
+  // MAIN FORM SUBMIT HANDLER (STEP 5 FINAL SUBMIT)
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
 
     // Re-verify all steps before submit
-    const s1Ok = await validateStep1();
+    const s1Ok = validateStep1();
     if (!s1Ok) {
       setCurrentStep(1);
       scrollToTop();
       return;
     }
 
-    const s2Ok = validateStep2();
+    const s2Ok = await validateStep2();
     if (!s2Ok) {
       setCurrentStep(2);
       scrollToTop();
@@ -441,6 +449,13 @@ export default function EstimateForm({
     const s3Ok = validateStep3();
     if (!s3Ok) {
       setCurrentStep(3);
+      scrollToTop();
+      return;
+    }
+
+    const s4Ok = validateStep4();
+    if (!s4Ok) {
+      setCurrentStep(4);
       scrollToTop();
       return;
     }
@@ -710,7 +725,7 @@ export default function EstimateForm({
   return (
     <div ref={formTopRef} className={`w-full mx-auto space-y-5 animate-fadeIn font-prompt ${compact ? '' : 'max-w-4xl'}`}>
       
-      {/* STEPPER HEADER — DESKTOP */}
+      {/* STEPPER HEADER — DESKTOP (5 STEPS) */}
       <div className="hidden md:block bg-studio-card border border-studio-border rounded-[8px] p-4 shadow-md font-prompt">
         <div className="flex items-center justify-between">
           {STEPS.map((s, idx) => {
@@ -729,12 +744,12 @@ export default function EstimateForm({
                     }
                   }}
                   disabled={stepNum > currentStep}
-                  className={`flex items-center space-x-3 transition-all ${
+                  className={`flex items-center space-x-2.5 transition-all ${
                     stepNum <= currentStep ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'
                   }`}
                 >
                   <div
-                    className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs transition-all ${
+                    className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs transition-all ${
                       isCompleted
                         ? 'bg-emerald-500/20 border border-emerald-500/50 text-emerald-400'
                         : isCurrent
@@ -742,7 +757,7 @@ export default function EstimateForm({
                         : 'bg-studio-main border border-studio-border text-studio-muted'
                     }`}
                   >
-                    {isCompleted ? <Check size={16} /> : `0${stepNum}`}
+                    {isCompleted ? <Check size={14} /> : `0${stepNum}`}
                   </div>
                   <div className="text-left">
                     <span className={`text-[10px] uppercase tracking-wider block font-semibold ${
@@ -750,7 +765,7 @@ export default function EstimateForm({
                     }`}>
                       0{stepNum} {s.title}
                     </span>
-                    <span className={`text-xs font-semibold block ${
+                    <span className={`text-[11px] font-semibold block ${
                       isCurrent ? 'text-studio-primary font-bold' : isCompleted ? 'text-studio-primary' : 'text-studio-secondary'
                     }`}>
                       {s.subtitle}
@@ -758,7 +773,7 @@ export default function EstimateForm({
                   </div>
                 </button>
                 {idx < STEPS.length - 1 && (
-                  <div className={`flex-1 h-[2px] mx-3 transition-all ${
+                  <div className={`flex-1 h-[2px] mx-2 transition-all ${
                     currentStep > stepNum ? 'bg-emerald-500/40' : 'bg-studio-border'
                   }`} />
                 )}
@@ -768,25 +783,25 @@ export default function EstimateForm({
         </div>
       </div>
 
-      {/* STEPPER HEADER — MOBILE */}
+      {/* STEPPER HEADER — MOBILE (5 STEPS) */}
       <div className="block md:hidden bg-studio-card border border-studio-border rounded-[8px] p-4 font-prompt">
         <div className="flex justify-between items-center mb-2">
           <div>
             <span className="text-[10px] uppercase tracking-widest text-studio-red font-bold block">
-              ขั้นตอน {currentStep} จาก 4
+              ขั้นตอน {currentStep} จาก 5
             </span>
             <h3 className="text-sm font-bold text-studio-primary">
               {STEPS[currentStep - 1].subtitle}
             </h3>
           </div>
           <span className="text-xs text-studio-muted font-mono font-bold">
-            {Math.round((currentStep / 4) * 100)}%
+            {Math.round((currentStep / 5) * 100)}%
           </span>
         </div>
         <div className="w-full h-1.5 bg-studio-main rounded-full overflow-hidden border border-studio-border">
           <div
             className="h-full bg-studio-red transition-all duration-300 rounded-full"
-            style={{ width: `${(currentStep / 4) * 100}%` }}
+            style={{ width: `${(currentStep / 5) * 100}%` }}
           />
         </div>
       </div>
@@ -809,28 +824,28 @@ export default function EstimateForm({
       >
         
         {/* ===================================================================
-            STEP 1 — เลือกคิว
+            STEP 1 — เลือกช่างสัก (ARTIST ONLY)
             =================================================================== */}
         {currentStep === 1 && (
           <div className="space-y-6 w-full max-w-3xl mx-auto animate-fadeIn">
             
             <div className="border-b border-studio-border pb-3">
               <h3 className="text-lg font-bold text-studio-primary flex items-center gap-2">
-                <Calendar className="text-studio-red shrink-0" size={18} />
-                <span>เลือกช่างและวันเวลาที่สะดวก</span>
+                <User className="text-studio-red shrink-0" size={18} />
+                <span>เลือกช่างสัก</span>
               </h3>
               <p className="text-xs text-studio-secondary mt-0.5">
-                เลือกช่างสักที่ชื่นชอบ พร้อมกำหนดวันที่และเวลารอบที่สะดวกเข้ารับบริการ
+                เลือกช่างที่คุณต้องการจองคิว
               </p>
             </div>
 
-            {/* 1.1 Artist Selection */}
+            {/* Artist Selection Cards */}
             <div>
-              <label className="text-[11px] uppercase tracking-wider text-studio-secondary block mb-2 font-semibold flex items-center gap-1.5">
-                <User size={14} className="text-studio-red" />
+              <label className="text-[11px] uppercase tracking-wider text-studio-secondary block mb-3 font-semibold flex items-center gap-1.5">
+                <Sparkles size={14} className="text-studio-red" />
                 <span>เลือกช่างสักที่ต้องการ <span className="text-studio-red">*</span></span>
               </label>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {artists.map((art) => {
                   const specs = getArtistSpecialties(art);
                   const specsLabel = specs.length > 0 ? specs.join(' / ') : 'ช่างประจำร้าน';
@@ -840,16 +855,16 @@ export default function EstimateForm({
                       key={art.id}
                       type="button"
                       onClick={() => handleArtistSelect(art.id)}
-                      className={`p-3 rounded-[6px] border text-left flex items-center space-x-3 transition-all cursor-pointer min-w-0 ${
+                      className={`p-3.5 rounded-[6px] border text-left flex items-center space-x-3 transition-all cursor-pointer min-w-0 ${
                         isSelected 
                           ? 'border-studio-red bg-studio-sec shadow-inner ring-1 ring-studio-red/40' 
                           : 'border-studio-border hover:border-studio-border/80 bg-studio-main/60'
                       }`}
                     >
-                      <img src={art.avatar} alt={art.name} className="w-10 h-10 object-cover rounded-full shrink-0 border border-studio-border" />
+                      <img src={art.avatar} alt={art.name} className="w-12 h-12 object-cover rounded-full shrink-0 border border-studio-border" />
                       <div className="min-w-0 flex-1">
-                        <h4 className="text-xs font-semibold text-studio-primary truncate">{art.name}</h4>
-                        <p className="text-[10px] text-studio-secondary truncate">{specsLabel}</p>
+                        <h4 className="text-xs font-bold text-studio-primary truncate">{art.name}</h4>
+                        <p className="text-[10px] text-studio-secondary truncate mt-0.5">{specsLabel}</p>
                       </div>
                       {isSelected && (
                         <div className="w-5 h-5 bg-studio-red rounded-full flex items-center justify-center text-white shrink-0">
@@ -862,8 +877,46 @@ export default function EstimateForm({
               </div>
             </div>
 
-            {/* 1.2 Preferred Date & Time */}
-            <div className="grid grid-cols-1 sm:grid-cols-[3fr_2fr] gap-3 items-end pt-2">
+            {/* Step 1 Navigation CTA */}
+            <div className="border-t border-studio-border pt-4 flex justify-end">
+              <button
+                type="button"
+                onClick={handleNextStep}
+                disabled={loading || !artistId}
+                className="w-full sm:w-auto min-h-[44px] bg-studio-red hover:bg-tattoo-red-dark text-white text-xs uppercase tracking-wider py-3 px-8 font-semibold transition-all rounded-[4px] border border-studio-red flex items-center justify-center space-x-2 cursor-pointer shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {loading ? (
+                  <Loader2 size={15} className="animate-spin" />
+                ) : (
+                  <>
+                    <span>ถัดไป</span>
+                    <ArrowRight size={14} />
+                  </>
+                )}
+              </button>
+            </div>
+
+          </div>
+        )}
+
+        {/* ===================================================================
+            STEP 2 — เลือกวันและเวลา (DATE & TIME ONLY)
+            =================================================================== */}
+        {currentStep === 2 && (
+          <div className="space-y-6 w-full max-w-3xl mx-auto animate-fadeIn">
+            
+            <div className="border-b border-studio-border pb-3">
+              <h3 className="text-lg font-bold text-studio-primary flex items-center gap-2">
+                <Calendar className="text-studio-red shrink-0" size={18} />
+                <span>เลือกวันและเวลา</span>
+              </h3>
+              <p className="text-xs text-studio-secondary mt-0.5">
+                เลือกวันที่และเวลาที่สะดวกเข้ารับบริการ (ช่าง: <strong className="text-studio-primary">{selectedArtist?.name || 'ช่างประจำร้าน'}</strong>)
+              </p>
+            </div>
+
+            {/* Date & Time Selection */}
+            <div className="grid grid-cols-1 sm:grid-cols-[3fr_2fr] gap-3 items-end">
               <div>
                 <DatePickerPopover
                   value={preferredDate}
@@ -901,13 +954,21 @@ export default function EstimateForm({
               </div>
             </div>
 
-            {/* Step 1 Navigation CTA */}
-            <div className="border-t border-studio-border pt-4 flex justify-end">
+            {/* Step 2 Navigation CTA */}
+            <div className="border-t border-studio-border pt-4 flex justify-between gap-3">
+              <button
+                type="button"
+                onClick={handlePrevStep}
+                className="min-h-[44px] bg-studio-main hover:bg-studio-sec text-studio-primary text-xs uppercase tracking-wider py-3 px-6 font-semibold transition-all rounded-[4px] border border-studio-border flex items-center space-x-2 cursor-pointer"
+              >
+                <ArrowLeft size={14} />
+                <span>ย้อนกลับ</span>
+              </button>
               <button
                 type="button"
                 onClick={handleNextStep}
                 disabled={loading}
-                className="w-full sm:w-auto min-h-[44px] bg-studio-red hover:bg-tattoo-red-dark text-white text-xs uppercase tracking-wider py-3 px-8 font-semibold transition-all rounded-[4px] border border-studio-red flex items-center justify-center space-x-2 cursor-pointer shadow-lg"
+                className="min-h-[44px] bg-studio-red hover:bg-tattoo-red-dark text-white text-xs uppercase tracking-wider py-3 px-8 font-semibold transition-all rounded-[4px] border border-studio-red flex items-center space-x-2 cursor-pointer shadow-lg disabled:opacity-50"
               >
                 {loading ? (
                   <Loader2 size={15} className="animate-spin" />
@@ -924,9 +985,9 @@ export default function EstimateForm({
         )}
 
         {/* ===================================================================
-            STEP 2 — รายละเอียดงานสัก
+            STEP 3 — รายละเอียดงานสัก
             =================================================================== */}
-        {currentStep === 2 && (
+        {currentStep === 3 && (
           <div className="space-y-6 w-full max-w-3xl mx-auto animate-fadeIn">
             
             <div className="border-b border-studio-border pb-3">
@@ -939,7 +1000,7 @@ export default function EstimateForm({
               </p>
             </div>
 
-            {/* 2.1 Style */}
+            {/* 3.1 Style */}
             <div>
               <label className="text-[11px] uppercase tracking-wider text-studio-secondary block mb-1.5 font-semibold">
                 สไตล์งานสัก <span className="text-studio-red">*</span>
@@ -989,7 +1050,7 @@ export default function EstimateForm({
               )}
             </div>
 
-            {/* 2.2 Placement */}
+            {/* 3.2 Placement */}
             <div>
               <label className="text-[11px] uppercase tracking-wider text-studio-secondary block mb-1.5 font-semibold">
                 ตำแหน่งที่ต้องการสัก <span className="text-studio-red">*</span>
@@ -1003,7 +1064,7 @@ export default function EstimateForm({
               />
             </div>
 
-            {/* 2.3 Size Input */}
+            {/* 3.3 Size Input */}
             <div>
               <label className="text-[11px] uppercase tracking-wider text-studio-secondary block mb-1.5 font-semibold">
                 ขนาดของงานสัก (เซนติเมตร) <span className="text-studio-red">*</span>
@@ -1022,7 +1083,7 @@ export default function EstimateForm({
               />
             </div>
 
-            {/* 2.4 Reference Image Upload */}
+            {/* 3.4 Reference Image Upload */}
             <div>
               <label className="text-[11px] uppercase tracking-wider text-studio-secondary block mb-2 font-semibold flex items-center gap-1.5">
                 <ImageIcon size={14} className="text-studio-red" />
@@ -1044,7 +1105,7 @@ export default function EstimateForm({
               />
             </div>
 
-            {/* 2.5 Description */}
+            {/* 3.5 Description */}
             <div>
               <label className="text-[11px] uppercase tracking-wider text-studio-secondary block mb-1.5 font-semibold">
                 รายละเอียดงานสักเพิ่มเติม
@@ -1058,7 +1119,7 @@ export default function EstimateForm({
               />
             </div>
 
-            {/* Step 2 Navigation CTA */}
+            {/* Step 3 Navigation CTA */}
             <div className="border-t border-studio-border pt-4 flex justify-between gap-3">
               <button
                 type="button"
@@ -1082,9 +1143,9 @@ export default function EstimateForm({
         )}
 
         {/* ===================================================================
-            STEP 3 — ข้อมูลสุขภาพ
+            STEP 4 — ข้อมูลสุขภาพ
             =================================================================== */}
-        {currentStep === 3 && (
+        {currentStep === 4 && (
           <div className="space-y-6 w-full max-w-3xl mx-auto animate-fadeIn">
             
             <div className="border-b border-studio-border pb-3">
@@ -1104,7 +1165,7 @@ export default function EstimateForm({
                 <span>ข้อระวังทางสุขภาพที่ควรแจ้งช่างสัก</span>
               </div>
 
-              {/* 3.1 Medical Condition */}
+              {/* 4.1 Medical Condition */}
               <div className="space-y-2 pt-1">
                 <label className="flex items-center space-x-2 cursor-pointer text-xs text-[#ECE4D3]">
                   <input
@@ -1133,7 +1194,7 @@ export default function EstimateForm({
                 )}
               </div>
 
-              {/* 3.2 Allergy History */}
+              {/* 4.2 Allergy History */}
               <div className="space-y-2 pt-2 border-t border-[#4A443A]/40">
                 <label className="flex items-center space-x-2 cursor-pointer text-xs text-[#ECE4D3]">
                   <input
@@ -1163,7 +1224,7 @@ export default function EstimateForm({
               </div>
             </div>
 
-            {/* Step 3 Navigation CTA */}
+            {/* Step 4 Navigation CTA */}
             <div className="border-t border-studio-border pt-4 flex justify-between gap-3">
               <button
                 type="button"
@@ -1187,9 +1248,9 @@ export default function EstimateForm({
         )}
 
         {/* ===================================================================
-            STEP 4 — ตรวจสอบคำขอ
+            STEP 5 — ตรวจสอบคำขอ (SUMMARY & SUBMIT)
             =================================================================== */}
-        {currentStep === 4 && (
+        {currentStep === 5 && (
           <div className="space-y-6 w-full max-w-3xl mx-auto animate-fadeIn">
             
             <div className="border-b border-studio-border pb-3">
@@ -1335,7 +1396,7 @@ export default function EstimateForm({
               </div>
             </div>
 
-            {/* Step 4 Final CTA Bar */}
+            {/* Step 5 Final CTA Bar */}
             <div className="border-t border-studio-border pt-4 flex flex-col sm:flex-row justify-between items-center gap-3">
               <button
                 type="button"

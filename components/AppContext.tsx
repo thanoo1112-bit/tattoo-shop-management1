@@ -9,6 +9,7 @@ import { User } from '@supabase/supabase-js';
 import { normalizeThaiPhone, formatThaiPhoneForDisplay } from '@/lib/phoneUtils';
 import { getThailandTodayStr } from './portal/portalUtils';
 import { mapServerCompletionError } from './admin/requests/adminCompletionGuard';
+import { getSafeReturnUrl } from '@/lib/urlUtils';
 
 interface Profile {
   id: string;
@@ -874,7 +875,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const loginWithGoogle = async (returnUrl?: string) => {
     try {
       const siteUrl = typeof window !== 'undefined' ? window.location.origin : '';
-      const safeTarget = returnUrl && returnUrl.startsWith('/') && !returnUrl.startsWith('//') ? returnUrl : '/portal';
+      const safeTarget = getSafeReturnUrl(returnUrl);
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {

@@ -3,6 +3,7 @@
 import React, { useState, useEffect, Suspense } from 'react';
 import { useApp, checkIsCustomerProfileComplete } from '@/components/AppContext';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { getSafeReturnUrl } from '@/lib/urlUtils';
 import { 
   User, 
   Phone, 
@@ -33,22 +34,6 @@ function CompleteProfileContent() {
   const searchParams = useSearchParams();
 
   const rawNext = searchParams.get('next') || searchParams.get('redirect') || '';
-  const getSafeReturnUrl = (urlParam: string | null): string => {
-    if (!urlParam) return '/portal';
-    try {
-      const decoded = decodeURIComponent(urlParam);
-      if (decoded.startsWith('/') && !decoded.startsWith('//') && !decoded.includes('://')) {
-        return decoded;
-      }
-      if (typeof window !== 'undefined') {
-        const parsed = new URL(decoded, window.location.origin);
-        if (parsed.pathname && parsed.pathname.startsWith('/')) {
-          return parsed.pathname + parsed.search + parsed.hash;
-        }
-      }
-    } catch (_) {}
-    return '/portal';
-  };
   const returnTargetUrl = getSafeReturnUrl(rawNext);
 
   const [displayName, setDisplayName] = useState('');
