@@ -500,56 +500,61 @@ export default function AdminCustomerArchive() {
 
       const hBookingIds = new Set(h.bookings.map((b) => b.id));
 
-      // CANONICAL BUSINESS RULE: Customer Archive = Artist Confirmed Clients ONLY
-      // Customer MUST have at least 1 job explicitly confirmed by artist:
-      // - estimate_requests.status === 'ACCEPTED'
-      // - bookings.approved_at && bookings.artist_id
-      const hasArtistConfirmedEstimate = h.estimates.some(
-        (e) => e.status === 'ACCEPTED'
+      // CANONICAL BUSINESS RULE: Customer Archive = Payment Deposit Slip Approved Clients ONLY
+      // Entry Milestone Requirement:
+      // Customer MUST have at least 1 approved deposit payment submission (booking_payment_submissions.status = 'APPROVED')
+      // linked via customer_user_id or booking_id.
+      // Booking status (CONFIRMED, IN_PROGRESS, COMPLETED) alone DOES NOT grant entry to the archive!
+      const approvedBookingIds = new Set<string>();
+
+      approvedSubmissions.forEach((sub: any) => {
+        if (sub.booking_id) approvedBookingIds.add(sub.booking_id);
+      });
+
+      const hasApprovedDepositSubmission = Boolean(
+        (h.userId && approvedSubmissions.some((sub: any) => sub.customer_user_id === h.userId)) ||
+        h.bookings.some((b: any) => approvedBookingIds.has(b.id))
       );
 
-      const hasArtistConfirmedBooking = h.bookings.some(
-        (b) => Boolean(((b as any).approved_at || (b as any).approvedAt) && ((b as any).artist_id || (b as any).artistId))
-      );
-
-      const isArtistConfirmedMember = hasArtistConfirmedEstimate || hasArtistConfirmedBooking;
-
-      if (!isArtistConfirmedMember) {
-        return; // Skip accounts that have never had a job explicitly confirmed by an artist
+      if (!hasApprovedDepositSubmission) {
+        return; // Skip accounts that have NEVER had a deposit payment slip approved
       }
 
-      // Valid jobs associated with artist confirmed bookings/estimates
-      const confirmedJobBookings = sortedBookings.filter(
-        (b) => Boolean(((b as any).approved_at || (b as any).approvedAt) && ((b as any).artist_id || (b as any).artistId))
-      );
-      const completedBookings = sortedBookings.filter((b) => b.status === 'COMPLETED');
+      // Valid jobs associated with confirmed deposit slip / confirmed bookings for history display
+      const isConfirmedWork = (b: any) => {
+        const bStatus = (b.status || '').toUpperCase();
+        const isConfirmedStatus = bStatus === 'CONFIRMED' || bStatus === 'IN_PROGRESS' || bStatus === 'COMPLETED';
+        const hasApprovedSubmission = approvedBookingIds.has(b.id);
+        return isConfirmedStatus || hasApprovedSubmission;
+      };
+
+      const confirmedJobBookings = sortedBookings.filter(isConfirmedWork);
+      const completedBookings = sortedBookings.filter((b) => (b.status || '').toUpperCase() === 'COMPLETED');
 
       // Completed / Confirmed Job Count
-      const acceptedEstimatesCount = sortedEstimates.filter((e) => e.status === 'ACCEPTED').length;
-      const confirmedCount = Math.max(confirmedJobBookings.length, acceptedEstimatesCount);
+      const confirmedCount = confirmedJobBookings.length;
       const completedCount = completedBookings.length > 0 ? completedBookings.length : (confirmedCount > 0 ? confirmedCount : 1);
 
-      // Active Bookings (WAITING_DEPOSIT, CONFIRMED, IN_PROGRESS)
+      // Active Bookings (CONFIRMED, IN_PROGRESS, WAITING_DEPOSIT)
       const activeBookings = sortedBookings.filter(
         (b) => b.status === 'WAITING_DEPOSIT' || b.status === 'CONFIRMED' || b.status === 'IN_PROGRESS'
       );
 
       // Total spent on confirmed/completed jobs
-      const totalSpent = (confirmedJobBookings.length > 0 ? confirmedJobBookings : sortedBookings)
+      const totalSpent = (confirmedJobBookings.length > 0 ? confirmedJobBookings : [])
         .reduce((sum, b) => sum + (b.price || 0), 0);
 
-      // Most recent job (Prefer latest confirmed/completed booking or accepted estimate with explicit artist confirmation evidence)
-      const latestConfirmedBooking = confirmedJobBookings[0] || sortedBookings.find((b) => Boolean(((b as any).approved_at || (b as any).approvedAt) && ((b as any).artist_id || (b as any).artistId)));
-      const latestAcceptedEstimate = sortedEstimates.find((e) => e.status === 'ACCEPTED');
-      const lastArtistName = latestConfirmedBooking?.artistName || latestAcceptedEstimate?.artistName || 'ช่างสักประจำร้าน';
-      const lastArtworkTitle = latestConfirmedBooking?.artworkTitle || (latestAcceptedEstimate ? `งานสไตล์ ${latestAcceptedEstimate.style}` : 'งานสัก');
-      const lastDate = latestConfirmedBooking?.date || latestAcceptedEstimate?.submittedDate || '-';
+      // Most recent job
+      const latestConfirmedBooking = confirmedJobBookings[0] || sortedBookings.find(isConfirmedWork);
+      const lastArtistName = latestConfirmedBooking?.artistName || 'ช่างสักประจำร้าน';
+      const lastArtworkTitle = latestConfirmedBooking?.artworkTitle || 'งานสัก';
+      const lastDate = latestConfirmedBooking?.date || '-';
 
       // Next upcoming appointment
       const activeUpcoming = sortedBookings.find(
-        (b) => b.status === 'CONFIRMED' || b.status === 'IN_PROGRESS' || b.status === 'WAITING_DEPOSIT'
+        (b) => b.status === 'CONFIRMED' || b.status === 'IN_PROGRESS'
       );
-      const pendingAppointment = sortedBookings.find((b) => b.status === 'PENDING');
+      const pendingAppointment = sortedBookings.find((b) => b.status === 'WAITING_DEPOSIT' || b.status === 'PENDING');
       const nextAppointment = activeUpcoming || pendingAppointment || null;
 
       let statusCategory: CustomerRecord['statusCategory'] = 'NO_APPOINTMENT';
