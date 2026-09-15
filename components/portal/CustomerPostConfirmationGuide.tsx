@@ -65,8 +65,8 @@ export default function CustomerPostConfirmationGuide({
 
   return (
     <>
-      {/* DESKTOP ONLY CARD CONTAINER */}
-      <div className="hidden lg:block bg-studio-card border border-studio-border p-4 rounded-[8px] space-y-3 shadow-md animate-fadeIn">
+      {/* CARD CONTAINER (RESPONSIVE: MOBILE & DESKTOP) */}
+      <div className="w-full bg-studio-card border border-studio-border p-4 rounded-[8px] space-y-3 shadow-md animate-fadeIn">
         <div className="space-y-0.5 border-b border-studio-border/60 pb-2">
           <div className="flex items-center gap-2">
             <HeartPulse size={15} className="text-studio-red" />
@@ -99,7 +99,7 @@ export default function CustomerPostConfirmationGuide({
             <button
               type="button"
               onClick={() => setIsModalOpen(true)}
-              className="w-full min-h-[34px] bg-studio-sec hover:bg-studio-card border border-studio-border text-studio-primary px-3 py-1.5 rounded-[4px] text-xs font-medium flex items-center justify-between transition-all group"
+              className="w-full min-h-[42px] sm:min-h-[34px] bg-studio-sec hover:bg-studio-card border border-studio-border text-studio-primary px-3.5 py-2 sm:py-1.5 rounded-[4px] text-xs font-medium flex items-center justify-between transition-all group active:scale-[0.99]"
             >
               <span className="text-studio-red font-semibold">ดูคู่มือทั้งหมด</span>
               <ChevronRight size={14} className="text-studio-muted group-hover:translate-x-0.5 transition-transform" />
@@ -129,7 +129,7 @@ export default function CustomerPostConfirmationGuide({
               href={GOOGLE_MAPS_URL}
               target="_blank"
               rel="noopener noreferrer"
-              className="w-full min-h-[34px] bg-studio-sec hover:bg-studio-card border border-studio-border text-studio-primary px-3 py-1.5 rounded-[4px] text-xs font-medium flex items-center justify-between transition-all group"
+              className="w-full min-h-[42px] sm:min-h-[34px] bg-studio-sec hover:bg-studio-card border border-studio-border text-studio-primary px-3.5 py-2 sm:py-1.5 rounded-[4px] text-xs font-medium flex items-center justify-between transition-all group active:scale-[0.99]"
             >
               <span className="flex items-center gap-1.5 font-semibold text-studio-primary group-hover:text-studio-red transition-colors">
                 <MapPin size={13} className="text-studio-red" />
@@ -144,9 +144,9 @@ export default function CustomerPostConfirmationGuide({
       {/* FULL GUIDE MODAL */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fadeIn">
-          <div className="bg-studio-card border border-studio-border rounded-[8px] max-w-lg w-full max-h-[90vh] flex flex-col shadow-2xl overflow-hidden font-prompt">
+          <div className="bg-studio-card border border-studio-border rounded-[8px] max-w-lg w-full max-h-[85vh] flex flex-col shadow-2xl overflow-hidden font-prompt">
             {/* Modal Header */}
-            <div className="p-4 sm:p-5 border-b border-studio-border flex items-center justify-between bg-studio-main">
+            <div className="p-4 sm:p-5 border-b border-studio-border flex items-center justify-between bg-studio-main shrink-0">
               <div className="flex items-center gap-2.5">
                 <div className="p-2 rounded-[4px] bg-studio-sec border border-studio-border text-studio-red">
                   <HeartPulse size={18} />
@@ -163,15 +163,15 @@ export default function CustomerPostConfirmationGuide({
               <button
                 type="button"
                 onClick={() => setIsModalOpen(false)}
-                className="p-1.5 rounded-[4px] hover:bg-studio-sec text-studio-muted hover:text-studio-primary transition-colors"
+                className="p-2 rounded-[4px] hover:bg-studio-sec text-studio-muted hover:text-studio-primary transition-colors"
                 title="ปิด"
               >
-                <X size={18} />
+                <X size={20} />
               </button>
             </div>
 
             {/* Modal Scrollable Body */}
-            <div className="p-4 sm:p-6 overflow-y-auto space-y-3">
+            <div className="p-4 sm:p-6 overflow-y-auto space-y-3 flex-1">
               {guideItems.map((item) => (
                 <div
                   key={item.step}
@@ -198,11 +198,11 @@ export default function CustomerPostConfirmationGuide({
             </div>
 
             {/* Modal Footer */}
-            <div className="p-4 border-t border-studio-border bg-studio-main flex justify-end">
+            <div className="p-4 border-t border-studio-border bg-studio-main flex justify-end shrink-0">
               <button
                 type="button"
                 onClick={() => setIsModalOpen(false)}
-                className="min-h-[38px] bg-studio-red text-studio-paper hover:bg-tattoo-red-dark px-5 py-2 rounded-[4px] text-xs font-semibold transition-all"
+                className="w-full sm:w-auto min-h-[44px] sm:min-h-[38px] bg-studio-red text-studio-paper hover:bg-tattoo-red-dark px-5 py-2.5 rounded-[4px] text-xs font-semibold transition-all"
               >
                 รับทราบ และปิดหน้าต่าง
               </button>
