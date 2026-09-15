@@ -56,10 +56,9 @@ interface EstimateFormProps {
 
 const getArtistSpecialties = (artistObj?: any): string[] => {
   if (!artistObj) return [];
-  const specs = Array.isArray(artistObj.specialties) && artistObj.specialties.length > 0
+  return Array.isArray(artistObj.specialties) && artistObj.specialties.length > 0
     ? artistObj.specialties.map((s: string) => s.trim()).filter(Boolean)
     : [];
-  return specs.filter((s: string) => s !== 'ตามที่ช่างแนะนำ');
 };
 
 export default function EstimateForm({ 
@@ -188,7 +187,7 @@ export default function EstimateForm({
     setError('');
     const targetArtistObj = artists.find((a) => a.id === id);
     const specialties = getArtistSpecialties(targetArtistObj);
-    if (style && style !== 'ตามที่ช่างแนะนำ' && specialties.length > 0 && !specialties.includes(style)) {
+    if (style && specialties.length > 0 && !specialties.includes(style)) {
       setStyle('');
     }
   };
@@ -254,7 +253,7 @@ export default function EstimateForm({
 
       const selectedArtistObj = artists.find((a) => a.id === artistId);
       const availableStyles = getArtistSpecialties(selectedArtistObj);
-      if (style !== 'ตามที่ช่างแนะนำ' && availableStyles.length > 0 && !availableStyles.includes(style)) {
+      if (availableStyles.length > 0 && !availableStyles.includes(style)) {
         setError('สไตล์งานสักที่เลือกไม่ตรงกับช่างสัก กรุณาเลือกใหม่');
         return false;
       }
@@ -631,7 +630,7 @@ export default function EstimateForm({
               สไตล์งานสัก <span className="text-studio-red">*</span>
             </label>
             <div className="flex flex-wrap gap-2">
-              {['ตามที่ช่างแนะนำ', ...artistSpecialties].map((st) => (
+              {artistSpecialties.map((st) => (
                 <button
                   key={st}
                   type="button"
