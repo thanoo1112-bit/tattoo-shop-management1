@@ -30,6 +30,7 @@ import {
   Plus,
   Sparkles,
   BadgeDollarSign,
+  History,
 } from 'lucide-react';
 import { 
   formatDateBangkok, 
@@ -40,7 +41,9 @@ import {
   getSessionStatusConfig, 
   getBookingStatusConfig 
 } from '@/components/admin/calendar/calendarUtils';
-import { getTattooWorkTypeLabel } from '@/components/admin/requests/types';
+import { getTattooWorkTypeLabel, PriceAdjustmentItem, formatDateTimeBangkok } from '@/components/admin/requests/types';
+import { useApp } from '@/components/AppContext';
+import UpdateBookingPriceModal from '@/components/admin/requests/UpdateBookingPriceModal';
 
 export interface ArtistSessionDetail {
   session_id: string;
@@ -53,6 +56,7 @@ export interface ArtistSessionDetail {
   
   // Booking Info
   booking_id: string;
+  artist_id?: string | null;
   booking_status: string;
   booking_source?: string | null;
   artwork_title?: string | null;
@@ -110,9 +114,32 @@ interface Props {
 
 export default function ArtistAppointmentDetailDrawer({ session, isOpen, onClose, onRefresh }: Props) {
   const supabase = createClient();
+  const { profile, staffArtistRecord } = useApp();
   
   // Local state for current session detail (can be updated on RPC success)
   const [currentSession, setCurrentSession] = useState<ArtistSessionDetail | null>(session);
+
+  // Price adjustment audit trail state
+  const [priceAdjustments, setPriceAdjustments] = useState<PriceAdjustmentItem[]>([]);
+  const [isUpdatePriceModalOpen, setIsUpdatePriceModalOpen] = useState(false);
+
+  // Fetch price adjustments for current booking
+  const fetchPriceAdjustments = useCallback(async (bookingId: string) => {
+    const { data } = await supabase
+      .from('booking_price_adjustments')
+      .select('*')
+      .eq('booking_id', bookingId)
+      .order('created_at', { ascending: false });
+    if (data) {
+      setPriceAdjustments(data);
+    }
+  }, [supabase]);
+
+  useEffect(() => {
+    if (currentSession?.booking_id) {
+      fetchPriceAdjustments(currentSession.booking_id);
+    }
+  }, [currentSession?.booking_id, currentSession?.quoted_price, fetchPriceAdjustments]);
 
   // Secure Customer Confirmation Resolution State
   const [confirmationState, setConfirmationState] = useState<'loading' | 'confirmed' | 'not_confirmed' | 'error'>('loading');
@@ -360,6 +387,7 @@ export default function ArtistAppointmentDetailDrawer({ session, isOpen, onClose
             booking_status: bData.status,
             session_status: activeSess.status,
             session_notes: activeSess.note || activeSess.notes,
+            artist_id: bData.artist_id || prev.artist_id,
             quoted_price: finData?.quoted_price ?? eData?.quoted_price ?? prev.quoted_price,
             deposit_required: finData?.deposit_required ?? eData?.deposit_required ?? prev.deposit_required,
             paid_total: finData?.paid_total ?? prev.paid_total,
@@ -376,14 +404,35 @@ export default function ArtistAppointmentDetailDrawer({ session, isOpen, onClose
         });
       }
 
-      // 4. Trigger parent page refresh
+      // 4. Fetch price adjustments
+      if (currentSession?.booking_id) {
+        await fetchPriceAdjustments(currentSession.booking_id);
+      }
+
+      // 5. Trigger parent page refresh
       if (onRefresh) {
         await onRefresh();
       }
-    } catch (e) {
-      console.error('Failed to refresh session data:', e);
+    } catch (err) {
+      console.error('Error refreshing current appointment data:', err);
     }
-  }, [currentSession?.booking_id, currentSession?.session_id, currentSession?.estimate_request_id, supabase, onRefresh]);
+  }, [currentSession?.booking_id, currentSession?.session_id, currentSession?.estimate_request_id, fetchPriceAdjustments, onRefresh, supabase]);
+
+  const handleUpdateBookingPrice = async (newPrice: number, note: string) => {
+    if (!currentSession?.booking_id) return;
+    const { error } = await supabase.rpc('admin_update_booking_price', {
+      p_booking_id: currentSession.booking_id,
+      p_new_price: newPrice,
+      p_note: note || null,
+    });
+
+    if (error) {
+      throw new Error(error.message || 'เกิดข้อผิดพลาดในการอัปเดตราคางาน');
+    }
+
+    setIsUpdatePriceModalOpen(false);
+    await refreshCurrentData();
+  };
 
   // Map PostgreSQL / RPC errors to friendly Thai messages
   const mapErrorMessage = (errorMsg: string): string => {
@@ -1193,14 +1242,52 @@ export default function ArtistAppointmentDetailDrawer({ session, isOpen, onClose
                   </span>
                 </div>
               )}
+
+              {/* Initial Price Display (if price adjustments exist) */}
+              {(() => {
+                const sortedAdjustmentsAsc = [...priceAdjustments].sort(
+                  (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+                );
+                if (sortedAdjustmentsAsc.length === 0) return null;
+                const initPrice = Number(sortedAdjustmentsAsc[0].previous_price);
+                const curPrice = Number(currentSession.quoted_price || 0);
+                const diff = curPrice - initPrice;
+
+                return (
+                  <>
+                    <div className="flex justify-between items-center py-2 text-xs">
+                      <span className="text-studio-muted font-medium">ราคาเบื้องต้น:</span>
+                      <span className="font-mono font-medium text-studio-primary">
+                        ฿{initPrice.toLocaleString('th-TH')}
+                      </span>
+                    </div>
+                    {diff !== 0 && (
+                      <div className="flex justify-between items-center py-2 text-xs">
+                        <span className="text-studio-muted">ปรับจากราคาเบื้องต้น:</span>
+                        <span className={`font-mono font-semibold ${diff > 0 ? 'text-amber-400' : 'text-emerald-400'}`}>
+                          {diff > 0 ? `+฿${diff.toLocaleString('th-TH')}` : `-฿${Math.abs(diff).toLocaleString('th-TH')}`}
+                        </span>
+                      </div>
+                    )}
+                  </>
+                );
+              })()}
+
               <div className="flex justify-between items-center py-2">
-                <span className="text-studio-muted">ราคางานที่ยืนยันแล้ว:</span>
+                <span className="text-studio-muted font-medium">
+                  {currentSession.booking_status === 'COMPLETED'
+                    ? 'ราคาสรุปสุดท้าย:'
+                    : priceAdjustments.length > 0
+                    ? 'ราคาปัจจุบัน:'
+                    : 'ราคาเบื้องต้น:'}
+                </span>
                 <span className="text-sm font-bold font-mono text-studio-primary">
                   {currentSession.quoted_price !== null && currentSession.quoted_price !== undefined && Number(currentSession.quoted_price) > 0
                     ? `฿${Number(currentSession.quoted_price).toLocaleString('th-TH')}`
                     : 'ยังไม่กำหนดราคา'}
                 </span>
               </div>
+
               <div className="flex justify-between items-center py-2">
                 <span className="text-studio-muted">เงินมัดจำ:</span>
                 <span className="text-studio-primary font-mono font-semibold">
@@ -1209,6 +1296,7 @@ export default function ArtistAppointmentDetailDrawer({ session, isOpen, onClose
                     : 'ไม่เรียกเก็บมัดจำ'}
                 </span>
               </div>
+
               <div className="flex justify-between items-center py-2">
                 <span className="text-studio-muted">ชำระแล้ว:</span>
                 <span className="text-emerald-400 font-mono font-semibold">
@@ -1217,8 +1305,9 @@ export default function ArtistAppointmentDetailDrawer({ session, isOpen, onClose
                     : '—'}
                 </span>
               </div>
+
               <div className="flex justify-between items-center pt-2">
-                <span className="text-studio-muted">ยอดคงเหลือ:</span>
+                <span className="text-studio-muted font-medium">ยอดคงเหลือ:</span>
                 <span className={`font-mono font-bold text-sm ${currentSession.remaining_balance && Number(currentSession.remaining_balance) > 0 ? 'text-amber-400' : 'text-emerald-400'}`}>
                   {currentSession.remaining_balance !== null && currentSession.remaining_balance !== undefined
                     ? `฿${Number(currentSession.remaining_balance).toLocaleString('th-TH')}`
@@ -1227,34 +1316,71 @@ export default function ArtistAppointmentDetailDrawer({ session, isOpen, onClose
               </div>
             </div>
 
-            {(() => {
-              const isDirectBooking = currentSession.request_type === 'DIRECT_BOOKING' || currentSession.booking_source === 'DIRECT_BOOKING';
-              const canManagePrice = isDirectBooking && (currentSession.booking_status === 'CONFIRMED' || currentSession.booking_status === 'IN_PROGRESS');
-              const hasQuotedPrice = currentSession.quoted_price !== null && currentSession.quoted_price !== undefined && Number(currentSession.quoted_price) > 0;
+            {/* Hint message */}
+            <p className="text-[11px] text-amber-400/80 italic pt-1">
+              * ราคางานอาจเปลี่ยนแปลงตามรายละเอียดและหน้างาน
+            </p>
 
-              if (!canManagePrice) return null;
+            {/* Price Adjustment Action Button */}
+            {(() => {
+              const isUserAdmin = profile?.role === 'admin';
+              const isUserArtist = profile?.role === 'artist';
+              const isAssignedArtist = Boolean(
+                isUserArtist &&
+                staffArtistRecord?.id &&
+                (currentSession.artist_id ? currentSession.artist_id === staffArtistRecord.id : true)
+              );
+              const isEditableStatus = ['WAITING_DEPOSIT', 'CONFIRMED', 'IN_PROGRESS'].includes(currentSession.booking_status);
+              const canUpdatePrice = (isUserAdmin || isAssignedArtist) && isEditableStatus;
+
+              if (!canUpdatePrice) return null;
 
               return (
                 <div className="pt-2 border-t border-studio-border/50">
                   <button
                     type="button"
-                    onClick={() => {
-                      setPriceInput(hasQuotedPrice ? String(currentSession.quoted_price) : '');
-                      setPriceModalError(null);
-                      setShowPriceModal(true);
-                    }}
-                    className="w-full py-2 px-3 bg-studio-sec hover:bg-studio-border text-studio-primary border border-studio-border rounded-lg text-xs font-semibold flex items-center justify-center space-x-2 transition-colors cursor-pointer"
+                    onClick={() => setIsUpdatePriceModalOpen(true)}
+                    className="w-full py-2 px-3 bg-amber-950/60 hover:bg-amber-900/80 text-amber-300 border border-amber-700/60 rounded-lg text-xs font-semibold flex items-center justify-center space-x-2 transition-colors cursor-pointer"
                   >
-                    <Edit3 size={14} className="text-studio-red" />
-                    <span>{hasQuotedPrice ? 'แก้ไขราคางาน' : 'กำหนดราคางาน'}</span>
+                    <Edit3 size={14} className="text-amber-300" />
+                    <span>อัปเดตราคางาน</span>
                   </button>
                 </div>
               );
             })()}
 
-            <p className="text-[11px] text-studio-muted leading-relaxed pt-1">
-              * ข้อมูลการชำระเงินและสลิปได้รับการตรวจสอบโดยผู้จัดการร้าน/แอดมินแล้ว ช่างสามารถตรวจสอบคิวนัดและเตรียมงานได้ทันที
-            </p>
+            {/* Price Adjustment History Timeline */}
+            {priceAdjustments.length > 0 && (
+              <div className="pt-3 border-t border-studio-border/50 space-y-2">
+                <div className="flex items-center gap-1.5 text-xs font-semibold text-studio-secondary">
+                  <History size={13} className="text-amber-400" />
+                  <span>ประวัติการปรับราคา</span>
+                </div>
+                <div className="space-y-2 text-xs font-mono">
+                  {priceAdjustments.map((adj) => {
+                    const diff = Number(adj.adjustment_amount);
+                    return (
+                      <div key={adj.id} className="bg-black/40 border border-studio-border/40 rounded p-2 text-[11px] space-y-1">
+                        <div className="flex justify-between text-studio-muted">
+                          <span>{formatDateTimeBangkok(adj.created_at)}</span>
+                          <span className={diff > 0 ? 'text-amber-400' : 'text-emerald-400'}>
+                            {diff > 0 ? `+฿${diff.toLocaleString()}` : `-฿${Math.abs(diff).toLocaleString()}`}
+                          </span>
+                        </div>
+                        <div className="text-studio-primary font-semibold">
+                          ฿{Number(adj.previous_price).toLocaleString()} &rarr; ฿{Number(adj.new_price).toLocaleString()}
+                        </div>
+                        {adj.note && (
+                          <p className="text-studio-muted font-sans text-[10px] italic">
+                            รายละเอียด: {adj.note}
+                          </p>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Section 6: Tattoo Sessions List */}
@@ -2309,6 +2435,17 @@ export default function ArtistAppointmentDetailDrawer({ session, isOpen, onClose
             </div>
           </div>
         </div>
+      )}
+
+      {/* Update Booking Price Modal (Flexible Price System) */}
+      {isUpdatePriceModalOpen && currentSession && (
+        <UpdateBookingPriceModal
+          isOpen={isUpdatePriceModalOpen}
+          currentPrice={Number(currentSession.quoted_price || 0)}
+          paidTotal={Number(currentSession.paid_total || 0)}
+          onClose={() => setIsUpdatePriceModalOpen(false)}
+          onSubmit={handleUpdateBookingPrice}
+        />
       )}
 
       {/* Lightbox Modal */}

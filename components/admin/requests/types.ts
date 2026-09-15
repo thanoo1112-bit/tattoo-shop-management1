@@ -116,6 +116,7 @@ export interface EstimateRequestItem {
   has_pending_payment_submission?: boolean;
   pending_submission?: PendingPaymentSubmission | null;
   operational_status?: OperationalStatusInfo;
+  price_adjustments?: PriceAdjustmentItem[];
 }
 
 export function resolveCustomerConfirmationStatus(customer?: {
@@ -140,6 +141,18 @@ export interface BookingSessionItem {
   session_paid_amount?: number;
 }
 
+export interface PriceAdjustmentItem {
+  id: string;
+  booking_id: string;
+  estimate_request_id?: string | null;
+  previous_price: number;
+  new_price: number;
+  adjustment_amount: number;
+  note?: string | null;
+  adjusted_by: string;
+  created_at: string;
+}
+
 export interface BookingFinancialData {
   quoted_price: number;
   deposit_required: number;
@@ -147,6 +160,7 @@ export interface BookingFinancialData {
   remaining_balance: number;
   is_deposit_paid: boolean;
   is_fully_paid: boolean;
+  initial_price?: number;
 }
 
 export interface BookingItem {
@@ -195,6 +209,7 @@ export interface BookingItem {
   has_pending_payment_submission?: boolean;
   pending_submission?: PendingPaymentSubmission | null;
   operational_status?: OperationalStatusInfo;
+  price_adjustments?: PriceAdjustmentItem[];
 }
 
 export interface RequestSummaryCounts {

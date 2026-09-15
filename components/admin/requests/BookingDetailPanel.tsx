@@ -24,15 +24,17 @@ import {
   Plus,
   Sparkles,
 } from 'lucide-react';
-import { BookingItem, BookingSessionItem, formatDateTimeBangkok, formatDateBangkok, formatTimeBangkok, formatCurrency, getTattooWorkTypeLabel, getColorTechniqueLabel, toBangkokDateString } from './types';
+import { BookingItem, BookingSessionItem, PriceAdjustmentItem, formatDateTimeBangkok, formatDateBangkok, formatTimeBangkok, formatCurrency, getTattooWorkTypeLabel, getColorTechniqueLabel, toBangkokDateString } from './types';
 import { calculateDurationText } from '@/components/admin/calendar/calendarUtils';
 import { parseNoteWithPreferredTime } from '@/lib/noteUtils';
 import BookingFinancialSummary from './BookingFinancialSummary';
+import UpdateBookingPriceModal from './UpdateBookingPriceModal';
 import BookingSessionList from './BookingSessionList';
 import { CompleteBookingDialog } from './CompleteBookingDialog';
 import CreateSessionDialog from './CreateSessionDialog';
 import { checkAdminCompletionEligibility } from './adminCompletionGuard';
 import { createClient } from '@/lib/supabase/client';
+import { useApp } from '@/components/AppContext';
 import CustomerReferenceImage from '@/components/common/CustomerReferenceImage';
 import PaymentSlipImage from '@/components/common/PaymentSlipImage';
 import { BlockedDateRecord, checkDateAvailability, checkExistingDateWarning } from '@/lib/availabilityUtils';
@@ -54,6 +56,17 @@ export default function BookingDetailPanel({
   onRefresh,
   onCheckSlip,
 }: BookingDetailPanelProps) {
+  const { profile, staffArtistRecord } = useApp();
+  const isUserAdmin = profile?.role === 'admin';
+  const isUserArtist = profile?.role === 'artist';
+  const isAssignedArtist = Boolean(
+    isUserArtist &&
+    staffArtistRecord?.id &&
+    booking?.artist_id &&
+    booking.artist_id === staffArtistRecord.id
+  );
+  const canUpdatePrice = isUserAdmin || isAssignedArtist;
+
   const [selectedArtistId, setSelectedArtistId] = useState<string>(
     booking?.artist_id || artists[0]?.id || ''
   );
@@ -183,6 +196,58 @@ export default function BookingDetailPanel({
   const [isSubmittingSlipReject, setIsSubmittingSlipReject] = useState(false);
   const [slipError, setSlipError] = useState<string | null>(null);
   const [successToast, setSuccessToast] = useState<string | null>(null);
+
+  // Price Adjustments State
+  const [priceAdjustments, setPriceAdjustments] = useState<PriceAdjustmentItem[]>([]);
+  const [isUpdatePriceModalOpen, setIsUpdatePriceModalOpen] = useState(false);
+
+  useEffect(() => {
+    if (!booking?.id) {
+      setPriceAdjustments([]);
+      return;
+    }
+
+    let isMounted = true;
+    const supabase = createClient();
+
+    async function fetchPriceAdjustments() {
+      try {
+        const { data, error } = await supabase
+          .from('booking_price_adjustments')
+          .select('*')
+          .eq('booking_id', booking!.id)
+          .order('created_at', { ascending: true });
+
+        if (isMounted && !error && data) {
+          setPriceAdjustments(data as PriceAdjustmentItem[]);
+        }
+      } catch (err) {
+        console.error('Error fetching price adjustments:', err);
+      }
+    }
+
+    fetchPriceAdjustments();
+    return () => {
+      isMounted = false;
+    };
+  }, [booking?.id, booking?.financial?.quoted_price]);
+
+  const handleUpdatePrice = async (newPrice: number, note: string) => {
+    if (!booking) return;
+    const supabase = createClient();
+    const { error } = await supabase.rpc('admin_update_booking_price', {
+      p_booking_id: booking.id,
+      p_new_price: newPrice,
+      p_note: note || null,
+    });
+
+    if (error) {
+      throw new Error(error.message || 'เกิดข้อผิดพลาดในการอัปเดตราคางาน');
+    }
+
+    setSuccessToast('อัปเดตราคางานเรียบร้อยแล้ว');
+    onRefresh();
+  };
 
   // Resilient Customer Confirmation Resolution State
   const [confirmationState, setConfirmationState] = useState<'loading' | 'confirmed' | 'not_confirmed' | 'error'>('loading');
@@ -1253,89 +1318,12 @@ export default function BookingDetailPanel({
           </div>
 
           {/* Section 5: Financial Details & Deposit Summary */}
-          <div className="bg-studio-card border border-studio-border rounded-xl p-4 space-y-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-2 text-studio-secondary text-[11px] uppercase tracking-wider font-semibold">
-                <Wallet size={14} className="text-studio-red" />
-                <span>รายละเอียดราคาและมัดจำ</span>
-              </div>
-              <span className={`text-xs px-2.5 py-0.5 rounded-full border font-medium ${
-                booking.financial?.is_deposit_paid || booking.status === 'CONFIRMED' || booking.status === 'COMPLETED'
-                  ? 'bg-emerald-950/60 text-emerald-400 border-emerald-800/60'
-                  : booking.has_pending_payment_submission
-                  ? 'bg-amber-950/60 text-amber-400 border-amber-800/60 animate-pulse'
-                  : 'bg-amber-950/60 text-amber-400 border-amber-800/60'
-              }`}>
-                {booking.financial?.is_deposit_paid || booking.status === 'CONFIRMED' || booking.status === 'COMPLETED'
-                  ? 'ยืนยันแล้ว'
-                  : booking.has_pending_payment_submission
-                  ? 'สลิปรอตรวจ'
-                  : 'รอมัดจำ'}
-              </span>
-            </div>
-
-            <div className="space-y-2 pt-1 divide-y divide-studio-border/50">
-              {booking.estimated_min_price && booking.estimated_max_price && (
-                <div className="flex justify-between items-center pb-2">
-                  <span className="text-studio-muted flex items-center gap-1">
-                    <Sparkles size={13} className="text-amber-400" /> ราคาประเมินโดยระบบ:
-                  </span>
-                  <span className="text-sm font-semibold font-mono text-amber-400">
-                    {formatCurrency(booking.estimated_min_price)} – {formatCurrency(booking.estimated_max_price)}
-                  </span>
-                </div>
-              )}
-              <div className="flex justify-between items-center py-2">
-                <span className="text-studio-muted">ราคางานที่ยืนยันแล้ว:</span>
-                <span className="text-sm font-bold font-mono text-studio-primary">
-                  {booking.financial?.quoted_price && booking.financial.quoted_price > 0
-                    ? formatCurrency(booking.financial.quoted_price)
-                    : 'ยังไม่กำหนดราคา'}
-                </span>
-              </div>
-              <div className="flex justify-between items-center py-2">
-                <span className="text-studio-muted">เงินมัดจำ:</span>
-                <span className="text-studio-primary font-mono font-semibold">
-                  {booking.financial?.deposit_required && booking.financial.deposit_required > 0
-                    ? formatCurrency(booking.financial.deposit_required)
-                    : 'ไม่เรียกเก็บมัดจำ'}
-                </span>
-              </div>
-              <div className="flex justify-between items-center py-2">
-                <span className="text-studio-muted">ชำระแล้ว:</span>
-                <span className="text-emerald-400 font-mono font-semibold">
-                  {booking.financial?.total_paid !== undefined && booking.financial?.total_paid !== null
-                    ? formatCurrency(booking.financial.total_paid)
-                    : '—'}
-                </span>
-              </div>
-              <div className="flex justify-between items-center pt-2">
-                <span className="text-studio-muted">ยอดคงเหลือ:</span>
-                <span className={`font-mono font-bold text-sm ${booking.financial?.remaining_balance && Number(booking.financial.remaining_balance) > 0 ? 'text-amber-400' : 'text-emerald-400'}`}>
-                  {booking.financial?.remaining_balance !== undefined && booking.financial?.remaining_balance !== null
-                    ? formatCurrency(booking.financial.remaining_balance)
-                    : '—'}
-                </span>
-              </div>
-            </div>
-
-            {booking.has_pending_payment_submission && onCheckSlip && (
-              <div className="pt-2">
-                <button
-                  type="button"
-                  onClick={() => onCheckSlip(booking.id)}
-                  className="w-full py-2 px-3 bg-amber-950/60 hover:bg-amber-900/80 border border-amber-800/60 text-amber-300 rounded-lg text-xs font-semibold flex items-center justify-center space-x-2 transition-colors cursor-pointer"
-                >
-                  <CreditCard size={14} />
-                  <span>ตรวจสลิปโอนเงิน (มีสลิปรอตรวจ)</span>
-                </button>
-              </div>
-            )}
-
-            <p className="text-[11px] text-studio-muted leading-relaxed pt-1">
-              * ข้อมูลการชำระเงินและสลิปได้รับการตรวจสอบโดยผู้จัดการร้าน/แอดมินแล้ว ช่างสามารถตรวจสอบคิวนัดเพื่อเตรียมงานได้ทันที
-            </p>
-          </div>
+          <BookingFinancialSummary
+            booking={booking}
+            priceAdjustments={priceAdjustments}
+            onCheckSlip={onCheckSlip}
+            onUpdatePrice={canUpdatePrice ? () => setIsUpdatePriceModalOpen(true) : undefined}
+          />
 
           {/* Section 6: Tattoo Sessions List */}
           <div className="bg-studio-card border border-studio-border rounded-xl p-4 space-y-3">
@@ -1587,6 +1575,17 @@ export default function BookingDetailPanel({
             </form>
           </div>
         </div>
+      )}
+
+      {/* Update Booking Price Modal */}
+      {isUpdatePriceModalOpen && (
+        <UpdateBookingPriceModal
+          isOpen={isUpdatePriceModalOpen}
+          currentPrice={booking.financial?.quoted_price || 0}
+          paidTotal={booking.financial?.total_paid || 0}
+          onClose={() => setIsUpdatePriceModalOpen(false)}
+          onSubmit={handleUpdatePrice}
+        />
       )}
 
       {/* Lightbox Modal for Image / Slip Preview */}

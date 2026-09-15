@@ -2,17 +2,21 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { DollarSign, ShieldCheck, AlertTriangle, ArrowRight, CreditCard, Sparkles } from 'lucide-react';
-import { BookingItem, formatCurrency } from './types';
+import { DollarSign, ShieldCheck, AlertTriangle, ArrowRight, CreditCard, Sparkles, History, Edit3 } from 'lucide-react';
+import { BookingItem, PriceAdjustmentItem, formatCurrency, formatDateTimeBangkok } from './types';
 
 interface BookingFinancialSummaryProps {
   booking: BookingItem;
+  priceAdjustments?: PriceAdjustmentItem[];
   onCheckSlip?: (bookingId: string) => void;
+  onUpdatePrice?: () => void;
 }
 
 export default function BookingFinancialSummary({
   booking,
+  priceAdjustments = [],
   onCheckSlip,
+  onUpdatePrice,
 }: BookingFinancialSummaryProps) {
   const fin = booking.financial || {
     quoted_price: 0,
@@ -23,11 +27,29 @@ export default function BookingFinancialSummary({
     is_fully_paid: false,
   };
 
+  // Sort price adjustments by created_at ASC to get the original/initial price from the first entry
+  const sortedAdjustmentsAsc = [...priceAdjustments].sort(
+    (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+  );
+
+  // Initial Price: earliest previous_price if adjustments exist, else current quoted_price
+  const initialPrice = sortedAdjustmentsAsc.length > 0
+    ? sortedAdjustmentsAsc[0].previous_price
+    : fin.quoted_price;
+
+  const currentPrice = fin.quoted_price;
+  const isCompleted = booking.status === 'COMPLETED';
+  const isEditableStatus = ['WAITING_DEPOSIT', 'CONFIRMED', 'IN_PROGRESS'].includes(booking.status);
+
+  // Adjustments sorted DESC for historical timeline display (newest first)
+  const sortedAdjustmentsDesc = [...priceAdjustments].sort(
+    (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+  );
+
   const hasScheduledSessions = (booking.sessions || []).some(
     (s) => s.status === 'SCHEDULED' || s.status === 'IN_PROGRESS'
   );
 
-  // Section 26: Warning when booking is WAITING_DEPOSIT but has scheduled sessions and no pending slip submission
   const showWaitingDepositWarning =
     booking.status === 'WAITING_DEPOSIT' &&
     hasScheduledSessions &&
@@ -40,19 +62,19 @@ export default function BookingFinancialSummary({
         <div className="flex items-center gap-2">
           <CreditCard size={14} className="text-[#ECE4D3]" />
           <span className="text-xs font-semibold text-[#ECE4D3]">
-            สรุปสถานะการเงินของคิวงาน
+            ราคาและการชำระเงิน
           </span>
-          {booking.status === 'COMPLETED' ? (
-            fin.is_fully_paid || (fin.quoted_price > 0 && fin.total_paid >= fin.quoted_price) ? (
+          {isCompleted ? (
+            fin.is_fully_paid || (currentPrice > 0 && fin.total_paid >= currentPrice) ? (
               <span className="bg-emerald-950/60 text-emerald-400 border border-emerald-800/60 px-2 py-0.5 rounded text-[10px] font-semibold">
                 ชำระครบ
               </span>
             ) : (
               <span className="bg-red-950/60 text-red-400 border border-red-800/60 px-2 py-0.5 rounded text-[10px] font-semibold">
-                ค้างชำระ {formatCurrency(Math.max(0, fin.quoted_price - fin.total_paid))}
+                ค้างชำระ {formatCurrency(Math.max(0, currentPrice - fin.total_paid))}
               </span>
             )
-          ) : fin.is_fully_paid || (fin.quoted_price > 0 && fin.total_paid >= fin.quoted_price) ? (
+          ) : fin.is_fully_paid || (currentPrice > 0 && fin.total_paid >= currentPrice) ? (
             <span className="bg-emerald-950/60 text-emerald-400 border border-emerald-800/60 px-2 py-0.5 rounded text-[10px] font-semibold">
               ชำระครบ
             </span>
@@ -67,17 +89,29 @@ export default function BookingFinancialSummary({
           )}
         </div>
 
-        {/* Action link to /admin/payments (Section 17) */}
-        <Link
-          href="/admin/payments"
-          className="inline-flex items-center gap-1 text-[11px] text-[#A89F91] hover:text-[#ECE4D3] bg-[#171512] px-2 py-0.5 rounded border border-[#4A443A] hover:border-[#7A7265] transition-colors font-medium"
-        >
-          <span>จัดการการเงิน</span>
-          <ArrowRight size={11} />
-        </Link>
+        <div className="flex items-center gap-2">
+          {!isCompleted && isEditableStatus && onUpdatePrice && (
+            <button
+              type="button"
+              onClick={onUpdatePrice}
+              className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-amber-300 hover:text-amber-200 bg-amber-950/60 hover:bg-amber-900/80 px-2.5 py-1 rounded-lg border border-amber-700/60 transition-colors cursor-pointer"
+            >
+              <Edit3 size={12} />
+              <span>อัปเดตราคางาน</span>
+            </button>
+          )}
+
+          <Link
+            href="/admin/payments"
+            className="inline-flex items-center gap-1 text-[11px] text-[#A89F91] hover:text-[#ECE4D3] bg-[#171512] px-2 py-1 rounded-lg border border-[#4A443A] hover:border-[#7A7265] transition-colors font-medium"
+          >
+            <span>จัดการการเงิน</span>
+            <ArrowRight size={11} />
+          </Link>
+        </div>
       </div>
 
-      {/* Pending Slip Verification Banner */}
+      {/* Pending Slip Banner */}
       {booking.has_pending_payment_submission && (
         <div className="p-3 bg-amber-950/50 border border-amber-800/70 rounded-lg flex items-start justify-between gap-2 text-xs text-amber-300 animate-pulse">
           <div className="flex items-start gap-2">
@@ -110,7 +144,7 @@ export default function BookingFinancialSummary({
         </div>
       )}
 
-      {/* Section 26 Warning Banner */}
+      {/* Waiting Deposit Warning Banner */}
       {showWaitingDepositWarning && (
         <div className="p-3 bg-amber-950/40 border border-amber-800/60 rounded-lg flex items-start gap-2 text-xs text-amber-300 animate-fadeIn">
           <AlertTriangle size={15} className="text-amber-400 shrink-0 mt-0.5" />
@@ -126,9 +160,9 @@ export default function BookingFinancialSummary({
       )}
 
       {/* Financial Metrics Grid */}
-      <div className="grid grid-cols-2 gap-2 text-xs">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
         {booking.estimated_min_price && booking.estimated_max_price && (
-          <div className="col-span-2 bg-[#171512] p-2.5 rounded-lg border border-[#4A443A]/40 flex justify-between items-center">
+          <div className="col-span-2 sm:col-span-4 bg-[#171512] p-2.5 rounded-lg border border-[#4A443A]/40 flex justify-between items-center">
             <span className="text-[10px] text-[#7A7265] flex items-center gap-1">
               <Sparkles size={12} className="text-amber-400" /> ราคาประเมินโดยระบบ
             </span>
@@ -138,26 +172,57 @@ export default function BookingFinancialSummary({
           </div>
         )}
 
+        {/* Initial Price Tile (Reference Price) */}
         <div className="bg-[#171512] p-2.5 rounded-lg border border-[#4A443A]/40">
-          <span className="text-[10px] text-[#7A7265] block">ราคางานสักที่ตกลง</span>
+          <span className="text-[10px] text-[#7A7265] block">ราคาเบื้องต้น</span>
           <span className="text-sm font-heading font-semibold text-[#ECE4D3] mt-0.5 block">
-            {fin.quoted_price && fin.quoted_price > 0
-              ? formatCurrency(fin.quoted_price)
-              : 'ยังไม่กำหนดราคา'}
+            {initialPrice && initialPrice > 0 ? `฿${formatCurrency(initialPrice)}` : 'ยังไม่กำหนดราคา'}
           </span>
         </div>
 
+        {/* Current / Final Locked Price Tile */}
         <div className="bg-[#171512] p-2.5 rounded-lg border border-[#4A443A]/40">
-          <span className="text-[10px] text-[#7A7265] block">มัดจำที่กำหนด</span>
-          <span className="text-sm font-heading font-semibold text-blue-400 mt-0.5 block">
-            {formatCurrency(fin.deposit_required)}
+          <span className="text-[10px] text-[#7A7265] block">
+            {isCompleted ? 'ราคาสรุปสุดท้าย' : 'ราคาปัจจุบัน'}
+          </span>
+          <span className="text-sm font-heading font-semibold text-amber-300 mt-0.5 block">
+            {currentPrice && currentPrice > 0 ? `฿${formatCurrency(currentPrice)}` : 'ยังไม่กำหนดราคา'}
           </span>
         </div>
 
+        {/* Adjustment Diff Tile (shown if adjustments exist) */}
+        {sortedAdjustmentsAsc.length > 0 ? (
+          <div className="bg-[#171512] p-2.5 rounded-lg border border-[#4A443A]/40">
+            <span className="text-[10px] text-[#7A7265] block">ปรับจากราคาเบื้องต้น</span>
+            <span
+              className={`text-sm font-heading font-semibold mt-0.5 block ${
+                currentPrice - initialPrice > 0
+                  ? 'text-amber-400'
+                  : currentPrice - initialPrice < 0
+                  ? 'text-emerald-400'
+                  : 'text-[#A89F91]'
+              }`}
+            >
+              {currentPrice - initialPrice > 0
+                ? `+฿${formatCurrency(currentPrice - initialPrice)}`
+                : currentPrice - initialPrice < 0
+                ? `-฿${formatCurrency(Math.abs(currentPrice - initialPrice))}`
+                : '฿0'}
+            </span>
+          </div>
+        ) : (
+          <div className="bg-[#171512] p-2.5 rounded-lg border border-[#4A443A]/40">
+            <span className="text-[10px] text-[#7A7265] block">มัดจำที่กำหนด</span>
+            <span className="text-sm font-heading font-semibold text-blue-400 mt-0.5 block">
+              ฿{formatCurrency(fin.deposit_required)}
+            </span>
+          </div>
+        )}
+
         <div className="bg-[#171512] p-2.5 rounded-lg border border-[#4A443A]/40">
-          <span className="text-[10px] text-[#7A7265] block">รับเงินจริงแล้ว</span>
+          <span className="text-[10px] text-[#7A7265] block">ชำระแล้ว</span>
           <span className="text-sm font-heading font-semibold text-emerald-400 mt-0.5 block">
-            {formatCurrency(fin.total_paid)}
+            ฿{formatCurrency(fin.total_paid)}
           </span>
         </div>
 
@@ -165,17 +230,50 @@ export default function BookingFinancialSummary({
           <span className="text-[10px] text-[#7A7265] block">ยอดคงเหลือ</span>
           <span
             className={`text-sm font-heading font-semibold mt-0.5 block ${
-              fin.quoted_price && fin.quoted_price > 0 && fin.remaining_balance > 0
+              currentPrice && currentPrice > 0 && fin.remaining_balance > 0
                 ? 'text-amber-400'
                 : 'text-[#A89F91]'
             }`}
           >
-            {fin.quoted_price && fin.quoted_price > 0
-              ? formatCurrency(fin.remaining_balance)
+            {currentPrice && currentPrice > 0
+              ? `฿${formatCurrency(fin.remaining_balance)}`
               : 'คำนวณหลังจากกำหนดราคา'}
           </span>
         </div>
       </div>
+
+      <p className="text-[11px] text-[#7A7265] font-light italic">
+        ราคางานอาจเปลี่ยนแปลงตามรายละเอียดและหน้างาน
+      </p>
+
+      {/* Price Adjustment History Section (Requirement 11) */}
+      {sortedAdjustmentsDesc.length > 0 && (
+        <div className="border-t border-[#4A443A]/40 pt-3 space-y-2">
+          <div className="flex items-center gap-1.5 text-xs font-semibold text-[#ECE4D3]">
+            <History size={13} className="text-amber-400" />
+            <span>ประวัติราคา</span>
+          </div>
+          <div className="space-y-2 text-xs">
+            {sortedAdjustmentsDesc.map((adj) => (
+              <div key={adj.id} className="bg-[#171512] p-2.5 rounded-lg border border-[#4A443A]/40 space-y-1">
+                <div className="flex items-center justify-between text-[11px]">
+                  <span className="text-[#A89F91]">
+                    {formatDateTimeBangkok(adj.created_at)}
+                  </span>
+                  <span className="font-semibold text-[#ECE4D3]">
+                    ฿{formatCurrency(adj.previous_price)} → ฿{formatCurrency(adj.new_price)}
+                  </span>
+                </div>
+                {adj.note && (
+                  <p className="text-[11px] text-[#ECE4D3]/80 font-light">
+                    {adj.note}
+                  </p>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
