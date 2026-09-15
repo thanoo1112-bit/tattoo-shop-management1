@@ -10,9 +10,6 @@ interface PlacementSelectorProps {
 export default function PlacementSelector({ value, onChange }: PlacementSelectorProps) {
   return (
     <div className="w-full space-y-1.5 font-prompt">
-      <label className="text-[11px] uppercase tracking-wider text-studio-secondary block font-medium">
-        ตำแหน่งบนร่างกาย
-      </label>
       <input
         type="text"
         value={value}
