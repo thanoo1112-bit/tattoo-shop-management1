@@ -88,27 +88,6 @@ export default function BookingFinancialSummary({
             </span>
           )}
         </div>
-
-        <div className="flex items-center gap-2">
-          {!isCompleted && isEditableStatus && onUpdatePrice && (
-            <button
-              type="button"
-              onClick={onUpdatePrice}
-              className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-amber-300 hover:text-amber-200 bg-amber-950/60 hover:bg-amber-900/80 px-2.5 py-1 rounded-lg border border-amber-700/60 transition-colors cursor-pointer"
-            >
-              <Edit3 size={12} />
-              <span>อัปเดตราคางาน</span>
-            </button>
-          )}
-
-          <Link
-            href="/admin/payments"
-            className="inline-flex items-center gap-1 text-[11px] text-[#A89F91] hover:text-[#ECE4D3] bg-[#171512] px-2 py-1 rounded-lg border border-[#4A443A] hover:border-[#7A7265] transition-colors font-medium"
-          >
-            <span>จัดการการเงิน</span>
-            <ArrowRight size={11} />
-          </Link>
-        </div>
       </div>
 
       {/* Pending Slip Banner */}
@@ -159,80 +138,65 @@ export default function BookingFinancialSummary({
         </div>
       )}
 
-      {/* Financial Metrics Grid */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
-        {booking.estimated_min_price && booking.estimated_max_price && (
-          <div className="col-span-2 sm:col-span-4 bg-[#171512] p-2.5 rounded-lg border border-[#4A443A]/40 flex justify-between items-center">
-            <span className="text-[10px] text-[#7A7265] flex items-center gap-1">
-              <Sparkles size={12} className="text-amber-400" /> ราคาประเมินโดยระบบ
-            </span>
-            <span className="text-xs font-heading font-semibold text-amber-400">
-              {formatCurrency(booking.estimated_min_price)} – {formatCurrency(booking.estimated_max_price)}
-            </span>
-          </div>
-        )}
+      {/* System Estimated Price (if available) */}
+      {booking.estimated_min_price && booking.estimated_max_price && (
+        <div className="bg-[#171512] p-2.5 rounded-lg border border-[#4A443A]/40 flex justify-between items-center text-xs">
+          <span className="text-[10px] text-[#7A7265] flex items-center gap-1">
+            <Sparkles size={12} className="text-amber-400" /> ราคาประเมินโดยระบบ
+          </span>
+          <span className="text-xs font-heading font-semibold text-amber-400">
+            {formatCurrency(booking.estimated_min_price)} – {formatCurrency(booking.estimated_max_price)}
+          </span>
+        </div>
+      )}
 
-        {/* Initial Price Tile (Reference Price) */}
+      {/* Pricing Row: 2 equal-width cards */}
+      <div className="grid grid-cols-2 gap-2 text-xs">
+        {/* Initial Price */}
         <div className="bg-[#171512] p-2.5 rounded-lg border border-[#4A443A]/40">
-          <span className="text-[10px] text-[#7A7265] block">ราคาเบื้องต้น</span>
+          <span className="text-[10px] text-[#7A7265] block font-medium">ราคาเบื้องต้น</span>
           <span className="text-sm font-heading font-semibold text-[#ECE4D3] mt-0.5 block">
             {initialPrice && initialPrice > 0 ? `฿${formatCurrency(initialPrice)}` : 'ยังไม่กำหนดราคา'}
           </span>
         </div>
 
-        {/* Current / Final Locked Price Tile */}
+        {/* Current Price / Final Lock */}
         <div className="bg-[#171512] p-2.5 rounded-lg border border-[#4A443A]/40">
-          <span className="text-[10px] text-[#7A7265] block">
+          <span className="text-[10px] text-[#7A7265] block font-medium">
             {isCompleted ? 'ราคาสรุปสุดท้าย' : 'ราคาปัจจุบัน'}
           </span>
           <span className="text-sm font-heading font-semibold text-amber-300 mt-0.5 block">
             {currentPrice && currentPrice > 0 ? `฿${formatCurrency(currentPrice)}` : 'ยังไม่กำหนดราคา'}
           </span>
         </div>
+      </div>
 
-        {/* Adjustment Diff Tile (shown if adjustments exist) */}
-        {sortedAdjustmentsAsc.length > 0 ? (
-          <div className="bg-[#171512] p-2.5 rounded-lg border border-[#4A443A]/40">
-            <span className="text-[10px] text-[#7A7265] block">ปรับจากราคาเบื้องต้น</span>
-            <span
-              className={`text-sm font-heading font-semibold mt-0.5 block ${
-                currentPrice - initialPrice > 0
-                  ? 'text-amber-400'
-                  : currentPrice - initialPrice < 0
-                  ? 'text-emerald-400'
-                  : 'text-[#A89F91]'
-              }`}
-            >
-              {currentPrice - initialPrice > 0
-                ? `+฿${formatCurrency(currentPrice - initialPrice)}`
-                : currentPrice - initialPrice < 0
-                ? `-฿${formatCurrency(Math.abs(currentPrice - initialPrice))}`
-                : '฿0'}
-            </span>
-          </div>
-        ) : (
-          <div className="bg-[#171512] p-2.5 rounded-lg border border-[#4A443A]/40">
-            <span className="text-[10px] text-[#7A7265] block">มัดจำที่กำหนด</span>
-            <span className="text-sm font-heading font-semibold text-blue-400 mt-0.5 block">
-              ฿{formatCurrency(fin.deposit_required)}
-            </span>
-          </div>
-        )}
-
+      {/* Payment Row: 3 equal-width cards (Desktop 3 cols, Mobile 2 cols with Remaining Balance spanning full width) */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs">
+        {/* Deposit Required */}
         <div className="bg-[#171512] p-2.5 rounded-lg border border-[#4A443A]/40">
-          <span className="text-[10px] text-[#7A7265] block">ชำระแล้ว</span>
+          <span className="text-[10px] text-[#7A7265] block font-medium">มัดจำที่กำหนด</span>
+          <span className="text-sm font-heading font-semibold text-blue-400 mt-0.5 block">
+            ฿{formatCurrency(fin.deposit_required)}
+          </span>
+        </div>
+
+        {/* Paid Total */}
+        <div className="bg-[#171512] p-2.5 rounded-lg border border-[#4A443A]/40">
+          <span className="text-[10px] text-[#7A7265] block font-medium">ชำระแล้ว</span>
           <span className="text-sm font-heading font-semibold text-emerald-400 mt-0.5 block">
             ฿{formatCurrency(fin.total_paid)}
           </span>
         </div>
 
-        <div className="bg-[#171512] p-2.5 rounded-lg border border-[#4A443A]/40">
-          <span className="text-[10px] text-[#7A7265] block">ยอดคงเหลือ</span>
+        {/* Remaining Balance (Visual Priority: highlighted border) */}
+        <div className="col-span-2 sm:col-span-1 bg-[#171512] p-2.5 rounded-lg border border-amber-500/40">
+          <span className="text-[10px] text-amber-300/80 block font-medium">ยอดคงเหลือ</span>
           <span
-            className={`text-sm font-heading font-semibold mt-0.5 block ${
+            className={`text-sm font-heading font-bold mt-0.5 block ${
               currentPrice && currentPrice > 0 && fin.remaining_balance > 0
                 ? 'text-amber-400'
-                : 'text-[#A89F91]'
+                : 'text-emerald-400'
             }`}
           >
             {currentPrice && currentPrice > 0
@@ -242,11 +206,34 @@ export default function BookingFinancialSummary({
         </div>
       </div>
 
+      {/* Helper Text */}
       <p className="text-[11px] text-[#7A7265] font-light italic">
         ราคางานอาจเปลี่ยนแปลงตามรายละเอียดและหน้างาน
       </p>
 
-      {/* Price Adjustment History Section (Requirement 11) */}
+      {/* Action Row (Bottom) */}
+      <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-[#4A443A]/40">
+        {!isCompleted && isEditableStatus && onUpdatePrice && (
+          <button
+            type="button"
+            onClick={onUpdatePrice}
+            className="inline-flex items-center gap-1.5 text-xs font-semibold text-amber-300 hover:text-amber-200 bg-amber-950/60 hover:bg-amber-900/80 px-3.5 py-1.5 rounded-lg border border-amber-700/60 transition-colors cursor-pointer"
+          >
+            <Edit3 size={13} />
+            <span>อัปเดตราคางาน</span>
+          </button>
+        )}
+
+        <Link
+          href="/admin/payments"
+          className="inline-flex items-center gap-1.5 text-xs font-medium text-[#ECE4D3] hover:text-white bg-[#171512] hover:bg-[#221F1B] px-3.5 py-1.5 rounded-lg border border-[#4A443A] hover:border-[#7A7265] transition-colors"
+        >
+          <span>จัดการการเงิน</span>
+          <ArrowRight size={13} />
+        </Link>
+      </div>
+
+      {/* Price Adjustment History Section */}
       {sortedAdjustmentsDesc.length > 0 && (
         <div className="border-t border-[#4A443A]/40 pt-3 space-y-2">
           <div className="flex items-center gap-1.5 text-xs font-semibold text-[#ECE4D3]">
