@@ -433,16 +433,6 @@ export default function CustomerBookingDetail({
                 )}
 
 
-                {/* 5. Customer Note */}
-                {booking.customer_note && (
-                  <div className="pt-2 border-t border-studio-border/20">
-                    <span className="text-studio-secondary block mb-1">บันทึกจากลูกค้า:</span>
-                    <p className="text-[11px] text-studio-secondary bg-studio-card/85 p-2 border border-studio-border/40 rounded-[4px] font-light">
-                      {booking.customer_note}
-                    </p>
-                  </div>
-                )}
-
                 {/* 6. Admin Note */}
                 {booking.admin_note && (
                   <div className="pt-2 border-t border-studio-border/20">
