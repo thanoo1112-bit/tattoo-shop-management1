@@ -66,10 +66,10 @@ export default function CustomerPostConfirmationGuide({
   return (
     <>
       {/* DESKTOP ONLY CARD CONTAINER */}
-      <div className="hidden lg:block bg-studio-card border border-studio-border p-6 rounded-[8px] space-y-4 shadow-md animate-fadeIn">
-        <div className="space-y-1 border-b border-studio-border/60 pb-3">
+      <div className="hidden lg:block bg-studio-card border border-studio-border p-4 rounded-[8px] space-y-3 shadow-md animate-fadeIn">
+        <div className="space-y-0.5 border-b border-studio-border/60 pb-2">
           <div className="flex items-center gap-2">
-            <HeartPulse size={16} className="text-studio-red" />
+            <HeartPulse size={15} className="text-studio-red" />
             <span className="text-xs uppercase tracking-wider font-heading text-studio-primary font-bold">
               เตรียมตัวก่อนเข้ารับบริการ
             </span>
@@ -79,89 +79,65 @@ export default function CustomerPostConfirmationGuide({
           </p>
         </div>
 
-        <div className="space-y-3">
+        <div className="space-y-2.5">
           {/* ACTION CARD A: คู่มือเตรียมตัวก่อนสัก */}
-          <div className="bg-studio-main border border-studio-border p-4 rounded-[6px] space-y-3 hover:border-studio-border/80 transition-colors">
-            <div className="flex items-start gap-3">
-              <div className="p-2 rounded-[4px] bg-studio-sec border border-studio-border text-studio-red shrink-0 mt-0.5">
-                <BookOpen size={16} />
+          <div className="bg-studio-main border border-studio-border p-3 rounded-[6px] space-y-2.5 hover:border-studio-border/80 transition-colors">
+            <div className="flex items-start gap-2.5">
+              <div className="p-1.5 rounded-[4px] bg-studio-sec border border-studio-border text-studio-red shrink-0 mt-0.5">
+                <BookOpen size={15} />
               </div>
-              <div className="space-y-1">
+              <div className="space-y-0.5">
                 <h4 className="text-xs font-semibold text-studio-primary">
                   คู่มือเตรียมตัวก่อนสัก
                 </h4>
-                <p className="text-[11px] text-studio-secondary font-light leading-relaxed">
-                  ดูสิ่งที่ควรเตรียมก่อนวันนัดหมาย
+                <p className="text-[11px] text-studio-secondary font-light leading-snug">
+                  ดูคำแนะนำและสิ่งที่ควรเตรียมก่อนวันนัด
                 </p>
-              </div>
-            </div>
-
-            {/* PREVIEW CHECKLIST */}
-            <div className="bg-studio-card/80 border border-studio-border/50 p-2.5 rounded-[4px] space-y-1 text-[11px] text-studio-secondary font-light">
-              <div className="flex items-center gap-1.5">
-                <CheckCircle2 size={12} className="text-studio-red shrink-0" />
-                <span>นอนพักผ่อนให้เพียงพอ</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <CheckCircle2 size={12} className="text-studio-red shrink-0" />
-                <span>รับประทานอาหารก่อนเข้ารับบริการ</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <CheckCircle2 size={12} className="text-studio-red shrink-0" />
-                <span>งดแอลกอฮอล์ก่อนวันนัด</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <CheckCircle2 size={12} className="text-studio-red shrink-0" />
-                <span>สวมเสื้อผ้าที่สะดวกต่อบริเวณที่สัก</span>
               </div>
             </div>
 
             <button
               type="button"
               onClick={() => setIsModalOpen(true)}
-              className="w-full min-h-[38px] bg-studio-sec hover:bg-studio-card border border-studio-border text-studio-primary px-3 py-2 rounded-[4px] text-xs font-medium flex items-center justify-between transition-all group"
+              className="w-full min-h-[34px] bg-studio-sec hover:bg-studio-card border border-studio-border text-studio-primary px-3 py-1.5 rounded-[4px] text-xs font-medium flex items-center justify-between transition-all group"
             >
               <span className="text-studio-red font-semibold">ดูคู่มือทั้งหมด</span>
               <ChevronRight size={14} className="text-studio-muted group-hover:translate-x-0.5 transition-transform" />
             </button>
           </div>
 
-            {/* ACTION CARD B: แผนที่และการเดินทาง */}
-            <div className="bg-studio-main border border-studio-border p-4 rounded-[6px] space-y-3 hover:border-studio-border/80 transition-colors">
-              <div className="flex items-start gap-3">
-                <div className="p-2 rounded-[4px] bg-studio-sec border border-studio-border text-studio-red shrink-0 mt-0.5">
-                  <MapPin size={16} />
-                </div>
-                <div className="space-y-1">
-                  <h4 className="text-xs font-semibold text-studio-primary">
-                    แผนที่และการเดินทาง
-                  </h4>
-                  <p className="text-[11px] text-studio-secondary font-light leading-relaxed">
-                    ดูตำแหน่งร้านและเส้นทางการเดินทาง
-                  </p>
-                  <div className="text-[11px] font-semibold text-studio-primary pt-0.5">
-                    {SHOP_NAME}
-                  </div>
-                  <p className="text-[10px] text-studio-muted leading-tight font-light">
-                    151/3 1299 ตำบลเวียงชัย<br />
-                    อำเภอเวียงชัย จังหวัดเชียงราย 57210
-                  </p>
-                </div>
+          {/* ACTION CARD B: แผนที่และการเดินทาง */}
+          <div className="bg-studio-main border border-studio-border p-3 rounded-[6px] space-y-2.5 hover:border-studio-border/80 transition-colors">
+            <div className="flex items-start gap-2.5">
+              <div className="p-1.5 rounded-[4px] bg-studio-sec border border-studio-border text-studio-red shrink-0 mt-0.5">
+                <MapPin size={15} />
               </div>
-
-              <a
-                href={GOOGLE_MAPS_URL}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="w-full min-h-[38px] bg-studio-sec hover:bg-studio-card border border-studio-border text-studio-primary px-3 py-2 rounded-[4px] text-xs font-medium flex items-center justify-between transition-all group"
-              >
-                <span className="flex items-center gap-1.5 font-semibold text-studio-primary group-hover:text-studio-red transition-colors">
-                  <MapPin size={13} className="text-studio-red" />
-                  <span>เปิด Google Maps</span>
-                </span>
-                <ExternalLink size={13} className="text-studio-muted group-hover:text-studio-primary transition-colors" />
-              </a>
+              <div className="space-y-0.5">
+                <h4 className="text-xs font-semibold text-studio-primary">
+                  แผนที่และการเดินทาง
+                </h4>
+                <div className="text-[11px] font-semibold text-studio-primary pt-0.5">
+                  {SHOP_NAME}
+                </div>
+                <p className="text-[10px] text-studio-muted leading-tight font-light">
+                  151/3 1299 ตำบลเวียงชัย อำเภอเวียงชัย จังหวัดเชียงราย 57210
+                </p>
+              </div>
             </div>
+
+            <a
+              href={GOOGLE_MAPS_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-full min-h-[34px] bg-studio-sec hover:bg-studio-card border border-studio-border text-studio-primary px-3 py-1.5 rounded-[4px] text-xs font-medium flex items-center justify-between transition-all group"
+            >
+              <span className="flex items-center gap-1.5 font-semibold text-studio-primary group-hover:text-studio-red transition-colors">
+                <MapPin size={13} className="text-studio-red" />
+                <span>เปิด Google Maps</span>
+              </span>
+              <ExternalLink size={13} className="text-studio-muted group-hover:text-studio-primary transition-colors" />
+            </a>
+          </div>
         </div>
       </div>
 
