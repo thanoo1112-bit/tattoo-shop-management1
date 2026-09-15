@@ -550,10 +550,11 @@ export default function EstimateForm({
       <div className="bg-studio-card border border-studio-border p-4 sm:p-5 rounded-[8px] flex items-start space-x-3 shadow-md">
         <Sparkles className="text-studio-red shrink-0 mt-0.5" size={18} />
         <div className="text-xs space-y-1">
-          <h3 className="font-bold text-studio-primary">คำขอประเมินราคาและจองคิว</h3>
+          <h3 className="font-bold text-studio-primary">ประเมินรายละเอียดก่อนจองคิว</h3>
           <p className="text-studio-secondary font-light">
-            กรอกรายละเอียดงาน เลือกวันเวลาที่สะดวก และส่งคำขอเพื่อรับราคาประเมินจากทางร้าน (ราคางานจะประเมินจากรายละเอียด ขนาด ความซับซ้อน และรูปอ้างอิง)
+            ส่งรายละเอียดงานที่ต้องการ พร้อมขนาด ตำแหน่ง และรูปอ้างอิง ทางร้านจะตรวจสอบและแจ้งราคาประเมินให้คุณก่อนยืนยันการจองคิว
           </p>
+          <p className="text-[11px] text-studio-red font-medium pt-0.5">* ขั้นตอนนี้ยังไม่มีการชำระเงินหรือมัดจำ</p>
         </div>
       </div>
 
@@ -872,7 +873,7 @@ export default function EstimateForm({
               ) : (
                 <>
                   <Send size={15} />
-                  <span>ส่งคำขอจองคิว</span>
+                  <span>ส่งคำขอประเมินงานสัก</span>
                 </>
               )}
             </button>

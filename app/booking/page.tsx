@@ -80,12 +80,12 @@ function BookingContent() {
           <div>
             <span className="text-[10px] uppercase tracking-widest text-studio-red font-bold">157 TATTOO STUDIO</span>
             <h1 className="text-xl md:text-3xl font-bold tracking-wider text-studio-primary mt-0.5">
-              {flashParam ? 'ส่งคำขอจองแบบลายสัก Flash' : 'ส่งคำขอจองคิว'}
+              {flashParam ? 'ส่งคำขอจองแบบลายสัก Flash' : 'ส่งคำขอประเมินงานสัก'}
             </h1>
             <p className="text-xs text-studio-secondary mt-1 font-light">
               {flashParam 
                 ? 'จองแบบลายสักพร้อมสัก ชำระเงินมัดจำ 500 บาทเพื่อยืนยันคำขอจองคิวงาน' 
-                : 'กรอกรายละเอียดงาน เลือกวันเวลาที่สะดวก และส่งคำขอเพื่อชำระเงินมัดจำ 500 บาทในการจองคิว'}
+                : 'กรอกรายละเอียดงาน เลือกช่างและวันเวลาที่สะดวก เพื่อให้ทางร้านตรวจสอบและประเมินราคา ก่อนดำเนินการยืนยันคิว'}
             </p>
           </div>
         </div>
