@@ -77,10 +77,10 @@ export default function AdminMobileBottomNav() {
     },
   ];
 
-  // Quick Action Menu Items for FAB Panel
+  // Quick Action Items for Concept 6 Dock
   const quickActions = [
     {
-      name: 'จัดตารางสัก',
+      name: 'จัดการคิว',
       href: '/admin/calendar',
       icon: Calendar,
     },
@@ -103,30 +103,24 @@ export default function AdminMobileBottomNav() {
 
   return (
     <>
-      {/* FAB BACKDROP / SCRIM */}
+      {/* FAB BACKDROP / SCRIM (Subtle bg-black/20 backdrop) */}
       {isFabOpen && (
         <div
           onClick={() => setIsFabOpen(false)}
-          className="md:hidden fixed inset-0 z-40 bg-black/45 backdrop-blur-[1px] transition-opacity animate-fadeIn"
+          className="md:hidden fixed inset-0 z-40 bg-black/20 backdrop-blur-[1px] transition-opacity animate-fadeIn"
         />
       )}
 
-      {/* FLOATING ACTION MENU PANEL */}
+      {/* QUICK ACTIONS DOCK (CONCEPT 6: 4 EQUAL HORIZONTAL CARDS IN 1 ROW FLOATING ABOVE BOTTOM NAV) */}
       {isFabOpen && (
         <div
           role="menu"
           aria-label="เมนูด่วน"
-          className="md:hidden fixed right-3 sm:right-4 z-50 w-[280px] max-w-[calc(100vw-32px)] bg-[#171512] border border-[#4A443A] rounded-[20px] p-2.5 shadow-2xl space-y-1 font-prompt animate-slideUp"
+          className="md:hidden fixed left-3 right-3 sm:left-4 sm:right-4 z-50 bg-[#171512] border border-[#4A443A] rounded-2xl p-2.5 shadow-2xl font-prompt animate-slideUp"
           style={{ bottom: 'calc(88px + env(safe-area-inset-bottom, 0px))' }}
         >
-          <div className="px-3 py-2 border-b border-[#3E372C]/60 flex items-center justify-between">
-            <span className="text-[11px] font-bold text-[#A89F91] uppercase tracking-wider">
-              เมนูด่วน (QUICK ACTIONS)
-            </span>
-          </div>
-
-          <div className="py-1">
-            {quickActions.map((action, idx) => {
+          <div className="grid grid-cols-4 gap-1.5 sm:gap-2">
+            {quickActions.map((action) => {
               const Icon = action.icon;
               return (
                 <Link
@@ -134,14 +128,12 @@ export default function AdminMobileBottomNav() {
                   href={action.href}
                   role="menuitem"
                   onClick={() => setIsFabOpen(false)}
-                  className={`flex items-center space-x-3 px-3 h-[52px] rounded-[12px] transition-all cursor-pointer hover:bg-[#25201A] text-[#ECE4D3] ${
-                    idx < quickActions.length - 1 ? 'border-b border-[#3E372C]/30' : ''
-                  }`}
+                  className="flex-1 min-h-[64px] sm:min-h-[68px] bg-[#221F1A] border border-[#3E372C]/70 hover:border-[#9C2F2F]/60 rounded-xl p-1.5 flex flex-col items-center justify-center space-y-1.5 text-center transition-all cursor-pointer hover:bg-[#2A241E] active:scale-95 group"
                 >
-                  <div className="w-8 h-8 rounded-[8px] bg-[#9C2F2F]/15 border border-[#9C2F2F]/30 flex items-center justify-center text-[#9C2F2F] shrink-0">
-                    <Icon size={18} />
+                  <div className="w-8 h-8 rounded-lg bg-[#9C2F2F]/15 border border-[#9C2F2F]/30 flex items-center justify-center text-[#9C2F2F] group-hover:bg-[#9C2F2F] group-hover:text-white transition-colors shrink-0">
+                    <Icon size={17} />
                   </div>
-                  <span className="text-xs font-semibold tracking-wide">
+                  <span className="text-[10px] sm:text-[11px] font-semibold text-[#ECE4D3] leading-none tracking-tight truncate w-full px-0.5">
                     {action.name}
                   </span>
                 </Link>
