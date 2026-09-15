@@ -46,6 +46,9 @@ export default function ArtistPaymentReviewDrawer({
   const [previewImage, setPreviewImage] = useState<string | null>(null);
 
   const [confirmationState, setConfirmationState] = useState<'loading' | 'confirmed' | 'not_confirmed' | 'error'>('loading');
+  const [submitting, setSubmitting] = useState(false);
+  const [actionError, setActionError] = useState('');
+  const [actionSuccess, setActionSuccess] = useState('');
 
   const customerUserId = estimate?.customer_user_id || booking?.customer_user_id || submission?.customer_user_id;
 
@@ -353,17 +356,68 @@ export default function ArtistPaymentReviewDrawer({
               </div>
             </div>
 
-            {/* Read-Only Notice for Artist */}
-            <div className="pt-2 border-t border-studio-border/40">
-              <div className="p-3 bg-studio-sec/80 border border-studio-border rounded-lg text-xs text-studio-secondary flex items-center justify-between">
-                <span className="flex items-center gap-1.5 text-amber-400 font-medium">
-                  <Clock size={14} />
-                  <span>รอ Admin ตรวจสอบการชำระเงิน</span>
-                </span>
-                <span className="text-[11px] text-studio-muted">
-                  (ร้านค้าเป็นผู้อนุมัติหลักฐาน)
-                </span>
-              </div>
+            {/* Action Section for Artist */}
+            <div className="pt-2 border-t border-studio-border/40 space-y-2">
+              {actionError && (
+                <div className="p-2.5 bg-red-950/60 border border-red-900/60 rounded-lg text-xs text-red-400">
+                  {actionError}
+                </div>
+              )}
+              {actionSuccess && (
+                <div className="p-2.5 bg-emerald-950/60 border border-emerald-800/60 rounded-lg text-xs text-emerald-300 font-semibold text-center">
+                  {actionSuccess}
+                </div>
+              )}
+              {submission.status === 'PENDING' && !actionSuccess && (
+                <button
+                  type="button"
+                  disabled={submitting}
+                  onClick={async () => {
+                    setActionError('');
+                    setActionSuccess('');
+                    setSubmitting(true);
+                    try {
+                      const supabase = createClient();
+                      const amountToApprove = Number(submission.claimed_amount) || depositRequired || 500;
+                      const { error: appErr } = await supabase.rpc('artist_approve_payment_submission', {
+                        p_submission_id: submission.id,
+                        p_verified_amount: amountToApprove,
+                        p_payment_method: 'BANK_TRANSFER',
+                        p_reference_no: submission.reference_no || null,
+                        p_artist_note: 'ช่างตรวจสอบและอนุมัติสลิปมัดจำ'
+                      });
+
+                      if (appErr) {
+                        console.error('Error approving payment submission:', appErr);
+                        throw new Error(appErr.message || 'เกิดข้อผิดพลาดในการอนุมัติสลิป');
+                      }
+
+                      setActionSuccess('อนุมัติสลิปและยืนยันคิวเรียบร้อยแล้ว');
+                      setTimeout(() => {
+                        onClose();
+                        if (typeof window !== 'undefined') window.location.reload();
+                      }, 1000);
+                    } catch (err: any) {
+                      setActionError(err.message || 'ไม่สามารถอนุมัติสลิปได้');
+                    } finally {
+                      setSubmitting(false);
+                    }
+                  }}
+                  className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 shadow-lg disabled:opacity-50 cursor-pointer"
+                >
+                  {submitting ? (
+                    <>
+                      <RefreshCw size={14} className="animate-spin" />
+                      <span>กำลังยืนยันคิว...</span>
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle2 size={16} />
+                      <span>ตรวจสอบสลิปผ่าน & ยืนยันคิว</span>
+                    </>
+                  )}
+                </button>
+              )}
             </div>
           </div>
         </div>

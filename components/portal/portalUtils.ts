@@ -202,15 +202,21 @@ export interface DepositDeadlineInfo {
 }
 
 /**
- * Calculates 24-hour deposit deadline from approvedAt timestamp
+ * Calculates deposit deadline info (1 hour for new deposit-first bookings, 24 hours for legacy bookings)
  */
-export function getDepositDeadlineInfo(approvedAt?: string | null): DepositDeadlineInfo | null {
-  if (!approvedAt) return null;
+export function getDepositDeadlineInfo(
+  approvedAt?: string | null,
+  createdAt?: string | null
+): DepositDeadlineInfo | null {
+  const startTimeStr = approvedAt || createdAt;
+  if (!startTimeStr) return null;
   try {
-    const approvedTime = new Date(approvedAt).getTime();
-    if (isNaN(approvedTime)) return null;
+    const startTime = new Date(startTimeStr).getTime();
+    if (isNaN(startTime)) return null;
 
-    const deadlineMs = approvedTime + 24 * 60 * 60 * 1000;
+    // Legacy booking (approvedAt present): 24 hours. New deposit-first booking (approvedAt null): 1 hour.
+    const durationMs = approvedAt ? 24 * 60 * 60 * 1000 : 1 * 60 * 60 * 1000;
+    const deadlineMs = startTime + durationMs;
     const now = Date.now();
     const remainingMs = deadlineMs - now;
     const isExpired = remainingMs <= 0;

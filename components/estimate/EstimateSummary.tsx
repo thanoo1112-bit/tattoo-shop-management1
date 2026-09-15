@@ -96,7 +96,7 @@ export default function EstimateSummary({
       </div>
 
       <div className="pt-1 text-[10px] text-studio-muted text-center border-t border-studio-border/40">
-        157 TATTOO STUDIO • ช่างจะตอบกลับราคาประเมินภายใน 24 ชม.
+        157 TATTOO STUDIO • กรุณาชำระเงินมัดจำ ฿500 ภายใน 1 ชม. (ราคางานจริงสรุปหน้างาน)
       </div>
     </div>
   );

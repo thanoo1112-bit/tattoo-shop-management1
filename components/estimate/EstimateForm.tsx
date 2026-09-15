@@ -454,33 +454,42 @@ export default function EstimateForm({
         ? (preferredTime.trim().length === 5 ? `${preferredTime.trim()}:00` : preferredTime.trim())
         : undefined;
 
-      // Submit Estimate Request (request_type = 'ESTIMATE', status = 'PENDING')
-      const reqId = await addEstimateRequest({
-        artistId,
-        style,
-        referenceImage: finalRefImages[0] || '',
-        referenceImages: finalRefImages,
-        width: Number(width),
-        height: Number(height),
-        placement: placement.trim(),
-        description: rawDesc,
-        preferredDate: preferredDate || undefined,
-        preferredTime: formattedPreferredTime,
-        preferred_time: formattedPreferredTime,
-        hasMedicalCondition,
-        medicalConditionNote: hasMedicalCondition ? medicalConditionNote.trim() : '',
-        hasAllergy,
-        allergyNote: hasAllergy ? allergyNote.trim() : '',
+      // Atomic Submit: Creates both estimate_requests and bookings in 1 DB Transaction
+      const { data: rpcRes, error: rpcErr } = await supabase.rpc('create_customer_booking_request', {
+        p_artist_id: artistId,
+        p_placement: placement.trim(),
+        p_width_cm: Number(width),
+        p_height_cm: Number(height),
+        p_style: style.trim(),
+        p_description: rawDesc,
+        p_preferred_date: preferredDate || null,
+        p_preferred_time: formattedPreferredTime || null,
+        p_reference_images: finalRefImages.slice(0, 5),
+        p_has_medical_condition: hasMedicalCondition,
+        p_medical_condition_note: hasMedicalCondition ? medicalConditionNote.trim() : null,
+        p_has_allergy: hasAllergy,
+        p_allergy_note: hasAllergy ? allergyNote.trim() : null,
+        p_work_type: null,
       });
 
+      if (rpcErr) {
+        console.error('Error calling create_customer_booking_request:', rpcErr);
+        throw new Error(translateRpcError(rpcErr.message));
+      }
+
+      const reqId = rpcRes?.estimate_request_id || '';
+      const bookId = rpcRes?.booking_id || '';
+
+      setEstimateDraft(null);
       setNewRequestId(reqId);
+      setNewBookingId(bookId);
       setIsFlashSubmission(false);
       setSubmitted(true);
 
-      if (onSuccess) onSuccess(reqId);
+      if (onSuccess) onSuccess(reqId, bookId);
     } catch (err: any) {
-      console.error('Error submitting estimate request:', err);
-      setError(err?.message || 'เกิดข้อผิดพลาดในการส่งคำขอประเมินราคา กรุณาลองใหม่อีกครั้ง');
+      console.error('Error submitting customer booking request:', err);
+      setError(err?.message || 'เกิดข้อผิดพลาดในการส่งคำขอจองคิว กรุณาลองใหม่อีกครั้ง');
     } finally {
       setLoading(false);
     }
@@ -543,29 +552,62 @@ export default function EstimateForm({
       );
     }
 
-    // Normal Customer Estimate Submission Success Screen
+    // Normal Customer Booking Submission Success Screen
     return (
-      <div className="bg-studio-card border border-studio-border p-6 sm:p-8 rounded-[8px] text-center space-y-4 font-prompt animate-fadeIn">
-        <div className="w-12 h-12 bg-green-500/10 border border-green-500/30 text-green-500 rounded-full flex items-center justify-center mx-auto mb-2">
-          <CheckCircle2 size={24} />
+      <div className="bg-studio-card border border-studio-border p-6 sm:p-8 rounded-[8px] text-center space-y-5 font-prompt animate-fadeIn">
+        <div className="w-14 h-14 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 rounded-full flex items-center justify-center mx-auto mb-1">
+          <CheckCircle2 size={28} />
         </div>
-        <h3 className="text-lg font-bold text-studio-primary">ส่งคำขอประเมินราคาเรียบร้อยแล้ว</h3>
-        <p className="text-xs text-studio-secondary leading-relaxed">
-          รหัสคำขอจอง: <strong className="text-studio-red font-mono">#{newRequestId.slice(0, 8).toUpperCase()}</strong>
-        </p>
-        <p className="text-xs text-studio-secondary mb-6 leading-relaxed font-light">
-          ช่างจะตรวจสอบรายละเอียด รูปอ้างอิง และขนาดงาน ก่อนส่งราคากลับมาให้คุณใน Customer Portal
-        </p>
+        
+        <div>
+          <span className="bg-amber-950/60 text-amber-400 border border-amber-800/60 px-3 py-1 rounded text-[11px] font-semibold">
+            สถานะ: รอชำระมัดจำ
+          </span>
+          <h3 className="text-xl font-bold text-studio-primary mt-2">ส่งคำขอจองคิวเรียบร้อยแล้ว</h3>
+          <p className="text-xs text-studio-secondary mt-1">
+            รหัสคำขอจอง: <strong className="text-studio-red font-mono">#{newRequestId.slice(0, 8).toUpperCase()}</strong>
+          </p>
+        </div>
+
+        {/* Steps Card */}
+        <div className="bg-[#171512] border border-[#4A443A] p-4 rounded-[8px] max-w-md mx-auto text-left space-y-2.5 text-xs">
+          <h4 className="font-semibold text-[#ECE4D3] text-xs border-b border-[#4A443A]/60 pb-1.5 flex items-center gap-1.5">
+            <Sparkles size={14} className="text-amber-400" />
+            <span>ขั้นตอนถัดไปเพื่อยืนยันคิวงาน</span>
+          </h4>
+          <ol className="space-y-2 text-[11px] text-[#A89F91]">
+            <li className="flex items-start gap-2">
+              <span className="bg-amber-500/20 text-amber-300 font-bold rounded-full w-4 h-4 flex items-center justify-center shrink-0 text-[10px] mt-0.5">1</span>
+              <span>ชำระเงินมัดจำคิว <strong>฿500</strong> ภายใน 1 ชั่วโมง</span>
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="bg-amber-500/20 text-amber-300 font-bold rounded-full w-4 h-4 flex items-center justify-center shrink-0 text-[10px] mt-0.5">2</span>
+              <span>ส่งหลักฐานการชำระเงิน (สลิป) ➔ สถานะเปลี่ยนเป็น <strong>&quot;รอตรวจสอบสลิป&quot;</strong></span>
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="bg-amber-500/20 text-amber-300 font-bold rounded-full w-4 h-4 flex items-center justify-center shrink-0 text-[10px] mt-0.5">3</span>
+              <span>รอช่างสักตรวจสอบและยืนยันสลิป</span>
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="bg-emerald-500/20 text-emerald-300 font-bold rounded-full w-4 h-4 flex items-center justify-center shrink-0 text-[10px] mt-0.5">4</span>
+              <span>เมื่อช่างยืนยันแล้ว ➔ สถานะเปลี่ยนเป็น <strong>&quot;ยืนยันคิวแล้ว&quot;</strong> สมบูรณ์</span>
+            </li>
+          </ol>
+          <div className="pt-2 border-t border-[#4A443A]/40 text-[11px] text-amber-300/90 italic">
+            * ราคางานจริงจะสรุปตามรายละเอียด ขนาด ความซับซ้อน และหน้างานในวันที่เข้ารับบริการ
+          </div>
+        </div>
+
         <button
           type="button"
           onClick={() => {
             if (typeof window !== 'undefined') {
-              window.location.href = '/portal?tab=estimates';
+              window.location.href = '/portal?tab=bookings';
             }
           }}
-          className="min-h-[44px] w-full bg-studio-red hover:bg-[#802222] text-studio-paper text-xs uppercase tracking-wider py-3 px-4 font-semibold transition-all rounded-[4px] border border-studio-red cursor-pointer"
+          className="min-h-[44px] w-full max-w-md bg-studio-red hover:bg-[#802222] text-studio-paper text-xs uppercase tracking-wider py-3 px-4 font-semibold transition-all rounded-[4px] border border-studio-red cursor-pointer shadow-lg mx-auto block"
         >
-          ไปที่หน้ารายการคำขอจอง (Portal)
+          ไปที่หน้าชำระมัดจำ / ติดตามสถานะ (Portal)
         </button>
       </div>
     );
@@ -587,11 +629,46 @@ export default function EstimateForm({
           <span>157 TATTOO STUDIO</span>
         </div>
         <h2 className="text-2xl sm:text-3xl font-heading font-normal tracking-wide text-studio-primary">
-          แบบฟอร์มจองคิวสัก
+          แบบฟอร์มส่งคำขอจองคิว
         </h2>
         <p className="text-xs text-studio-secondary mt-1 font-light">
-          กรอกรายละเอียดงานสักของคุณเพื่อส่งคำขอจองคิวและดำเนินการชำระเงินมัดจำ
+          กรอกรายละเอียดงานสักของคุณเพื่อส่งคำขอจองคิว (เงินมัดจำคิว ฿500 ภายใน 1 ชม. • ราคางานจริงสรุปตามรายละเอียดและหน้างาน)
         </p>
+      </div>
+
+      {/* Information Block: Booking Conditions & Fixed Deposit */}
+      <div className="bg-[#171512] border border-[#4A443A] p-4 sm:p-5 rounded-[8px] space-y-3 font-prompt">
+        <div className="flex items-center justify-between border-b border-[#4A443A]/60 pb-2.5">
+          <div className="flex items-center space-x-2 text-[#ECE4D3] text-xs sm:text-sm font-bold">
+            <Sparkles size={16} className="text-amber-400 shrink-0" />
+            <span>เงื่อนไขการจองคิว</span>
+          </div>
+          <div className="bg-amber-950/60 text-amber-400 border border-amber-800/60 px-2.5 py-1 rounded text-xs font-bold">
+            เงินมัดจำคิว ฿500
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs text-[#A89F91]">
+          <div className="flex items-start space-x-2.5 bg-[#0E0D0C] p-3 rounded-[6px] border border-[#4A443A]/40">
+            <DollarSign size={16} className="text-amber-400 shrink-0 mt-0.5" />
+            <div>
+              <strong className="text-[#ECE4D3] block mb-0.5">การชำระเงินมัดจำ:</strong>
+              <p className="text-[11px] font-light leading-relaxed">
+                หลังส่งคำขอ ลูกค้าจะต้องชำระเงินมัดจำ 500 บาท ภายใน 1 ชั่วโมง เพื่อยืนยันคำขอจองคิว
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-start space-x-2.5 bg-[#0E0D0C] p-3 rounded-[6px] border border-[#4A443A]/40">
+            <AlertCircle size={16} className="text-blue-400 shrink-0 mt-0.5" />
+            <div>
+              <strong className="text-[#ECE4D3] block mb-0.5">ราคางานจริง:</strong>
+              <p className="text-[11px] font-light leading-relaxed">
+                ราคางานจริงจะสรุปตามรายละเอียด ขนาด ความซับซ้อน และหน้างานในวันที่เข้ารับบริการ
+              </p>
+            </div>
+          </div>
+        </div>
       </div>
 
       {error && (
@@ -848,7 +925,7 @@ export default function EstimateForm({
               <span>9. ขั้นตอนถัดไปหลังส่งคำขอจองคิว</span>
             </div>
             <p className="text-[11px] text-[#A89F91] leading-relaxed font-light">
-              เมื่อคุณกดส่งคำขอเรียบร้อยแล้ว ระบบจะนำคุณไปยังหน้าชำระเงินมัดจำเพื่อสแกน QR Code หรือโอนเงินและแนบสลิปเพื่อยืนยันคิวงาน
+              เมื่อคุณกด <strong>&quot;ส่งคำขอจองคิว&quot;</strong> เรียบร้อยแล้ว ระบบจะนำคุณไปยังขั้นตอนชำระเงินมัดจำ <strong>฿500</strong> เพื่อแนบหลักฐานโอนเงินและส่งให้ช่างสักตรวจสอบยืนยันคิว
             </p>
           </div>
 
@@ -876,17 +953,17 @@ export default function EstimateForm({
               {loading ? (
                 <>
                   <Loader2 size={15} className="mr-2 animate-spin" />
-                  <span>กำลังสร้างคำขอจอง...</span>
+                  <span>กำลังส่งคำขอจองคิว...</span>
                 </>
               ) : (
                 <>
                   <Send size={14} className="mr-2" />
-                  <span>ส่งคำขอจองและดำเนินการชำระมัดจำ</span>
+                  <span>ส่งคำขอจองคิว</span>
                 </>
               )}
             </button>
             <span className="text-[10px] text-[#A89F91] font-light text-center sm:text-right">
-              ระบบจะพาคุณเข้าสู่ขั้นตอนชำระเงินมัดจำทันทีหลังส่งคำขอจอง
+              หลังส่งคำขอ ระบบจะนำคุณไปยังขั้นตอนชำระเงินมัดจำ ฿500
             </span>
           </div>
         </div>

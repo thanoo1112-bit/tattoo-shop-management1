@@ -293,8 +293,8 @@ export default function CustomerDepositPaymentSection({
   const isBookingWaitingDeposit = booking.status === 'WAITING_DEPOSIT';
   const isBookingConfirmed = booking.status === 'CONFIRMED';
 
-  // 24-hour Deposit Deadline calculation (only when WAITING_DEPOSIT and no pending submission)
-  const deadlineInfo = isBookingWaitingDeposit && !pendingSubmission ? getDepositDeadlineInfo(booking.approved_at) : null;
+  // Deposit Deadline calculation (only when WAITING_DEPOSIT and no pending submission)
+  const deadlineInfo = isBookingWaitingDeposit && !pendingSubmission ? getDepositDeadlineInfo(booking.approved_at, booking.created_at) : null;
   const isDeadlineExpired = Boolean(deadlineInfo?.isExpired);
 
   // Check if active bank/QR settings exist
@@ -469,7 +469,7 @@ export default function CustomerDepositPaymentSection({
             <span>หมดเวลาชำระมัดจำ</span>
           </div>
           <p className="text-[11px] text-red-200/90 leading-relaxed font-light">
-            คิวนี้เกินกำหนดเวลาชำระเงินมัดจำ 24 ชั่วโมงแล้ว (ครบกำหนดเมื่อ{' '}
+            คิวนี้เกินกำหนดเวลาชำระเงินมัดจำ {booking.approved_at ? '24 ชั่วโมง' : '1 ชั่วโมง'}แล้ว (ครบกำหนดเมื่อ{' '}
             <span className="font-medium text-red-100">{deadlineInfo?.deadlineDateStr || 'ไม่ระบุ'}</span>)
           </p>
           <p className="text-[11px] text-[#ECE4D3] font-medium pt-1">
@@ -478,13 +478,13 @@ export default function CustomerDepositPaymentSection({
         </div>
       )}
 
-      {/* F. Active 24-Hour Deposit Deadline Countdown Banner */}
+      {/* F. Active Deposit Deadline Countdown Banner */}
       {!pendingSubmission && isBookingWaitingDeposit && deadlineInfo && !isDeadlineExpired && (
         <div className="bg-[#171512] border border-[#D9A441]/50 p-3.5 rounded-[6px] space-y-1.5">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2 text-xs font-bold text-[#D9A441]">
               <Clock size={14} className="animate-pulse" />
-              <span>กำหนดชำระมัดจำภายใน 24 ชั่วโมง</span>
+              <span>กำหนดชำระมัดจำภายใน {booking.approved_at ? '24 ชั่วโมง' : '1 ชั่วโมง'}</span>
             </div>
             <span className="text-xs font-mono font-bold text-[#D9A441] bg-[#D9A441]/10 border border-[#D9A441]/40 px-2 py-0.5 rounded">
               เหลือเวลา {deadlineInfo.remainingText}
