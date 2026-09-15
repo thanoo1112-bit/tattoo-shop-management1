@@ -7,6 +7,7 @@ import MobileBottomNav from '@/components/customer/MobileBottomNav';
 import CustomerBookingCard from '@/components/portal/CustomerBookingCard';
 import CustomerBookingDetail from '@/components/portal/CustomerBookingDetail';
 import CustomerFlashReservations from '@/components/portal/CustomerFlashReservations';
+import CustomerPostConfirmationGuide from '@/components/portal/CustomerPostConfirmationGuide';
 import { useApp, checkIsCustomerProfileComplete } from '@/components/AppContext';
 import {
   CustomerPortalBooking,
@@ -139,6 +140,7 @@ function CustomerPortalContent() {
   const [liveBookings, setLiveBookings] = useState<CustomerPortalBooking[]>([]);
   const [liveEstimates, setLiveEstimates] = useState<CustomerPortalEstimate[]>([]);
   const [nextAppointment, setNextAppointment] = useState<NextAppointmentInfo | null>(null);
+  const [hasApprovedDeposit, setHasApprovedDeposit] = useState(false);
   const [dataLoading, setDataLoading] = useState(true);
 
   const searchParams = useSearchParams();
@@ -368,6 +370,10 @@ function CustomerPortalContent() {
 
       setLiveBookings(hydratedBookings);
       setLiveEstimates(hydratedEstimates);
+
+      // Check if customer has at least 1 approved deposit payment submission ONLY
+      const hasApprovedSub = (rawSubmissions || []).some((s: any) => s.status === 'APPROVED');
+      setHasApprovedDeposit(hasApprovedSub);
 
       // 8. Next Appointment Authority: Strictly from public.booking_sessions
       // Priority 1: An IN_PROGRESS session
@@ -925,6 +931,9 @@ function CustomerPortalContent() {
                 <p>• ยอดคงเหลือชำระในวันเข้ารับบริการจริงที่สตูดิโอ (เงินสด/โอนเงิน)</p>
               </div>
             </div>
+
+            {/* Post-Confirmation Guide Card (Desktop Only, displayed after deposit slip approval) */}
+            <CustomerPostConfirmationGuide hasApprovedSubmission={hasApprovedDeposit} />
           </div>
         </div>
       </main>
