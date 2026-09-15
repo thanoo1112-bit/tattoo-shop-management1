@@ -251,130 +251,112 @@ export default function ReferenceUploader({
 
 
 
-      {/* ── 5-Slot Layout (Active Upload + Thumbnails + Empty Placeholders) ──── */}
-      <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5 sm:gap-3 w-full">
-        {Array.from({ length: maxImages }).map((_, idx) => {
-          const pathStr = activePaths[idx];
-          const isActiveUploadCard = !pathStr && idx === activePaths.length && !isLimitReached && !disabled;
+      {/* ── Dynamic Compact Grid Layout (Active Thumbnails + Single Upload Card) ──── */}
+      <div className="grid grid-cols-3 sm:grid-cols-5 gap-2.5 sm:gap-3 w-full">
+        {/* Render uploaded image thumbnails */}
+        {activePaths.map((pathStr, idx) => {
+          const displayUrl = getDisplayUrl(pathStr);
+          const isFailed   = Boolean(failedImagePaths[pathStr]);
+          const isPending  = !displayUrl && !isFailed;
 
-          if (pathStr) {
-            const displayUrl = getDisplayUrl(pathStr);
-            const isFailed   = Boolean(failedImagePaths[pathStr]);
-            const isPending  = !displayUrl && !isFailed;
-
-            return (
-              <div
-                key={pathStr + idx}
-                onClick={() => {
-                  if (displayUrl && !isFailed) {
-                    openLightbox(idx);
-                  }
-                }}
-                className="relative w-full h-[85px] sm:h-[95px] rounded-[6px] overflow-hidden border border-[#4A443A] bg-[#0E0D0C] group cursor-pointer hover:border-[#9C2F2F] transition-colors"
-              >
-                {/* Image / Loading / Error */}
-                {isPending || loadingPreviews ? (
-                  <div className="w-full h-full flex items-center justify-center bg-[#171512]">
-                    <Loader2 size={16} className="animate-spin text-[#9C2F2F]" />
-                  </div>
-                ) : isFailed || !displayUrl ? (
-                  <div className="w-full h-full flex flex-col items-center justify-center bg-[#171512] p-1 text-center">
-                    <ImageIcon size={18} className="text-[#4A443A] mb-0.5" />
-                    <span className="text-[8px] text-[#A89F91]">โหลดไม่ได้</span>
-                  </div>
-                ) : (
-                  <img
-                    src={displayUrl}
-                    alt={`Reference ${idx + 1}`}
-                    className="w-full h-full object-cover cursor-pointer"
-                    onError={() => handleImageError(pathStr)}
-                  />
-                )}
-
-                {/* Index badge */}
-                <span className="absolute bottom-1 left-1 bg-black/80 text-[9px] font-mono text-[#ECE4D3] px-1.5 py-0.5 rounded border border-white/10 pointer-events-none">
-                  {idx + 1}
-                </span>
-
-                {/* Zoom hint on hover */}
-                {displayUrl && !isFailed && (
-                  <div
-                    className="absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 group-hover:opacity-100 transition-all pointer-events-none"
-                  >
-                    <ZoomIn size={18} className="text-white drop-shadow" />
-                  </div>
-                )}
-
-                {/* Remove button (× circle button top-right) */}
-                {!disabled && !isUploading && (
-                  <button
-                    type="button"
-                    onClick={(e) => { e.stopPropagation(); handleRemove(idx); }}
-                    className="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/80 hover:bg-[#9C2F2F] text-white border border-white/20 flex items-center justify-center transition-colors shadow z-10 text-xs font-bold leading-none cursor-pointer"
-                    title="ลบรูปนี้"
-                  >
-                    ×
-                  </button>
-                )}
-              </div>
-            );
-          }
-
-          if (isActiveUploadCard) {
-            return (
-              <div
-                key={`upload-card-${idx}`}
-                ref={dropZoneRef}
-                role="button"
-                tabIndex={0}
-                onClick={() => fileInputRef.current?.click()}
-                onKeyDown={(e) => e.key === 'Enter' && fileInputRef.current?.click()}
-                onDragOver={handleDragOver}
-                onDragLeave={handleDragLeave}
-                onDrop={handleDrop}
-                className={`
-                  w-full h-[85px] sm:h-[95px] rounded-[6px] border border-dashed
-                  flex flex-col items-center justify-center gap-1 p-2
-                  cursor-pointer select-none transition-all duration-200 text-center group
-                  ${isDragging
-                    ? 'border-[#9C2F2F] bg-[#9C2F2F]/10'
-                    : 'border-[#4A443A] bg-[#0E0D0C] hover:border-[#9C2F2F] hover:bg-[#171512]'
-                  }
-                `}
-              >
-                {isUploading ? (
-                  <>
-                    <Loader2 size={18} className="animate-spin text-[#9C2F2F]" />
-                    <span className="text-[10px] text-[#A89F91]">กำลังอัปโหลด...</span>
-                  </>
-                ) : (
-                  <>
-                    <div className="flex items-center gap-1 text-xs font-semibold text-[#ECE4D3] group-hover:text-white transition-colors">
-                      <Plus size={14} className="text-[#9C2F2F]" />
-                      <span>เพิ่มรูปภาพ</span>
-                    </div>
-                    <span className="text-[9px] text-[#A89F91] group-hover:text-[#ECE4D3] transition-colors leading-tight">
-                      PNG, JPG (&le;10MB)
-                    </span>
-                  </>
-                )}
-              </div>
-            );
-          }
-
-          // Empty Placeholder Slot
           return (
             <div
-              key={`empty-slot-${idx}`}
-              className="w-full h-[85px] sm:h-[95px] rounded-[6px] border border-dashed border-[#4A443A]/30 bg-[#0E0D0C]/50 flex flex-col items-center justify-center gap-1 p-2 select-none text-center"
+              key={pathStr + idx}
+              onClick={() => {
+                if (displayUrl && !isFailed) {
+                  openLightbox(idx);
+                }
+              }}
+              className="relative w-full h-[85px] sm:h-[95px] rounded-[6px] overflow-hidden border border-[#4A443A] bg-[#0E0D0C] group cursor-pointer hover:border-[#9C2F2F] transition-colors"
             >
-              <ImageIcon size={16} className="text-[#4A443A]/50" />
-              <span className="text-[10px] text-[#7A7265]/70 font-mono">
-                รูปที่ {idx + 1}
+              {/* Image / Loading / Error */}
+              {isPending || loadingPreviews ? (
+                <div className="w-full h-full flex items-center justify-center bg-[#171512]">
+                  <Loader2 size={16} className="animate-spin text-[#9C2F2F]" />
+                </div>
+              ) : isFailed || !displayUrl ? (
+                <div className="w-full h-full flex flex-col items-center justify-center bg-[#171512] p-1 text-center">
+                  <ImageIcon size={18} className="text-[#4A443A] mb-0.5" />
+                  <span className="text-[8px] text-[#A89F91]">โหลดไม่ได้</span>
+                </div>
+              ) : (
+                <img
+                  src={displayUrl}
+                  alt={`Reference ${idx + 1}`}
+                  className="w-full h-full object-cover cursor-pointer"
+                  onError={() => handleImageError(pathStr)}
+                />
+              )}
+
+              {/* Index badge */}
+              <span className="absolute bottom-1 left-1 bg-black/80 text-[9px] font-mono text-[#ECE4D3] px-1.5 py-0.5 rounded border border-white/10 pointer-events-none">
+                {idx + 1}
               </span>
+
+              {/* Zoom hint on hover */}
+              {displayUrl && !isFailed && (
+                <div
+                  className="absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 group-hover:opacity-100 transition-all pointer-events-none"
+                >
+                  <ZoomIn size={18} className="text-white drop-shadow" />
+                </div>
+              )}
+
+              {/* Remove button (× circle button top-right) */}
+              {!disabled && !isUploading && (
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); handleRemove(idx); }}
+                  className="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/80 hover:bg-[#9C2F2F] text-white border border-white/20 flex items-center justify-center transition-colors shadow z-10 text-xs font-bold leading-none cursor-pointer"
+                  title="ลบรูปนี้"
+                >
+                  ×
+                </button>
+              )}
             </div>
           );
         })}
+
+        {/* Single Dynamic Upload Card (Rendered if limit not reached) */}
+        {canAddMore && (
+          <div
+            key="dynamic-upload-card"
+            ref={dropZoneRef}
+            role="button"
+            tabIndex={0}
+            onClick={() => fileInputRef.current?.click()}
+            onKeyDown={(e) => e.key === 'Enter' && fileInputRef.current?.click()}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+            className={`
+              w-full h-[85px] sm:h-[95px] rounded-[6px] border border-dashed
+              flex flex-col items-center justify-center gap-1 p-2
+              cursor-pointer select-none transition-all duration-200 text-center group
+              ${isDragging
+                ? 'border-[#9C2F2F] bg-[#9C2F2F]/10'
+                : 'border-[#4A443A] bg-[#0E0D0C] hover:border-[#9C2F2F] hover:bg-[#171512]'
+              }
+            `}
+          >
+            {isUploading ? (
+              <>
+                <Loader2 size={18} className="animate-spin text-[#9C2F2F]" />
+                <span className="text-[10px] text-[#A89F91]">กำลังอัปโหลด...</span>
+              </>
+            ) : (
+              <>
+                <div className="flex items-center gap-1 text-xs font-semibold text-[#ECE4D3] group-hover:text-white transition-colors">
+                  <Plus size={14} className="text-[#9C2F2F]" />
+                  <span>เพิ่มรูปภาพ</span>
+                </div>
+                <span className="text-[9px] text-[#A89F91] group-hover:text-[#ECE4D3] transition-colors leading-tight font-mono">
+                  ({activePaths.length}/{maxImages})
+                </span>
+              </>
+            )}
+          </div>
+        )}
       </div>
 
 
