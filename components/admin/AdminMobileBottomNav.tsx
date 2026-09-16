@@ -48,34 +48,6 @@ export default function AdminMobileBottomNav() {
     };
   }, [isFabOpen]);
 
-  // Main 4 Floating Dock Items (No "เพิ่มเติม" button in Dock)
-  const mainNavItems = [
-    {
-      name: 'ภาพรวม',
-      href: '/admin/dashboard',
-      icon: LayoutDashboard,
-      isActive: pathname === '/admin/dashboard' || pathname === '/admin',
-    },
-    {
-      name: 'คำขอ',
-      href: '/admin/requests',
-      icon: ClipboardList,
-      badge: pendingCount > 0 ? pendingCount : null,
-      isActive: pathname === '/admin/requests' || pathname.startsWith('/admin/requests/'),
-    },
-    {
-      name: 'ปฏิทิน',
-      href: '/admin/calendar',
-      icon: CalendarDays,
-      isActive: pathname === '/admin/calendar' || pathname.startsWith('/admin/calendar/'),
-    },
-    {
-      name: 'การเงิน',
-      href: '/admin/payments',
-      icon: CreditCard,
-      isActive: pathname === '/admin/payments' || pathname.startsWith('/admin/payments/'),
-    },
-  ];
 
   // Quick Action Items for Concept 6 Dock
   const quickActions = [
@@ -117,7 +89,7 @@ export default function AdminMobileBottomNav() {
           role="menu"
           aria-label="เมนูด่วน"
           className="md:hidden fixed left-3 right-3 sm:left-4 sm:right-4 z-50 bg-[#171512] border border-[#4A443A] rounded-2xl p-2.5 shadow-2xl font-prompt animate-slideUp"
-          style={{ bottom: 'calc(88px + env(safe-area-inset-bottom, 0px))' }}
+          style={{ bottom: 'calc(86px + env(safe-area-inset-bottom, 0px))' }}
         >
           <div className="grid grid-cols-4 gap-1.5 sm:gap-2">
             {quickActions.map((action) => {
@@ -143,59 +115,121 @@ export default function AdminMobileBottomNav() {
         </div>
       )}
 
-      {/* FLOATING CAPSULE NAVIGATION DOCK (4 Items) */}
+      {/* FLOATING NAVIGATION BAR (5 COLUMNS WITH CENTERED FAB SLOT) */}
       <nav
-        className="md:hidden fixed left-3 right-[88px] sm:left-4 sm:right-[96px] z-40 bg-[#171512]/95 backdrop-blur-md border border-[#4A443A] rounded-full h-[64px] px-2 font-prompt flex items-center justify-around shadow-2xl"
+        className="md:hidden fixed left-3 right-3 sm:left-4 sm:right-4 z-40 bg-[#171512]/95 backdrop-blur-md border border-[#4A443A] rounded-2xl h-[64px] px-1 font-prompt shadow-2xl"
         style={{ bottom: 'calc(12px + env(safe-area-inset-bottom, 0px))' }}
       >
-        {mainNavItems.map((item) => {
-          const Icon = item.icon;
-          return (
-            <Link
-              key={item.name}
-              href={item.href}
-              onClick={() => {
-                setIsFabOpen(false);
-              }}
-              className={`relative flex flex-col items-center justify-center py-1 px-2 transition-colors cursor-pointer ${
-                item.isActive ? 'text-[#ECE4D3]' : 'text-[#7A7265] hover:text-[#A89F91]'
-              }`}
-            >
-              <div className="relative">
-                <Icon
-                  size={20}
-                  className={item.isActive ? 'text-[#9C2F2F]' : 'text-[#7A7265]'}
-                />
-                {item.badge && (
-                  <span className="absolute -top-1 -right-2 bg-[#9C2F2F] text-[#ECE4D3] text-[9px] font-bold w-4 h-4 rounded-full flex items-center justify-center ring-2 ring-[#171512]">
-                    {item.badge}
-                  </span>
-                )}
-              </div>
-              <span
-                className={`text-[10px] mt-0.5 font-medium tracking-wide ${
-                  item.isActive ? 'text-[#ECE4D3] font-semibold' : 'text-[#7A7265]'
-                }`}
-              >
-                {item.name}
-              </span>
-              {item.isActive && (
-                <span className="absolute bottom-1 w-5 h-[2px] bg-[#9C2F2F] rounded-full" />
+        <div className="grid grid-cols-5 h-full items-center text-center">
+          {/* Col 1: ภาพรวม */}
+          <Link
+            href="/admin/dashboard"
+            onClick={() => setIsFabOpen(false)}
+            className={`relative flex flex-col items-center justify-center py-1 transition-colors cursor-pointer ${
+              pathname === '/admin/dashboard' || pathname === '/admin' ? 'text-[#ECE4D3]' : 'text-[#7A7265] hover:text-[#A89F91]'
+            }`}
+          >
+            <LayoutDashboard
+              size={19}
+              className={pathname === '/admin/dashboard' || pathname === '/admin' ? 'text-[#9C2F2F]' : 'text-[#7A7265]'}
+            />
+            <span className={`text-[10px] mt-0.5 font-medium tracking-tight ${
+              pathname === '/admin/dashboard' || pathname === '/admin' ? 'text-[#ECE4D3] font-semibold' : 'text-[#7A7265]'
+            }`}>
+              ภาพรวม
+            </span>
+            {(pathname === '/admin/dashboard' || pathname === '/admin') && (
+              <span className="absolute bottom-1 w-4 h-[2px] bg-[#9C2F2F] rounded-full" />
+            )}
+          </Link>
+
+          {/* Col 2: คำขอ */}
+          <Link
+            href="/admin/requests"
+            onClick={() => setIsFabOpen(false)}
+            className={`relative flex flex-col items-center justify-center py-1 transition-colors cursor-pointer ${
+              pathname.startsWith('/admin/requests') ? 'text-[#ECE4D3]' : 'text-[#7A7265] hover:text-[#A89F91]'
+            }`}
+          >
+            <div className="relative">
+              <ClipboardList
+                size={19}
+                className={pathname.startsWith('/admin/requests') ? 'text-[#9C2F2F]' : 'text-[#7A7265]'}
+              />
+              {pendingCount > 0 && (
+                <span className="absolute -top-1 -right-2 bg-[#9C2F2F] text-[#ECE4D3] text-[9px] font-bold w-4 h-4 rounded-full flex items-center justify-center ring-2 ring-[#171512]">
+                  {pendingCount}
+                </span>
               )}
-            </Link>
-          );
-        })}
+            </div>
+            <span className={`text-[10px] mt-0.5 font-medium tracking-tight ${
+              pathname.startsWith('/admin/requests') ? 'text-[#ECE4D3] font-semibold' : 'text-[#7A7265]'
+            }`}>
+              คำขอ
+            </span>
+            {pathname.startsWith('/admin/requests') && (
+              <span className="absolute bottom-1 w-4 h-[2px] bg-[#9C2F2F] rounded-full" />
+            )}
+          </Link>
+
+          {/* Col 3: Center FAB Slot (Space reserved for centered FAB button) */}
+          <div className="h-full flex items-center justify-center" />
+
+          {/* Col 4: ปฏิทิน */}
+          <Link
+            href="/admin/calendar"
+            onClick={() => setIsFabOpen(false)}
+            className={`relative flex flex-col items-center justify-center py-1 transition-colors cursor-pointer ${
+              pathname.startsWith('/admin/calendar') ? 'text-[#ECE4D3]' : 'text-[#7A7265] hover:text-[#A89F91]'
+            }`}
+          >
+            <CalendarDays
+              size={19}
+              className={pathname.startsWith('/admin/calendar') ? 'text-[#9C2F2F]' : 'text-[#7A7265]'}
+            />
+            <span className={`text-[10px] mt-0.5 font-medium tracking-tight ${
+              pathname.startsWith('/admin/calendar') ? 'text-[#ECE4D3] font-semibold' : 'text-[#7A7265]'
+            }`}>
+              ปฏิทิน
+            </span>
+            {pathname.startsWith('/admin/calendar') && (
+              <span className="absolute bottom-1 w-4 h-[2px] bg-[#9C2F2F] rounded-full" />
+            )}
+          </Link>
+
+          {/* Col 5: การเงิน */}
+          <Link
+            href="/admin/payments"
+            onClick={() => setIsFabOpen(false)}
+            className={`relative flex flex-col items-center justify-center py-1 transition-colors cursor-pointer ${
+              pathname.startsWith('/admin/payments') ? 'text-[#ECE4D3]' : 'text-[#7A7265] hover:text-[#A89F91]'
+            }`}
+          >
+            <CreditCard
+              size={19}
+              className={pathname.startsWith('/admin/payments') ? 'text-[#9C2F2F]' : 'text-[#7A7265]'}
+            />
+            <span className={`text-[10px] mt-0.5 font-medium tracking-tight ${
+              pathname.startsWith('/admin/payments') ? 'text-[#ECE4D3] font-semibold' : 'text-[#7A7265]'
+            }`}>
+              การเงิน
+            </span>
+            {pathname.startsWith('/admin/payments') && (
+              <span className="absolute bottom-1 w-4 h-[2px] bg-[#9C2F2F] rounded-full" />
+            )}
+          </Link>
+        </div>
       </nav>
 
-      {/* SEPARATE CIRCULAR FLOATING ACTION BUTTON (FAB: 64x64px) ON SAME BASELINE */}
+      {/* CENTERED FLOATING ACTION BUTTON (FAB: ELEVATED AT CENTER SLOT 3) */}
       <button
         type="button"
         aria-label={isFabOpen ? 'ปิดเมนูด่วน' : 'เปิดเมนูด่วน'}
         onClick={() => {
           setIsFabOpen((prev) => !prev);
         }}
-        className="md:hidden fixed right-3 sm:right-4 z-40 w-16 h-16 rounded-full bg-[#9C2F2F] hover:bg-[#802222] text-[#ECE4D3] shadow-2xl flex items-center justify-center border border-[#ECE4D3]/20 transition-all duration-200 cursor-pointer active:scale-95"
-        style={{ bottom: 'calc(12px + env(safe-area-inset-bottom, 0px))' }}
+        className="md:hidden fixed left-1/2 -translate-x-1/2 z-50 w-14 h-14 rounded-full bg-[#9C2F2F] hover:bg-[#802222] text-[#ECE4D3] shadow-2xl flex items-center justify-center border-2 border-[#171512] transition-all duration-200 cursor-pointer active:scale-95"
+        style={{ bottom: 'calc(18px + env(safe-area-inset-bottom, 0px))' }}
       >
         <div className={`transition-transform duration-200 ${isFabOpen ? 'rotate-90' : 'rotate-0'}`}>
           {isFabOpen ? <X size={24} /> : <Plus size={24} />}
