@@ -88,7 +88,7 @@ export default function AdminMobileBottomNav() {
         <div
           role="menu"
           aria-label="เมนูด่วน"
-          className="md:hidden fixed left-3 right-3 sm:left-4 sm:right-4 z-50 bg-[#171512] border border-[#4A443A] rounded-2xl p-2.5 shadow-2xl font-prompt animate-slideUp"
+          className="md:hidden fixed left-3 right-3 sm:left-4 sm:right-4 z-40 bg-[#171512] border border-[#4A443A] rounded-2xl p-2.5 shadow-2xl font-prompt animate-slideUp"
           style={{ bottom: 'calc(86px + env(safe-area-inset-bottom, 0px))' }}
         >
           <div className="grid grid-cols-4 gap-1.5 sm:gap-2">
@@ -228,7 +228,7 @@ export default function AdminMobileBottomNav() {
         onClick={() => {
           setIsFabOpen((prev) => !prev);
         }}
-        className="md:hidden fixed left-1/2 -translate-x-1/2 z-50 w-14 h-14 rounded-full bg-[#9C2F2F] hover:bg-[#802222] text-[#ECE4D3] shadow-2xl flex items-center justify-center border-2 border-[#171512] transition-all duration-200 cursor-pointer active:scale-95"
+        className="md:hidden fixed left-1/2 -translate-x-1/2 z-40 w-14 h-14 rounded-full bg-[#9C2F2F] hover:bg-[#802222] text-[#ECE4D3] shadow-2xl flex items-center justify-center border-2 border-[#171512] transition-all duration-200 cursor-pointer active:scale-95"
         style={{ bottom: 'calc(18px + env(safe-area-inset-bottom, 0px))' }}
       >
         <div className={`transition-transform duration-200 ${isFabOpen ? 'rotate-90' : 'rotate-0'}`}>
