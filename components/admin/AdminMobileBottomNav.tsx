@@ -11,10 +11,10 @@ import {
   CreditCard,
   X,
   Plus,
-  Calendar,
   Zap,
   Images,
   User,
+  Users,
 } from 'lucide-react';
 
 export default function AdminMobileBottomNav() {
@@ -52,9 +52,9 @@ export default function AdminMobileBottomNav() {
   // Quick Action Items for Concept 6 Dock
   const quickActions = [
     {
-      name: 'จัดการคิว',
-      href: '/admin/calendar',
-      icon: Calendar,
+      name: 'ลูกค้า',
+      href: '/admin/customers',
+      icon: Users,
     },
     {
       name: 'เพิ่ม Flash',
