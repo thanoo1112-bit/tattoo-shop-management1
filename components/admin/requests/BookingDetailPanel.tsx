@@ -24,11 +24,9 @@ import {
   Plus,
   Sparkles,
 } from 'lucide-react';
-import { BookingItem, BookingSessionItem, PriceAdjustmentItem, formatDateTimeBangkok, formatDateBangkok, formatTimeBangkok, formatCurrency, getTattooWorkTypeLabel, getColorTechniqueLabel, toBangkokDateString } from './types';
+import { BookingItem, BookingSessionItem, formatDateTimeBangkok, formatDateBangkok, formatTimeBangkok, formatCurrency, getTattooWorkTypeLabel, getColorTechniqueLabel, toBangkokDateString } from './types';
 import { calculateDurationText } from '@/components/admin/calendar/calendarUtils';
 import { parseNoteWithPreferredTime } from '@/lib/noteUtils';
-import BookingFinancialSummary from './BookingFinancialSummary';
-import UpdateBookingPriceModal from './UpdateBookingPriceModal';
 import BookingSessionList from './BookingSessionList';
 import { CompleteBookingDialog } from './CompleteBookingDialog';
 import CreateSessionDialog from './CreateSessionDialog';
@@ -57,15 +55,6 @@ export default function BookingDetailPanel({
   onCheckSlip,
 }: BookingDetailPanelProps) {
   const { profile, staffArtistRecord } = useApp();
-  const isUserAdmin = profile?.role === 'admin';
-  const isUserArtist = profile?.role === 'artist';
-  const isAssignedArtist = Boolean(
-    isUserArtist &&
-    staffArtistRecord?.id &&
-    booking?.artist_id &&
-    booking.artist_id === staffArtistRecord.id
-  );
-  const canUpdatePrice = isUserAdmin || isAssignedArtist;
 
   const [selectedArtistId, setSelectedArtistId] = useState<string>(
     booking?.artist_id || artists[0]?.id || ''
@@ -196,58 +185,6 @@ export default function BookingDetailPanel({
   const [isSubmittingSlipReject, setIsSubmittingSlipReject] = useState(false);
   const [slipError, setSlipError] = useState<string | null>(null);
   const [successToast, setSuccessToast] = useState<string | null>(null);
-
-  // Price Adjustments State
-  const [priceAdjustments, setPriceAdjustments] = useState<PriceAdjustmentItem[]>([]);
-  const [isUpdatePriceModalOpen, setIsUpdatePriceModalOpen] = useState(false);
-
-  useEffect(() => {
-    if (!booking?.id) {
-      setPriceAdjustments([]);
-      return;
-    }
-
-    let isMounted = true;
-    const supabase = createClient();
-
-    async function fetchPriceAdjustments() {
-      try {
-        const { data, error } = await supabase
-          .from('booking_price_adjustments')
-          .select('*')
-          .eq('booking_id', booking!.id)
-          .order('created_at', { ascending: true });
-
-        if (isMounted && !error && data) {
-          setPriceAdjustments(data as PriceAdjustmentItem[]);
-        }
-      } catch (err) {
-        console.error('Error fetching price adjustments:', err);
-      }
-    }
-
-    fetchPriceAdjustments();
-    return () => {
-      isMounted = false;
-    };
-  }, [booking?.id, booking?.financial?.quoted_price]);
-
-  const handleUpdatePrice = async (newPrice: number, note: string) => {
-    if (!booking) return;
-    const supabase = createClient();
-    const { error } = await supabase.rpc('admin_update_booking_price', {
-      p_booking_id: booking.id,
-      p_new_price: newPrice,
-      p_note: note || null,
-    });
-
-    if (error) {
-      throw new Error(error.message || 'เกิดข้อผิดพลาดในการอัปเดตราคางาน');
-    }
-
-    setSuccessToast('อัปเดตราคางานเรียบร้อยแล้ว');
-    onRefresh();
-  };
 
   // Resilient Customer Confirmation Resolution State
   const [confirmationState, setConfirmationState] = useState<'loading' | 'confirmed' | 'not_confirmed' | 'error'>('loading');
@@ -1317,13 +1254,7 @@ export default function BookingDetailPanel({
             </div>
           </div>
 
-          {/* Section 5: Financial Details & Deposit Summary */}
-          <BookingFinancialSummary
-            booking={booking}
-            priceAdjustments={priceAdjustments}
-            onCheckSlip={onCheckSlip}
-            onUpdatePrice={canUpdatePrice ? () => setIsUpdatePriceModalOpen(true) : undefined}
-          />
+
 
           {/* Section 6: Tattoo Sessions List */}
           <div className="bg-studio-card border border-studio-border rounded-xl p-4 space-y-3">
@@ -1577,16 +1508,7 @@ export default function BookingDetailPanel({
         </div>
       )}
 
-      {/* Update Booking Price Modal */}
-      {isUpdatePriceModalOpen && (
-        <UpdateBookingPriceModal
-          isOpen={isUpdatePriceModalOpen}
-          currentPrice={booking.financial?.quoted_price || 0}
-          paidTotal={booking.financial?.total_paid || 0}
-          onClose={() => setIsUpdatePriceModalOpen(false)}
-          onSubmit={handleUpdatePrice}
-        />
-      )}
+
 
       {/* Lightbox Modal for Image / Slip Preview */}
       {previewModal && mounted && createPortal(
