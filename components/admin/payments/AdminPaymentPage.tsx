@@ -16,6 +16,7 @@ import PaymentSummaryCards from './PaymentSummaryCards';
 import PaymentBookingList from './PaymentBookingList';
 import PaymentDetailPanel from './PaymentDetailPanel';
 import RecordPaymentForm from './RecordPaymentForm';
+import OnsitePriceAdjustmentModal from './OnsitePriceAdjustmentModal';
 import VoidPaymentDialog from './VoidPaymentDialog';
 import PaymentSubmissionReviewQueue from './PaymentSubmissionReviewQueue';
 import AdminPaymentSettingsSection from './AdminPaymentSettingsSection';
@@ -44,6 +45,7 @@ export default function AdminPaymentPage() {
   // Modals & Panels State
   const [selectedBooking, setSelectedBooking] = useState<PaymentBookingDetail | null>(null);
   const [isRecordModalOpen, setIsRecordModalOpen] = useState(false);
+  const [isAdjustPriceModalOpen, setIsAdjustPriceModalOpen] = useState(false);
   const [voidTargetPayment, setVoidTargetPayment] = useState<BookingPaymentRecord | null>(null);
 
   // Toast Feedback State (Section 20: No browser alert)
@@ -432,6 +434,7 @@ export default function AdminPaymentPage() {
             isOpen={Boolean(selectedBooking)}
             onClose={() => setSelectedBooking(null)}
             onOpenRecordModal={() => setIsRecordModalOpen(true)}
+            onOpenAdjustPriceModal={() => setIsAdjustPriceModalOpen(true)}
             onOpenVoidModal={(p) => setVoidTargetPayment(p)}
             refreshTrigger={refreshTrigger}
           />
@@ -441,6 +444,19 @@ export default function AdminPaymentPage() {
             booking={selectedBooking}
             isOpen={isRecordModalOpen}
             onClose={() => setIsRecordModalOpen(false)}
+            onOpenAdjustPriceModal={() => setIsAdjustPriceModalOpen(true)}
+            onSuccess={(msg) => {
+              showToast('success', msg);
+              handleRefresh();
+            }}
+            onError={(err) => showToast('error', err)}
+          />
+
+          {/* On-site Price Adjustment Modal (เพิ่มราคา / ลดราคา) */}
+          <OnsitePriceAdjustmentModal
+            booking={selectedBooking}
+            isOpen={isAdjustPriceModalOpen}
+            onClose={() => setIsAdjustPriceModalOpen(false)}
             onSuccess={(msg) => {
               showToast('success', msg);
               handleRefresh();

@@ -14,6 +14,7 @@ import {
   Clock3,
   CreditCard,
   History,
+  SlidersHorizontal,
 } from 'lucide-react';
 import { PaymentBookingDetail, BookingPaymentRecord } from './types';
 import PaymentHistory from './PaymentHistory';
@@ -24,6 +25,7 @@ interface PaymentDetailPanelProps {
   isOpen: boolean;
   onClose: () => void;
   onOpenRecordModal: () => void;
+  onOpenAdjustPriceModal?: () => void;
   onOpenVoidModal: (payment: BookingPaymentRecord) => void;
   refreshTrigger?: number;
 }
@@ -33,6 +35,7 @@ export default function PaymentDetailPanel({
   isOpen,
   onClose,
   onOpenRecordModal,
+  onOpenAdjustPriceModal,
   onOpenVoidModal,
   refreshTrigger,
 }: PaymentDetailPanelProps) {
@@ -242,16 +245,27 @@ export default function PaymentDetailPanel({
             </div>
           </div>
 
-          {/* Action Button (Section 9) */}
+          {/* Action Buttons */}
           {canRecordPayment ? (
-            <button
-              id="btn-open-record-modal"
-              onClick={onOpenRecordModal}
-              className="w-full py-2.5 px-4 bg-[#9C2F2F] hover:bg-[#852727] text-[#ECE4D3] text-xs font-semibold rounded-lg transition-colors flex items-center justify-center gap-2 border border-red-800/60 shadow-lg"
-            >
-              <Plus size={15} />
-              <span>+ บันทึกรับเงิน</span>
-            </button>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                id="btn-open-record-modal"
+                onClick={onOpenRecordModal}
+                className="py-2.5 px-3 bg-[#9C2F2F] hover:bg-[#852727] text-[#ECE4D3] text-xs font-semibold rounded-lg transition-colors flex items-center justify-center gap-1.5 border border-red-800/60 shadow-lg"
+              >
+                <Plus size={15} />
+                <span>บันทึกรับเงิน</span>
+              </button>
+
+              <button
+                id="btn-open-adjust-price-modal"
+                onClick={onOpenAdjustPriceModal}
+                className="py-2.5 px-3 bg-[#1F1D1A] hover:bg-[#2A2723] text-amber-300 hover:text-amber-200 text-xs font-semibold rounded-lg transition-colors flex items-center justify-center gap-1.5 border border-amber-800/50 shadow-md"
+              >
+                <SlidersHorizontal size={14} />
+                <span>ปรับราคาหน้างาน</span>
+              </button>
+            </div>
           ) : (
             <div className="p-2.5 bg-[#0E0D0C] border border-[#4A443A]/60 rounded-lg text-center text-xs text-[#7A7265]">
               คิวงานอยู่ในสถานะ <strong className="text-[#A89F91]">{booking.status}</strong> จึงยังไม่สามารถบันทึกเงินได้

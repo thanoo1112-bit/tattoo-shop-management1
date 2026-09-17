@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Plus, X, Wallet, Loader2, AlertCircle } from 'lucide-react';
+import { Plus, X, Wallet, Loader2, AlertCircle, SlidersHorizontal } from 'lucide-react';
 import { PaymentBookingDetail } from './types';
 import { createClient } from '@/lib/supabase/client';
 
@@ -11,6 +11,7 @@ interface RecordPaymentFormProps {
   onClose: () => void;
   onSuccess: (message: string) => void;
   onError: (errorMessage: string) => void;
+  onOpenAdjustPriceModal?: () => void;
   bookingSessionId?: string | null;
   sessionRoundNumber?: number | null;
   sessionDate?: string | null;
@@ -22,6 +23,7 @@ export default function RecordPaymentForm({
   onClose,
   onSuccess,
   onError,
+  onOpenAdjustPriceModal,
   bookingSessionId,
   sessionRoundNumber,
   sessionDate,
@@ -148,33 +150,51 @@ export default function RecordPaymentForm({
         </div>
 
         {/* Current Financial Context Quick Info */}
-        <div className="grid grid-cols-3 gap-2 bg-[#0E0D0C] border border-[#4A443A]/60 rounded-lg p-3 text-center text-xs">
-          <div>
-            <span className="text-[10px] text-amber-400/80">มัดจำที่กำหนด</span>
-            <p className="font-medium text-amber-300 mt-0.5">
-              {summary.deposit_required > 0 ? `฿${summary.deposit_required.toLocaleString('th-TH')}` : 'ไม่มีมัดจำ'}
-            </p>
-          </div>
-          <div>
-            <span className="text-[10px] text-emerald-400/80">รับเงินจริงแล้ว</span>
-            <p className="font-semibold text-emerald-400 mt-0.5">฿{summary.paid_total.toLocaleString('th-TH')}</p>
-          </div>
-          <div>
-            <span className="text-[10px] text-[#7A7265]">ยอดที่ต้องจ่าย</span>
-            <p className="font-semibold mt-0.5">
-              {summary.quoted_price > 0 ? (
-                amountDue > 0 ? (
-                  <span className="text-[#ECE4D3]">฿{amountDue.toLocaleString('th-TH')}</span>
+        <div className="space-y-1.5">
+          <div className="grid grid-cols-3 gap-2 bg-[#0E0D0C] border border-[#4A443A]/60 rounded-lg p-3 text-center text-xs">
+            <div>
+              <span className="text-[10px] text-amber-400/80">มัดจำที่กำหนด</span>
+              <p className="font-medium text-amber-300 mt-0.5">
+                {summary.deposit_required > 0 ? `฿${summary.deposit_required.toLocaleString('th-TH')}` : 'ไม่มีมัดจำ'}
+              </p>
+            </div>
+            <div>
+              <span className="text-[10px] text-emerald-400/80">รับเงินจริงแล้ว</span>
+              <p className="font-semibold text-emerald-400 mt-0.5">฿{summary.paid_total.toLocaleString('th-TH')}</p>
+            </div>
+            <div>
+              <span className="text-[10px] text-[#7A7265]">ยอดที่ต้องจ่าย</span>
+              <p className="font-semibold mt-0.5">
+                {summary.quoted_price > 0 ? (
+                  amountDue > 0 ? (
+                    <span className="text-[#ECE4D3]">฿{amountDue.toLocaleString('th-TH')}</span>
+                  ) : (
+                    <span className="text-emerald-400 text-[11px]">ชำระครบแล้ว</span>
+                  )
+                ) : depositRemaining > 0 ? (
+                  <span className="text-amber-400">฿{depositRemaining.toLocaleString('th-TH')}</span>
                 ) : (
-                  <span className="text-emerald-400 text-[11px]">ชำระครบแล้ว</span>
-                )
-              ) : depositRemaining > 0 ? (
-                <span className="text-amber-400">฿{depositRemaining.toLocaleString('th-TH')}</span>
-              ) : (
-                <span className="text-emerald-400 text-[11px]">รับมัดจำแล้ว</span>
-              )}
-            </p>
+                  <span className="text-emerald-400 text-[11px]">รับมัดจำแล้ว</span>
+                )}
+              </p>
+            </div>
           </div>
+
+          {onOpenAdjustPriceModal && (
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={() => {
+                  onClose();
+                  onOpenAdjustPriceModal();
+                }}
+                className="text-[11px] text-amber-400/90 hover:text-amber-300 flex items-center gap-1 font-medium transition-colors hover:underline"
+              >
+                <SlidersHorizontal size={12} />
+                <span>ราคางานเปลี่ยน? คลิกปรับราคาหน้างาน (เพิ่ม/ลด)</span>
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Form Fields */}
