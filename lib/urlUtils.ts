@@ -20,6 +20,13 @@ export function getSafeReturnUrl(urlParam: string | null | undefined): string {
 
     // Direct internal relative path starting with '/'
     if (decoded.startsWith('/') && !decoded.includes('://')) {
+      if (
+        decoded === '/login' ||
+        decoded === '/staff/login' ||
+        decoded.startsWith('/auth/callback')
+      ) {
+        return '/portal';
+      }
       return decoded;
     }
 
@@ -40,6 +47,13 @@ export function getSafeReturnUrl(urlParam: string | null | undefined): string {
         !path.startsWith('/\\') &&
         !path.startsWith('\\')
       ) {
+        if (
+          path === '/login' ||
+          path === '/staff/login' ||
+          path.startsWith('/auth/callback')
+        ) {
+          return '/portal';
+        }
         return path;
       }
     }
