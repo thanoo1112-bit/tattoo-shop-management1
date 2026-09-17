@@ -5,14 +5,13 @@ import { useApp } from '../AppContext';
 import { Booking } from '@/data/mockBookings';
 import { Artist } from '@/data/mockArtists';
 import { Calendar, User, Clock, CheckCircle, Clock3, AlertCircle, ChevronLeft, ChevronRight, Sparkles } from 'lucide-react';
-import ArtistStatusToggle from './ArtistStatusToggle';
 
 interface ArtistTimelineProps {
   singleArtistId?: string | null;
 }
 
 export default function ArtistTimeline({ singleArtistId = null }: ArtistTimelineProps) {
-  const { artists, bookings, updateArtistStatus } = useApp();
+  const { artists, bookings } = useApp();
 
   const startDayHour = 10; // 10:00
   const endDayHour = 23;  // 23:00
@@ -256,21 +255,16 @@ export default function ArtistTimeline({ singleArtistId = null }: ArtistTimeline
           return (
             <div key={artist.id} className="bg-studio-main border border-studio-border rounded-[6px] p-4 space-y-3.5 shadow-sm">
               {/* Artist Header */}
-              <div className="flex justify-between items-center border-b border-studio-border/60 pb-3">
-                <div className="flex items-center space-x-3">
-                  <img
-                    src={artist.avatar}
-                    alt={artist.name}
-                    className="w-10 h-10 rounded-full object-cover border border-studio-border"
-                  />
-                  <div>
-                    <h4 className="text-xs font-bold text-studio-primary">{artist.name}</h4>
-                    <span className="text-[10px] text-studio-red font-bold uppercase">{artist.specialty}</span>
-                  </div>
+              <div className="flex items-center space-x-3 border-b border-studio-border/60 pb-3">
+                <img
+                  src={artist.avatar}
+                  alt={artist.name}
+                  className="w-10 h-10 rounded-full object-cover border border-studio-border shrink-0"
+                />
+                <div>
+                  <h4 className="text-xs sm:text-sm font-bold text-studio-primary">{artist.name}</h4>
+                  <span className="text-[10px] text-studio-muted font-normal block">ช่างสักประจำร้าน</span>
                 </div>
-
-                {/* Status Toggle / Badge */}
-                <ArtistStatusToggle artistId={artist.id} showLabel={false} />
               </div>
 
               {/* Sessions Agenda List */}
@@ -343,11 +337,11 @@ export default function ArtistTimeline({ singleArtistId = null }: ArtistTimeline
         <div className="min-w-[760px]">
           
           {/* Time Header Grid */}
-          <div className="grid grid-cols-12 border-b border-studio-border bg-studio-main/80 text-[11px] text-studio-secondary font-semibold">
-            <div className="col-span-3 p-3.5 border-r border-studio-border flex items-center text-studio-muted">
+          <div className="flex border-b border-studio-border bg-studio-main/80 text-[11px] text-studio-secondary font-semibold">
+            <div className="w-[220px] shrink-0 p-3.5 border-r border-studio-border flex items-center text-studio-muted">
               ช่างสักประจำร้าน (Artist)
             </div>
-            <div className="col-span-9 relative py-3 select-none">
+            <div className="flex-1 min-w-0 relative py-3 select-none">
               {/* Background Grid Lines */}
               <div className="absolute inset-0 grid divide-x divide-studio-border/40 pointer-events-none" style={{ gridTemplateColumns: `repeat(${totalHours}, minmax(0, 1fr))` }}>
                 {Array.from({ length: totalHours }).map((_, i) => (
@@ -388,29 +382,25 @@ export default function ArtistTimeline({ singleArtistId = null }: ArtistTimeline
               const artistBookings = getArtistEventsToday(artist.id, selectedDate);
 
               return (
-                <div key={artist.id} className="grid grid-cols-12 hover:bg-studio-sec/20 transition-colors">
+                <div key={artist.id} className="flex hover:bg-studio-sec/20 transition-colors">
                   
-                  {/* Left Column: Artist Profile & Live Status */}
-                  <div className="col-span-3 p-4 border-r border-studio-border flex items-center justify-between bg-studio-main/30">
+                  {/* Left Column: Artist Profile */}
+                  <div className="w-[220px] shrink-0 p-3.5 border-r border-studio-border flex items-center bg-studio-main/30">
                     <div className="flex items-center space-x-3 min-w-0">
                       <img
                         src={artist.avatar}
                         alt={artist.name}
-                        className="w-10 h-10 rounded-full object-cover border border-studio-border shrink-0"
+                        className="w-9 h-9 rounded-full object-cover border border-studio-border shrink-0"
                       />
                       <div className="min-w-0">
-                        <h4 className="text-xs font-bold text-studio-primary truncate">{artist.name}</h4>
-                        <span className="text-[10px] text-studio-red font-bold uppercase truncate block">{artist.specialty}</span>
+                        <h4 className="text-xs sm:text-sm font-bold text-studio-primary truncate">{artist.name}</h4>
+                        <span className="text-[10px] text-studio-muted block truncate font-normal">ช่างสักประจำร้าน</span>
                       </div>
-                    </div>
-
-                    <div className="shrink-0 ml-2">
-                      <ArtistStatusToggle artistId={artist.id} showLabel={false} />
                     </div>
                   </div>
 
-                  {/* Right Column: 11-Hour Gantt Timeline Slot Area */}
-                  <div className="col-span-9 relative h-20 bg-studio-main/10 flex items-center">
+                  {/* Right Column: 13-Hour Gantt Timeline Slot Area */}
+                  <div className="flex-1 min-w-0 relative h-20 bg-studio-main/10 flex items-center">
                     
                     {/* Background Grid Lines */}
                     <div className="absolute inset-0 grid divide-x divide-studio-border/20 pointer-events-none" style={{ gridTemplateColumns: `repeat(${totalHours}, minmax(0, 1fr))` }}>
