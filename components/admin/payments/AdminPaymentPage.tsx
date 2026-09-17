@@ -2,16 +2,13 @@
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
-  Sparkles,
   CreditCard,
   RefreshCw,
   CheckCircle2,
-  AlertCircle,
   X,
   FileCheck,
   Settings,
   Layers,
-  Clock,
   DollarSign,
 } from 'lucide-react';
 import AdminRevenuePage from '@/components/admin/revenue/AdminRevenuePage';
@@ -19,7 +16,6 @@ import PaymentSummaryCards from './PaymentSummaryCards';
 import PaymentBookingList from './PaymentBookingList';
 import PaymentDetailPanel from './PaymentDetailPanel';
 import RecordPaymentForm from './RecordPaymentForm';
-import OnsitePriceAdjustmentModal from './OnsitePriceAdjustmentModal';
 import VoidPaymentDialog from './VoidPaymentDialog';
 import PaymentSubmissionReviewQueue from './PaymentSubmissionReviewQueue';
 import AdminPaymentSettingsSection from './AdminPaymentSettingsSection';
@@ -48,7 +44,6 @@ export default function AdminPaymentPage() {
   // Modals & Panels State
   const [selectedBooking, setSelectedBooking] = useState<PaymentBookingDetail | null>(null);
   const [isRecordModalOpen, setIsRecordModalOpen] = useState(false);
-  const [isAdjustPriceModalOpen, setIsAdjustPriceModalOpen] = useState(false);
   const [voidTargetPayment, setVoidTargetPayment] = useState<BookingPaymentRecord | null>(null);
 
   // Toast Feedback State (Section 20: No browser alert)
@@ -79,12 +74,12 @@ export default function AdminPaymentPage() {
 
       if (sumErr) throw sumErr;
 
-      // 2. Fetch live bookings with artists, estimate_requests, and sessions
+      // 2. Fetch all bookings with joined artist, estimate, and sessions
       const { data: bList, error: bErr } = await supabase
         .from('bookings')
         .select(`
-          id, customer_id, customer_user_id, artist_id, estimate_request_id, requested_date, status, booking_source, approved_at, confirmed_at, created_at,
-          artists (name, nickname),
+          *,
+          artists (id, name, nickname),
           estimate_requests (id, placement, description, customer_user_id),
           booking_sessions (id, session_number, start_at, end_at, status)
         `)
@@ -92,63 +87,90 @@ export default function AdminPaymentPage() {
 
       if (bErr) throw bErr;
 
-      // 3. Fetch customers and profiles for name and contact info
-      const { data: custList } = await supabase
-        .from('customers')
-        .select('id, user_id, display_name, phone, email');
-      const { data: profList } = await supabase
-        .from('profiles')
-        .select('user_id, display_name, phone, email');
+      // 3. Fetch non-voided booking payments
+      const { data: pList, error: pErr } = await supabase
+        .from('booking_payments')
+        .select('*')
+        .neq('status', 'VOIDED')
+        .order('created_at', { ascending: false });
 
-      // 4. Combine into complete PaymentBookingDetail
-      const combined: PaymentBookingDetail[] = (bList || []).map((b: any) => {
-        const sumRow = (summaries || []).find((s: any) => s.booking_id === b.id) || {
+      if (pErr) throw pErr;
+
+      // 4. Fetch customers & profiles for display names
+      const customerUids = Array.from(
+        new Set(
+          (bList || [])
+            .map((b: any) => b.customer_user_id)
+            .filter((id): id is string => Boolean(id))
+        )
+      );
+
+      let custList: any[] = [];
+      let profList: any[] = [];
+      if (customerUids.length > 0) {
+        const [cRes, pRes] = await Promise.all([
+          supabase.from('customers').select('user_id, display_name, phone, email').in('user_id', customerUids),
+          supabase.from('profiles').select('user_id, display_name, phone, email').in('user_id', customerUids),
+        ]);
+        if (cRes.data) custList = cRes.data;
+        if (pRes.data) profList = pRes.data;
+      }
+
+      // 5. Map & Hydrate PaymentBookingDetail array
+      const mapped: PaymentBookingDetail[] = (bList || []).map((b: any) => {
+        const summary: BookingPaymentSummaryRow = (summaries || []).find((s: any) => s.booking_id === b.id) || {
           booking_id: b.id,
           estimate_request_id: b.estimate_request_id,
           customer_user_id: b.customer_user_id,
           artist_id: b.artist_id,
-          quoted_price: 0,
-          deposit_required: 0,
+          quoted_price: Number(b.tattoo_price || 0),
+          deposit_required: Number(b.deposit_required || 0),
           paid_total: 0,
-          remaining_balance: 0,
+          remaining_balance: Number(b.tattoo_price || 0),
           deposit_paid: false,
           is_fully_paid: false,
         };
 
-        const cust = (custList || []).find((c: any) => (b.customer_id && c.id === b.customer_id) || (b.customer_user_id && c.user_id === b.customer_user_id));
+        const cust = (custList || []).find((c: any) => c.user_id === b.customer_user_id);
         const prof = (profList || []).find((p: any) => p.user_id === b.customer_user_id);
         const artist = b.artists;
 
         return {
           id: b.id,
-          customer_id: b.customer_id,
           estimate_request_id: b.estimate_request_id,
           customer_user_id: b.customer_user_id,
           artist_id: b.artist_id,
           requested_date: b.requested_date,
-          status: b.status,
-          booking_source: b.booking_source || null,
+          booking_source: b.booking_source,
           approved_at: b.approved_at,
           confirmed_at: b.confirmed_at,
           created_at: b.created_at,
-          customer_name: (cust?.display_name && cust.display_name !== 'ลูกค้าประจำ') ? cust.display_name : prof?.display_name || cust?.display_name || 'ลูกค้า 157 Tattoo',
-          customer_phone: cust?.phone || prof?.phone || '',
-          customer_email: cust?.email || prof?.email || '',
-          artist_name: artist?.name || 'ยังไม่มอบหมายช่าง',
-          artist_nickname: artist?.nickname || null,
-          placement: b.estimate_requests?.placement || undefined,
-          summary: {
-            booking_id: sumRow.booking_id,
-            estimate_request_id: sumRow.estimate_request_id,
-            customer_user_id: sumRow.customer_user_id,
-            artist_id: sumRow.artist_id,
-            quoted_price: Number(sumRow.quoted_price || 0),
-            deposit_required: Number(sumRow.deposit_required || 0),
-            paid_total: Number(sumRow.paid_total || 0),
-            remaining_balance: Number(sumRow.remaining_balance || 0),
-            deposit_paid: Boolean(sumRow.deposit_paid),
-            is_fully_paid: Boolean(sumRow.is_fully_paid),
-          },
+          status: b.status,
+          customer_name: cust?.display_name || prof?.display_name || prof?.email?.split('@')[0] || 'ลูกค้าประจำ',
+          customer_phone: cust?.phone || prof?.phone || undefined,
+          customer_email: cust?.email || prof?.email || undefined,
+          artist_name: artist?.name || 'ช่างประจำร้าน',
+          artist_nickname: artist?.nickname || undefined,
+          artwork_title: b.artwork_title || (b.booking_source === 'ESTIMATE' ? 'งานสักจากใบประเมินราคา' : 'งานสัก Custom'),
+          summary,
+          payments: (pList || [])
+            .filter((p: any) => p.booking_id === b.id)
+            .map((p: any) => ({
+              id: p.id,
+              booking_id: p.booking_id,
+              customer_id: p.customer_id,
+              customer_user_id: p.customer_user_id,
+              payment_type: p.payment_type,
+              amount: Number(p.amount || 0),
+              currency: p.currency,
+              payment_method: p.payment_method,
+              payment_reference: p.payment_reference,
+              status: p.status,
+              customer_note: p.customer_note,
+              staff_note: p.staff_note,
+              paid_at: p.paid_at,
+              created_at: p.created_at,
+            })),
           sessions: (b.booking_sessions || []).map((s: any) => ({
             id: s.id,
             session_number: s.session_number,
@@ -159,24 +181,15 @@ export default function AdminPaymentPage() {
         };
       });
 
-      setBookings(combined);
+      setBookings(mapped);
 
-      // If a booking is currently selected, update its reference quietly without triggering re-fetch
-      setSelectedBooking((prevSelected) => {
-        if (!prevSelected) return null;
-        const updated = combined.find((item) => item.id === prevSelected.id);
-        return updated || prevSelected;
+      // Keep selected booking updated if detail drawer is open
+      setSelectedBooking((prev) => {
+        if (!prev) return null;
+        return mapped.find((m) => m.id === prev.id) || prev;
       });
-
-      // Count pending submissions
-      const { count: pCount } = await supabase
-        .from('booking_payment_submissions')
-        .select('*', { count: 'exact', head: true })
-        .eq('status', 'PENDING');
-
-      setPendingSubmissionsCount(pCount || 0);
     } catch (err: any) {
-      console.error('Error loading live payment data:', err);
+      console.error('Error fetching live payment data:', err);
       showToast('error', 'ไม่สามารถโหลดข้อมูลการเงินจากฐานข้อมูลได้: ' + (err.message || 'Network error'));
     } finally {
       if (opts?.isInitial) {
@@ -283,7 +296,7 @@ export default function AdminPaymentPage() {
           {feedbackToast.type === 'success' ? (
             <CheckCircle2 size={16} className="text-emerald-400 shrink-0" />
           ) : (
-            <AlertCircle size={16} className="text-red-400 shrink-0" />
+            <X size={16} className="text-red-400 shrink-0" />
           )}
           <span>{feedbackToast.message}</span>
           <button
@@ -419,7 +432,6 @@ export default function AdminPaymentPage() {
             isOpen={Boolean(selectedBooking)}
             onClose={() => setSelectedBooking(null)}
             onOpenRecordModal={() => setIsRecordModalOpen(true)}
-            onOpenAdjustPriceModal={() => setIsAdjustPriceModalOpen(true)}
             onOpenVoidModal={(p) => setVoidTargetPayment(p)}
             refreshTrigger={refreshTrigger}
           />
@@ -429,19 +441,6 @@ export default function AdminPaymentPage() {
             booking={selectedBooking}
             isOpen={isRecordModalOpen}
             onClose={() => setIsRecordModalOpen(false)}
-            onOpenAdjustPriceModal={() => setIsAdjustPriceModalOpen(true)}
-            onSuccess={(msg) => {
-              showToast('success', msg);
-              handleRefresh();
-            }}
-            onError={(err) => showToast('error', err)}
-          />
-
-          {/* On-site Price Adjustment Modal (เพิ่มราคา / ลดราคา) */}
-          <OnsitePriceAdjustmentModal
-            booking={selectedBooking}
-            isOpen={isAdjustPriceModalOpen}
-            onClose={() => setIsAdjustPriceModalOpen(false)}
             onSuccess={(msg) => {
               showToast('success', msg);
               handleRefresh();

@@ -191,7 +191,6 @@ export default function AdminRequestsPage() {
 
         const bItem: BookingItem = {
           id: b.id,
-          customer_id: b.customer_id,
           customer_user_id: b.customer_user_id,
           artist_id: b.artist_id,
           estimate_request_id: b.estimate_request_id,
@@ -267,7 +266,6 @@ export default function AdminRequestsPage() {
 
         return {
           id: e.id,
-          customer_id: e.customer_id,
           customer_user_id: e.customer_user_id,
           artist_id: e.artist_id,
           placement: e.placement,
