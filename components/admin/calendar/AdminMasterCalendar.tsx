@@ -21,19 +21,22 @@ import WeekCalendarView from './WeekCalendarView';
 import DayAgendaView from './DayAgendaView';
 import CalendarSessionDetailDrawer from './CalendarSessionDetailDrawer';
 import AvailabilityBlockModal, { BlockedDateItem } from './AvailabilityBlockModal';
+import CreateBookingModal from './CreateBookingModal';
+import { buildCustomerMaps, resolveCustomerInfo } from '@/lib/customerUtils';
 import { AlertCircle, CheckCircle2 } from 'lucide-react';
 
 export default function AdminMasterCalendar() {
   const todayStr = useMemo(() => getTodayBangkokStr(), []);
 
   // UI State
-  const [viewMode, setViewMode] = useState<ViewMode>('WEEK');
+  const [viewMode, setViewMode] = useState<ViewMode>('MONTH');
   const [selectedDateStr, setSelectedDateStr] = useState<string>(todayStr);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedArtistId, setSelectedArtistId] = useState<string>('ALL');
   const [selectedStatus, setSelectedStatus] = useState<string>('ALL');
   const [selectedEvent, setSelectedEvent] = useState<CalendarSessionEvent | null>(null);
   const [isBlockModalOpen, setIsBlockModalOpen] = useState<boolean>(false);
+  const [isCreateBookingModalOpen, setIsCreateBookingModalOpen] = useState<boolean>(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   // Data State
@@ -91,7 +94,7 @@ export default function AdminMasterCalendar() {
           supabase
             .from('bookings')
             .select(
-              'id, status, customer_user_id, artist_id, requested_date, requested_start_time, customer_note, admin_note, started_at, completed_at, created_at, estimate_request_id'
+              'id, status, customer_id, customer_user_id, artist_id, requested_date, requested_start_time, customer_note, admin_note, started_at, completed_at, created_at, estimate_request_id'
             )
             .in('id', bookingIds),
           supabase
@@ -104,6 +107,14 @@ export default function AdminMasterCalendar() {
 
         const bookingsMap = new Map((bookingsRes.data || []).map((b) => [b.id, b]));
         const financialsMap = new Map((financialsRes.data || []).map((f) => [f.booking_id, f]));
+
+        const customerIds = Array.from(
+          new Set(
+            (bookingsRes.data || [])
+              .map((b) => b.customer_id)
+              .filter(Boolean)
+          )
+        );
 
         const customerUids = Array.from(
           new Set(
@@ -121,15 +132,23 @@ export default function AdminMasterCalendar() {
           )
         );
 
-        let customersMap = new Map<string, any>();
-        if (customerUids.length > 0) {
+        let customersByIdMap = new Map<string, any>();
+        let customersByUserIdMap = new Map<string, any>();
+
+        if (customerIds.length > 0 || customerUids.length > 0) {
+          const orConditions: string[] = [];
+          if (customerIds.length > 0) orConditions.push(`id.in.(${customerIds.join(',')})`);
+          if (customerUids.length > 0) orConditions.push(`user_id.in.(${customerUids.join(',')})`);
+
           const { data: customersData } = await supabase
             .from('customers')
-            .select('user_id, display_name, phone, email')
-            .in('user_id', customerUids);
+            .select('id, user_id, display_name, phone, email')
+            .or(orConditions.join(','));
 
           if (customersData) {
-            customersMap = new Map(customersData.map((c) => [c.user_id, c]));
+            const maps = buildCustomerMaps(customersData as any);
+            customersByIdMap = maps.customersByIdMap;
+            customersByUserIdMap = maps.customersByUserIdMap;
           }
         }
 
@@ -154,9 +173,8 @@ export default function AdminMasterCalendar() {
           const parentEstimate = parentBooking?.estimate_request_id
             ? estimatesMap.get(parentBooking.estimate_request_id) || null
             : null;
-          const customerInfo = parentBooking?.customer_user_id
-            ? customersMap.get(parentBooking.customer_user_id) || null
-            : null;
+
+          const customerInfo = resolveCustomerInfo(parentBooking, customersByIdMap, customersByUserIdMap);
           const artistInfo = artistsMap.get(s.artist_id) || null;
 
           return {
@@ -173,7 +191,8 @@ export default function AdminMasterCalendar() {
             booking: parentBooking,
             estimate: parentEstimate,
             customer: {
-              user_id: parentBooking?.customer_user_id || null,
+              id: customerInfo?.id || parentBooking?.customer_id || null,
+              user_id: customerInfo?.user_id || parentBooking?.customer_user_id || null,
               display_name: customerInfo?.display_name || 'ลูกค้า',
               phone: customerInfo?.phone || null,
               email: customerInfo?.email || null,
@@ -196,6 +215,15 @@ export default function AdminMasterCalendar() {
 
   useEffect(() => {
     loadCalendarData();
+
+    const handleRealtime = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (['bookings', 'booking_sessions', 'artist_blocked_dates', 'artists', 'customers'].includes(detail?.table)) {
+        loadCalendarData();
+      }
+    };
+    window.addEventListener('admin:realtime', handleRealtime);
+    return () => window.removeEventListener('admin:realtime', handleRealtime);
   }, [loadCalendarData]);
 
   // --------------------------------------------------------------------------
@@ -314,6 +342,7 @@ export default function AdminMasterCalendar() {
         isToday={selectedDateStr === todayStr}
         onRefresh={loadCalendarData}
         isLoading={isLoading}
+        onOpenCreateBookingModal={() => setIsCreateBookingModalOpen(true)}
         onOpenBlockModal={() => setIsBlockModalOpen(true)}
       />
 
@@ -422,7 +451,23 @@ export default function AdminMasterCalendar() {
         />
       )}
 
-      {/* 8. Availability Block Modal */}
+      {/* 8. Create Booking Modal (+ เพิ่มคิวใหม่) */}
+      <CreateBookingModal
+        isOpen={isCreateBookingModalOpen}
+        selectedDateStr={selectedDateStr}
+        artists={artists}
+        blockedDates={blockedDates}
+        onClose={() => setIsCreateBookingModalOpen(false)}
+        onSuccess={(msg) => {
+          setSuccessMessage(msg);
+          loadCalendarData();
+        }}
+        onError={(errMsg) => {
+          setErrorMessage(errMsg);
+        }}
+      />
+
+      {/* 9. Availability Block Modal */}
       <AvailabilityBlockModal
         isOpen={isBlockModalOpen}
         selectedDateStr={selectedDateStr}

@@ -19,6 +19,7 @@ import PaymentSummaryCards from './PaymentSummaryCards';
 import PaymentBookingList from './PaymentBookingList';
 import PaymentDetailPanel from './PaymentDetailPanel';
 import RecordPaymentForm from './RecordPaymentForm';
+import OnsitePriceAdjustmentModal from './OnsitePriceAdjustmentModal';
 import VoidPaymentDialog from './VoidPaymentDialog';
 import PaymentSubmissionReviewQueue from './PaymentSubmissionReviewQueue';
 import AdminPaymentSettingsSection from './AdminPaymentSettingsSection';
@@ -47,6 +48,7 @@ export default function AdminPaymentPage() {
   // Modals & Panels State
   const [selectedBooking, setSelectedBooking] = useState<PaymentBookingDetail | null>(null);
   const [isRecordModalOpen, setIsRecordModalOpen] = useState(false);
+  const [isAdjustPriceModalOpen, setIsAdjustPriceModalOpen] = useState(false);
   const [voidTargetPayment, setVoidTargetPayment] = useState<BookingPaymentRecord | null>(null);
 
   // Toast Feedback State (Section 20: No browser alert)
@@ -81,8 +83,8 @@ export default function AdminPaymentPage() {
       const { data: bList, error: bErr } = await supabase
         .from('bookings')
         .select(`
-          *,
-          artists (id, name, nickname),
+          id, customer_id, customer_user_id, artist_id, estimate_request_id, requested_date, status, booking_source, approved_at, confirmed_at, created_at,
+          artists (name, nickname),
           estimate_requests (id, placement, description, customer_user_id),
           booking_sessions (id, session_number, start_at, end_at, status)
         `)
@@ -113,12 +115,13 @@ export default function AdminPaymentPage() {
           is_fully_paid: false,
         };
 
-        const cust = (custList || []).find((c: any) => c.user_id === b.customer_user_id);
+        const cust = (custList || []).find((c: any) => (b.customer_id && c.id === b.customer_id) || (b.customer_user_id && c.user_id === b.customer_user_id));
         const prof = (profList || []).find((p: any) => p.user_id === b.customer_user_id);
         const artist = b.artists;
 
         return {
           id: b.id,
+          customer_id: b.customer_id,
           estimate_request_id: b.estimate_request_id,
           customer_user_id: b.customer_user_id,
           artist_id: b.artist_id,
@@ -191,6 +194,15 @@ export default function AdminPaymentPage() {
     } else {
       fetchLivePaymentData({ isInitial: false });
     }
+
+    const handleRealtime = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (['booking_payments', 'booking_payment_submissions', 'bookings', 'customers'].includes(detail?.table)) {
+        fetchLivePaymentData({ isInitial: false });
+      }
+    };
+    window.addEventListener('admin:realtime', handleRealtime);
+    return () => window.removeEventListener('admin:realtime', handleRealtime);
   }, [refreshTrigger, fetchLivePaymentData]);
 
   // KPI Calculations
@@ -407,6 +419,7 @@ export default function AdminPaymentPage() {
             isOpen={Boolean(selectedBooking)}
             onClose={() => setSelectedBooking(null)}
             onOpenRecordModal={() => setIsRecordModalOpen(true)}
+            onOpenAdjustPriceModal={() => setIsAdjustPriceModalOpen(true)}
             onOpenVoidModal={(p) => setVoidTargetPayment(p)}
             refreshTrigger={refreshTrigger}
           />
@@ -416,6 +429,19 @@ export default function AdminPaymentPage() {
             booking={selectedBooking}
             isOpen={isRecordModalOpen}
             onClose={() => setIsRecordModalOpen(false)}
+            onOpenAdjustPriceModal={() => setIsAdjustPriceModalOpen(true)}
+            onSuccess={(msg) => {
+              showToast('success', msg);
+              handleRefresh();
+            }}
+            onError={(err) => showToast('error', err)}
+          />
+
+          {/* On-site Price Adjustment Modal (เพิ่มราคา / ลดราคา) */}
+          <OnsitePriceAdjustmentModal
+            booking={selectedBooking}
+            isOpen={isAdjustPriceModalOpen}
+            onClose={() => setIsAdjustPriceModalOpen(false)}
             onSuccess={(msg) => {
               showToast('success', msg);
               handleRefresh();

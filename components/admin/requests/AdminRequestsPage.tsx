@@ -49,6 +49,19 @@ export default function AdminRequestsPage() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
+  // Check URL query parameters to switch tab on initial load
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const tabParam = params.get('tab');
+      const bookingIdParam = params.get('booking_id') || params.get('bookingId');
+
+      if (tabParam === 'bookings' || tabParam === 'booking' || bookingIdParam) {
+        setActiveTab('bookings');
+      }
+    }
+  }, []);
+
   // Main Live Data Fetcher (Section 4 & 34: Avoid N+1 query)
   const fetchAllRequestsData = useCallback(async () => {
     setIsLoading(true);
@@ -119,7 +132,7 @@ export default function AdminRequestsPage() {
       // 6. Fetch customers & profiles
       const { data: custData } = await supabase
         .from('customers')
-        .select('user_id, display_name, phone, email, eligibility_confirmed_at, profile_completed_at');
+        .select('id, user_id, display_name, phone, email, eligibility_confirmed_at, profile_completed_at');
 
       const { data: profData } = await supabase
         .from('profiles')
@@ -139,7 +152,7 @@ export default function AdminRequestsPage() {
 
       const mappedBookings: BookingItem[] = (bookData || []).map((b: any) => {
         const artist = (artData || []).find((a) => a.id === b.artist_id);
-        const customer = (custData || []).find((c) => c.user_id === b.customer_user_id);
+        const customer = (custData || []).find((c) => (b.customer_id && c.id === b.customer_id) || (b.customer_user_id && c.user_id === b.customer_user_id));
         const profile = (profData || []).find((p) => p.user_id === b.customer_user_id);
         const summary = (sumData || []).find((f) => f.booking_id === b.id);
         const bookingSessions = (sesData || [])
@@ -157,8 +170,28 @@ export default function AdminRequestsPage() {
 
         const pendingSub = (pendingSubmissions || []).find((sub: any) => sub.booking_id === b.id);
         const hasPendingSlip = Boolean(pendingSub);
+
+        const bookingPaidTotal = (payData || [])
+          .filter((p: any) => p.booking_id === b.id && p.status !== 'VOIDED')
+          .reduce((sum: number, p: any) => sum + Number(p.amount || 0), 0);
+
+        const totalPaid = Math.max(
+          Number(summary?.paid_total ?? summary?.total_paid ?? 0),
+          bookingPaidTotal
+        );
+
+        const quotedPriceVal = Number(summary?.quoted_price ?? est?.quoted_price ?? (b as any)?.quoted_price ?? 0);
+        const depositReqVal = Number(summary?.deposit_required ?? est?.deposit_required ?? (b as any)?.deposit_required ?? 0);
+
+        const isDepPaid = Boolean(
+          summary?.is_deposit_paid ?? 
+          summary?.deposit_paid ?? 
+          (totalPaid > 0 && (depositReqVal === 0 || totalPaid >= depositReqVal))
+        );
+
         const bItem: BookingItem = {
           id: b.id,
+          customer_id: b.customer_id,
           customer_user_id: b.customer_user_id,
           artist_id: b.artist_id,
           estimate_request_id: b.estimate_request_id,
@@ -189,12 +222,12 @@ export default function AdminRequestsPage() {
           estimated_max_price: est?.estimated_max_price ? Number(est.estimated_max_price) : null,
           price_estimated_at: est?.price_estimated_at || null,
           financial: {
-            quoted_price: Number(summary?.quoted_price || 0),
-            deposit_required: Number(summary?.deposit_required || 0),
-            total_paid: Number(summary?.paid_total ?? summary?.total_paid ?? 0),
-            remaining_balance: Number(summary?.remaining_balance || 0),
-            is_deposit_paid: Boolean(summary?.is_deposit_paid),
-            is_fully_paid: Boolean(summary?.is_fully_paid),
+            quoted_price: quotedPriceVal,
+            deposit_required: depositReqVal,
+            total_paid: totalPaid,
+            remaining_balance: Math.max(0, quotedPriceVal - totalPaid),
+            is_deposit_paid: isDepPaid,
+            is_fully_paid: Boolean(summary?.is_fully_paid ?? (quotedPriceVal > 0 && totalPaid >= quotedPriceVal)),
           },
           sessions: bookingSessions,
           has_pending_payment_submission: hasPendingSlip,
@@ -218,7 +251,7 @@ export default function AdminRequestsPage() {
       // Map Estimate Requests with Operational Lifecycle Hydration
       const mappedEstimates: EstimateRequestItem[] = (estData || []).map((e: any) => {
         const artist = (artData || []).find((a) => a.id === e.artist_id);
-        const customer = (custData || []).find((c) => c.user_id === e.customer_user_id);
+        const customer = (custData || []).find((c) => (e.customer_id && c.id === e.customer_id) || (e.customer_user_id && c.user_id === e.customer_user_id));
         const profile = (profData || []).find((p) => p.user_id === e.customer_user_id);
 
         // Find linked booking
@@ -234,6 +267,7 @@ export default function AdminRequestsPage() {
 
         return {
           id: e.id,
+          customer_id: e.customer_id,
           customer_user_id: e.customer_user_id,
           artist_id: e.artist_id,
           placement: e.placement,
@@ -293,7 +327,16 @@ export default function AdminRequestsPage() {
       });
 
       setSelectedBooking((prev) => {
-        if (!prev) return null;
+        if (!prev) {
+          if (typeof window !== 'undefined') {
+            const params = new URLSearchParams(window.location.search);
+            const targetBookingId = params.get('booking_id') || params.get('bookingId');
+            if (targetBookingId) {
+              return mappedBookings.find((b) => b.id === targetBookingId) || null;
+            }
+          }
+          return null;
+        }
         return mappedBookings.find((b) => b.id === prev.id) || prev;
       });
     } catch (err: any) {
@@ -305,6 +348,15 @@ export default function AdminRequestsPage() {
 
   useEffect(() => {
     fetchAllRequestsData();
+
+    const handleRealtime = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (['estimate_requests', 'bookings', 'booking_payment_submissions', 'booking_sessions', 'booking_payments', 'customers', 'profiles'].includes(detail?.table)) {
+        fetchAllRequestsData();
+      }
+    };
+    window.addEventListener('admin:realtime', handleRealtime);
+    return () => window.removeEventListener('admin:realtime', handleRealtime);
   }, [refreshTrigger, fetchAllRequestsData]);
 
   // Check Slip Handler to open existing PaymentSubmissionReviewDrawer
@@ -353,24 +405,21 @@ export default function AdminRequestsPage() {
     }
   }, []);
 
-  // Tab 1 ("คำขอจากลูกค้า"): All pre-confirmation business stage items
-  // Includes estimate requests without booking OR estimate requests whose linked booking is pre-confirmed (WAITING_DEPOSIT / WAITING_SLIP_VERIFICATION)
+  // Tab 1 ("คำขอจากลูกค้า"): Only customer-initiated requests (exclude Admin-created DIRECT_BOOKING)
   const customerRequests = useMemo(() => {
     return estimates.filter((e) => {
+      if (e.request_type === 'DIRECT_BOOKING') return false; // Admin-created logbook entries belong to Calendar/Work Queue
       if (!e.linked_booking) return true;
-      const bStatus = e.linked_booking.status;
       const hasPendingSlip = Boolean(
         e.has_pending_payment_submission ||
         e.linked_booking.has_pending_payment_submission ||
         e.operational_status?.key === 'WAITING_SLIP_VERIFICATION'
       );
-      return bStatus === 'WAITING_DEPOSIT' || hasPendingSlip;
+      return e.status === 'PENDING' || hasPendingSlip;
     });
   }, [estimates]);
 
-  // Tab 2 ("คิวงาน"): All confirmed / post-confirmation work queue items
-  // Includes bookings in CONFIRMED, IN_PROGRESS, COMPLETED, CANCELLED
-  // Excludes WAITING_DEPOSIT and WAITING_SLIP_VERIFICATION
+  // Tab 2 ("คิวงาน"): All confirmed / work queue items, including Admin-created direct bookings
   const workQueueBookings = useMemo(() => {
     return bookings.filter((b) => {
       const hasPendingSlip = Boolean(
@@ -379,28 +428,24 @@ export default function AdminRequestsPage() {
         b.operational_status?.key === 'WAITING_SLIP_VERIFICATION'
       );
       if (hasPendingSlip) return false;
-      if (b.status === 'WAITING_DEPOSIT') return false;
-      return b.status === 'CONFIRMED' || b.status === 'IN_PROGRESS' || b.status === 'COMPLETED' || b.status === 'CANCELLED';
+      return true; // All bookings in Work Queue tab are displayed
     });
   }, [bookings]);
 
   // Top Summary Counts for Admin Requests Page
   const summaryCounts: RequestSummaryCounts = useMemo(() => {
     const pendingEvaluation = customerRequests.filter(
-      (e) => e.operational_status?.key === 'PENDING'
-    ).length;
-    const waitingDeposit = customerRequests.filter(
-      (e) => e.operational_status?.key === 'WAITING_DEPOSIT'
+      (e) => e.operational_status?.key === 'PENDING' || e.status === 'PENDING'
     ).length;
     const pendingSlips = customerRequests.filter(
-      (e) => e.operational_status?.key === 'WAITING_SLIP_VERIFICATION'
+      (e) => e.operational_status?.key === 'WAITING_SLIP_VERIFICATION' || e.has_pending_payment_submission
     ).length;
-    const confirmed = workQueueBookings.filter((b) => b.status === 'CONFIRMED').length;
+    const confirmed = workQueueBookings.length;
 
     return {
       pendingEvaluationCount: pendingEvaluation,
-      waitingCustomerCount: waitingDeposit,
-      waitingDepositCount: waitingDeposit,
+      waitingCustomerCount: 0,
+      waitingDepositCount: 0,
       pendingSlipsCount: pendingSlips,
       confirmedCount: confirmed,
     };

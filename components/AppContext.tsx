@@ -46,6 +46,8 @@ interface AppContextType {
   
   artists: Artist[];
   fetchArtists: () => Promise<Artist[]>;
+  fetchEstimates: (currentUser?: any) => Promise<void>;
+  fetchBookings: (currentUser?: any) => Promise<void>;
   bookings: Booking[];
   bookingPayments: BookingPayment[];
   estimateRequests: EstimateRequest[];
@@ -1696,6 +1698,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       retryAuthProfile,
       artists,
       fetchArtists,
+      fetchEstimates,
+      fetchBookings,
       bookings,
       bookingPayments,
       estimateRequests,

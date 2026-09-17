@@ -56,7 +56,7 @@ export default function AdminRevenuePage() {
       // 2. Fetch all bookings for artist assignment and status
       const { data: bookingsData, error: bookErr } = await supabase
         .from('bookings')
-        .select('id, artist_id, status, customer_user_id');
+        .select('id, customer_id, artist_id, status, customer_user_id');
 
       if (bookErr) throw bookErr;
 
@@ -72,7 +72,7 @@ export default function AdminRevenuePage() {
       // 4. Fetch customers for names
       const { data: customersData, error: custErr } = await supabase
         .from('customers')
-        .select('user_id, display_name, phone');
+        .select('id, user_id, display_name, phone');
 
       if (custErr) throw custErr;
 
@@ -89,7 +89,7 @@ export default function AdminRevenuePage() {
       const mapped: RevenueRecord[] = (paymentsData || []).map((p: any) => {
         const booking = (bookingsData || []).find((b) => b.id === p.booking_id);
         const artist = (artistsData || []).find((a) => a.id === booking?.artist_id);
-        const customer = (customersData || []).find((c) => c.user_id === booking?.customer_user_id);
+        const customer = (customersData || []).find((c) => (booking?.customer_id && c.id === booking.customer_id) || (booking?.customer_user_id && c.user_id === booking.customer_user_id));
 
         return {
           id: p.id,
@@ -121,6 +121,15 @@ export default function AdminRevenuePage() {
 
   useEffect(() => {
     fetchRevenueData();
+
+    const handleRealtime = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (['booking_payments', 'bookings', 'customers'].includes(detail?.table)) {
+        fetchRevenueData();
+      }
+    };
+    window.addEventListener('admin:realtime', handleRealtime);
+    return () => window.removeEventListener('admin:realtime', handleRealtime);
   }, [refreshTrigger, fetchRevenueData]);
 
   // ------------------------------------------------------------------

@@ -247,14 +247,15 @@ export default function AdminCustomerArchive() {
         }
 
         // 2. Fetch Estimates for joining (excluding health disclosure fields)
-        const { data: eData } = await supabase.from('estimate_requests').select('id, customer_user_id, artist_id, reference_images, width_cm, height_cm, placement, style, description, preferred_date, preferred_time, status, quoted_price, estimated_duration_minutes, deposit_required, quote_note, quoted_at, accepted_at, rejected_at, created_at, updated_at');
+        const { data: eData } = await supabase.from('estimate_requests').select('id, customer_id, customer_user_id, artist_id, reference_images, width_cm, height_cm, placement, style, description, preferred_date, preferred_time, status, quoted_price, estimated_duration_minutes, deposit_required, quote_note, quoted_at, accepted_at, rejected_at, created_at, updated_at');
 
         // Map estimates
         if (eData && isMounted) {
           const mappedEstimates: EstimateRequest[] = eData.map((e: any) => {
-            const matchedCust = joinedCusts.find((mc) => mc.user_id === e.customer_user_id);
+            const matchedCust = joinedCusts.find((mc) => (e.customer_id && mc.id === e.customer_id) || (e.customer_user_id && mc.user_id === e.customer_user_id));
             return {
               id: e.id,
+              customerId: e.customer_id,
               customerUserId: e.customer_user_id,
               customerName: matchedCust?.display_name || 'ลูกค้า',
               customerEmail: matchedCust?.email || '',
@@ -285,7 +286,7 @@ export default function AdminCustomerArchive() {
 
         if (bData && isMounted) {
           const mappedBookings: Booking[] = bData.map((b: any) => {
-            const matchedCust = joinedCusts.find((mc) => mc.user_id === b.customer_user_id);
+            const matchedCust = joinedCusts.find((mc) => (b.customer_id && mc.id === b.customer_id) || (b.customer_user_id && mc.user_id === b.customer_user_id));
             const est = eData?.find((e: any) => e.id === b.estimate_request_id);
             const art = aData?.find((a: any) => a.id === b.artist_id);
             const firstSession = b.booking_sessions && b.booking_sessions.length > 0
@@ -295,6 +296,7 @@ export default function AdminCustomerArchive() {
             return {
               id: b.id,
               bookingNumber: b.id.slice(0, 8),
+              customerId: b.customer_id,
               customerUserId: b.customer_user_id,
               customerName: matchedCust?.display_name || 'ลูกค้า',
               customerEmail: matchedCust?.email || '',
@@ -346,8 +348,18 @@ export default function AdminCustomerArchive() {
       }
     }
     loadMasterData();
+
+    const handleRealtime = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (['customers', 'profiles', 'bookings', 'estimate_requests', 'booking_payment_submissions', 'booking_payments'].includes(detail?.table)) {
+        loadMasterData();
+      }
+    };
+    window.addEventListener('admin:realtime', handleRealtime);
+
     return () => {
       isMounted = false;
+      window.removeEventListener('admin:realtime', handleRealtime);
     };
   }, [supabase]);
 
