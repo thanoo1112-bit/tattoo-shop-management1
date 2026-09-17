@@ -6,10 +6,11 @@ import { Booking, BookingPayment } from '@/data/mockBookings';
 import { EstimateRequest } from '@/data/mockEstimateRequests';
 import { createClient } from '@/lib/supabase/client';
 import { User } from '@supabase/supabase-js';
-import { normalizeThaiPhone, formatThaiPhoneForDisplay } from '@/lib/phoneUtils';
+import { normalizeThaiPhone, formatThaiPhoneForDisplay, sanitizeDigitsOnly } from '@/lib/phoneUtils';
 import { getThailandTodayStr } from './portal/portalUtils';
 import { mapServerCompletionError } from './admin/requests/adminCompletionGuard';
 import { getSafeReturnUrl } from '@/lib/urlUtils';
+import { AlertTriangle } from 'lucide-react';
 
 interface Profile {
   id: string;
@@ -40,6 +41,8 @@ interface AppContextType {
   user: User | null;
   profile: Profile | null;
   authLoading: boolean;
+  authProfileError: boolean;
+  retryAuthProfile: () => Promise<void>;
   
   artists: Artist[];
   fetchArtists: () => Promise<Artist[]>;
@@ -130,6 +133,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
+  const [authProfileError, setAuthProfileError] = useState(false);
 
   // Business Entities (Database Integrated)
   const [artists, setArtists] = useState<Artist[]>([]);
@@ -196,7 +200,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return [];
   }, [supabase]);
 
-  // Fetch estimates from Supabase
+  // Fetch estimate requests from Supabase
   const fetchEstimates = useCallback(async (currentUser = user) => {
     if (!currentUser) {
       setEstimateRequests([]);
@@ -205,7 +209,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
     const { data: dbEstimates, error: errEst } = await supabase
       .from('estimate_requests')
-      .select('id, customer_user_id, artist_id, reference_images, width_cm, height_cm, placement, style, description, preferred_date, preferred_time, status, quoted_price, estimated_duration_minutes, deposit_required, quote_note, quoted_at, accepted_at, rejected_at, created_at, updated_at')
+      .select('id, customer_id, customer_user_id, artist_id, reference_images, width_cm, height_cm, placement, style, description, preferred_date, preferred_time, status, quoted_price, estimated_duration_minutes, deposit_required, quote_note, quoted_at, accepted_at, rejected_at, created_at, updated_at')
       .order('created_at', { ascending: false });
 
     if (errEst) {
@@ -218,9 +222,21 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    const customerUserIds = Array.from(
-      new Set(dbEstimates.map(e => e.customer_user_id).filter(Boolean))
-    );
+    const customerIds = Array.from(new Set(dbEstimates.map(e => e.customer_id).filter(Boolean)));
+    const customerUserIds = Array.from(new Set(dbEstimates.map(e => e.customer_user_id).filter(Boolean)));
+
+    let customersList: any[] = [];
+    if (customerIds.length > 0 || customerUserIds.length > 0) {
+      const orConds: string[] = [];
+      if (customerIds.length > 0) orConds.push(`id.in.(${customerIds.join(',')})`);
+      if (customerUserIds.length > 0) orConds.push(`user_id.in.(${customerUserIds.join(',')})`);
+
+      const { data: custs } = await supabase
+        .from('customers')
+        .select('id, user_id, display_name, email, phone')
+        .or(orConds.join(','));
+      if (custs) customersList = custs;
+    }
 
     let profilesList: any[] = [];
     if (customerUserIds.length > 0) {
@@ -240,13 +256,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const artistsList = activeArtists || [];
 
     const mapped: EstimateRequest[] = dbEstimates.map(item => {
+      const customerRec = customersList.find(c => (item.customer_id && c.id === item.customer_id) || (item.customer_user_id && c.user_id === item.customer_user_id));
       const customerProf = profilesList.find(p => p.user_id === item.customer_user_id);
       const matchedArtist = artistsList.find((a: any) => a.id === item.artist_id);
 
       return {
         id: item.id,
-        customerName: customerProf?.display_name || customerProf?.email?.split('@')[0] || 'ลูกค้าประจำ',
-        customerEmail: customerProf?.email || 'customer@example.com',
+        customerId: item.customer_id || undefined,
+        customerUserId: item.customer_user_id || undefined,
+        customerName: customerRec?.display_name || customerProf?.display_name || customerProf?.email?.split('@')[0] || 'ลูกค้าประจำ',
+        customerEmail: customerRec?.email || customerProf?.email || 'customer@example.com',
+        customerPhone: customerRec?.phone || undefined,
         artistId: item.artist_id || '',
         artistName: matchedArtist?.name || 'ช่างประจำร้าน',
         referenceImage: item.reference_images?.[0] || 'https://images.unsplash.com/photo-1598440947619-2c35fc9aa908?w=500',
@@ -284,7 +304,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     // 1. Fetch bookings along with joined booking_sessions and estimate_requests (excluding health disclosure fields)
     const { data: dbBookings, error: errBook } = await supabase
       .from('bookings')
-      .select('*, booking_sessions(*), estimate_requests(id, customer_user_id, artist_id, reference_images, width_cm, height_cm, placement, style, description, preferred_date, status, quoted_price, estimated_duration_minutes, deposit_required, quote_note, quoted_at, accepted_at, rejected_at, created_at, updated_at)')
+      .select('*, booking_sessions(*), estimate_requests(id, customer_id, customer_user_id, artist_id, reference_images, width_cm, height_cm, placement, style, description, preferred_date, status, quoted_price, estimated_duration_minutes, deposit_required, quote_note, quoted_at, accepted_at, rejected_at, created_at, updated_at)')
       .order('created_at', { ascending: false });
 
     if (errBook) {
@@ -307,7 +327,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const rawPayments: BookingPayment[] = (dbPayments || []).map((p: any) => ({
       id: p.id,
       bookingId: p.booking_id,
-      customerUserId: p.customer_user_id,
+      customerId: p.customer_id || undefined,
+      customerUserId: p.customer_user_id || undefined,
       paymentType: p.payment_type,
       amount: Number(p.amount) || 0,
       currency: p.currency,
@@ -327,9 +348,21 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setBookingPayments(rawPayments);
 
     // 3. Resolve customer profiles
-    const customerUserIds = Array.from(
-      new Set(dbBookings.map(b => b.customer_user_id).filter(Boolean))
-    );
+    const customerIds = Array.from(new Set(dbBookings.map(b => b.customer_id).filter(Boolean)));
+    const customerUserIds = Array.from(new Set(dbBookings.map(b => b.customer_user_id).filter(Boolean)));
+
+    let customersList: any[] = [];
+    if (customerIds.length > 0 || customerUserIds.length > 0) {
+      const orConds: string[] = [];
+      if (customerIds.length > 0) orConds.push(`id.in.(${customerIds.join(',')})`);
+      if (customerUserIds.length > 0) orConds.push(`user_id.in.(${customerUserIds.join(',')})`);
+
+      const { data: custs } = await supabase
+        .from('customers')
+        .select('id, user_id, display_name, email, phone')
+        .or(orConds.join(','));
+      if (custs) customersList = custs;
+    }
 
     let profilesList: any[] = [];
     if (customerUserIds.length > 0) {
@@ -349,6 +382,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const artistsList = activeArtists || [];
 
     const mapped: Booking[] = dbBookings.map(item => {
+      const customerRec = customersList.find(c => (item.customer_id && c.id === item.customer_id) || (item.customer_user_id && c.user_id === item.customer_user_id));
       const customerProf = profilesList.find(p => p.user_id === item.customer_user_id);
       const matchedArtist = artistsList.find((a: any) => a.id === item.artist_id);
 
@@ -385,8 +419,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
       return {
         id: item.id,
-        customerName: customerProf?.display_name || customerProf?.email?.split('@')[0] || 'ลูกค้าประจำ',
-        customerEmail: customerProf?.email || 'customer@example.com',
+        customerId: item.customer_id || undefined,
+        customerUserId: item.customer_user_id || undefined,
+        customerName: customerRec?.display_name || customerProf?.display_name || customerProf?.email?.split('@')[0] || 'ลูกค้าประจำ',
+        customerEmail: customerRec?.email || customerProf?.email || 'customer@example.com',
+        customerPhone: customerRec?.phone || undefined,
         artistId: item.artist_id || '',
         artistName: matchedArtist?.name || 'ช่างประจำร้าน',
         artworkTitle: item.artwork_title || (item.booking_source === 'ESTIMATE' ? 'งานสักจากใบประเมินราคา' : 'งานสัก Custom'),
@@ -473,57 +510,74 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     let initialAuthDone = false;
 
     const initializeAuth = async () => {
-      console.log('[ADMIN-AUTH 01] AppContext mounted');
-      console.log('[ADMIN-AUTH 02] initializeAuth started');
       setAuthLoading(true);
+      setAuthProfileError(false);
 
       try {
-        console.log('[ADMIN-AUTH 03] before getSession');
         const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-        console.log('[ADMIN-AUTH 04] getSession returned. Session present:', !!session, 'Error:', sessionError?.message || 'none');
 
         if (!isMountedLocal) return;
 
         if (session?.user) {
-          console.log('[ADMIN-AUTH 05] session user exists:', session.user.email);
           setUser(session.user);
-          console.log('[ADMIN-AUTH 06] before profile query');
           try {
             const { data: prof, error: profError } = await supabase
               .from('profiles')
               .select('*')
               .eq('user_id', session.user.id)
-              .single();
-            console.log('[ADMIN-AUTH 07] profile query returned. Role:', prof?.role, 'Error:', profError?.message || 'none');
+              .maybeSingle();
 
-            if (prof && isMountedLocal) {
-              const userMetaRole = session.user.user_metadata?.role;
-              const effectiveRole = (prof.role && prof.role !== 'customer')
-                ? prof.role
-                : (userMetaRole || prof.role || 'customer');
-              const resolvedProf = { ...prof, role: effectiveRole };
+            if (profError) {
+              console.error('[AUTH] Profile query error:', profError.message);
+              if (isMountedLocal) {
+                setAuthProfileError(true);
+                setProfile(null);
+              }
+              return;
+            }
+
+            if (isMountedLocal) {
+              setAuthProfileError(false);
+              const effectiveRole = prof ? prof.role : 'customer';
+
+              const resolvedProf: Profile = prof ? { ...prof, role: effectiveRole } : {
+                id: session.user.id,
+                user_id: session.user.id,
+                display_name: session.user.user_metadata?.full_name || session.user.user_metadata?.name || session.user.email?.split('@')[0] || 'ลูกค้า 157 TATTOO',
+                email: session.user.email || '',
+                role: 'customer',
+                is_active: true,
+              };
+
               setProfile(resolvedProf);
+
+              let custData: any = null;
               if (effectiveRole === 'customer') {
                 try {
-                  const { data: custData } = await supabase
+                  const { data: cRow } = await supabase
                     .from('customers')
                     .select('*')
                     .eq('user_id', session.user.id)
                     .maybeSingle();
+                  custData = cRow;
 
                   if (custData && isMountedLocal) {
                     setCustomerMasterPhone(custData.phone || null);
                     setCustomerProfileCompletedAt(custData.profile_completed_at || null);
                     setCustomerEligibilityConfirmedAt(custData.eligibility_confirmed_at || null);
-                    if (!prof.phone && custData.phone) {
-                      prof.phone = custData.phone;
-                      setProfile({ ...prof, phone: custData.phone });
+                    if (!resolvedProf.phone && custData.phone) {
+                      resolvedProf.phone = custData.phone;
+                      setProfile({ ...resolvedProf, phone: custData.phone });
                     }
+                  } else {
+                    setCustomerMasterPhone(null);
+                    setCustomerProfileCompletedAt(null);
+                    setCustomerEligibilityConfirmedAt(null);
                   }
                 } catch (_) {}
               }
-              if (prof.role === 'admin') {
-                console.log('[ADMIN-AUTH 08] role verified admin');
+
+              if (resolvedProf.role === 'admin') {
                 try {
                   const { data: artistRec } = await supabase
                     .from('artists')
@@ -536,7 +590,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
                     setStaffArtistIdState(artistRec.id);
                   }
                 } catch (_) {}
-              } else if (prof.role === 'artist' && prof.is_active !== false) {
+              } else if (resolvedProf.role === 'artist' && resolvedProf.is_active !== false) {
                 try {
                   const { data: artistRec } = await supabase
                     .from('artists')
@@ -550,16 +604,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
                   }
                 } catch (_) {}
               }
-              console.log('[ADMIN-AUTH 09] auth state updated');
-              // Asynchronously load operational data in background - NEVER block Auth loading!
-              loadUserData(session.user, prof.role).catch(() => {});
+              loadUserData(session.user, resolvedProf.role).catch(() => {});
             }
           } catch (profErr) {
-            console.error('[ADMIN-AUTH] profile query exception:', profErr);
+            console.error('[AUTH] Profile query exception:', profErr);
+            if (isMountedLocal) {
+              setAuthProfileError(true);
+              setProfile(null);
+            }
           }
         } else {
           // No active Supabase session found - strictly clear state and remove legacy cookies/storage
-          console.log('[ADMIN-AUTH 05] No active Supabase session in browser client');
           if (typeof window !== 'undefined') {
             document.cookie = '157_staff_role=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax';
             document.cookie = '157_staff_email=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax';
@@ -570,15 +625,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           setProfile(null);
           setStaffArtistRecord(null);
           setStaffArtistIdState(null);
+          setAuthProfileError(false);
         }
       } catch (err) {
-        console.error('[ADMIN-AUTH] Auth initialization error:', err);
+        console.error('[AUTH] Auth initialization error:', err);
       } finally {
         if (isMountedLocal) {
           initialAuthDone = true;
-          console.log('[ADMIN-AUTH 10] before setAuthLoading(false)');
           setAuthLoading(false);
-          console.log('[ADMIN-AUTH 11] authLoading false');
         }
       }
     };
@@ -594,21 +648,38 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
       if ((event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') && session?.user) {
         setUser(session.user);
-        // Defer database query outside the auth lock to avoid deadlock with signInWithPassword
         setTimeout(async () => {
           try {
-            const { data: prof } = await supabase
+            const { data: prof, error: profError } = await supabase
               .from('profiles')
               .select('*')
               .eq('user_id', session.user.id)
-              .single();
-            if (prof && isMountedLocal) {
-              const userMetaRole = session.user.user_metadata?.role;
-              const effectiveRole = (prof.role && prof.role !== 'customer')
-                ? prof.role
-                : (userMetaRole || prof.role || 'customer');
-              const resolvedProf = { ...prof, role: effectiveRole };
+              .maybeSingle();
+
+            if (profError) {
+              console.error('[AUTH] auth change profile query error:', profError.message);
+              if (isMountedLocal) {
+                setAuthProfileError(true);
+                setProfile(null);
+              }
+              return;
+            }
+
+            if (isMountedLocal) {
+              setAuthProfileError(false);
+              const effectiveRole = prof ? prof.role : 'customer';
+
+              const resolvedProf: Profile = prof ? { ...prof, role: effectiveRole } : {
+                id: session.user.id,
+                user_id: session.user.id,
+                display_name: session.user.user_metadata?.full_name || session.user.user_metadata?.name || session.user.email?.split('@')[0] || 'ลูกค้า 157 TATTOO',
+                email: session.user.email || '',
+                role: 'customer',
+                is_active: true,
+              };
+
               setProfile(resolvedProf);
+
               if (effectiveRole === 'customer') {
                 try {
                   const { data: custData } = await supabase
@@ -621,13 +692,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
                     setCustomerMasterPhone(custData.phone || null);
                     setCustomerProfileCompletedAt(custData.profile_completed_at || null);
                     setCustomerEligibilityConfirmedAt(custData.eligibility_confirmed_at || null);
-                    if (!prof.phone && custData.phone) {
-                      prof.phone = custData.phone;
-                      setProfile({ ...prof, phone: custData.phone });
+                    if (!resolvedProf.phone && custData.phone) {
+                      resolvedProf.phone = custData.phone;
+                      setProfile({ ...resolvedProf, phone: custData.phone });
                     }
+                  } else {
+                    setCustomerMasterPhone(null);
+                    setCustomerProfileCompletedAt(null);
+                    setCustomerEligibilityConfirmedAt(null);
                   }
                 } catch (_) {}
-              } else if (prof.role === 'admin' || prof.role === 'artist') {
+              } else if (resolvedProf.role === 'admin' || resolvedProf.role === 'artist') {
                 try {
                   const { data: artistRec } = await supabase
                     .from('artists')
@@ -641,10 +716,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
                   }
                 } catch (_) {}
               }
-              loadUserData(session.user, prof.role).catch(() => {});
+              loadUserData(session.user, resolvedProf.role).catch(() => {});
             }
           } catch (err) {
-            console.error('[ADMIN-AUTH] auth change profile error:', err);
+            console.error('[AUTH] auth change profile error:', err);
+            if (isMountedLocal) {
+              setAuthProfileError(true);
+              setProfile(null);
+            }
           }
         }, 0);
       } else if (event === 'SIGNED_OUT' || !session) {
@@ -669,6 +748,64 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     };
   }, []); // Run once on mount!
 
+  const retryAuthProfile = useCallback(async () => {
+    setAuthLoading(true);
+    setAuthProfileError(false);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) {
+        setUser(session.user);
+        const { data: prof, error: profError } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('user_id', session.user.id)
+          .maybeSingle();
+
+        if (profError) {
+          console.error('[AUTH Retry] profile query error:', profError.message);
+          setAuthProfileError(true);
+          setProfile(null);
+          return;
+        }
+
+        setAuthProfileError(false);
+        const effectiveRole = prof ? prof.role : 'customer';
+
+        const resolvedProf: Profile = prof ? { ...prof, role: effectiveRole } : {
+          id: session.user.id,
+          user_id: session.user.id,
+          display_name: session.user.user_metadata?.full_name || session.user.user_metadata?.name || session.user.email?.split('@')[0] || 'ลูกค้า 157 TATTOO',
+          email: session.user.email || '',
+          role: 'customer',
+          is_active: true,
+        };
+
+        setProfile(resolvedProf);
+
+        if (effectiveRole === 'customer') {
+          try {
+            const { data: custData } = await supabase
+              .from('customers')
+              .select('*')
+              .eq('user_id', session.user.id)
+              .maybeSingle();
+            if (custData) {
+              setCustomerMasterPhone(custData.phone || null);
+              setCustomerProfileCompletedAt(custData.profile_completed_at || null);
+              setCustomerEligibilityConfirmedAt(custData.eligibility_confirmed_at || null);
+            }
+          } catch (_) {}
+        }
+        loadUserData(session.user, resolvedProf.role).catch(() => {});
+      }
+    } catch (e) {
+      console.error('[AUTH Retry] exception:', e);
+      setAuthProfileError(true);
+    } finally {
+      setAuthLoading(false);
+    }
+  }, [supabase, loadUserData]);
+
   const saveToStorage = (key: string, data: any) => {
     if (typeof window !== 'undefined') {
       localStorage.setItem(key, typeof data === 'string' ? data : JSON.stringify(data));
@@ -686,41 +823,58 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         email: cleanEmail,
         password: password,
       });
+
       if (!error && data.user) {
+        setUser(data.user);
+
         const { data: prof } = await supabase
           .from('profiles')
           .select('*')
           .eq('user_id', data.user.id)
-          .single();
+          .maybeSingle();
 
         let customerData: any = null;
-        if (prof?.role === 'customer') {
-          try {
-            const { data: cRow } = await supabase
-              .from('customers')
-              .select('*')
-              .eq('user_id', data.user.id)
-              .maybeSingle();
-            customerData = cRow;
-          } catch (_) {}
-        }
+        try {
+          const { data: cRow } = await supabase
+            .from('customers')
+            .select('*')
+            .eq('user_id', data.user.id)
+            .maybeSingle();
+          customerData = cRow;
+        } catch (_) {}
 
-        if (prof) {
-          setUser(data.user);
-          setProfile(prof);
-          if (customerData) {
-            setCustomerProfileCompletedAt(customerData.profile_completed_at || null);
-            setCustomerEligibilityConfirmedAt(customerData.eligibility_confirmed_at || null);
-          }
-          await loadUserData(data.user, prof.role).catch(() => {});
+        const userMetaRole = data.user.user_metadata?.role;
+        const effectiveRole = (prof?.role && prof.role !== 'customer')
+          ? prof.role
+          : (userMetaRole || prof?.role || 'customer');
+
+        const resolvedProf: Profile = prof ? { ...prof, role: effectiveRole } : {
+          id: data.user.id,
+          user_id: data.user.id,
+          display_name: data.user.user_metadata?.full_name || data.user.user_metadata?.name || cleanEmail.split('@')[0],
+          email: data.user.email || cleanEmail,
+          role: 'customer',
+          is_active: true,
+        };
+
+        setProfile(resolvedProf);
+
+        if (customerData) {
+          setCustomerMasterPhone(customerData.phone || null);
+          setCustomerProfileCompletedAt(customerData.profile_completed_at || null);
+          setCustomerEligibilityConfirmedAt(customerData.eligibility_confirmed_at || null);
         } else {
-          setUser(data.user);
+          setCustomerMasterPhone(null);
+          setCustomerProfileCompletedAt(null);
+          setCustomerEligibilityConfirmedAt(null);
         }
 
-        const effectivePhone = prof?.phone || customerData?.phone || '';
-        const validPhone = Boolean(effectivePhone && /^0[0-9]{9}$/.test(effectivePhone.trim()));
+        await loadUserData(data.user, resolvedProf.role).catch(() => {});
+
+        const effectivePhone = (resolvedProf.phone || customerData?.phone || '').trim();
+        const validPhone = Boolean(effectivePhone && /^0[0-9]{9}$/.test(effectivePhone));
         const isComplete = Boolean(
-          prof?.role === 'customer' &&
+          resolvedProf.role === 'customer' &&
           validPhone &&
           customerData?.profile_completed_at &&
           customerData?.eligibility_confirmed_at
@@ -731,7 +885,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         }
         return { success: true, isProfileComplete: isComplete };
       }
-      if (error && error.message !== 'Failed to fetch' && !error.message.includes('fetch')) {
+
+      if (error) {
         let msg = error.message;
         if (msg.toLowerCase().includes('email not confirmed')) {
           msg = 'บัญชีนี้ถูกสร้างก่อนการเปลี่ยนการตั้งค่าระบบ กรุณาใช้บัญชีใหม่หรือแจ้งผู้ดูแล';
@@ -741,44 +896,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         return { success: false, error: msg };
       }
 
-      // Seamless resilient fallback for demo / test customer
-      const mockUser: any = { id: 'mock-customer-1', email: cleanEmail };
-      const mockProf: Profile = { 
-        id: 'prof-cust-1', 
-        user_id: 'mock-customer-1', 
-        display_name: cleanEmail.split('@')[0], 
-        email: cleanEmail, 
-        phone: '081-234-5678', 
-        role: 'customer' 
-      };
-      setUser(mockUser);
-      setProfile(mockProf);
-      setBookings([]);
-      setEstimateRequests([]);
-      if (typeof document !== 'undefined') {
-        document.cookie = '157_customer_role=customer; path=/; max-age=86400; SameSite=Lax';
-      }
-      saveToStorage('157_customer_session', { user: mockUser, profile: mockProf });
-      return { success: true };
+      return { success: false, error: 'เกิดข้อผิดพลาดในการเข้าสู่ระบบ' };
     } catch (e: any) {
-      const mockUser: any = { id: 'mock-customer-1', email: cleanEmail };
-      const mockProf: Profile = { 
-        id: 'prof-cust-1', 
-        user_id: 'mock-customer-1', 
-        display_name: cleanEmail.split('@')[0], 
-        email: cleanEmail, 
-        phone: '081-234-5678', 
-        role: 'customer' 
-      };
-      setUser(mockUser);
-      setProfile(mockProf);
-      setBookings([]);
-      setEstimateRequests([]);
-      if (typeof document !== 'undefined') {
-        document.cookie = '157_customer_role=customer; path=/; max-age=86400; SameSite=Lax';
-      }
-      saveToStorage('157_customer_session', { user: mockUser, profile: mockProf });
-      return { success: true };
+      return { success: false, error: e?.message || 'เกิดข้อผิดพลาดในการเข้าสู่ระบบ' };
     }
   };
 
@@ -791,27 +911,41 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   ) => {
     const cleanEmail = email.trim().toLowerCase();
     const name = displayName || cleanEmail.split('@')[0];
-    const contactPhone = phone ? phone.trim() : '';
+    const contactPhone = sanitizeDigitsOnly(phone || '');
 
     try {
       const { data, error } = await supabase.auth.signUp({
         email: cleanEmail,
-        password: password || 'password',
+        password: password || '',
         options: {
           data: {
-            display_name: name,
-            phone: contactPhone,
-            ...(eligibilityConfirmed === true ? { eligibility_confirmed: true } : {}),
-          },
-        },
+            full_name: name,
+            name: name,
+            role: 'customer'
+          }
+        }
       });
+
       if (!error && data.user) {
-        // Enforce Register-then-Login: Immediately sign out any session created by Supabase on signup
         try {
-          await supabase.auth.signOut();
+          const { data: existingProf } = await supabase
+            .from('profiles')
+            .select('id')
+            .eq('user_id', data.user.id)
+            .maybeSingle();
+
+          if (!existingProf) {
+            await supabase.from('profiles').insert({
+              user_id: data.user.id,
+              display_name: name,
+              email: cleanEmail,
+              phone: contactPhone,
+              role: 'customer',
+              is_active: true
+            });
+          }
         } catch (_) {}
 
-        // Clear local state so customer must manually log in with email and password
         setUser(null);
         setProfile(null);
         if (typeof document !== 'undefined') {
@@ -879,7 +1013,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${siteUrl}${safeTarget}`,
+          redirectTo: `${siteUrl}/auth/callback?next=${encodeURIComponent(safeTarget)}`,
+          queryParams: {
+            prompt: 'select_account',
+          },
         },
       });
       if (error) {
@@ -918,75 +1055,75 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   };
 
   const completeCustomerProfile = async (
-    displayName: string, 
-    phone: string, 
-    eligibilityConfirmed: boolean
-  ) => {
-    const cleanName = displayName.trim();
+    name: string,
+    phone: string,
+    eligibilityConfirmed: boolean = true
+  ): Promise<{ success: boolean; error?: string }> => {
+    if (!user) {
+      return { success: false, error: 'กรุณาเข้าสู่ระบบก่อนดำเนินการ' };
+    }
+
+    const cleanName = name.trim();
     const cleanPhone = phone.trim();
 
     if (!cleanName) {
       return { success: false, error: 'กรุณากรอกชื่อผู้ใช้งาน' };
     }
-    if (!cleanPhone) {
-      return { success: false, error: 'กรุณากรอกเบอร์โทรศัพท์' };
-    }
-    if (!/^0[0-9]{9}$/.test(cleanPhone)) {
-      return { success: false, error: 'กรุณากรอกเบอร์โทรศัพท์ 10 หลัก' };
-    }
-    if (eligibilityConfirmed !== true) {
-      return { success: false, error: 'กรุณายืนยันเงื่อนไขก่อนดำเนินการ' };
+
+    if (!cleanPhone || !/^0[0-9]{9}$/.test(cleanPhone)) {
+      return { success: false, error: 'กรุณากรอกเบอร์โทรศัพท์ให้ถูกต้อง 10 หลัก' };
     }
 
     try {
-      // Single Authority: Call complete_customer_profile RPC
-      // NO direct update fallback!
-      const { data, error } = await supabase.rpc('complete_customer_profile', {
-        p_display_name: cleanName,
+      const { data: rpcData, error: rpcError } = await supabase.rpc('complete_customer_profile', {
+        p_user_id: user.id,
+        p_name: cleanName,
         p_phone: cleanPhone,
-        p_eligibility_confirmed: true,
+        p_eligibility_confirmed: eligibilityConfirmed
       });
 
-      if (error) {
-        return { success: false, error: error.message };
+      if (rpcError) {
+        console.error('[AppContext] complete_customer_profile RPC error:', rpcError);
+        return { success: false, error: rpcError.message || 'เกิดข้อผิดพลาดในการบันทึกข้อมูล' };
       }
 
-      // Update in-memory state upon confirmed RPC success
+      const nowIso = new Date().toISOString();
+
+      let resultCustData: any = null;
+      try {
+        const { data: cRow } = await supabase
+          .from('customers')
+          .select('*')
+          .eq('user_id', user.id)
+          .maybeSingle();
+        resultCustData = cRow;
+      } catch (_) {}
+
+      try {
+        await supabase
+          .from('profiles')
+          .update({
+            display_name: cleanName,
+            phone: cleanPhone,
+            role: 'customer',
+            is_active: true
+          })
+          .eq('user_id', user.id);
+      } catch (_) {}
+
       setCustomerMasterPhone(cleanPhone);
-      setCustomerProfileCompletedAt(data?.profile_completed_at || new Date().toISOString());
-      setCustomerEligibilityConfirmedAt(data?.eligibility_confirmed_at || new Date().toISOString());
+      setCustomerProfileCompletedAt(resultCustData?.profile_completed_at || nowIso);
+      setCustomerEligibilityConfirmedAt(resultCustData?.eligibility_confirmed_at || nowIso);
 
-      if (user) {
-        try {
-          const { data: freshCust } = await supabase
-            .from('customers')
-            .select('*')
-            .eq('user_id', user.id)
-            .maybeSingle();
-          if (freshCust) {
-            setCustomerMasterPhone(freshCust.phone || cleanPhone);
-            setCustomerProfileCompletedAt(freshCust.profile_completed_at || null);
-            setCustomerEligibilityConfirmedAt(freshCust.eligibility_confirmed_at || null);
-          }
-
-          const { data: freshProf } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('user_id', user.id)
-            .maybeSingle();
-          if (freshProf) {
-            setProfile(freshProf);
-            saveToStorage('157_customer_session', { user, profile: freshProf });
-          } else if (profile) {
-            const updated = { ...profile, display_name: cleanName, phone: cleanPhone };
-            setProfile(updated);
-            saveToStorage('157_customer_session', { user, profile: updated });
-          }
-        } catch (_) {}
+      if (profile) {
+        const updatedProf = { ...profile, display_name: cleanName, phone: cleanPhone };
+        setProfile(updatedProf);
+        saveToStorage('157_customer_session', { user, profile: updatedProf });
       }
 
       return { success: true };
     } catch (err: any) {
+      console.error('[AppContext] completeCustomerProfile error:', err);
       return { success: false, error: err?.message || 'เกิดข้อผิดพลาดในการบันทึกข้อมูล' };
     }
   };
@@ -1011,7 +1148,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     email: string, 
     password?: string
   ): Promise<{ success: boolean; role: 'ADMIN' | 'ARTIST' | null; error?: string }> => {
-    console.log('[STAFF-LOGIN 04] loginStaff entered');
     const lowerEmail = email.toLowerCase().trim();
     if (!password || password.trim() === '') {
       return { success: false, role: null, error: 'กรุณากรอกรหัสผ่าน' };
@@ -1024,39 +1160,31 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         localStorage.removeItem('157_customer_session');
       }
 
-      console.log('[STAFF-LOGIN 05] before signInWithPassword');
       const { data, error } = await supabase.auth.signInWithPassword({
         email: lowerEmail,
         password: password,
       });
-      console.log('[STAFF-LOGIN 06] signInWithPassword returned. Error:', error?.message || 'none', 'User:', data?.user?.id ? '[PRESENT]' : 'null');
 
       if (!error && data.user) {
-        console.log('[STAFF-LOGIN 07] before profile query');
         const { data: prof } = await supabase
           .from('profiles')
           .select('*')
           .eq('user_id', data.user.id)
           .maybeSingle();
-        console.log('[STAFF-LOGIN 08] profile query returned. Role:', prof?.role);
 
         if (!prof) {
-          await supabase.auth.signOut();
           return { success: false, role: null, error: 'ไม่พบข้อมูลโปรไฟล์พนักงานในระบบ' };
         }
 
         if (prof.is_active === false) {
-          await supabase.auth.signOut();
           return { success: false, role: null, error: 'บัญชีนี้ไม่สามารถเข้าใช้งานระบบพนักงานได้' };
         }
 
         if (prof.role === 'customer') {
-          await supabase.auth.signOut();
           return { success: false, role: null, error: 'บัญชีนี้เป็นบัญชีลูกค้า กรุณาเข้าสู่ระบบผ่านหน้าลูกค้า' };
         }
 
         if (prof.role === 'admin') {
-          console.log('[STAFF-LOGIN 09] admin verified');
           setUser(data.user);
           setProfile(prof);
 
@@ -1095,12 +1223,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           saveToStorage('157_staff_session', { user: data.user, profile: prof, artist: linkedArtist });
           loadUserData(data.user, 'admin').catch(() => {});
           setAuthLoading(false);
-          console.log('[STAFF-LOGIN 10] loginStaff returning success (ADMIN)');
           return { success: true, role: 'ADMIN' as const };
         }
 
         if (prof.role === 'artist') {
-          console.log('[STAFF-LOGIN 09] validating artist record linkage');
           const { data: artistRec, error: artErr } = await supabase
             .from('artists')
             .select('*')
@@ -1110,7 +1236,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
           if (artErr || !artistRec || artistRec.is_active === false) {
             console.warn('[STAFF-LOGIN] artist profile exists but no active linked artists row');
-            await supabase.auth.signOut();
             return {
               success: false,
               role: null,
@@ -1118,7 +1243,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             };
           }
 
-          console.log('[STAFF-LOGIN 09] artist verified:', artistRec.name, 'ID:', artistRec.id);
           setUser(data.user);
           setProfile(prof);
           setStaffArtistRecord(artistRec);
@@ -1133,7 +1257,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           saveToStorage('157_staff_session', { user: data.user, profile: prof, artist: artistRec });
           loadUserData(data.user, 'artist').catch(() => {});
           setAuthLoading(false);
-          console.log('[STAFF-LOGIN 10] loginStaff returning success (ARTIST)');
           return { success: true, role: 'ARTIST' as const };
         }
 
@@ -1569,6 +1692,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       user,
       profile,
       authLoading,
+      authProfileError,
+      retryAuthProfile,
       artists,
       fetchArtists,
       bookings,
@@ -1597,6 +1722,23 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       updateArtistStatus,
       getArtistBusySlots
     }}>
+      {authProfileError && user ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+          <div className="bg-zinc-900 border border-red-500/30 rounded-2xl p-6 max-w-md w-full text-center shadow-2xl space-y-4">
+            <div className="w-12 h-12 rounded-full bg-red-500/10 border border-red-500/20 text-red-400 flex items-center justify-center mx-auto">
+              <AlertTriangle className="w-6 h-6" />
+            </div>
+            <h3 className="text-lg font-semibold text-white">เกิดข้อผิดพลาดในการโหลดข้อมูล</h3>
+            <p className="text-sm text-zinc-400">ไม่สามารถโหลดข้อมูลบัญชีได้ กรุณาลองใหม่อีกครั้ง</p>
+            <button
+              onClick={() => retryAuthProfile()}
+              className="w-full py-2.5 px-4 bg-red-600 hover:bg-red-500 text-white font-medium rounded-xl transition duration-200"
+            >
+              ลองใหม่
+            </button>
+          </div>
+        </div>
+      ) : null}
       {children}
     </AppContext.Provider>
   );

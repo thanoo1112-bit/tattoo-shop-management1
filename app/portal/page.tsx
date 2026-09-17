@@ -65,22 +65,19 @@ function CustomerPortalContent() {
         return;
       }
 
-      if (profile?.role === 'admin') {
+      const role = profile?.role || 'customer';
+      if (['admin', 'owner', 'manager'].includes(role)) {
         router.replace('/admin/dashboard');
         return;
       }
 
-      if (profile?.role === 'artist') {
+      if (role === 'artist') {
         router.replace('/artist/dashboard');
         return;
       }
 
       if (profile && profile.role !== 'customer') {
         router.replace('/admin/dashboard');
-        return;
-      }
-
-      if (isCustomerProfileComplete) {
         return;
       }
 
@@ -99,19 +96,20 @@ function CustomerPortalContent() {
 
         if (isCancelled) return;
 
-        if (pData?.role === 'admin') {
+        const liveRole = pData?.role || role;
+        if (['admin', 'owner', 'manager'].includes(liveRole)) {
           router.replace('/admin/dashboard');
           return;
         }
-        if (pData?.role === 'artist') {
+        if (liveRole === 'artist') {
           router.replace('/artist/dashboard');
           return;
         }
 
         const effectivePhone = pData?.phone || cData?.phone || '';
         const isComplete = checkIsCustomerProfileComplete(
-          pData?.role,
-          pData?.is_active,
+          liveRole,
+          pData?.is_active !== false,
           effectivePhone,
           cData?.profile_completed_at,
           cData?.eligibility_confirmed_at
@@ -120,7 +118,8 @@ function CustomerPortalContent() {
         if (!isComplete) {
           router.replace('/complete-profile');
         }
-      } catch (_) {
+      } catch (err) {
+        console.error('[portal-guard] error:', err);
         if (!isCustomerProfileComplete) {
           router.replace('/complete-profile');
         }
@@ -134,7 +133,7 @@ function CustomerPortalContent() {
     return () => {
       isCancelled = true;
     };
-  }, [authLoading, isLoggedIn, isCustomerProfileComplete, router, user, supabase]);
+  }, [authLoading, isLoggedIn, isCustomerProfileComplete, router, user, supabase, profile]);
 
   // Live Data States
   const [liveBookings, setLiveBookings] = useState<CustomerPortalBooking[]>([]);

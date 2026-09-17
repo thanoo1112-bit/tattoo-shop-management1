@@ -21,7 +21,9 @@ export default function CustomerLoginPage({ initialFlipped = false }: CustomerLo
     isLoggedIn, 
     isStaffLoggedIn,
     staffRole,
-    isCustomerProfileComplete 
+    isCustomerProfileComplete,
+    user,
+    profile
   } = useApp();
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -54,29 +56,32 @@ export default function CustomerLoginPage({ initialFlipped = false }: CustomerLo
   const rawNext = searchParams.get('next') || searchParams.get('redirect') || '';
   const redirectUrl = getSafeReturnUrl(rawNext);
 
-  // Auto redirect if already logged in as Customer
+  // Auto redirect if already logged in as Customer or Staff
   useEffect(() => {
-    if (isLoggedIn && !customerLoading && !isStaffLoggedIn) {
-      if (!isCustomerProfileComplete) {
-        router.replace(`/complete-profile?next=${encodeURIComponent(redirectUrl)}`);
+    if (isLoggedIn && user && !customerLoading && !isStaffLoggedIn) {
+      const role = profile?.role || 'customer';
+      let target = '/portal';
+      if (['admin', 'owner', 'manager'].includes(role)) {
+        target = '/admin/dashboard';
+      } else if (role === 'artist') {
+        target = '/artist/dashboard';
       } else {
-        router.replace(redirectUrl);
+        target = !isCustomerProfileComplete 
+          ? `/complete-profile?next=${encodeURIComponent(redirectUrl)}` 
+          : redirectUrl;
       }
+
+      router.replace(target);
     }
-  }, [isLoggedIn, isCustomerProfileComplete, customerLoading, isStaffLoggedIn, redirectUrl, router]);
+  }, [isLoggedIn, user, profile, isCustomerProfileComplete, customerLoading, isStaffLoggedIn, redirectUrl, router]);
 
   // Auto redirect if already logged in as Staff
   useEffect(() => {
     if (isStaffLoggedIn && staffRole) {
-      if (staffRole === 'ADMIN') {
-        router.replace('/admin/dashboard');
-      } else if (staffRole === 'ARTIST') {
-        router.replace('/artist/dashboard');
-      } else {
-        router.replace('/admin/dashboard');
-      }
+      const target = staffRole === 'ARTIST' ? '/artist/dashboard' : '/admin/dashboard';
+      router.replace(target);
     }
-  }, [isStaffLoggedIn, staffRole, router]);
+  }, [isStaffLoggedIn, staffRole, router, user]);
 
   // --- CUSTOMER LOGIN HANDLERS ---
   const handleGoogleSignIn = async () => {

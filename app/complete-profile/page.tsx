@@ -60,23 +60,19 @@ function CompleteProfileContent() {
         return;
       }
 
-      if (profile?.role === 'admin') {
+      const role = profile?.role || 'customer';
+      if (['admin', 'owner', 'manager'].includes(role)) {
         router.replace('/admin/dashboard');
         return;
       }
 
-      if (profile?.role === 'artist') {
+      if (role === 'artist') {
         router.replace('/artist/dashboard');
         return;
       }
 
       if (profile && profile.role !== 'customer') {
         router.replace('/admin/dashboard');
-        return;
-      }
-
-      if (isCustomerProfileComplete) {
-        router.replace(returnTargetUrl);
         return;
       }
 
@@ -95,28 +91,31 @@ function CompleteProfileContent() {
 
         if (isCancelled) return;
 
-        if (pData?.role === 'admin') {
+        const liveRole = pData?.role || role;
+        if (['admin', 'owner', 'manager'].includes(liveRole)) {
           router.replace('/admin/dashboard');
           return;
         }
-        if (pData?.role === 'artist') {
+        if (liveRole === 'artist') {
           router.replace('/artist/dashboard');
           return;
         }
 
         const effectivePhone = pData?.phone || cData?.phone || '';
         const isComplete = checkIsCustomerProfileComplete(
-          pData?.role,
-          pData?.is_active,
+          liveRole,
+          pData?.is_active !== false,
           effectivePhone,
           cData?.profile_completed_at,
           cData?.eligibility_confirmed_at
         );
 
         if (isComplete) {
-          router.replace('/portal');
+          router.replace(returnTargetUrl);
         }
-      } catch (_) {}
+      } catch (err) {
+        console.error('[complete-profile] error:', err);
+      }
     }
 
     if (!authLoading) {
@@ -126,14 +125,15 @@ function CompleteProfileContent() {
     return () => {
       isCancelled = true;
     };
-  }, [authLoading, isLoggedIn, isCustomerProfileComplete, router, user, supabase]);
+  }, [authLoading, isLoggedIn, isCustomerProfileComplete, router, user, supabase, profile, returnTargetUrl]);
 
-  // 2. Prefill name and phone from Google / Profile
+  // 2. Prefill name from Google / Profile (Phone starts EMPTY for user input)
   useEffect(() => {
+
     if (!displayName) {
-      const initialName = profile?.display_name || 
-        user?.user_metadata?.full_name || 
+      const initialName = user?.user_metadata?.full_name || 
         user?.user_metadata?.name || 
+        profile?.display_name || 
         (customerName && customerName !== 'ลูกค้า 157 TATTOO' ? customerName : '') || 
         user?.email?.split('@')[0] || 
         '';
@@ -141,10 +141,7 @@ function CompleteProfileContent() {
         setDisplayName(initialName);
       }
     }
-    if (!phone && customerPhone) {
-      setPhone(customerPhone.replace(/\D/g, '').slice(0, 10));
-    }
-  }, [profile, user, customerName, customerPhone, displayName, phone]);
+  }, [profile, user, customerName, customerPhone, displayName]);
 
   // Handle phone input: allow only digits, max 10 digits
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
