@@ -31,10 +31,10 @@ export default function AdminHeader() {
     { name: 'คำขอ', href: '/admin/requests', icon: FileText },
     { name: 'ปฏิทิน', href: '/admin/calendar', icon: Calendar },
     { name: 'ลูกค้า', href: '/admin/customers', icon: Users },
-    { name: 'การเงิน', href: '/admin/payments', icon: CreditCard },
     { name: 'ช่างสัก', href: '/admin/artists', icon: User },
     { name: 'ผลงาน', href: '/admin/portfolio', icon: ImageIcon },
     { name: 'ลาย Flash', href: '/admin/flash', icon: Sparkles },
+    { name: 'การเงิน', href: '/admin/payments', icon: CreditCard },
   ];
 
   const isActive = (item: (typeof navItems)[0]) => {

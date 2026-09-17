@@ -815,7 +815,7 @@ export default function WeekCalendarView({
             {/* Bottom Action */}
             <div className="p-3 border-t border-[#4A443A]/40 bg-[#171512]">
               <a
-                href="/admin/requests"
+                href={`/admin/requests?tab=bookings${selectedEvent?.booking_id ? `&booking_id=${selectedEvent.booking_id}` : ''}`}
                 className="w-full py-2 bg-[#9C2F2F] hover:bg-[#852525] text-xs font-bold text-white rounded-lg transition-colors flex items-center justify-center gap-1.5 shadow"
               >
                 <ExternalLink size={12} />

@@ -1174,12 +1174,6 @@ export default function ArtistAppointmentDetailDrawer({ session, isOpen, onClose
               <span>รายละเอียดงานสัก</span>
             </div>
             <div className="space-y-2 pt-1 divide-y divide-studio-border/50">
-              {currentSession.work_type && (
-                <div className="flex justify-between items-center pb-2">
-                  <span className="text-studio-muted">ประเภทงานสัก:</span>
-                  <span className="text-studio-primary font-medium">{getTattooWorkTypeLabel(currentSession.work_type)}</span>
-                </div>
-              )}
               <div className="flex justify-between items-center py-2">
                 <span className="text-studio-muted">สไตล์ลายสัก (Tattoo Style):</span>
                 <span className="text-studio-primary font-medium">{currentSession.style || '—'}</span>

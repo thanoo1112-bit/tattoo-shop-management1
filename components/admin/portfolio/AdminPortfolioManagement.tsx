@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useApp } from '@/components/AppContext';
 import { uploadStudioImage } from '@/lib/utils/storageUploader';
 import {
@@ -19,11 +20,11 @@ import {
   AlertCircle,
   CheckCircle2,
   RefreshCw,
-  ExternalLink,
   Image as ImageIcon,
   Upload,
   Camera,
   Loader2,
+  Link as LinkIcon,
 } from 'lucide-react';
 
 export interface AdminPortfolioArtwork {
@@ -79,13 +80,16 @@ export default function AdminPortfolioManagement() {
 
   // Modal State for Create / Edit
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
   const [editingArtwork, setEditingArtwork] = useState<AdminPortfolioArtwork | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
-
-  // Image Upload State
-  const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [imageUploadError, setImageUploadError] = useState<string | null>(null);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [showManualUrlInput, setShowManualUrlInput] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -333,13 +337,33 @@ export default function AdminPortfolioManagement() {
       return;
     }
 
-    // Calculate total duration in minutes
+    // Calculate total duration in minutes with Data Preservation for existing artworks
     let calculatedDurationMinutes: number | null = null;
-    const h = parseInt(formData.duration_hours, 10);
-    const m = parseInt(formData.duration_minutes, 10);
-    if (!isNaN(h) || !isNaN(m)) {
-      const total = (isNaN(h) ? 0 : h * 60) + (isNaN(m) ? 0 : m);
-      if (total > 0) calculatedDurationMinutes = total;
+
+    if (editingArtwork) {
+      const origTotal = editingArtwork.estimated_duration_minutes ?? null;
+      const origHours = origTotal && origTotal > 0 ? Math.floor(origTotal / 60) : null;
+      const origHoursStr = origHours !== null ? origHours.toString() : '';
+
+      // Check if user modified the duration_hours input field
+      if (formData.duration_hours === origHoursStr) {
+        // User did NOT edit duration field -> preserve exact original estimated_duration_minutes (e.g. 90 mins)
+        calculatedDurationMinutes = origTotal;
+      } else {
+        // User explicitly modified duration_hours field -> calculate new total minutes from hours
+        const h = parseInt(formData.duration_hours, 10);
+        if (!isNaN(h) && h > 0) {
+          calculatedDurationMinutes = h * 60;
+        } else {
+          calculatedDurationMinutes = null;
+        }
+      }
+    } else {
+      // New Artwork -> calculate total minutes from duration_hours * 60
+      const h = parseInt(formData.duration_hours, 10);
+      if (!isNaN(h) && h > 0) {
+        calculatedDurationMinutes = h * 60;
+      }
     }
 
     setSubmitting(true);
@@ -503,7 +527,7 @@ export default function AdminPortfolioManagement() {
             className="flex-1 sm:flex-initial bg-[#9C2F2F] hover:bg-[#802222] text-[#ECE4D3] px-4 py-2.5 rounded-[4px] text-xs font-bold uppercase tracking-wider flex items-center justify-center space-x-1.5 transition-all shadow-lg shadow-[#9C2F2F]/20"
           >
             <Plus size={15} />
-            <span>+ เพิ่มผลงานสักใหม่</span>
+            <span>เพิ่มผลงานสักใหม่</span>
           </button>
         </div>
       </div>
@@ -605,11 +629,11 @@ export default function AdminPortfolioManagement() {
 
       {/* Artworks List Grid */}
       {loading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2.5 sm:gap-4">
           {[1, 2, 3, 4, 5, 6, 7, 8].map((idx) => (
             <div key={idx} className="bg-[#171512] border border-[#2D2820] rounded-[6px] overflow-hidden animate-pulse">
               <div className="aspect-[4/3] bg-[#25201A]" />
-              <div className="p-4 space-y-2">
+              <div className="p-3 sm:p-4 space-y-2">
                 <div className="h-3 bg-[#2D2820] rounded w-3/4" />
                 <div className="h-2 bg-[#2D2820] rounded w-1/2" />
               </div>
@@ -628,11 +652,11 @@ export default function AdminPortfolioManagement() {
             className="inline-flex items-center gap-1.5 bg-[#9C2F2F] hover:bg-[#802222] text-[#ECE4D3] px-4 py-2 rounded text-xs font-bold uppercase tracking-wider mt-2"
           >
             <Plus size={14} />
-            + เพิ่มผลงานแรก
+            <span>เพิ่มผลงานแรก</span>
           </button>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2.5 sm:gap-4">
           {filteredArtworks.map((item) => {
             const artistName = item.artists?.name || 'ไม่ระบุช่าง';
             const durationHours = item.estimated_duration_minutes
@@ -680,32 +704,32 @@ export default function AdminPortfolioManagement() {
                   </div>
 
                   {/* Card Content */}
-                  <div className="p-4 space-y-2.5">
-                    <div>
-                      <h3 className="text-sm font-bold text-[#ECE4D3] truncate" title={item.title}>
+                  <div className="p-2.5 sm:p-4 space-y-1.5 sm:space-y-2.5 min-w-0">
+                    <div className="min-w-0">
+                      <h3 className="text-xs sm:text-sm font-bold text-[#ECE4D3] truncate" title={item.title}>
                         {item.title}
                       </h3>
-                      <div className="flex items-center gap-1 text-xs text-[#A89F91] mt-0.5">
-                        <User size={12} className="text-[#C5A880]" />
+                      <div className="flex items-center gap-1 text-[11px] sm:text-xs text-[#A89F91] mt-0.5 min-w-0">
+                        <User size={12} className="text-[#C5A880] shrink-0" />
                         <span className="truncate">{artistName}</span>
                       </div>
                     </div>
 
                     {item.description && (
-                      <p className="text-[11px] text-[#A89F91] line-clamp-2 leading-relaxed">
+                      <p className="text-[10px] sm:text-[11px] text-[#A89F91] line-clamp-2 leading-relaxed">
                         {item.description}
                       </p>
                     )}
 
                     {/* Metadata Grid */}
-                    <div className="grid grid-cols-2 gap-2 border-t border-[#2D2820] pt-2.5 text-[11px] text-[#A89F91]">
-                      <div className="flex items-center gap-1 truncate">
-                        <Maximize2 size={11} className="text-[#7A7162]" />
-                        <span>{item.size_label || 'ไม่ระบุขนาด'}</span>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-1 sm:gap-2 border-t border-[#2D2820] pt-2 sm:pt-2.5 text-[10px] sm:text-[11px] text-[#A89F91]">
+                      <div className="flex items-center gap-1 min-w-0">
+                        <Maximize2 size={11} className="text-[#7A7162] shrink-0" />
+                        <span className="truncate">{item.size_label || 'ไม่ระบุขนาด'}</span>
                       </div>
-                      <div className="flex items-center gap-1 truncate">
-                        <Clock size={11} className="text-[#7A7162]" />
-                        <span>
+                      <div className="flex items-center gap-1 min-w-0">
+                        <Clock size={11} className="text-[#7A7162] shrink-0" />
+                        <span className="truncate">
                           {item.estimated_duration_minutes
                             ? `${durationHours ? `${durationHours}ชม.` : ''} ${durationMins ? `${durationMins}น.` : ''}`
                             : 'ไม่ระบุเวลา'}
@@ -716,8 +740,8 @@ export default function AdminPortfolioManagement() {
                 </div>
 
                 {/* Card Actions Footer */}
-                <div className="p-3 bg-[#13110F] border-t border-[#2D2820] flex items-center justify-between gap-1.5">
-                  <div className="flex items-center gap-1">
+                <div className="p-2 sm:p-3 bg-[#13110F] border-t border-[#2D2820] flex items-center justify-between gap-1 sm:gap-1.5 min-w-0">
+                  <div className="flex items-center gap-1 shrink-0">
                     <button
                       onClick={() => handleToggleVisibility(item)}
                       className={`p-1.5 rounded text-xs transition-colors ${
@@ -729,21 +753,12 @@ export default function AdminPortfolioManagement() {
                     >
                       {item.is_visible ? <Eye size={13} /> : <EyeOff size={13} />}
                     </button>
-                    <a
-                      href={`/portfolio?select=${item.id}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="p-1.5 bg-[#25201A] hover:bg-[#2D2820] text-[#A89F91] hover:text-[#ECE4D3] rounded transition-colors"
-                      title="เปิดดูในหน้าร้าน"
-                    >
-                      <ExternalLink size={13} />
-                    </a>
                   </div>
 
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
                     <button
                       onClick={() => handleOpenEditModal(item)}
-                      className="px-2.5 py-1.5 bg-[#25201A] hover:bg-[#2D2820] text-[#ECE4D3] rounded text-xs font-medium flex items-center gap-1 transition-colors"
+                      className="px-2 sm:px-2.5 py-1 sm:py-1.5 bg-[#25201A] hover:bg-[#2D2820] text-[#ECE4D3] rounded text-[11px] sm:text-xs font-medium flex items-center gap-1 transition-colors"
                     >
                       <Edit2 size={12} />
                       <span>แก้ไข</span>
@@ -764,25 +779,26 @@ export default function AdminPortfolioManagement() {
       )}
 
       {/* CREATE / EDIT MODAL */}
-      {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fadeIn">
-          <div className="relative w-full max-w-lg bg-[#171512] border border-[#2D2820] rounded-[8px] overflow-hidden shadow-2xl max-h-[90vh] flex flex-col">
+      {isModalOpen && isMounted && createPortal(
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/95 backdrop-blur-md animate-fadeIn">
+          <div className="relative w-full max-w-lg md:max-w-[900px] bg-[#171512] border border-[#2D2820] rounded-[8px] overflow-hidden shadow-2xl max-h-[90vh] flex flex-col">
             {/* Modal Header */}
-            <div className="p-4 border-b border-[#2D2820] flex items-center justify-between">
+            <div className="p-4 border-b border-[#2D2820] flex items-center justify-between shrink-0 bg-[#171512]">
               <h2 className="text-base font-bold text-[#ECE4D3] flex items-center gap-2">
                 <Sparkles size={16} className="text-[#9C2F2F]" />
                 <span>{editingArtwork ? 'แก้ไขผลงานสัก' : 'เพิ่มผลงานสักใหม่'}</span>
               </h2>
               <button
+                type="button"
                 onClick={() => setIsModalOpen(false)}
-                className="text-[#7A7162] hover:text-[#ECE4D3] transition-colors"
+                className="text-[#7A7162] hover:text-[#ECE4D3] transition-colors p-1"
               >
                 <X size={18} />
               </button>
             </div>
 
-            {/* Modal Form */}
-            <form onSubmit={handleSubmitForm} className="p-5 overflow-y-auto space-y-4 flex-1">
+            {/* Modal Form Content */}
+            <form onSubmit={handleSubmitForm} className="p-4 md:p-6 overflow-y-auto space-y-4 flex-1">
               {formError && (
                 <div className="bg-[#2D1B1B] border border-red-700/50 p-3 rounded text-xs text-red-300 flex items-center gap-2">
                   <AlertCircle size={14} className="shrink-0" />
@@ -790,163 +806,88 @@ export default function AdminPortfolioManagement() {
                 </div>
               )}
 
-              {/* Artist Select */}
-              <div className="space-y-1">
-                <label className="text-xs font-semibold text-[#ECE4D3] block">
-                  ช่างสักประจำผลงาน <span className="text-red-400">*</span>
-                </label>
-                <select
-                  value={formData.artist_id}
-                  onChange={(e) => handleArtistChange(e.target.value)}
-                  required
-                  className="w-full bg-[#0E0D0C] border border-[#3E372C] rounded-[4px] px-3 py-2 text-xs text-[#ECE4D3] focus:outline-none focus:border-[#9C2F2F] cursor-pointer"
-                >
-                  <option value="">-- เลือกช่างสัก --</option>
-                  {artists.map((artist) => (
-                    <option key={artist.id} value={artist.id}>
-                      {artist.name} {artist.nickname ? `(${artist.nickname})` : ''}{' '}
-                      {!artist.is_active ? '[ไม่พร้อมรับงาน]' : ''}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              {/* Hidden File Input */}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                onChange={handleImageFileSelect}
+                disabled={isUploadingImage || submitting}
+                className="hidden"
+              />
 
-              {/* Title */}
-              <div className="space-y-1">
-                <label className="text-xs font-semibold text-[#ECE4D3] block">
-                  ชื่อผลงาน <span className="text-red-400">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={formData.title}
-                  onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                  placeholder="เช่น Dark Skull & Serpent Sleeve"
-                  required
-                  className="w-full bg-[#0E0D0C] border border-[#3E372C] rounded-[4px] px-3 py-2 text-xs text-[#ECE4D3] placeholder:text-[#7A7162] focus:outline-none focus:border-[#9C2F2F]"
-                />
-              </div>
-
-              {/* Style & Size Grid */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <label className="text-xs font-semibold text-[#ECE4D3] block">
-                    สไตล์ผลงาน <span className="text-red-400">*</span>
-                  </label>
-                  <select
-                    value={formData.style}
-                    onChange={(e) => setFormData({ ...formData, style: e.target.value })}
-                    required
-                    disabled={!formData.artist_id || selectedArtistSpecialties.length === 0}
-                    className="w-full bg-[#0E0D0C] border border-[#3E372C] rounded-[4px] px-3 py-2 text-xs text-[#ECE4D3] focus:outline-none focus:border-[#9C2F2F] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {!formData.artist_id ? (
-                      <option value="">กรุณาเลือกช่างก่อน</option>
-                    ) : selectedArtistSpecialties.length === 0 ? (
-                      <option value="">ช่างคนนี้ยังไม่ได้ตั้งค่าสไตล์ความถนัด</option>
-                    ) : (
-                      <>
-                        <option value="">-- เลือกสไตล์ผลงาน --</option>
-                        {selectedArtistSpecialties.map((style) => (
-                          <option key={style} value={style}>
-                            {style}
-                          </option>
-                        ))}
-                      </>
-                    )}
-                  </select>
-                </div>
-
-                <div className="space-y-1">
-                  <label className="text-xs font-semibold text-[#ECE4D3] block">ขนาดชิ้นงาน</label>
-                  <input
-                    type="text"
-                    value={formData.size_label}
-                    onChange={(e) => setFormData({ ...formData, size_label: e.target.value })}
-                    placeholder="เช่น 15x10 ซม. หรือ เต็มแผ่นหลัง"
-                    className="w-full bg-[#0E0D0C] border border-[#3E372C] rounded-[4px] px-3 py-2 text-xs text-[#ECE4D3] placeholder:text-[#7A7162] focus:outline-none focus:border-[#9C2F2F]"
-                  />
-                </div>
-              </div>
-
-              {/* Duration: Hours + Minutes */}
-              <div className="space-y-1">
-                <label className="text-xs font-semibold text-[#ECE4D3] block">เวลาสักโดยประมาณ</label>
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="flex items-center gap-1.5 bg-[#0E0D0C] border border-[#3E372C] rounded-[4px] px-3 py-1.5">
-                    <input
-                      type="number"
-                      min="0"
-                      max="100"
-                      value={formData.duration_hours}
-                      onChange={(e) => setFormData({ ...formData, duration_hours: e.target.value })}
-                      placeholder="0"
-                      className="w-full bg-transparent text-xs text-[#ECE4D3] focus:outline-none"
-                    />
-                    <span className="text-xs text-[#7A7162]">ชั่วโมง</span>
-                  </div>
-                  <div className="flex items-center gap-1.5 bg-[#0E0D0C] border border-[#3E372C] rounded-[4px] px-3 py-1.5">
-                    <input
-                      type="number"
-                      min="0"
-                      max="59"
-                      step="5"
-                      value={formData.duration_minutes}
-                      onChange={(e) => setFormData({ ...formData, duration_minutes: e.target.value })}
-                      placeholder="0"
-                      className="w-full bg-transparent text-xs text-[#ECE4D3] focus:outline-none"
-                    />
-                    <span className="text-xs text-[#7A7162]">นาที</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Portfolio Image Upload (Primary File Input + Dropzone + Optional URL fallback) */}
-              <div className="space-y-2">
-                <label className="text-xs font-semibold text-[#ECE4D3] block">
-                  รูปภาพผลงานสัก (Portfolio Artwork) <span className="text-red-400">*</span>
-                </label>
-
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp"
-                  onChange={handleImageFileSelect}
-                  disabled={isUploadingImage || submitting}
-                  className="hidden"
-                />
-
-                {isUploadingImage ? (
-                  <div className="border border-dashed border-[#3E372C] bg-[#0E0D0C] p-6 rounded-[6px] flex flex-col items-center justify-center space-y-2 text-center animate-pulse">
-                    <Loader2 size={24} className="animate-spin text-[#9C2F2F]" />
-                    <span className="text-xs text-[#ECE4D3] font-medium">กำลังอัปโหลดรูปภาพไปยัง Storage...</span>
-                    <span className="text-[10px] text-[#7A7162]">ระบบกำลังบีบอัดและส่งขึ้น studio-assets/portfolio</span>
-                  </div>
-                ) : formData.image_url ? (
-                  <div className="bg-[#0E0D0C] border border-[#3E372C] p-3 rounded-[6px] space-y-2">
-                    <div className="relative aspect-[4/3] max-h-48 rounded overflow-hidden border border-[#2D2820] bg-[#0E0D0C]">
-                      <img
-                        src={formData.image_url}
-                        alt="Artwork Preview"
-                        className="w-full h-full object-cover"
-                        onError={(e: any) => {
-                          e.target.style.display = 'none';
-                        }}
-                      />
-                    </div>
-                    <div className="flex items-center justify-between pt-1">
-                      <span className="text-[10px] text-emerald-400 font-mono flex items-center gap-1">
-                        <CheckCircle2 size={12} /> พร้อมใช้งาน
+              {/* ========================================================================= */}
+              {/* MOBILE LAYOUT (< md): CONCEPT 2 ASSET STRIP                              */}
+              {/* ========================================================================= */}
+              <div className="block md:hidden space-y-4">
+                {/* Asset Strip Card */}
+                <div className="bg-[#171512] border border-[#2D2820] rounded-lg p-3 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold text-[#ECE4D3] flex items-center gap-1.5">
+                      <ImageIcon size={14} className="text-[#9C2F2F]" />
+                      <span>รูปผลงานหลัก</span>
+                      <span className="text-red-400">*</span>
+                    </span>
+                    {formData.image_url && (
+                      <span className="text-[10px] text-emerald-400 font-mono flex items-center gap-1 bg-emerald-950/40 border border-emerald-800/60 px-2 py-0.5 rounded">
+                        <CheckCircle2 size={11} /> พร้อมใช้งาน
                       </span>
-                      <div className="flex gap-2">
+                    )}
+                  </div>
+
+                  <div className="flex flex-row items-center gap-3">
+                    {/* Left: Preview Square Frame (120-140px, object-contain) */}
+                    <div className="w-[120px] h-[120px] sm:w-[140px] sm:h-[140px] shrink-0 bg-[#0E0D0C] border border-[#2D2820] rounded-lg p-1.5 flex items-center justify-center relative overflow-hidden">
+                      {isUploadingImage ? (
+                        <div className="flex flex-col items-center justify-center space-y-1 text-center">
+                          <Loader2 size={24} className="animate-spin text-[#9C2F2F]" />
+                          <span className="text-[10px] text-[#ECE4D3]">กำลังอัปโหลด...</span>
+                        </div>
+                      ) : formData.image_url ? (
+                        <img
+                          src={formData.image_url}
+                          alt="Artwork Preview"
+                          className="max-w-full max-h-full w-auto h-auto object-contain rounded block"
+                          onError={(e: any) => {
+                            e.target.style.display = 'none';
+                          }}
+                        />
+                      ) : (
                         <button
                           type="button"
-                          disabled={isUploadingImage || submitting}
                           onClick={() => fileInputRef.current?.click()}
-                          className="px-2.5 py-1 bg-[#171512] hover:bg-[#25201A] border border-[#3E372C] text-[11px] text-[#ECE4D3] rounded transition-colors flex items-center gap-1"
+                          className="w-full h-full flex flex-col items-center justify-center p-2 text-center text-[#7A7162] hover:text-[#ECE4D3] transition-colors group"
                         >
-                          <Camera size={12} className="text-[#9C2F2F]" />
-                          <span>เปลี่ยนรูป</span>
+                          <Upload size={22} className="group-hover:text-[#9C2F2F] transition-colors mb-1" />
+                          <span className="text-[11px] font-medium leading-tight text-[#ECE4D3]">เลือกรูปผลงาน</span>
+                          <span className="text-[9px] text-[#7A7162] mt-0.5">JPG, PNG, WEBP</span>
                         </button>
+                      )}
+                    </div>
+
+                    {/* Right: Action Buttons */}
+                    <div className="flex flex-col flex-1 justify-center space-y-2 min-w-0">
+                      <button
+                        type="button"
+                        disabled={isUploadingImage || submitting}
+                        onClick={() => fileInputRef.current?.click()}
+                        className="w-full h-9 bg-[#25201A] hover:bg-[#322A22] border border-[#2D2820] text-xs text-[#ECE4D3] rounded font-medium flex items-center justify-center gap-1.5 transition-colors active:scale-[0.98] disabled:opacity-50"
+                      >
+                        <Camera size={14} className="text-[#9C2F2F] shrink-0" />
+                        <span>{formData.image_url ? 'เลือกรูปใหม่' : 'เลือกรูปภาพ'}</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        disabled={isUploadingImage || submitting}
+                        onClick={() => setShowManualUrlInput(!showManualUrlInput)}
+                        className="w-full h-9 bg-[#0E0D0C] hover:bg-[#1a1714] border border-[#2D2820] text-xs text-[#ECE4D3] rounded font-medium flex items-center justify-center gap-1.5 transition-colors active:scale-[0.98] disabled:opacity-50"
+                      >
+                        <LinkIcon size={13} className="text-[#7A7162] shrink-0" />
+                        <span>{showManualUrlInput ? 'ซ่อนช่อง URL' : 'วาง URL รูปภาพ'}</span>
+                      </button>
+
+                      {formData.image_url && (
                         <button
                           type="button"
                           disabled={isUploadingImage || submitting}
@@ -954,121 +895,463 @@ export default function AdminPortfolioManagement() {
                             setFormData((prev) => ({ ...prev, image_url: '' }));
                             setImageUploadError(null);
                           }}
-                          className="px-2.5 py-1 bg-[#171512] hover:bg-red-950/40 border border-[#3E372C] hover:border-red-900/60 text-[11px] text-red-400 rounded transition-colors flex items-center gap-1"
+                          className="w-full h-8 bg-[#0E0D0C] hover:bg-red-950/40 border border-[#2D2820] hover:border-red-900/60 text-xs text-red-400 rounded font-medium flex items-center justify-center gap-1.5 transition-colors active:scale-[0.98] disabled:opacity-50"
                         >
-                          <Trash2 size={12} />
+                          <Trash2 size={13} className="shrink-0" />
                           <span>ลบรูป</span>
                         </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Fallback URL Input */}
+                  {showManualUrlInput && (
+                    <div className="bg-[#0E0D0C] border border-[#2D2820] rounded-lg p-2.5 space-y-1 animate-fadeIn">
+                      <label className="text-xs font-semibold text-[#ECE4D3] block flex items-center gap-1.5">
+                        <LinkIcon size={12} className="text-[#9C2F2F]" />
+                        <span>URL รูปภาพตรง (Direct Image URL)</span>
+                      </label>
+                      <input
+                        type="url"
+                        value={formData.image_url}
+                        onChange={(e) => setFormData({ ...formData, image_url: e.target.value })}
+                        placeholder="https://example.com/artwork.jpg"
+                        className="w-full bg-[#171512] border border-[#3E372C] rounded px-3 py-1.5 text-xs text-[#ECE4D3] placeholder:text-[#7A7162] focus:outline-none focus:border-[#9C2F2F]"
+                      />
+                    </div>
+                  )}
+
+                  {imageUploadError && (
+                    <p className="text-xs text-red-400 flex items-center gap-1 pt-1">
+                      <AlertCircle size={13} className="shrink-0" />
+                      <span>{imageUploadError}</span>
+                    </p>
+                  )}
+                </div>
+
+                {/* Section: ข้อมูลผลงาน */}
+                <div className="space-y-3">
+                  <div className="border-b border-[#2D2820] pb-1">
+                    <h3 className="text-xs font-bold text-[#ECE4D3] uppercase tracking-wider flex items-center gap-1.5">
+                      <User size={13} className="text-[#9C2F2F]" />
+                      <span>ข้อมูลผลงาน</span>
+                    </h3>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold text-[#ECE4D3] block">
+                      ช่างสักประจำผลงาน <span className="text-red-400">*</span>
+                    </label>
+                    <select
+                      value={formData.artist_id}
+                      onChange={(e) => handleArtistChange(e.target.value)}
+                      required
+                      className="w-full bg-[#0E0D0C] border border-[#3E372C] rounded-[4px] px-3 py-2 text-xs text-[#ECE4D3] focus:outline-none focus:border-[#9C2F2F] cursor-pointer"
+                    >
+                      <option value="">-- เลือกช่างสัก --</option>
+                      {artists.map((artist) => (
+                        <option key={artist.id} value={artist.id}>
+                          {artist.name} {artist.nickname ? `(${artist.nickname})` : ''}{' '}
+                          {!artist.is_active ? '[ไม่พร้อมรับงาน]' : ''}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold text-[#ECE4D3] block">
+                      ชื่อผลงาน <span className="text-red-400">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.title}
+                      onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                      placeholder="เช่น Dark Skull & Serpent Sleeve"
+                      required
+                      className="w-full bg-[#0E0D0C] border border-[#3E372C] rounded-[4px] px-3 py-2 text-xs text-[#ECE4D3] placeholder:text-[#7A7162] focus:outline-none focus:border-[#9C2F2F]"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold text-[#ECE4D3] block">
+                      สไตล์ผลงาน <span className="text-red-400">*</span>
+                    </label>
+                    <select
+                      value={formData.style}
+                      onChange={(e) => setFormData({ ...formData, style: e.target.value })}
+                      required
+                      disabled={!formData.artist_id || selectedArtistSpecialties.length === 0}
+                      className="w-full bg-[#0E0D0C] border border-[#3E372C] rounded-[4px] px-3 py-2 text-xs text-[#ECE4D3] focus:outline-none focus:border-[#9C2F2F] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {!formData.artist_id ? (
+                        <option value="">กรุณาเลือกช่างก่อน</option>
+                      ) : selectedArtistSpecialties.length === 0 ? (
+                        <option value="">ช่างคนนี้ยังไม่ได้ตั้งค่าสไตล์ความถนัด</option>
+                      ) : (
+                        <>
+                          <option value="">-- เลือกสไตล์ผลงาน --</option>
+                          {selectedArtistSpecialties.map((style) => (
+                            <option key={style} value={style}>
+                              {style}
+                            </option>
+                          ))}
+                        </>
+                      )}
+                    </select>
+                  </div>
+                </div>
+
+                {/* Section: ขนาดและเวลา */}
+                <div className="space-y-3">
+                  <div className="border-b border-[#2D2820] pb-1">
+                    <h3 className="text-xs font-bold text-[#ECE4D3] uppercase tracking-wider flex items-center gap-1.5">
+                      <Clock size={13} className="text-[#9C2F2F]" />
+                      <span>ขนาดและเวลา</span>
+                    </h3>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1 min-w-0">
+                      <label className="text-xs font-semibold text-[#ECE4D3] block">ขนาดชิ้นงาน</label>
+                      <input
+                        type="text"
+                        value={formData.size_label}
+                        onChange={(e) => setFormData({ ...formData, size_label: e.target.value })}
+                        placeholder="เช่น 15x10 ซม."
+                        className="w-full bg-[#0E0D0C] border border-[#3E372C] rounded-[4px] px-2.5 py-2 text-xs text-[#ECE4D3] placeholder:text-[#7A7162] focus:outline-none focus:border-[#9C2F2F]"
+                      />
+                    </div>
+
+                    <div className="space-y-1 min-w-0">
+                      <label className="text-xs font-semibold text-[#ECE4D3] block">เวลาสัก</label>
+                      <div className="flex items-center gap-1.5 bg-[#0E0D0C] border border-[#3E372C] rounded-[4px] px-2.5 py-2">
+                        <input
+                          type="number"
+                          min="0"
+                          max="100"
+                          value={formData.duration_hours}
+                          onChange={(e) => setFormData({ ...formData, duration_hours: e.target.value })}
+                          placeholder="0"
+                          className="w-full bg-transparent text-xs text-[#ECE4D3] focus:outline-none"
+                        />
+                        <span className="text-xs text-[#7A7162] shrink-0">ชั่วโมง</span>
                       </div>
                     </div>
                   </div>
-                ) : (
-                  <div
-                    onClick={() => {
-                      if (!isUploadingImage && !submitting) {
-                        fileInputRef.current?.click();
-                      }
-                    }}
-                    className="border border-dashed border-[#3E372C] hover:border-[#9C2F2F]/60 bg-[#0E0D0C] hover:bg-[#141210] p-6 rounded-[6px] text-center cursor-pointer transition-colors flex flex-col items-center justify-center space-y-2 group"
-                  >
-                    <div className="w-10 h-10 rounded-full bg-[#171512] border border-[#3E372C] group-hover:border-[#9C2F2F]/60 flex items-center justify-center text-[#7A7162] group-hover:text-[#ECE4D3] transition-colors">
-                      <Upload size={18} />
+                </div>
+
+                {/* Section: รายละเอียด */}
+                <div className="space-y-3">
+                  <div className="border-b border-[#2D2820] pb-1">
+                    <h3 className="text-xs font-bold text-[#ECE4D3] uppercase tracking-wider block">
+                      รายละเอียดผลงาน
+                    </h3>
+                  </div>
+                  <textarea
+                    rows={3}
+                    value={formData.description}
+                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                    placeholder="อธิบายเทคนิค ลวดลาย หรือแนวคิดของผลงานสักนี้..."
+                    className="w-full bg-[#0E0D0C] border border-[#3E372C] rounded-[4px] px-3 py-2 text-xs text-[#ECE4D3] placeholder:text-[#7A7162] focus:outline-none focus:border-[#9C2F2F] resize-none"
+                  />
+                </div>
+
+                {/* Section: การแสดงผล */}
+                <div className="space-y-3">
+                  <div className="border-b border-[#2D2820] pb-1">
+                    <h3 className="text-xs font-bold text-[#ECE4D3] uppercase tracking-wider block">
+                      การแสดงผล
+                    </h3>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-end">
+                    <div className="space-y-1">
+                      <label className="text-xs font-semibold text-[#ECE4D3] block">ลำดับการแสดงผล (Sort Order)</label>
+                      <input
+                        type="number"
+                        value={formData.sort_order}
+                        onChange={(e) => setFormData({ ...formData, sort_order: parseInt(e.target.value, 10) || 0 })}
+                        className="w-full bg-[#0E0D0C] border border-[#3E372C] rounded-[4px] px-3 py-2 text-xs text-[#ECE4D3] focus:outline-none focus:border-[#9C2F2F]"
+                      />
                     </div>
-                    <div>
-                      <span className="text-xs text-[#ECE4D3] font-medium block">
-                        + คลิกเพื่อเลือกรูปภาพจากเครื่อง
-                      </span>
-                      <span className="text-[10px] text-[#7A7162] block mt-0.5">
-                        รองรับ JPG, PNG, WEBP สูงสุด 5 MB (บีบอัดอัตโนมัติ)
-                      </span>
+
+                    <div className="pb-2">
+                      <label className="inline-flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={formData.is_visible}
+                          onChange={(e) => setFormData({ ...formData, is_visible: e.target.checked })}
+                          className="w-4 h-4 rounded bg-[#0E0D0C] border-[#3E372C] text-[#9C2F2F] focus:ring-0 focus:outline-none cursor-pointer"
+                        />
+                        <span className="text-xs text-[#ECE4D3] font-medium">แสดงผลงานบนเว็บไซต์</span>
+                      </label>
                     </div>
                   </div>
-                )}
+                </div>
+              </div>
 
-                {imageUploadError && (
-                  <p className="text-xs text-red-400 flex items-center gap-1 mt-1">
-                    <AlertCircle size={13} className="shrink-0" />
-                    <span>{imageUploadError}</span>
-                  </p>
-                )}
+              {/* ========================================================================= */}
+              {/* DESKTOP LAYOUT (>= md): CONCEPT 1 IMAGE LEFT + FORM RIGHT                 */}
+              {/* ========================================================================= */}
+              <div className="hidden md:grid md:grid-cols-12 md:gap-6 md:items-start">
+                {/* LEFT COLUMN: Tight Portrait Image Stage (col-span-6) */}
+                <div className="col-span-6 space-y-3 flex flex-col items-center">
+                  <div className="w-full flex items-center justify-between">
+                    <label className="text-xs font-semibold text-[#ECE4D3]">
+                      รูปผลงานหลัก <span className="text-red-400">*</span>
+                    </label>
+                    {formData.image_url && (
+                      <span className="text-[10px] text-emerald-400 font-mono flex items-center gap-1 bg-emerald-950/40 border border-emerald-800/60 px-2 py-0.5 rounded">
+                        <CheckCircle2 size={11} /> พร้อมใช้งาน
+                      </span>
+                    )}
+                  </div>
 
-                {/* Optional Fallback URL input */}
-                <div className="pt-1">
-                  <button
-                    type="button"
-                    onClick={() => setShowManualUrlInput(!showManualUrlInput)}
-                    className="text-[10px] text-[#7A7162] hover:text-[#ECE4D3] hover:underline transition-colors"
-                  >
-                    {showManualUrlInput ? '▼ ซ่อนการกรอก URL รูปภายนอก' : '▶ หรือใช้ URL รูปภาพภายนอก (HTTPS)'}
-                  </button>
+                  {/* Tight Portrait Frame */}
+                  <div className="w-full min-h-[380px] max-h-[460px] bg-[#0E0D0C] border border-[#2D2820] rounded-lg p-2 flex items-center justify-center relative overflow-hidden">
+                    {isUploadingImage ? (
+                      <div className="flex flex-col items-center justify-center space-y-2 text-center animate-pulse p-6">
+                        <Loader2 size={28} className="animate-spin text-[#9C2F2F]" />
+                        <span className="text-xs text-[#ECE4D3] font-medium">กำลังอัปโหลดรูปภาพไปยัง Storage...</span>
+                      </div>
+                    ) : formData.image_url ? (
+                      <div className="inline-flex w-fit max-w-full mx-auto p-1 bg-[#0E0D0C] rounded">
+                        <img
+                          src={formData.image_url}
+                          alt="Artwork Preview"
+                          className="max-w-full max-h-[440px] w-auto h-auto object-contain rounded block"
+                          onError={(e: any) => {
+                            e.target.style.display = 'none';
+                          }}
+                        />
+                      </div>
+                    ) : (
+                      <div
+                        onClick={() => {
+                          if (!isUploadingImage && !submitting) {
+                            fileInputRef.current?.click();
+                          }
+                        }}
+                        className="w-full h-full min-h-[360px] border border-dashed border-[#2D2820] hover:border-[#9C2F2F]/60 bg-[#0E0D0C] hover:bg-[#141210] rounded-lg text-center cursor-pointer transition-colors flex flex-col items-center justify-center p-6 space-y-2 group"
+                      >
+                        <div className="w-12 h-12 rounded-full bg-[#171512] border border-[#2D2820] group-hover:border-[#9C2F2F]/60 flex items-center justify-center text-[#7A7162] group-hover:text-[#ECE4D3] transition-colors">
+                          <Upload size={20} />
+                        </div>
+                        <div>
+                          <span className="text-xs text-[#ECE4D3] font-medium block">
+                            + คลิกเพื่อเลือกรูปภาพผลงานหลัก
+                          </span>
+                          <span className="text-[10px] text-[#7A7162] block mt-0.5">
+                            รองรับ JPG, PNG, WEBP สูงสุด 5 MB
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
 
+                  {/* Buttons below Image Stage */}
+                  <div className="flex items-center justify-center gap-2 w-full pt-1">
+                    <button
+                      type="button"
+                      disabled={isUploadingImage || submitting}
+                      onClick={() => fileInputRef.current?.click()}
+                      className="px-3 py-1.5 bg-[#25201A] hover:bg-[#322A22] border border-[#2D2820] text-xs text-[#ECE4D3] rounded transition-colors flex items-center gap-1.5 font-medium"
+                    >
+                      <Camera size={13} className="text-[#9C2F2F]" />
+                      <span>{formData.image_url ? 'เปลี่ยนรูปภาพ' : 'เลือกรูปภาพ'}</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      disabled={isUploadingImage || submitting}
+                      onClick={() => setShowManualUrlInput(!showManualUrlInput)}
+                      className="px-3 py-1.5 bg-[#25201A] hover:bg-[#322A22] border border-[#2D2820] text-xs text-[#A89F91] hover:text-[#ECE4D3] rounded transition-colors font-medium flex items-center gap-1"
+                    >
+                      <LinkIcon size={12} />
+                      <span>วาง URL รูปภาพ</span>
+                    </button>
+
+                    {formData.image_url && (
+                      <button
+                        type="button"
+                        disabled={isUploadingImage || submitting}
+                        onClick={() => {
+                          setFormData((prev) => ({ ...prev, image_url: '' }));
+                          setImageUploadError(null);
+                        }}
+                        className="px-3 py-1.5 bg-[#0E0D0C] hover:bg-red-950/40 border border-[#2D2820] hover:border-red-900/60 text-xs text-red-400 rounded transition-colors flex items-center gap-1.5 font-medium"
+                      >
+                        <Trash2 size={13} />
+                        <span>ลบรูป</span>
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Fallback Manual URL Input on Desktop */}
                   {showManualUrlInput && (
-                    <input
-                      type="url"
-                      value={formData.image_url}
-                      onChange={(e) => {
-                        setFormData((prev) => ({ ...prev, image_url: e.target.value }));
-                        setImageUploadError(null);
-                      }}
-                      placeholder="https://images.unsplash.com/..."
-                      className="mt-1.5 w-full bg-[#0E0D0C] border border-[#3E372C] rounded-[4px] px-3 py-2 text-xs text-[#ECE4D3] placeholder:text-[#7A7162] focus:outline-none focus:border-[#9C2F2F] font-mono"
-                    />
+                    <div className="w-full bg-[#0E0D0C] border border-[#2D2820] rounded-lg p-3 space-y-1 animate-fadeIn">
+                      <label className="text-[10px] text-[#A89F91] block">วาง URL รูปภาพภายนอก (HTTPS):</label>
+                      <input
+                        type="url"
+                        value={formData.image_url}
+                        onChange={(e) => setFormData({ ...formData, image_url: e.target.value })}
+                        placeholder="https://images.unsplash.com/..."
+                        className="w-full bg-[#171512] border border-[#3E372C] rounded px-3 py-1.5 text-xs text-[#ECE4D3] placeholder:text-[#7A7162] focus:outline-none focus:border-[#9C2F2F] font-mono"
+                      />
+                    </div>
+                  )}
+
+                  {imageUploadError && (
+                    <p className="text-xs text-red-400 flex items-center gap-1 mt-1 justify-center">
+                      <AlertCircle size={13} className="shrink-0" />
+                      <span>{imageUploadError}</span>
+                    </p>
                   )}
                 </div>
-              </div>
 
-              {/* Description */}
-              <div className="space-y-1">
-                <label className="text-xs font-semibold text-[#ECE4D3] block">รายละเอียดผลงาน</label>
-                <textarea
-                  rows={3}
-                  value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  placeholder="อธิบายเทคนิค ลวดลาย หรือแนวคิดของผลงานสักนี้..."
-                  className="w-full bg-[#0E0D0C] border border-[#3E372C] rounded-[4px] px-3 py-2 text-xs text-[#ECE4D3] placeholder:text-[#7A7162] focus:outline-none focus:border-[#9C2F2F] resize-none"
-                />
-              </div>
+                {/* RIGHT COLUMN: Form Rail (col-span-6) */}
+                <div className="col-span-6 space-y-3.5">
+                  {/* ช่างสักประจำผลงาน */}
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold text-[#ECE4D3] block">
+                      ช่างสักประจำผลงาน <span className="text-red-400">*</span>
+                    </label>
+                    <select
+                      value={formData.artist_id}
+                      onChange={(e) => handleArtistChange(e.target.value)}
+                      required
+                      className="w-full bg-[#0E0D0C] border border-[#3E372C] rounded-[4px] px-3 py-2 text-xs text-[#ECE4D3] focus:outline-none focus:border-[#9C2F2F] cursor-pointer"
+                    >
+                      <option value="">-- เลือกช่างสัก --</option>
+                      {artists.map((artist) => (
+                        <option key={artist.id} value={artist.id}>
+                          {artist.name} {artist.nickname ? `(${artist.nickname})` : ''}{' '}
+                          {!artist.is_active ? '[ไม่พร้อมรับงาน]' : ''}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
 
-              {/* Sort Order & Visibility */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-[#2D2820]">
-                <div className="space-y-1">
-                  <label className="text-xs font-semibold text-[#ECE4D3] block">ลำดับการแสดงผล (Sort Order)</label>
-                  <input
-                    type="number"
-                    value={formData.sort_order}
-                    onChange={(e) => setFormData({ ...formData, sort_order: parseInt(e.target.value, 10) || 0 })}
-                    className="w-full bg-[#0E0D0C] border border-[#3E372C] rounded-[4px] px-3 py-2 text-xs text-[#ECE4D3] focus:outline-none focus:border-[#9C2F2F]"
-                  />
-                  <span className="text-[10px] text-[#7A7162]">ค่าน้อยกว่าจะแสดงผลก่อน</span>
-                </div>
-
-                <div className="space-y-1 flex flex-col justify-end">
-                  <label className="inline-flex items-center gap-2 cursor-pointer pb-2">
+                  {/* ชื่อผลงาน */}
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold text-[#ECE4D3] block">
+                      ชื่อผลงาน <span className="text-red-400">*</span>
+                    </label>
                     <input
-                      type="checkbox"
-                      checked={formData.is_visible}
-                      onChange={(e) => setFormData({ ...formData, is_visible: e.target.checked })}
-                      className="w-4 h-4 rounded bg-[#0E0D0C] border-[#3E372C] text-[#9C2F2F] focus:ring-0 focus:outline-none cursor-pointer"
+                      type="text"
+                      value={formData.title}
+                      onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                      placeholder="เช่น Dark Skull & Serpent Sleeve"
+                      required
+                      className="w-full bg-[#0E0D0C] border border-[#3E372C] rounded-[4px] px-3 py-2 text-xs text-[#ECE4D3] placeholder:text-[#7A7162] focus:outline-none focus:border-[#9C2F2F]"
                     />
-                    <span className="text-xs text-[#ECE4D3] font-medium">แสดงผลงานบนเว็บไซต์</span>
-                  </label>
+                  </div>
+
+                  {/* สไตล์ผลงาน */}
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold text-[#ECE4D3] block">
+                      สไตล์ผลงาน <span className="text-red-400">*</span>
+                    </label>
+                    <select
+                      value={formData.style}
+                      onChange={(e) => setFormData({ ...formData, style: e.target.value })}
+                      required
+                      disabled={!formData.artist_id || selectedArtistSpecialties.length === 0}
+                      className="w-full bg-[#0E0D0C] border border-[#3E372C] rounded-[4px] px-3 py-2 text-xs text-[#ECE4D3] focus:outline-none focus:border-[#9C2F2F] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {!formData.artist_id ? (
+                        <option value="">กรุณาเลือกช่างก่อน</option>
+                      ) : selectedArtistSpecialties.length === 0 ? (
+                        <option value="">ช่างคนนี้ยังไม่ได้ตั้งค่าสไตล์ความถนัด</option>
+                      ) : (
+                        <>
+                          <option value="">-- เลือกสไตล์ผลงาน --</option>
+                          {selectedArtistSpecialties.map((style) => (
+                            <option key={style} value={style}>
+                              {style}
+                            </option>
+                          ))}
+                        </>
+                      )}
+                    </select>
+                  </div>
+
+                  {/* ขนาดชิ้นงาน + เวลาสัก */}
+                  <div className="grid grid-cols-2 gap-2.5">
+                    <div className="space-y-1 min-w-0">
+                      <label className="text-xs font-semibold text-[#ECE4D3] block">ขนาดชิ้นงาน</label>
+                      <input
+                        type="text"
+                        value={formData.size_label}
+                        onChange={(e) => setFormData({ ...formData, size_label: e.target.value })}
+                        placeholder="เช่น 15x10 ซม."
+                        className="w-full bg-[#0E0D0C] border border-[#3E372C] rounded-[4px] px-2.5 py-2 text-xs text-[#ECE4D3] placeholder:text-[#7A7162] focus:outline-none focus:border-[#9C2F2F]"
+                      />
+                    </div>
+
+                    <div className="space-y-1 min-w-0">
+                      <label className="text-xs font-semibold text-[#ECE4D3] block">เวลาสัก</label>
+                      <div className="flex items-center gap-1.5 bg-[#0E0D0C] border border-[#3E372C] rounded-[4px] px-2.5 py-2">
+                        <input
+                          type="number"
+                          min="0"
+                          max="100"
+                          value={formData.duration_hours}
+                          onChange={(e) => setFormData({ ...formData, duration_hours: e.target.value })}
+                          placeholder="0"
+                          className="w-full bg-transparent text-xs text-[#ECE4D3] focus:outline-none"
+                        />
+                        <span className="text-xs text-[#7A7162] shrink-0">ชั่วโมง</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* รายละเอียดผลงาน */}
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold text-[#ECE4D3] block">รายละเอียดผลงาน</label>
+                    <textarea
+                      rows={3}
+                      value={formData.description}
+                      onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                      placeholder="อธิบายเทคนิค ลวดลาย หรือแนวคิดของผลงานสักนี้..."
+                      className="w-full bg-[#0E0D0C] border border-[#3E372C] rounded-[4px] px-3 py-2 text-xs text-[#ECE4D3] placeholder:text-[#7A7162] focus:outline-none focus:border-[#9C2F2F] resize-none"
+                    />
+                  </div>
+
+                  {/* ลำดับการแสดงผล + แสดงผลงานบนเว็บไซต์ */}
+                  <div className="grid grid-cols-2 gap-3 pt-1">
+                    <div className="space-y-1">
+                      <label className="text-xs font-semibold text-[#ECE4D3] block">ลำดับการแสดงผล (Sort Order)</label>
+                      <input
+                        type="number"
+                        value={formData.sort_order}
+                        onChange={(e) => setFormData({ ...formData, sort_order: parseInt(e.target.value, 10) || 0 })}
+                        className="w-full bg-[#0E0D0C] border border-[#3E372C] rounded-[4px] px-3 py-2 text-xs text-[#ECE4D3] focus:outline-none focus:border-[#9C2F2F]"
+                      />
+                      <span className="text-[10px] text-[#7A7162]">ค่าน้อยกว่าจะแสดงผลก่อน</span>
+                    </div>
+
+                    <div className="space-y-1 flex flex-col justify-end">
+                      <label className="inline-flex items-center gap-2 cursor-pointer pb-2">
+                        <input
+                          type="checkbox"
+                          checked={formData.is_visible}
+                          onChange={(e) => setFormData({ ...formData, is_visible: e.target.checked })}
+                          className="w-4 h-4 rounded bg-[#0E0D0C] border-[#3E372C] text-[#9C2F2F] focus:ring-0 focus:outline-none cursor-pointer"
+                        />
+                        <span className="text-xs text-[#ECE4D3] font-medium">แสดงผลงานบนเว็บไซต์</span>
+                      </label>
+                    </div>
+                  </div>
                 </div>
               </div>
 
               {/* Submit Buttons */}
               <div className="pt-3 border-t border-[#2D2820] flex items-center justify-end gap-2.5">
                 <button
-                  type="button"
-                  onClick={() => setIsModalOpen(false)}
-                  disabled={submitting || isUploadingImage}
-                  className="px-4 py-2 bg-[#25201A] hover:bg-[#2D2820] text-[#ECE4D3] rounded text-xs transition-colors disabled:opacity-50"
-                >
-                  ยกเลิก
-                </button>
-                <button
                   type="submit"
                   disabled={submitting || isUploadingImage || !formData.image_url}
-                  className="px-5 py-2 bg-[#9C2F2F] hover:bg-[#802222] text-[#ECE4D3] rounded text-xs font-bold uppercase tracking-wider transition-colors disabled:opacity-50 flex items-center gap-1.5"
+                  className="px-5 py-2.5 bg-[#9C2F2F] hover:bg-[#802222] text-[#ECE4D3] rounded text-xs font-bold uppercase tracking-wider transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5 min-h-[38px]"
                 >
                   {isUploadingImage ? (
                     <>
@@ -1089,12 +1372,13 @@ export default function AdminPortfolioManagement() {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* DELETE CONFIRMATION MODAL */}
-      {deleteTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fadeIn">
+      {deleteTarget && isMounted && createPortal(
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/95 backdrop-blur-md animate-fadeIn">
           <div className="relative w-full max-w-md bg-[#171512] border border-[#2D2820] rounded-[8px] p-6 shadow-2xl space-y-4">
             <div className="flex items-center space-x-3 text-red-400">
               <AlertCircle size={24} className="shrink-0" />
@@ -1125,7 +1409,8 @@ export default function AdminPortfolioManagement() {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
