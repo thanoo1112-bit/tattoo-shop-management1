@@ -10,17 +10,50 @@ interface TattooSizeInputProps {
   onHeightChange: (h: number) => void;
 }
 
-const ROW1_PRESETS = [
-  { label: 'มินิมอล (5×5)', w: 5, h: 5 },
-  { label: 'การ์ด (8×10)', w: 8, h: 10 },
-  { label: 'ฝ่ามือ (10×15)', w: 10, h: 15 },
-  { label: 'ครึ่งแขน (15×25)', w: 15, h: 25 },
-];
+export interface PopularTattooSize {
+  id: string;
+  sizeLabel: string;
+  description: string;
+  width: number;
+  height: number;
+}
 
-const ROW2_PRESETS = [
-  { label: 'เต็มแขน (20×45)', w: 20, h: 45 },
-  { label: 'ครึ่งหลัง (30×40)', w: 30, h: 40 },
-  { label: 'เต็มหลัง (40×60)', w: 40, h: 60 },
+export const POPULAR_TATTOO_SIZES: PopularTattooSize[] = [
+  {
+    id: 'preset-3x3',
+    sizeLabel: '3 × 3 ซม.',
+    description: 'เหรียญ 10 บาท',
+    width: 3,
+    height: 3,
+  },
+  {
+    id: 'preset-5x5',
+    sizeLabel: '5 × 5 ซม.',
+    description: 'ฝากระป๋อง',
+    width: 5,
+    height: 5,
+  },
+  {
+    id: 'preset-8x8',
+    sizeLabel: '8 × 8 ซม.',
+    description: 'นามบัตร',
+    width: 8,
+    height: 8,
+  },
+  {
+    id: 'preset-10x10',
+    sizeLabel: '10 × 10 ซม.',
+    description: 'เต็มฝ่ามือ',
+    width: 10,
+    height: 10,
+  },
+  {
+    id: 'preset-15x20',
+    sizeLabel: '15 × 20 ซม.',
+    description: 'กระดาษ A4',
+    width: 15,
+    height: 20,
+  },
 ];
 
 export default function TattooSizeInput({
@@ -74,49 +107,33 @@ export default function TattooSizeInput({
 
       {/* Preset Quick Chips */}
       <div className="pt-2 border-t border-studio-border/60">
-        <span className="text-[10px] text-studio-muted block mb-1.5 font-medium">ขนาดยอดนิยม:</span>
-        <div className="flex flex-col space-y-1.5">
-          {/* Row 1: 4 presets (Mobile: 2 + 2, Desktop: 4) */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
-            {ROW1_PRESETS.map((preset) => (
+        <span className="text-[10px] text-studio-muted block mb-2 font-medium">ขนาดยอดนิยม:</span>
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
+          {POPULAR_TATTOO_SIZES.map((preset) => {
+            const isActive = width === preset.width && height === preset.height;
+            return (
               <button
-                key={preset.label}
+                key={preset.id}
                 type="button"
                 onClick={() => {
-                  onWidthChange(preset.w);
-                  onHeightChange(preset.h);
+                  onWidthChange(preset.width);
+                  onHeightChange(preset.height);
                 }}
-                className={`text-[10px] bg-studio-card border hover:border-studio-red/60 px-2 sm:px-2.5 py-1.5 rounded-[3px] transition-colors text-center leading-tight select-none whitespace-nowrap ${
-                  width === preset.w && height === preset.h
-                    ? 'border-studio-red text-studio-primary font-semibold'
-                    : 'border-studio-border text-studio-secondary hover:text-studio-primary font-medium'
+                className={`flex flex-col items-center justify-center p-2 rounded-[4px] border transition-all text-center select-none active:scale-[0.98] ${
+                  isActive
+                    ? 'bg-studio-red/10 border-studio-red text-studio-primary ring-1 ring-studio-red/40'
+                    : 'bg-studio-card border-studio-border text-studio-secondary hover:text-studio-primary hover:border-studio-red/50'
                 }`}
               >
-                {preset.label}
+                <span className="text-[11px] font-bold tracking-wide">
+                  {preset.sizeLabel}
+                </span>
+                <span className="text-[9px] text-studio-muted mt-0.5 font-medium truncate max-w-full">
+                  {preset.description}
+                </span>
               </button>
-            ))}
-          </div>
-
-          {/* Row 2: 3 presets (Mobile: 3, Desktop: 3 -> Total Mobile Pattern 2 + 2 + 3) */}
-          <div className="grid grid-cols-3 gap-1.5">
-            {ROW2_PRESETS.map((preset) => (
-              <button
-                key={preset.label}
-                type="button"
-                onClick={() => {
-                  onWidthChange(preset.w);
-                  onHeightChange(preset.h);
-                }}
-                className={`text-[9px] xs:text-[10px] bg-studio-card border hover:border-studio-red/60 px-1 sm:px-2.5 py-1.5 rounded-[3px] transition-colors text-center leading-tight select-none whitespace-nowrap ${
-                  width === preset.w && height === preset.h
-                    ? 'border-studio-red text-studio-primary font-semibold'
-                    : 'border-studio-border text-studio-secondary hover:text-studio-primary font-medium'
-                }`}
-              >
-                {preset.label}
-              </button>
-            ))}
-          </div>
+            );
+          })}
         </div>
       </div>
     </div>

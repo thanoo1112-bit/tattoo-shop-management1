@@ -50,6 +50,15 @@ function formatDurationDisplay(minutes: number | null): string | null {
   return `${hours} ชม.`;
 }
 
+function formatArtistTitle(name?: string | null): string {
+  if (!name) return 'ช่างประจำร้าน';
+  const trimmed = name.trim();
+  if (trimmed.startsWith('ช่าง')) {
+    return trimmed;
+  }
+  return `ช่าง${trimmed}`;
+}
+
 function PortfolioContent() {
   const searchParams = useSearchParams();
   const { supabase } = useApp();
@@ -412,14 +421,9 @@ function PortfolioContent() {
                       <h3 className="text-xl font-bold text-studio-primary tracking-wide">{selectedArtwork.title}</h3>
                       <p className="text-xs text-studio-secondary mt-1">
                         ช่างสักประจำผลงาน:{' '}
-                        <strong className="text-studio-primary">{selectedArtwork.artists?.name || 'ช่างประจำร้าน'}</strong>
+                        <strong className="text-studio-primary">{formatArtistTitle(selectedArtwork.artists?.name)}</strong>
                         {selectedArtwork.artists?.nickname && ` (${selectedArtwork.artists.nickname})`}
                       </p>
-                      {selectedArtwork.description && (
-                        <p className="text-xs text-studio-secondary/90 mt-2 leading-relaxed bg-studio-main/50 p-2.5 rounded border border-studio-border/50">
-                          {selectedArtwork.description}
-                        </p>
-                      )}
                     </div>
 
                     <div className="grid grid-cols-2 gap-3 border-t border-b border-studio-border/60 py-4 text-xs">
@@ -428,7 +432,7 @@ function PortfolioContent() {
                           <User size={12} /> ช่างสัก
                         </span>
                         <span className="font-semibold text-studio-primary block truncate">
-                          {selectedArtwork.artists?.name || 'ช่างประจำร้าน'}
+                          {formatArtistTitle(selectedArtwork.artists?.name)}
                         </span>
                       </div>
 
@@ -454,28 +458,37 @@ function PortfolioContent() {
                       </div>
                     </div>
 
+                    {selectedArtwork.description &&
+                      selectedArtwork.description.trim() !== '' &&
+                      selectedArtwork.description.trim() !== 'ว่าง' &&
+                      selectedArtwork.description.trim() !== '-' && (
+                        <div className="space-y-1">
+                          <span className="text-[10px] font-medium uppercase tracking-wider text-studio-muted block">
+                            รายละเอียดผลงาน
+                          </span>
+                          <p className="text-xs text-studio-secondary leading-relaxed whitespace-pre-line bg-studio-main/40 p-2.5 rounded border border-studio-border/50">
+                            {selectedArtwork.description.trim()}
+                          </p>
+                        </div>
+                    )}
+
                     <div className="space-y-3 pt-2">
                       <Link
                         href={`/booking?artist=${selectedArtwork.artist_id}&artwork=${selectedArtwork.id}`}
                         className="min-h-[46px] w-full bg-studio-red hover:bg-[#802222] text-studio-paper py-3 px-4 rounded-[4px] text-xs font-bold uppercase tracking-widest transition-all shadow-lg shadow-studio-red/10 flex items-center justify-center space-x-2 border border-studio-red active:scale-[0.99] text-center block"
                       >
                         <Calendar size={14} />
-                        <span>จองคิวกับช่าง {selectedArtwork.artists?.name || ''}</span>
+                        <span>จองคิวกับ{formatArtistTitle(selectedArtwork.artists?.name)}</span>
                       </Link>
 
-                      <Link
-                        href={`/artists?id=${selectedArtwork.artist_id}`}
-                        className="w-full bg-transparent border border-studio-border text-studio-secondary hover:text-studio-primary hover:border-studio-red/50 py-2.5 px-4 rounded-[4px] text-xs font-medium transition-all block text-center"
-                      >
-                        ดูประวัติและผลงานของช่าง {selectedArtwork.artists?.name || ''}
-                      </Link>
-
-                      <button
-                        onClick={() => setPanelView('estimate')}
-                        className="w-full text-center text-xs text-studio-muted hover:text-studio-red pt-1 block transition-colors"
-                      >
-                        สนใจงานแนวนี้? ส่งรูปขอประเมินราคางานออกแบบใหม่ →
-                      </button>
+                      {selectedArtwork.artist_id && (
+                        <Link
+                          href={`/artists?id=${selectedArtwork.artist_id}`}
+                          className="w-full bg-transparent border border-studio-border text-studio-secondary hover:text-studio-primary hover:border-studio-red/50 py-2.5 px-4 rounded-[4px] text-xs font-medium transition-all block text-center"
+                        >
+                          ดูประวัติและผลงานทั้งหมดของ{formatArtistTitle(selectedArtwork.artists?.name)} →
+                        </Link>
+                      )}
                     </div>
                   </div>
                 ) : (
@@ -507,8 +520,14 @@ function PortfolioContent() {
       </main>
 
       {showMobileDetail && selectedArtwork && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center p-0 bg-studio-main/90 backdrop-blur-md animate-fadeIn font-prompt lg:hidden">
-          <div className="relative w-full bg-studio-card border-t border-studio-border rounded-t-[16px] overflow-hidden flex flex-col max-h-[90vh] shadow-2xl">
+        <div 
+          onClick={() => setShowMobileDetail(false)}
+          className="fixed inset-0 z-[70] flex items-end justify-center p-0 bg-studio-main/90 backdrop-blur-md animate-fadeIn font-prompt lg:hidden"
+        >
+          <div 
+            onClick={(e) => e.stopPropagation()}
+            className="relative w-full bg-studio-card border-t border-studio-border rounded-t-[16px] overflow-hidden flex flex-col max-h-[88vh] sm:max-h-[90vh] shadow-2xl"
+          >
             <button
               onClick={() => setShowMobileDetail(false)}
               className="absolute top-3 right-3 z-20 w-9 h-9 bg-studio-main/80 hover:bg-studio-red text-studio-primary rounded-full flex items-center justify-center transition-colors shadow-lg"
@@ -517,7 +536,7 @@ function PortfolioContent() {
               <X size={16} />
             </button>
 
-            <div className="relative w-full h-[32vh] min-h-[200px] bg-studio-main shrink-0">
+            <div className="relative w-full h-[28vh] min-h-[180px] max-h-[260px] bg-studio-main shrink-0">
               <img
                 src={selectedArtwork.image_url}
                 alt={selectedArtwork.title}
@@ -525,7 +544,7 @@ function PortfolioContent() {
               />
             </div>
 
-            <div className="p-5 flex flex-col justify-between overflow-y-auto space-y-4">
+            <div className="p-5 pb-[max(1.75rem,env(safe-area-inset-bottom,28px))] flex flex-col justify-between overflow-y-auto space-y-4">
               <div>
                 <span className="text-[10px] font-bold uppercase tracking-widest text-studio-red bg-studio-sec px-2.5 py-1 border border-studio-border rounded-[4px]">
                   {selectedArtwork.style}
@@ -535,67 +554,69 @@ function PortfolioContent() {
                   {selectedArtwork.title}
                 </h2>
 
-                <p className="text-xs text-studio-secondary mt-1">
-                  ประเภทงาน: <span className="text-studio-primary font-medium">งานออกแบบเฉพาะบุคคล (Custom Artwork)</span>
-                </p>
-
-                <div className="grid grid-cols-2 gap-3 my-4 border-t border-b border-studio-border/60 py-3.5 text-xs">
-                  <div className="space-y-0.5">
-                    <span className="text-[10px] text-studio-muted flex items-center gap-1">
-                      <User size={12} /> ช่างสัก
+                <div className="grid grid-cols-3 gap-2 my-4 border-t border-b border-studio-border/60 py-3.5 text-xs">
+                  <div className="space-y-0.5 min-w-0">
+                    <span className="text-[9px] sm:text-[10px] text-studio-muted flex items-center gap-1 truncate">
+                      <User size={12} className="shrink-0" /> <span className="truncate">ช่างสัก</span>
                     </span>
-                    <span className="font-semibold text-studio-primary block truncate">
-                      {selectedArtwork.artists?.name || 'ช่างประจำร้าน'}
+                    <span className="font-semibold text-studio-primary text-xs block truncate">
+                      {formatArtistTitle(selectedArtwork.artists?.name)}
                     </span>
                   </div>
 
-                  <div className="space-y-0.5">
-                    <span className="text-[10px] text-studio-muted flex items-center gap-1">
-                      <Clock size={12} /> เวลาสักโดยประมาณ
+                  <div className="space-y-0.5 min-w-0">
+                    <span className="text-[9px] sm:text-[10px] text-studio-muted flex items-center gap-1 truncate">
+                      <Clock size={12} className="shrink-0" /> <span className="truncate">เวลาสักโดยประมาณ</span>
                     </span>
-                    <span className="font-semibold text-studio-primary block">
+                    <span className="font-semibold text-studio-primary text-xs block truncate">
                       {formatDurationDisplay(selectedArtwork.estimated_duration_minutes) || 'ตามขนาดงานจริง'}
                     </span>
                   </div>
 
-                  {selectedArtwork.size_label && (
-                    <div className="space-y-0.5">
-                      <span className="text-[10px] text-studio-muted flex items-center gap-1">
-                        <Maximize2 size={12} /> ขนาด
-                      </span>
-                      <span className="font-semibold text-studio-primary block">{selectedArtwork.size_label}</span>
-                    </div>
-                  )}
+                  <div className="space-y-0.5 min-w-0">
+                    <span className="text-[9px] sm:text-[10px] text-studio-muted flex items-center gap-1 truncate">
+                      <Maximize2 size={12} className="shrink-0" /> <span className="truncate">ขนาด</span>
+                    </span>
+                    <span className="font-semibold text-studio-primary text-xs block truncate">
+                      {selectedArtwork.size_label || 'ตามสรีระ'}
+                    </span>
+                  </div>
                 </div>
 
-                <Link
-                  href={`/artists?id=${selectedArtwork.artist_id}`}
-                  onClick={() => setShowMobileDetail(false)}
-                  className="text-xs text-studio-primary hover:text-studio-red hover:underline text-left block py-1 font-medium"
-                >
-                  ดูประวัติและผลงานทั้งหมดของช่าง {selectedArtwork.artists?.name || ''} →
-                </Link>
+                {selectedArtwork.description &&
+                  selectedArtwork.description.trim() !== '' &&
+                  selectedArtwork.description.trim() !== 'ว่าง' &&
+                  selectedArtwork.description.trim() !== '-' && (
+                    <div className="mb-4 space-y-1">
+                      <span className="text-[10px] font-medium uppercase tracking-wider text-studio-muted block">
+                        รายละเอียดผลงาน
+                      </span>
+                      <p className="text-xs text-studio-secondary leading-relaxed whitespace-pre-line bg-studio-main/40 p-2.5 rounded border border-studio-border/50">
+                        {selectedArtwork.description.trim()}
+                      </p>
+                    </div>
+                )}
               </div>
 
               <div className="space-y-2 pt-2 border-t border-studio-border/60">
                 <Link
                   href={`/booking?artist=${selectedArtwork.artist_id}&artwork=${selectedArtwork.id}`}
                   onClick={() => setShowMobileDetail(false)}
-                  className="w-full bg-studio-red hover:bg-[#802222] text-studio-paper py-3 rounded-[4px] text-xs font-bold uppercase tracking-wider flex items-center justify-center space-x-2 transition-all block text-center"
+                  className="w-full bg-studio-red hover:bg-[#802222] text-studio-paper py-3 rounded-[4px] text-xs font-bold uppercase tracking-wider flex items-center justify-center space-x-2 transition-all block text-center shadow-md active:scale-[0.99]"
                 >
                   <Calendar size={14} />
-                  <span>จองคิวกับช่าง {selectedArtwork.artists?.name || ''}</span>
+                  <span>จองคิวกับ{formatArtistTitle(selectedArtwork.artists?.name)}</span>
                 </Link>
 
-                <button
-                  onClick={() => {
-                    setShowMobileDetail(false);
-                    setPanelView('estimate');
-                  }}
-                  className="w-full bg-studio-main border border-studio-border hover:border-studio-red text-studio-primary py-2.5 rounded-[4px] text-xs font-medium transition-all"
-                >
-                  ส่งรูปขอประเมินราคางานแนวนี้
-                </button>
+                {selectedArtwork.artist_id && (
+                  <Link
+                    href={`/artists?id=${selectedArtwork.artist_id}`}
+                    onClick={() => setShowMobileDetail(false)}
+                    className="w-full bg-studio-main border border-studio-border hover:border-studio-red text-studio-primary py-2.5 rounded-[4px] text-xs font-medium transition-all block text-center"
+                  >
+                    ดูประวัติและผลงานทั้งหมดของ{formatArtistTitle(selectedArtwork.artists?.name)} →
+                  </Link>
+                )}
               </div>
             </div>
           </div>

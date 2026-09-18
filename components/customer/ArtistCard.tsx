@@ -38,9 +38,10 @@ export default function ArtistCard({ artist, onSelect }: ArtistCardProps) {
 
         {/* Info */}
         <div className="p-5">
-          <span className="text-[10px] uppercase tracking-widest text-studio-red font-bold">
+          <span className="text-[10px] uppercase tracking-widest text-studio-red font-bold block leading-relaxed">
             {artist.specialties && artist.specialties.length > 0 ? artist.specialties.join(' / ') : artist.specialty}
           </span>
+
           <h3 className="text-xl font-heading font-normal tracking-wide text-studio-primary mt-1 mb-2">
             {artist.name}
           </h3>

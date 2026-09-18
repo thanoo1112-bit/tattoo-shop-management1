@@ -207,9 +207,42 @@ export default function EstimateForm({
       if (estimateDraft.description) setDescription(estimateDraft.description);
       if (estimateDraft.preferredDate) setPreferredDate(estimateDraft.preferredDate);
       if (estimateDraft.preferredTime) setPreferredTime(estimateDraft.preferredTime);
+      if ((estimateDraft as any).hasMedicalCondition !== undefined) setHasMedicalCondition((estimateDraft as any).hasMedicalCondition);
+      if ((estimateDraft as any).medicalConditionNote) setMedicalConditionNote((estimateDraft as any).medicalConditionNote);
+      if ((estimateDraft as any).hasAllergy !== undefined) setHasAllergy((estimateDraft as any).hasAllergy);
+      if ((estimateDraft as any).allergyNote) setAllergyNote((estimateDraft as any).allergyNote);
       setEstimateDraft(null);
     }
   }, [estimateDraft, setEstimateDraft]);
+
+  // 4. Auto-prefill health disclosures from customer's previous booking history
+  useEffect(() => {
+    if (!isLoggedIn || !user?.id) return;
+    let isMounted = true;
+
+    supabase
+      .from('estimate_requests')
+      .select('has_medical_condition, medical_condition_note, has_allergy, allergy_note')
+      .eq('customer_user_id', user.id)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+      .then(({ data, error }: any) => {
+        if (!isMounted || error || !data) return;
+        if (data.has_medical_condition !== undefined && data.has_medical_condition !== null) {
+          setHasMedicalCondition(Boolean(data.has_medical_condition));
+          setMedicalConditionNote(data.medical_condition_note || '');
+        }
+        if (data.has_allergy !== undefined && data.has_allergy !== null) {
+          setHasAllergy(Boolean(data.has_allergy));
+          setAllergyNote(data.allergy_note || '');
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [isLoggedIn, user, supabase]);
 
   // Save Draft helper for guest users
   const saveDraft = () => {
@@ -226,6 +259,10 @@ export default function EstimateForm({
       description,
       preferredDate: preferredDate || undefined,
       preferredTime: preferredTime || undefined,
+      hasMedicalCondition,
+      medicalConditionNote,
+      hasAllergy,
+      allergyNote,
     } as any);
   };
 
