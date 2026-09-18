@@ -4,7 +4,7 @@ import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useApp } from '../AppContext';
-import { Calendar, User, LogOut, Search } from 'lucide-react';
+import { Calendar, User, LogOut } from 'lucide-react';
 
 export default function CustomerHeader() {
   const pathname = usePathname();
@@ -51,16 +51,8 @@ export default function CustomerHeader() {
           })}
         </nav>
 
-        {/* Right (Desktop): Search, Portal Link & Primary Auth */}
+        {/* Right (Desktop): Portal Link & Primary Auth */}
         <div className="hidden md:flex items-center space-x-5 xl:space-x-7 font-prompt">
-          <Link
-            href="/portfolio"
-            className="text-studio-secondary hover:text-studio-red transition-colors p-2"
-            title="ค้นหาลายสักและผลงาน"
-          >
-            <Search size={17} />
-          </Link>
-
           {isLoggedIn ? (
             <>
               <Link
@@ -100,15 +92,8 @@ export default function CustomerHeader() {
           )}
         </div>
 
-        {/* Right (Mobile): Simple Search & Profile Quick Triggers */}
-        <div className="flex md:hidden items-center space-x-1">
-          <Link
-            href="/portfolio"
-            className="w-11 h-11 flex items-center justify-center text-studio-secondary hover:text-studio-red active:scale-95 transition-colors"
-            title="ค้นหา"
-          >
-            <Search size={19} />
-          </Link>
+        {/* Right (Mobile): Profile Quick Triggers */}
+        <div className="flex md:hidden items-center">
           <Link
             href={isLoggedIn ? "/portal?tab=profile" : "/login"}
             className="w-11 h-11 flex items-center justify-center text-studio-secondary hover:text-studio-red active:scale-95 transition-colors"

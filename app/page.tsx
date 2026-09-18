@@ -8,7 +8,28 @@ import HeroSection from '@/components/customer/HeroSection';
 import { Artist } from '@/data/mockArtists';
 import { useApp } from '@/components/AppContext';
 import Link from 'next/link';
-import { Sparkles, Compass, Award, MapPin, Clock, Phone, ShieldCheck, ArrowRight, ArrowUpRight, Users } from 'lucide-react';
+import { Sparkles, Compass, Award, MapPin, Clock, Phone, ShieldCheck, ArrowRight, ArrowUpRight, Users, UserRound, Droplet, Skull } from 'lucide-react';
+
+const TattooMachineIcon = ({ size = 18, className = '' }: { size?: number; className?: string }) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.75"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className={className}
+  >
+    <path d="M8 3h8a2 2 0 0 1 2 2v3H6V5a2 2 0 0 1 2-2z" />
+    <circle cx="9.5" cy="6" r="0.75" fill="currentColor" />
+    <circle cx="14.5" cy="6" r="0.75" fill="currentColor" />
+    <path d="M7 8v4a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V8" />
+    <rect x="10" y="13" width="4" height="5" rx="1" />
+    <line x1="12" y1="18" x2="12" y2="22" />
+  </svg>
+);
 
 export default function HomePage() {
   const router = useRouter();
@@ -151,9 +172,10 @@ export default function HomePage() {
   }, [supabase]);
 
   const styleCards = [
-    { title: 'Fine Line', desc: 'ลายเส้นบางคม รายละเอียดประณีต สไตล์มินิมอลและเรขาคณิต', icon: Compass },
-    { title: 'Blackwork', desc: 'งานสีดำสนิท แรเงาลายมิติเข้มข้น ลวดลายดาร์กทรงพลัง', icon: Sparkles },
-    { title: 'Traditional', desc: 'สไตล์ดั้งเดิม สีสันสดใส ลายเส้นหนาคมชัดเป็นเอกลักษณ์', icon: Award },
+    { title: 'CHICANO', desc: 'ลายเส้นเข้ม รายละเอียดสูง โทนขาวดำ และองค์ประกอบแบบ Chicano', icon: TattooMachineIcon },
+    { title: 'PORTRAIT', desc: 'งานภาพบุคคล เน้นสัดส่วน แสงเงา และรายละเอียดใบหน้า', icon: UserRound },
+    { title: 'BLACKWORK', desc: 'งานสีดำเข้ม เส้นคม น้ำหนักชัด และองค์ประกอบทรงพลัง', icon: Droplet },
+    { title: 'DARKWORK', desc: 'งานโทนมืด บรรยากาศหนัก ดุดัน และรายละเอียดเชิงแฟนตาซี/สยอง', icon: Skull },
   ];
 
   return (
@@ -205,11 +227,6 @@ export default function HomePage() {
                   />
                   <div className="absolute top-2.5 left-2.5 bg-studio-sec/90 border border-studio-border text-studio-paper text-[9px] font-bold px-2 py-0.5 rounded">
                     {item.status === 'AVAILABLE' ? 'ว่าง (พร้อมจอง)' : item.status === 'HELD' ? 'รอการยืนยัน' : item.status === 'RESERVED' ? 'จองแล้ว' : 'ปิดจอง'}
-                  </div>
-                  <div className="absolute inset-0 bg-gradient-to-t from-studio-main/90 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-4">
-                    <span className="text-xs text-studio-paper font-bold flex items-center gap-1">
-                      จองลายนี้ <ArrowUpRight size={14} />
-                    </span>
                   </div>
                 </Link>
 
@@ -299,34 +316,131 @@ export default function HomePage() {
 
           {/* Live Portfolio Grid */}
           {!portfolioLoading && livePortfolio.length > 0 && (
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2.5 sm:gap-4">
-              {livePortfolio.slice(0, 9).map((item, idx) => (
-                <Link
-                  key={item.id}
-                  href={`/portfolio?select=${item.id}`}
-                  className={`bg-studio-card border border-studio-border hover:border-studio-red/60 rounded-[6px] overflow-hidden group relative transition-all block ${
-                    idx === 0 || idx === 3 || idx === 6 ? 'lg:col-span-2 aspect-[4/3]' : 'aspect-square'
-                  } ${idx === 6 ? 'lg:-mt-[118px]' : ''}`}
-                >
-                  <img
-                    src={item.image}
-                    alt={item.title}
-                    className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-500"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-studio-main/90 via-studio-main/30 to-transparent flex flex-col justify-end p-2.5 sm:p-4">
-                    <span className="text-[9px] uppercase tracking-wider text-studio-red font-bold">
-                      {item.style}
-                    </span>
-                    <h4 className="text-xs sm:text-sm font-heading font-normal tracking-wide text-studio-paper truncate">
-                      {item.title}
-                    </h4>
-                    <span className="text-[10px] text-studio-muted truncate">
-                      ช่าง: {item.artistName}
-                    </span>
+            <>
+              {/* Mobile Asymmetric 9-Image Masonry (< 640px) */}
+              <div className="sm:hidden space-y-2 font-prompt">
+                {/* Row 1: 2 Large Cards (2 cols) */}
+                <div className="grid grid-cols-2 gap-2">
+                  {livePortfolio.slice(0, 2).map((item) => (
+                    <Link
+                      key={item.id}
+                      href={`/portfolio?select=${item.id}`}
+                      className="bg-studio-card border border-studio-border hover:border-studio-red/60 rounded-md overflow-hidden relative block aspect-[4/3] group"
+                    >
+                      <img src={item.image} alt={item.title} className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-500" />
+                      <div className="absolute inset-0 bg-gradient-to-t from-studio-main/90 via-studio-main/30 to-transparent flex flex-col justify-end p-2">
+                        <span className="text-[9px] uppercase tracking-wider text-studio-red font-bold">{item.style}</span>
+                        <h4 className="text-xs font-heading font-normal tracking-wide text-studio-paper truncate">{item.title}</h4>
+                        <span className="text-[10px] text-studio-muted truncate">ช่าง: {item.artistName}</span>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+
+                {/* Row 2: 3 Small Cards (3 cols) */}
+                {livePortfolio.length > 2 && (
+                  <div className="grid grid-cols-3 gap-2">
+                    {livePortfolio.slice(2, 5).map((item) => (
+                      <Link
+                        key={item.id}
+                        href={`/portfolio?select=${item.id}`}
+                        className="bg-studio-card border border-studio-border hover:border-studio-red/60 rounded-md overflow-hidden relative block aspect-square group"
+                      >
+                        <img src={item.image} alt={item.title} className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-500" />
+                        <div className="absolute inset-0 bg-gradient-to-t from-studio-main/90 via-studio-main/20 to-transparent flex flex-col justify-end p-1.5">
+                          <span className="text-[8px] uppercase tracking-wider text-studio-red font-bold truncate">{item.style}</span>
+                          <h4 className="text-[10px] font-heading font-normal text-studio-paper truncate">{item.title}</h4>
+                          <span className="text-[9px] text-studio-muted truncate">ช่าง: {item.artistName}</span>
+                        </div>
+                      </Link>
+                    ))}
                   </div>
-                </Link>
-              ))}
-            </div>
+                )}
+
+                {/* Row 3-4: Asymmetric 2-column layout (Tall 6 on Left + Stacked 7 & 8 on Right) */}
+                {livePortfolio.length > 5 && (
+                  <div className="grid grid-cols-2 gap-2">
+                    {/* Left: Tall Image 6 */}
+                    {livePortfolio[5] && (
+                      <Link
+                        href={`/portfolio?select=${livePortfolio[5].id}`}
+                        className="bg-studio-card border border-studio-border hover:border-studio-red/60 rounded-md overflow-hidden relative block h-full min-h-[220px] group"
+                      >
+                        <img src={livePortfolio[5].image} alt={livePortfolio[5].title} className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-500" />
+                        <div className="absolute inset-0 bg-gradient-to-t from-studio-main/90 via-studio-main/30 to-transparent flex flex-col justify-end p-2">
+                          <span className="text-[9px] uppercase tracking-wider text-studio-red font-bold">{livePortfolio[5].style}</span>
+                          <h4 className="text-xs font-heading font-normal tracking-wide text-studio-paper truncate">{livePortfolio[5].title}</h4>
+                          <span className="text-[10px] text-studio-muted truncate">ช่าง: {livePortfolio[5].artistName}</span>
+                        </div>
+                      </Link>
+                    )}
+
+                    {/* Right: Stacked Medium 7 & 8 */}
+                    <div className="flex flex-col gap-2">
+                      {livePortfolio.slice(6, 8).map((item) => (
+                        <Link
+                          key={item.id}
+                          href={`/portfolio?select=${item.id}`}
+                          className="bg-studio-card border border-studio-border hover:border-studio-red/60 rounded-md overflow-hidden relative block aspect-[4/3] flex-1 group"
+                        >
+                          <img src={item.image} alt={item.title} className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-500" />
+                          <div className="absolute inset-0 bg-gradient-to-t from-studio-main/90 via-studio-main/30 to-transparent flex flex-col justify-end p-2">
+                            <span className="text-[9px] uppercase tracking-wider text-studio-red font-bold">{item.style}</span>
+                            <h4 className="text-xs font-heading font-normal tracking-wide text-studio-paper truncate">{item.title}</h4>
+                            <span className="text-[10px] text-studio-muted truncate">ช่าง: {item.artistName}</span>
+                          </div>
+                        </Link>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Row 5: Balanced Image 9 (Full-width wide banner card) */}
+                {livePortfolio[8] && (
+                  <Link
+                    href={`/portfolio?select=${livePortfolio[8].id}`}
+                    className="bg-studio-card border border-studio-border hover:border-studio-red/60 rounded-md overflow-hidden relative block aspect-[21/9] group"
+                  >
+                    <img src={livePortfolio[8].image} alt={livePortfolio[8].title} className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-500" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-studio-main/90 via-studio-main/30 to-transparent flex flex-col justify-end p-2">
+                      <span className="text-[9px] uppercase tracking-wider text-studio-red font-bold">{livePortfolio[8].style}</span>
+                      <h4 className="text-xs font-heading font-normal tracking-wide text-studio-paper truncate">{livePortfolio[8].title}</h4>
+                      <span className="text-[10px] text-studio-muted truncate">ช่าง: {livePortfolio[8].artistName}</span>
+                    </div>
+                  </Link>
+                )}
+              </div>
+
+              {/* Desktop Portfolio Grid (sm+) */}
+              <div className="hidden sm:grid sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2.5 sm:gap-4">
+                {livePortfolio.slice(0, 9).map((item, idx) => (
+                  <Link
+                    key={item.id}
+                    href={`/portfolio?select=${item.id}`}
+                    className={`bg-studio-card border border-studio-border hover:border-studio-red/60 rounded-[6px] overflow-hidden group relative transition-all block ${
+                      idx === 0 || idx === 3 || idx === 6 ? 'lg:col-span-2 aspect-[4/3]' : 'aspect-square'
+                    } ${idx === 6 ? 'lg:-mt-[118px]' : ''}`}
+                  >
+                    <img
+                      src={item.image}
+                      alt={item.title}
+                      className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-500"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-studio-main/90 via-studio-main/30 to-transparent flex flex-col justify-end p-2.5 sm:p-4">
+                      <span className="text-[9px] uppercase tracking-wider text-studio-red font-bold">
+                        {item.style}
+                      </span>
+                      <h4 className="text-xs sm:text-sm font-heading font-normal tracking-wide text-studio-paper truncate">
+                        {item.title}
+                      </h4>
+                      <span className="text-[10px] text-studio-muted truncate">
+                        ช่าง: {item.artistName}
+                      </span>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            </>
           )}
 
           <div className="pt-2 text-center lg:hidden">
@@ -449,23 +563,25 @@ export default function HomePage() {
             </h2>
           </div>
           
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-6">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
             {styleCards.map((style, idx) => {
               const Icon = style.icon;
               return (
                 <div
                   key={idx}
-                  className="bg-studio-card border border-studio-border p-5 sm:p-8 rounded-[8px] hover:border-studio-red/50 transition-colors group"
+                  className="bg-studio-card border border-studio-border p-4 sm:p-6 lg:p-8 rounded-[8px] hover:border-studio-red/50 transition-colors group flex flex-col justify-between"
                 >
-                  <div className="w-10 h-10 sm:w-12 sm:h-12 bg-studio-main border border-studio-border text-studio-red rounded-[4px] flex items-center justify-center mb-3 sm:mb-5">
-                    <Icon size={20} />
+                  <div>
+                    <div className="w-9 h-9 sm:w-11 sm:h-11 bg-studio-main border border-studio-border text-studio-red rounded-[4px] flex items-center justify-center mb-3 sm:mb-5">
+                      <Icon size={18} className="sm:w-5 sm:h-5" />
+                    </div>
+                    <h3 className="text-base sm:text-lg lg:text-xl font-heading tracking-wide text-studio-primary uppercase">
+                      {style.title}
+                    </h3>
+                    <p className="text-[11px] sm:text-xs lg:text-sm text-studio-secondary mt-1.5 leading-relaxed font-light">
+                      {style.desc}
+                    </p>
                   </div>
-                  <h3 className="text-lg sm:text-xl font-heading tracking-wide text-studio-primary uppercase">
-                    {style.title}
-                  </h3>
-                  <p className="text-xs sm:text-sm text-studio-secondary mt-1.5 leading-relaxed font-light">
-                    {style.desc}
-                  </p>
                 </div>
               );
             })}
@@ -494,7 +610,7 @@ export default function HomePage() {
                 <span>ที่ตั้งสตูดิโอ</span>
               </div>
               <p className="font-light leading-relaxed text-xs">
-                157 สุขุมวิท 24 คลองเตย กทม. 10110 (BTS พร้อมพงษ์)
+                151/3 1299 อำเภอเวียงชัย, จังหวัดเชียงราย 57210
               </p>
             </div>
 
@@ -504,7 +620,7 @@ export default function HomePage() {
                 <span>เวลาเปิดทำการ</span>
               </div>
               <p className="font-light leading-relaxed text-xs">
-                เปิดบริการทุกวัน: 09:00 — 19:00 น. (รับเฉพาะนัดหมาย)
+                เปิดบริการทุกวัน: 10:00 — 23:00 น. (รับเฉพาะนัดหมาย)
               </p>
             </div>
 
@@ -513,8 +629,8 @@ export default function HomePage() {
                 <Phone size={15} className="text-studio-red" />
                 <span>ติดต่อสอบถาม</span>
               </div>
-              <p className="font-light leading-relaxed text-xs">
-                LINE: @157tattoo • IG: @157tattoo_official
+              <p className="font-light leading-relaxed text-xs break-words">
+                IG: 157_tattoo • FB: 157 Tattoo • โทร: 091 070 2369
               </p>
             </div>
           </div>

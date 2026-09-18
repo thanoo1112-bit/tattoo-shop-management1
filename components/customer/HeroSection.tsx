@@ -2,7 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { ArrowRight, Sparkles, ShieldCheck } from 'lucide-react';
+import { ArrowRight, Sparkles, ShieldCheck, PenTool, MessageCircle } from 'lucide-react';
 
 export default function HeroSection() {
   return (
@@ -50,7 +50,7 @@ export default function HeroSection() {
           {/* CTA Buttons: Full width stack on mobile, horizontal on sm+ */}
           <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 pt-1 sm:pt-2 font-prompt">
             <Link
-              href="/flash"
+              href="/booking"
               className="w-full sm:w-auto min-h-[48px] sm:min-h-[50px] bg-studio-red text-studio-paper text-xs sm:text-sm uppercase tracking-wider py-3.5 px-6 font-semibold hover:bg-tattoo-red-dark active:scale-[0.98] transition-all rounded-[4px] border border-studio-red flex items-center justify-center space-x-2 text-center"
             >
               <span>เริ่มจองคิวสัก</span>
@@ -65,13 +65,21 @@ export default function HeroSection() {
           </div>
 
           {/* Feature Badges */}
-          <div className="pt-4 sm:pt-6 border-t border-studio-border/60 flex items-center space-x-4 sm:space-x-6 text-[11px] sm:text-xs text-studio-secondary font-prompt">
+          <div className="pt-4 sm:pt-6 border-t border-studio-border/60 flex flex-wrap items-center gap-y-2 gap-x-3 sm:gap-x-4 text-[11px] sm:text-xs text-studio-secondary font-prompt">
             <div className="flex items-center space-x-1.5">
               <ShieldCheck size={15} className="text-studio-red shrink-0" />
               <span>อุปกรณ์ปลอดเชื้อ 100%</span>
             </div>
             <span className="h-3 w-[1px] bg-studio-border" />
-            <span>ช่างประจำร้าน 4 สไตล์</span>
+            <div className="flex items-center space-x-1.5">
+              <PenTool size={15} className="text-studio-red shrink-0" />
+              <span>ออกแบบลายเฉพาะบุคคล</span>
+            </div>
+            <span className="h-3 w-[1px] bg-studio-border" />
+            <div className="flex items-center space-x-1.5">
+              <MessageCircle size={15} className="text-studio-red shrink-0" />
+              <span>ให้คำปรึกษาก่อนสัก</span>
+            </div>
           </div>
         </div>
 
