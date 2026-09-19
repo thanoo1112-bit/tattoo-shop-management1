@@ -923,7 +923,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           data: {
             full_name: name,
             name: name,
-            role: 'customer'
+            role: 'customer',
+            phone: contactPhone,
+            eligibility_confirmed: Boolean(eligibilityConfirmed)
           }
         }
       });
@@ -1078,8 +1080,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
     try {
       const { data: rpcData, error: rpcError } = await supabase.rpc('complete_customer_profile', {
-        p_user_id: user.id,
-        p_name: cleanName,
+        p_display_name: cleanName,
         p_phone: cleanPhone,
         p_eligibility_confirmed: eligibilityConfirmed
       });
