@@ -7,6 +7,7 @@ import MobileBottomNav from '@/components/customer/MobileBottomNav';
 import PortfolioFilter from '@/components/customer/PortfolioFilter';
 import EstimateForm from '@/components/estimate/EstimateForm';
 import { useApp } from '@/components/AppContext';
+import { getThumbnailUrl, handleThumbnailError } from '@/lib/utils/thumbnailHelper';
 import Link from 'next/link';
 import {
   Sparkles,
@@ -16,12 +17,11 @@ import {
   Search,
   SlidersHorizontal,
   User,
-  Clock,
-  Maximize2,
   X,
   AlertCircle,
   RefreshCw,
   Image as ImageIcon,
+  ZoomIn,
 } from 'lucide-react';
 
 export interface PortfolioArtworkData {
@@ -41,6 +41,8 @@ export interface PortfolioArtworkData {
     name: string;
     nickname: string | null;
     avatar_url: string | null;
+    is_active?: boolean;
+    is_visible?: boolean;
   } | null;
 }
 
@@ -78,8 +80,9 @@ function PortfolioContent() {
   // View states for right panel on desktop / page view on mobile
   const [panelView, setPanelView] = useState<'default' | 'estimate'>('default');
 
-  // Mobile detail modal overlay
+  // Mobile detail & Lightbox modal overlay
   const [showMobileDetail, setShowMobileDetail] = useState(false);
+  const [showLightbox, setShowLightbox] = useState(false);
 
   // 1. Fetch live portfolio artworks
   const fetchLiveArtworks = useCallback(async () => {
@@ -104,7 +107,9 @@ function PortfolioContent() {
             id,
             name,
             nickname,
-            avatar_url
+            avatar_url,
+            is_active,
+            is_visible
           )
         `)
         .eq('is_visible', true)
@@ -113,20 +118,26 @@ function PortfolioContent() {
 
       if (fetchErr) throw fetchErr;
 
-      const loadedList: PortfolioArtworkData[] = (data || []).map((item: any) => ({
-        id: item.id,
-        artist_id: item.artist_id,
-        title: item.title,
-        description: item.description || null,
-        style: item.style || '',
-        size_label: item.size_label || null,
-        estimated_duration_minutes: item.estimated_duration_minutes || null,
-        image_url: item.image_url,
-        is_visible: item.is_visible,
-        sort_order: item.sort_order ?? 0,
-        created_at: item.created_at,
-        artists: Array.isArray(item.artists) ? item.artists[0] : item.artists,
-      }));
+      const loadedList: PortfolioArtworkData[] = (data || [])
+        .map((item: any) => ({
+          id: item.id,
+          artist_id: item.artist_id,
+          title: item.title,
+          description: item.description || null,
+          style: item.style || '',
+          size_label: item.size_label || null,
+          estimated_duration_minutes: item.estimated_duration_minutes || null,
+          image_url: item.image_url,
+          is_visible: item.is_visible,
+          sort_order: item.sort_order ?? 0,
+          created_at: item.created_at,
+          artists: Array.isArray(item.artists) ? item.artists[0] : item.artists,
+        }))
+        .filter((item: PortfolioArtworkData) => {
+          if (!item.artist_id || !item.artists) return false;
+          if (item.artists.is_active === false || item.artists.is_visible === false) return false;
+          return true;
+        });
 
       setArtworks(loadedList);
     } catch (err: any) {
@@ -143,13 +154,10 @@ function PortfolioContent() {
 
   // 2. URL parameter synchronization
   useEffect(() => {
-    const styleParam = searchParams.get('style') || searchParams.get('filter');
-    if (styleParam && styleParam !== 'All') {
-      setFilter(styleParam);
-    }
+    if (loading) return;
 
     const selectId = searchParams.get('select');
-    if (selectId && artworks.length > 0) {
+    if (selectId) {
       const item = artworks.find((p) => p.id === selectId);
       if (item) {
         setSelectedArtwork(item);
@@ -157,16 +165,30 @@ function PortfolioContent() {
         if (typeof window !== 'undefined' && window.innerWidth < 1024) {
           setShowMobileDetail(true);
         }
+      } else {
+        setSelectedArtwork(null);
+        setShowMobileDetail(false);
       }
-    } else if (!selectedArtwork && artworks.length > 0) {
-      setSelectedArtwork(artworks[0]);
+    } else if (artworks.length > 0) {
+      setSelectedArtwork((prev) => {
+        if (prev && artworks.some((p) => p.id === prev.id)) return prev;
+        return artworks[0];
+      });
+    } else {
+      setSelectedArtwork(null);
+      setShowMobileDetail(false);
+    }
+
+    const styleParam = searchParams.get('style') || searchParams.get('filter');
+    if (styleParam && styleParam !== 'All') {
+      setFilter(styleParam);
     }
 
     const action = searchParams.get('action');
     if (action === 'estimate') {
       setPanelView('estimate');
     }
-  }, [searchParams, artworks, selectedArtwork]);
+  }, [searchParams, artworks, loading]);
 
   // 3. Client-side filtering & searching
   const filteredArtworks = useMemo(() => {
@@ -366,9 +388,12 @@ function PortfolioContent() {
                       }`}
                     >
                       <img
-                        src={item.image_url}
+                        src={getThumbnailUrl(item.image_url)}
+                        onError={(e) => handleThumbnailError(e, item.image_url)}
                         alt={item.title}
                         className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-500"
+                        loading="lazy"
+                        decoding="async"
                       />
 
                       {/* Permanent Dark Gradient Overlay on Image Bottom */}
@@ -409,12 +434,22 @@ function PortfolioContent() {
                       </span>
                     </div>
 
-                    <div className="aspect-[4/3] rounded-[6px] border border-studio-border overflow-hidden bg-studio-main">
+                    <div className="aspect-[4/3] rounded-[6px] border border-studio-border overflow-hidden bg-studio-main relative group">
                       <img
-                        src={selectedArtwork.image_url}
+                        src={getThumbnailUrl(selectedArtwork.image_url)}
+                        onError={(e) => handleThumbnailError(e, selectedArtwork.image_url)}
                         alt={selectedArtwork.title}
-                        className="w-full h-full object-cover"
+                        className="w-full h-full object-cover cursor-pointer"
+                        onClick={() => setShowLightbox(true)}
                       />
+                      <button
+                        type="button"
+                        onClick={() => setShowLightbox(true)}
+                        className="absolute bottom-2.5 right-2.5 bg-studio-main/80 hover:bg-studio-main border border-studio-border/80 text-studio-primary text-[10px] px-2 py-1 rounded flex items-center gap-1 shadow-md backdrop-blur-sm z-10 transition-colors"
+                      >
+                        <ZoomIn size={12} />
+                        <span>ขยายดูรูปจริง</span>
+                      </button>
                     </div>
 
                     <div>
@@ -437,24 +472,8 @@ function PortfolioContent() {
                       </div>
 
                       <div className="space-y-1">
-                        <span className="text-[10px] text-studio-muted flex items-center gap-1">
-                          <Clock size={12} /> เวลาสักโดยประมาณ
-                        </span>
-                        <span className="font-semibold text-studio-primary block">
-                          {formatDurationDisplay(selectedArtwork.estimated_duration_minutes) || 'ตามขนาดงานจริง'}
-                        </span>
-                      </div>
-
-                      <div className="space-y-1">
                         <span className="text-[10px] text-studio-muted">สไตล์ลายสัก</span>
                         <span className="font-semibold text-studio-primary block">{selectedArtwork.style}</span>
-                      </div>
-
-                      <div className="space-y-1">
-                        <span className="text-[10px] text-studio-muted">ขนาดผลงานจริง</span>
-                        <span className="font-semibold text-studio-primary block">
-                          {selectedArtwork.size_label || 'กำหนดตามสรีระลูกค้า'}
-                        </span>
                       </div>
                     </div>
 
@@ -536,12 +555,22 @@ function PortfolioContent() {
               <X size={16} />
             </button>
 
-            <div className="relative w-full h-[28vh] min-h-[180px] max-h-[260px] bg-studio-main shrink-0">
+            <div className="relative w-full h-[28vh] min-h-[180px] max-h-[260px] bg-studio-main shrink-0 group">
               <img
-                src={selectedArtwork.image_url}
+                src={getThumbnailUrl(selectedArtwork.image_url)}
+                onError={(e) => handleThumbnailError(e, selectedArtwork.image_url)}
                 alt={selectedArtwork.title}
-                className="w-full h-full object-cover"
+                className="w-full h-full object-cover cursor-pointer"
+                onClick={() => setShowLightbox(true)}
               />
+              <button
+                type="button"
+                onClick={() => setShowLightbox(true)}
+                className="absolute bottom-2.5 right-2.5 bg-studio-main/80 hover:bg-studio-main border border-studio-border/80 text-studio-primary text-[10px] px-2 py-1 rounded flex items-center gap-1 shadow-md backdrop-blur-sm z-10 transition-colors"
+              >
+                <ZoomIn size={12} />
+                <span>ขยายดูรูปจริง</span>
+              </button>
             </div>
 
             <div className="p-5 pb-[max(1.75rem,env(safe-area-inset-bottom,28px))] flex flex-col justify-between overflow-y-auto space-y-4">
@@ -554,7 +583,7 @@ function PortfolioContent() {
                   {selectedArtwork.title}
                 </h2>
 
-                <div className="grid grid-cols-3 gap-2 my-4 border-t border-b border-studio-border/60 py-3.5 text-xs">
+                <div className="grid grid-cols-2 gap-2 my-4 border-t border-b border-studio-border/60 py-3.5 text-xs">
                   <div className="space-y-0.5 min-w-0">
                     <span className="text-[9px] sm:text-[10px] text-studio-muted flex items-center gap-1 truncate">
                       <User size={12} className="shrink-0" /> <span className="truncate">ช่างสัก</span>
@@ -566,19 +595,10 @@ function PortfolioContent() {
 
                   <div className="space-y-0.5 min-w-0">
                     <span className="text-[9px] sm:text-[10px] text-studio-muted flex items-center gap-1 truncate">
-                      <Clock size={12} className="shrink-0" /> <span className="truncate">เวลาสักโดยประมาณ</span>
+                      <span className="truncate">สไตล์ลายสัก</span>
                     </span>
                     <span className="font-semibold text-studio-primary text-xs block truncate">
-                      {formatDurationDisplay(selectedArtwork.estimated_duration_minutes) || 'ตามขนาดงานจริง'}
-                    </span>
-                  </div>
-
-                  <div className="space-y-0.5 min-w-0">
-                    <span className="text-[9px] sm:text-[10px] text-studio-muted flex items-center gap-1 truncate">
-                      <Maximize2 size={12} className="shrink-0" /> <span className="truncate">ขนาด</span>
-                    </span>
-                    <span className="font-semibold text-studio-primary text-xs block truncate">
-                      {selectedArtwork.size_label || 'ตามสรีระ'}
+                      {selectedArtwork.style}
                     </span>
                   </div>
                 </div>
@@ -644,6 +664,31 @@ function PortfolioContent() {
       )}
 
       <MobileBottomNav />
+
+      {/* Lightbox Modal for Full Resolution Image */}
+      {showLightbox && selectedArtwork && (
+        <div
+          onClick={() => setShowLightbox(false)}
+          className="fixed inset-0 z-[100] bg-black/90 backdrop-blur-md flex items-center justify-center p-4 cursor-zoom-out animate-fadeIn font-prompt"
+        >
+          <div className="relative max-w-4xl max-h-[90vh] text-center" onClick={(e) => e.stopPropagation()}>
+            <button
+              onClick={() => setShowLightbox(false)}
+              className="absolute -top-10 right-0 text-white hover:text-studio-red text-sm font-bold bg-studio-main/80 border border-studio-border px-3 py-1 rounded"
+            >
+              ✕ ปิด
+            </button>
+            <img
+              src={selectedArtwork.image_url}
+              alt={selectedArtwork.title}
+              className="max-w-full max-h-[85vh] object-contain rounded-lg border border-white/20 shadow-2xl mx-auto"
+            />
+            <p className="text-center text-xs text-studio-secondary mt-2.5">
+              {selectedArtwork.title} — รูปภาพความละเอียดสูงต้นฉบับ
+            </p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

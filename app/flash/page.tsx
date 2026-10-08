@@ -8,6 +8,7 @@ import PortfolioFilter from '@/components/customer/PortfolioFilter';
 import FlashReservationModal, { FlashDesignData } from '@/components/flash/FlashReservationModal';
 import { createClient } from '@/lib/supabase/client';
 import { useApp } from '@/components/AppContext';
+import { getThumbnailUrl, handleThumbnailError } from '@/lib/utils/thumbnailHelper';
 import Link from 'next/link';
 import {
   Sparkles,
@@ -28,6 +29,7 @@ import {
   ShieldCheck,
   ChevronLeft,
   ChevronRight,
+  ZoomIn,
 } from 'lucide-react';
 
 function FlashContent() {
@@ -47,9 +49,12 @@ function FlashContent() {
   const [selectedArtwork, setSelectedArtwork] = useState<FlashDesignData | null>(null);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
 
-  // Modal State
+  // Modal & Lightbox State
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [showMobileDetail, setShowMobileDetail] = useState(false);
+  const [showLightbox, setShowLightbox] = useState(false);
+
+  const [selectError, setSelectError] = useState<string | null>(null);
 
   // Fetch Live Flash Designs from Supabase
   const fetchLiveFlashDesigns = useCallback(async () => {
@@ -73,12 +78,15 @@ function FlashContent() {
           image_url_2,
           status,
           is_visible,
+          is_repeatable,
           sort_order,
           created_at,
           artists (
             id,
             name,
-            nickname
+            nickname,
+            is_active,
+            is_visible
           )
         `)
         .eq('is_visible', true)
@@ -87,39 +95,44 @@ function FlashContent() {
 
       if (fetchErr) throw fetchErr;
 
-      const formatted: FlashDesignData[] = (designs || []).map((d: any) => ({
-        id: d.id,
-        artist_id: d.artist_id,
-        title: d.title,
-        description: d.description,
-        style: d.style || '',
-        size_label: d.size_label,
-        price: Number(d.price) || 0,
-        deposit_amount: Number(d.deposit_amount) || 0,
-        estimated_duration_minutes: d.estimated_duration_minutes ? Number(d.estimated_duration_minutes) : null,
-        image_url: d.image_url,
-        image_url_2: d.image_url_2 || null,
-        status: d.status,
-        is_visible: d.is_visible,
-        artist: d.artists ? {
-          id: d.artists.id,
-          name: d.artists.name,
-          nickname: d.artists.nickname,
-        } : null,
-      }));
+      const formatted: FlashDesignData[] = (designs || [])
+        .map((d: any) => ({
+          id: d.id,
+          artist_id: d.artist_id,
+          title: d.title,
+          description: d.description,
+          style: d.style || '',
+          size_label: d.size_label,
+          price: Number(d.price) || 0,
+          deposit_amount: Number(d.deposit_amount) || 0,
+          estimated_duration_minutes: d.estimated_duration_minutes ? Number(d.estimated_duration_minutes) : null,
+          image_url: d.image_url,
+          image_url_2: d.image_url_2 || null,
+          status: d.status,
+          is_visible: d.is_visible,
+          is_repeatable: Boolean(d.is_repeatable),
+          artist: d.artists ? {
+            id: d.artists.id,
+            name: d.artists.name,
+            nickname: d.artists.nickname,
+            is_active: d.artists.is_active,
+            is_visible: d.artists.is_visible,
+          } : null,
+        }))
+        .filter((d: FlashDesignData) => {
+          if (!d.artist_id || !d.artist) return false;
+          if (d.artist.is_active === false || d.artist.is_visible === false) return false;
+          return true;
+        });
 
       setFlashDesigns(formatted);
-      if (formatted.length > 0 && !selectedArtwork) {
-        setSelectedArtwork(formatted[0]);
-        setActiveImageIndex(0);
-      }
     } catch (err: any) {
       console.error('Error fetching live flash designs:', err);
       setError('ไม่สามารถโหลดข้อมูลแบบลายสัก Flash ได้ในขณะนี้');
     } finally {
       setLoading(false);
     }
-  }, [selectedArtwork]);
+  }, []);
 
   useEffect(() => {
     fetchLiveFlashDesigns();
@@ -127,22 +140,37 @@ function FlashContent() {
 
   // Sync URL query params (e.g. ?select=uuid)
   useEffect(() => {
+    if (loading) return;
+
     const selectId = searchParams.get('select');
-    if (selectId && flashDesigns.length > 0) {
+    if (selectId) {
       const found = flashDesigns.find((f) => f.id === selectId);
       if (found) {
         setSelectedArtwork(found);
+        setSelectError(null);
         if (typeof window !== 'undefined' && window.innerWidth < 1024) {
           setShowMobileDetail(true);
         }
+      } else {
+        setSelectedArtwork(null);
+        setSelectError('ลายนี้ไม่เปิดให้จองในขณะนี้ หรือช่างสักถูกปิดใช้งาน');
       }
+    } else if (flashDesigns.length > 0) {
+      setSelectedArtwork((prev) => {
+        if (prev && flashDesigns.some((f) => f.id === prev.id)) return prev;
+        return flashDesigns[0];
+      });
+      setSelectError(null);
+    } else {
+      setSelectedArtwork(null);
+      setSelectError(null);
     }
 
     const styleParam = searchParams.get('style') || searchParams.get('filter');
     if (styleParam && styleParam !== 'All') {
       setFilter(styleParam);
     }
-  }, [searchParams, flashDesigns]);
+  }, [searchParams, flashDesigns, loading]);
 
   // Filter & Search & Sort
   const filteredItems = useMemo(() => {
@@ -221,6 +249,21 @@ function FlashContent() {
           </span>
         );
     }
+  };
+
+  const getTypeBadge = (isRepeatable?: boolean) => {
+    if (isRepeatable) {
+      return (
+        <span className="text-[10px] bg-cyan-950/80 border border-cyan-600/40 text-cyan-300 px-2 py-0.5 rounded font-bold">
+          สักซ้ำได้
+        </span>
+      );
+    }
+    return (
+      <span className="text-[10px] bg-amber-950/80 border border-amber-600/40 text-amber-300 px-2 py-0.5 rounded font-bold">
+        ลายเดียว
+      </span>
+    );
   };
 
   // Helper to extract available images array for selectedArtwork
@@ -329,16 +372,19 @@ function FlashContent() {
                     >
                       <div className="aspect-[4/5] bg-studio-main overflow-hidden relative">
                         <img
-                          src={item.image_url}
+                          src={getThumbnailUrl(item.image_url)}
+                          onError={(e) => handleThumbnailError(e, item.image_url)}
                           alt={item.title}
                           className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-500"
                           loading="lazy"
+                          decoding="async"
                         />
                         <div className="absolute top-2.5 left-2.5 bg-studio-main/90 backdrop-blur-sm border border-studio-border/60 text-studio-red text-[9px] font-bold px-2 py-0.5 rounded">
                           Flash
                         </div>
-                        <div className="absolute top-2.5 right-2.5">
+                        <div className="absolute top-2.5 right-2.5 flex flex-col items-end gap-1">
                           {getStatusBadge(item.status)}
+                          {getTypeBadge(item.is_repeatable)}
                         </div>
                       </div>
 
@@ -353,12 +399,8 @@ function FlashContent() {
                           <span className="truncate pr-2">
                             ช่าง: {item.artist?.name || 'ช่างประจำร้าน'}
                           </span>
-                          <span className="text-studio-red font-semibold shrink-0">
-                            ฿{item.price.toLocaleString()}
-                          </span>
                         </div>
                         <div className="pt-2 mt-2 border-t border-studio-border/50 flex justify-between items-center">
-                          <span className="text-[9px] text-studio-muted">มัดจำ ฿{item.deposit_amount.toLocaleString()}</span>
                           {item.status === 'AVAILABLE' ? (
                             <Link
                               href={`/booking?flash=${item.id}`}
@@ -399,8 +441,9 @@ function FlashContent() {
                   <span className="text-[10px] uppercase tracking-widest text-studio-red font-bold">
                     ลายพร้อมสัก (Flash Design)
                   </span>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1.5 flex-wrap justify-end">
                     {getStatusBadge(selectedArtwork.status)}
+                    {getTypeBadge(selectedArtwork.is_repeatable)}
                     <span className="text-[10px] bg-studio-red/10 border border-studio-red/30 text-studio-red px-2 py-0.5 rounded font-bold">
                       {selectedArtwork.style}
                     </span>
@@ -409,15 +452,22 @@ function FlashContent() {
 
                 <div className="relative aspect-[4/3] rounded-[6px] border border-studio-border overflow-hidden bg-studio-main group">
                   <img
-                    src={activeImage}
+                    src={getThumbnailUrl(activeImage)}
+                    onError={(e) => handleThumbnailError(e, activeImage)}
                     alt={selectedArtwork.title}
-                    className={`w-full h-full object-cover select-none transition-opacity duration-200 ${hasMultipleImages ? 'cursor-pointer' : ''}`}
-                    onClick={() => {
-                      if (hasMultipleImages) {
-                        setActiveImageIndex((prev) => (prev + 1) % selectedImages.length);
-                      }
-                    }}
+                    className="w-full h-full object-cover select-none transition-opacity duration-200 cursor-pointer"
+                    onClick={() => setShowLightbox(true)}
                   />
+
+                  {/* Zoom indicator button */}
+                  <button
+                    type="button"
+                    onClick={() => setShowLightbox(true)}
+                    className="absolute bottom-2.5 right-2.5 bg-studio-main/80 hover:bg-studio-main border border-studio-border/80 text-studio-primary text-[10px] px-2 py-1 rounded flex items-center gap-1 shadow-md backdrop-blur-sm z-10 transition-colors"
+                  >
+                    <ZoomIn size={12} />
+                    <span>ขยายดูรูปจริง</span>
+                  </button>
 
                   {hasMultipleImages && (
                     <>
@@ -467,7 +517,7 @@ function FlashContent() {
                 </div>
 
                 {/* Specs Grid */}
-                <div className="grid grid-cols-2 gap-3 border-t border-b border-studio-border/60 py-4 text-xs">
+                <div className="grid grid-cols-1 gap-3 border-t border-b border-studio-border/60 py-4 text-xs">
                   <div className="space-y-1">
                     <span className="text-[10px] text-studio-muted flex items-center gap-1">
                       <User size={12} /> ช่างสักเจ้าของลาย
@@ -476,39 +526,7 @@ function FlashContent() {
                       {selectedArtwork.artist?.name || 'ช่างประจำร้าน'}
                     </span>
                   </div>
-                  <div className="space-y-1">
-                    <span className="text-[10px] text-studio-muted flex items-center gap-1">
-                      <Clock size={12} /> เวลาสักโดยประมาณ
-                    </span>
-                    <span className="font-semibold text-studio-primary block">
-                      {selectedArtwork.estimated_duration_minutes
-                        ? `${selectedArtwork.estimated_duration_minutes} นาที`
-                        : 'ไม่ระบุ'}
-                    </span>
-                  </div>
-                  <div className="space-y-1">
-                    <span className="text-[10px] text-studio-muted flex items-center gap-1">
-                      <DollarSign size={12} /> ราคาค่าบริการ (Fixed)
-                    </span>
-                    <span className="font-bold text-studio-red block">
-                      ฿{selectedArtwork.price.toLocaleString()}
-                    </span>
-                  </div>
-                  <div className="space-y-1">
-                    <span className="text-[10px] text-studio-muted">เงินมัดจำสำหรับจอง</span>
-                    <span className="font-semibold text-studio-primary block">
-                      ฿{selectedArtwork.deposit_amount.toLocaleString()}
-                    </span>
-                  </div>
                 </div>
-
-                {/* Size Label */}
-                {selectedArtwork.size_label && (
-                  <div className="text-xs text-studio-secondary flex items-center justify-between px-1 bg-studio-main/50 p-2.5 rounded-[4px] border border-studio-border/40">
-                    <span className="text-studio-muted">ขนาดแนะนำสำหรับลายนี้:</span>
-                    <span className="font-semibold text-studio-primary">{selectedArtwork.size_label}</span>
-                  </div>
-                )}
 
                 {/* Progressive Action CTAs */}
                 <div className="space-y-3 pt-2">
@@ -517,7 +535,7 @@ function FlashContent() {
                       href={`/booking?flash=${selectedArtwork.id}`}
                       className="w-full bg-studio-red text-studio-primary hover:bg-tattoo-red-dark active:scale-[0.99] py-3.5 px-4 rounded-[4px] text-xs font-bold uppercase tracking-widest transition-all shadow-lg shadow-studio-red/10 flex items-center justify-center text-center"
                     >
-                      จองลายนี้ (มัดจำ ฿{selectedArtwork.deposit_amount.toLocaleString()})
+                      จองลายนี้
                     </Link>
                   ) : (
                     <button
@@ -535,6 +553,12 @@ function FlashContent() {
                     * การส่งคำขอยังไม่ใช่นัดหมายที่ยืนยัน ร้านจะติดต่อยืนยันรอบนัดหมายและการชำระเงินมัดจำอีกครั้ง
                   </div>
                 </div>
+              </div>
+            ) : selectError ? (
+              <div className="py-12 px-4 text-center space-y-3">
+                <AlertCircle size={32} className="text-amber-400 mx-auto" />
+                <h3 className="text-sm font-bold text-studio-primary">ลายสักไม่เปิดให้จอง</h3>
+                <p className="text-xs text-studio-secondary">{selectError}</p>
               </div>
             ) : (
               <div className="py-20 text-center text-xs text-studio-muted">
@@ -557,15 +581,21 @@ function FlashContent() {
             </div>
             <div className="relative aspect-[4/3] rounded overflow-hidden bg-studio-main border border-studio-border group">
               <img
-                src={activeImage}
+                src={getThumbnailUrl(activeImage)}
+                onError={(e) => handleThumbnailError(e, activeImage)}
                 alt={selectedArtwork.title}
-                className={`w-full h-full object-cover select-none ${hasMultipleImages ? 'cursor-pointer' : ''}`}
-                onClick={() => {
-                  if (hasMultipleImages) {
-                    setActiveImageIndex((prev) => (prev + 1) % selectedImages.length);
-                  }
-                }}
+                className="w-full h-full object-cover select-none cursor-pointer"
+                onClick={() => setShowLightbox(true)}
               />
+
+              <button
+                type="button"
+                onClick={() => setShowLightbox(true)}
+                className="absolute bottom-2.5 right-2.5 bg-studio-main/80 hover:bg-studio-main border border-studio-border/80 text-studio-primary text-[10px] px-2 py-1 rounded flex items-center gap-1 shadow-md backdrop-blur-sm z-10 transition-colors"
+              >
+                <ZoomIn size={12} />
+                <span>ขยายดูรูปจริง</span>
+              </button>
 
               {hasMultipleImages && (
                 <>
@@ -600,28 +630,52 @@ function FlashContent() {
               )}
             </div>
             <div>
-              <div className="flex justify-between items-center">
-                <h3 className="text-base font-bold text-studio-primary">{selectedArtwork.title}</h3>
-                {getStatusBadge(selectedArtwork.status)}
+              <div className="flex justify-between items-start gap-2">
+                <h3 className="text-base font-bold text-studio-primary flex-1">{selectedArtwork.title}</h3>
+                <div className="flex flex-col items-end gap-1 shrink-0">
+                  {getStatusBadge(selectedArtwork.status)}
+                  {getTypeBadge(selectedArtwork.is_repeatable)}
+                </div>
               </div>
               <p className="text-xs text-studio-secondary mt-0.5">ช่าง: {selectedArtwork.artist?.name || 'ช่างประจำร้าน'}</p>
-            </div>
-            <div className="flex justify-between items-center text-xs bg-studio-main p-2.5 rounded border border-studio-border/50">
-              <span className="text-studio-muted">ราคาค่าสัก: <strong className="text-studio-red">฿{selectedArtwork.price.toLocaleString()}</strong></span>
-              <span className="text-studio-muted">มัดจำ: <strong className="text-studio-primary">฿{selectedArtwork.deposit_amount.toLocaleString()}</strong></span>
             </div>
             {selectedArtwork.status === 'AVAILABLE' ? (
               <Link
                 href={`/booking?flash=${selectedArtwork.id}`}
                 className="w-full bg-studio-red text-studio-primary py-3 rounded text-xs font-bold uppercase tracking-wider block text-center"
               >
-                จองลายนี้ (มัดจำ ฿{selectedArtwork.deposit_amount.toLocaleString()})
+                จองลายนี้
               </Link>
             ) : (
               <button disabled className="w-full bg-studio-main border border-studio-border text-studio-muted py-3 rounded text-xs font-bold cursor-not-allowed">
                 ไม่สามารถจองได้ในขณะนี้
               </button>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Lightbox Modal for Full Resolution Image */}
+      {showLightbox && activeImage && (
+        <div
+          onClick={() => setShowLightbox(false)}
+          className="fixed inset-0 z-[100] bg-black/90 backdrop-blur-md flex items-center justify-center p-4 cursor-zoom-out animate-fadeIn font-prompt"
+        >
+          <div className="relative max-w-4xl max-h-[90vh] text-center" onClick={(e) => e.stopPropagation()}>
+            <button
+              onClick={() => setShowLightbox(false)}
+              className="absolute -top-10 right-0 text-white hover:text-studio-red text-sm font-bold bg-studio-main/80 border border-studio-border px-3 py-1 rounded"
+            >
+              ✕ ปิด
+            </button>
+            <img
+              src={activeImage}
+              alt={selectedArtwork?.title || ''}
+              className="max-w-full max-h-[85vh] object-contain rounded-lg border border-white/20 shadow-2xl mx-auto"
+            />
+            <p className="text-center text-xs text-studio-secondary mt-2.5">
+              {selectedArtwork?.title} — รูปภาพความละเอียดสูงต้นฉบับ
+            </p>
           </div>
         </div>
       )}
