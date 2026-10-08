@@ -13,17 +13,41 @@ export function sanitizeDigitsOnly(input: string): string {
 }
 
 /**
+ * Normalizes input to 10-digit local Thai mobile phone format starting with 0 (e.g. 0628170691)
+ * Compatible with public.customers.customer_phone_check constraint (^0[0-9]{9}$)
+ */
+export function normalizeLocalThaiPhone(input: string): { valid: boolean; normalized: string; error?: string } {
+  if (!input || typeof input !== 'string') {
+    return { valid: false, normalized: '', error: 'กรุณากรอกเบอร์โทรศัพท์ 10 หลักให้ถูกต้อง' };
+  }
+
+  // Remove whitespace, dashes, parentheses, dots
+  let cleaned = input.trim().replace(/[\s\-\(\)\.]/g, '');
+
+  if (cleaned.startsWith('+66')) {
+    cleaned = '0' + cleaned.substring(3);
+  } else if (cleaned.startsWith('66') && cleaned.length === 11) {
+    cleaned = '0' + cleaned.substring(2);
+  }
+
+  if (/^0[0-9]{9}$/.test(cleaned)) {
+    return { valid: true, normalized: cleaned };
+  }
+
+  return {
+    valid: false,
+    normalized: '',
+    error: 'กรุณากรอกเบอร์โทรศัพท์ 10 หลักให้ถูกต้อง',
+  };
+}
+
+/**
  * Validates local 10-digit Thai phone input for Customer UI
  */
 export function validateCustomerPhone(input: string): { valid: boolean; error?: string } {
-  if (!input || input.trim() === '') {
-    return { valid: false, error: 'กรุณากรอกเบอร์โทรศัพท์ให้ถูกต้อง 10 หลัก' };
-  }
-
-  const cleaned = input.trim();
-
-  if (!/^0[0-9]{9}$/.test(cleaned)) {
-    return { valid: false, error: 'กรุณากรอกเบอร์โทรศัพท์ให้ถูกต้อง 10 หลัก' };
+  const norm = normalizeLocalThaiPhone(input);
+  if (!norm.valid) {
+    return { valid: false, error: norm.error || 'กรุณากรอกเบอร์โทรศัพท์ 10 หลักให้ถูกต้อง' };
   }
 
   return { valid: true };

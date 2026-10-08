@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { formatTattooSize } from '@/lib/utils/formatters';
 import { Calendar, User, Ruler, Maximize2, ShieldAlert } from 'lucide-react';
 import CustomerReferenceImage from '@/components/common/CustomerReferenceImage';
 import { parseNoteWithPreferredTime } from '@/lib/noteUtils';
@@ -57,8 +58,8 @@ export default function EstimateSummary({
         </div>
 
         <div className="flex justify-between border-b border-studio-border/30 pb-1.5">
-          <span className="text-studio-muted">ขนาดรอยสัก:</span>
-          <span className="font-semibold">{width} × {height} ซม.</span>
+          <span className="text-studio-muted">ขนาดงานสัก:</span>
+          <span className="font-semibold">{formatTattooSize(width, height)}</span>
         </div>
 
         <div className="flex justify-between border-b border-studio-border/30 pb-1.5">

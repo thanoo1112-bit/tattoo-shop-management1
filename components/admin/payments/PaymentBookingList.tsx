@@ -3,15 +3,9 @@
 import React from 'react';
 import {
   Search,
-  Filter,
   Calendar,
   User,
   ChevronRight,
-  Wallet,
-  Clock,
-  CheckCircle2,
-  AlertCircle,
-  FileX,
   CreditCard,
 } from 'lucide-react';
 import {
@@ -26,83 +20,22 @@ interface PaymentBookingListProps {
   onSelectBooking: (booking: PaymentBookingDetail) => void;
   searchQuery: string;
   onSearchChange: (q: string) => void;
-  financialFilter: FinancialStatusFilter;
-  onFinancialFilterChange: (f: FinancialStatusFilter) => void;
-  bookingStatusFilter: BookingStatusFilter;
-  onBookingStatusFilterChange: (s: BookingStatusFilter) => void;
+  selectedArtistId: string;
+  onArtistChange: (artistId: string) => void;
+  artists: Array<{ id: string; name: string; nickname: string | null }>;
   isLoading?: boolean;
 }
 
-// Financial status mapping
-function getFinancialStatusInfo(summary: PaymentBookingDetail['summary'], bookingStatus?: string) {
-  const isCompleted = bookingStatus === 'COMPLETED';
-  const quoted = summary.quoted_price || 0;
-  const received = summary.paid_total || 0;
-
-  if (isCompleted) {
-    if (summary.is_fully_paid || (quoted > 0 && received >= quoted)) {
-      return {
-        label: 'ชำระครบ',
-        badgeClass: 'bg-emerald-950/50 text-emerald-400 border border-emerald-800/40',
-        dotClass: 'bg-emerald-400',
-      };
-    }
-    const outstanding = Math.max(0, quoted - received);
-    return {
-      label: `ค้างชำระ ฿${outstanding.toLocaleString('th-TH')}`,
-      badgeClass: 'bg-red-950/50 text-red-400 border border-red-800/40',
-      dotClass: 'bg-red-400',
-    };
-  }
-
-  if (summary.is_fully_paid || (quoted > 0 && received >= quoted)) {
-    return {
-      label: 'ชำระครบ',
-      badgeClass: 'bg-emerald-950/50 text-emerald-400 border border-emerald-800/40',
-      dotClass: 'bg-emerald-400',
-    };
-  }
-
-  if (summary.deposit_required <= 0) {
-    return {
-      label: 'ไม่มีมัดจำ',
-      badgeClass: 'bg-[#1F1D1A] text-[#A89F91] border border-[#4A443A]',
-      dotClass: 'bg-[#7A7265]',
-    };
-  }
-  if (summary.paid_total >= summary.deposit_required) {
-    return {
-      label: 'รับมัดจำครบแล้ว',
-      badgeClass: 'bg-emerald-950/50 text-emerald-400 border border-emerald-800/40',
-      dotClass: 'bg-emerald-400',
-    };
-  }
-  if (summary.paid_total > 0 && summary.paid_total < summary.deposit_required) {
-    return {
-      label: 'รับมัดจำบางส่วน',
-      badgeClass: 'bg-blue-950/50 text-blue-400 border border-blue-800/40',
-      dotClass: 'bg-blue-400',
-    };
-  }
-  return {
-    label: 'ยังไม่ได้รับมัดจำ',
-    badgeClass: 'bg-amber-950/50 text-amber-400 border border-amber-800/40',
-    dotClass: 'bg-amber-400',
-  };
-}
-
-// Booking status styling
+// Booking status badge helper
 function getBookingStatusBadge(status: string) {
-  switch (status) {
+  const st = String(status || '').toUpperCase();
+  switch (st) {
     case 'WAITING_DEPOSIT':
-      return {
-        label: 'รอมัดจำ',
-        class: 'bg-amber-950/40 text-amber-300 border-amber-800/40',
-      };
     case 'CONFIRMED':
+    case 'SCHEDULED':
       return {
-        label: 'ยืนยันคิวแล้ว',
-        class: 'bg-emerald-950/40 text-emerald-300 border-emerald-800/40',
+        label: 'นัดหมายแล้ว',
+        class: 'bg-blue-950/40 text-blue-300 border-blue-800/40',
       };
     case 'IN_PROGRESS':
       return {
@@ -112,7 +45,12 @@ function getBookingStatusBadge(status: string) {
     case 'COMPLETED':
       return {
         label: 'เสร็จสิ้น',
-        class: 'bg-[#1F1D1A] text-[#A89F91] border-[#4A443A]',
+        class: 'bg-emerald-950/40 text-emerald-300 border-emerald-800/40',
+      };
+    case 'EXPIRED':
+      return {
+        label: 'หมดเวลาชำระมัดจำ',
+        class: 'bg-zinc-900/60 text-zinc-400 border-zinc-700/50',
       };
     case 'CANCELLED':
       return {
@@ -137,37 +75,72 @@ function getBookingStatusBadge(status: string) {
   }
 }
 
+// Payment status badge helper
+function getPaymentStatusBadge(status: string) {
+  const st = String(status || '').toUpperCase();
+  if (st === 'COMPLETED') {
+    return {
+      label: 'ชำระครบแล้ว',
+      class: 'bg-emerald-950/50 text-emerald-400 border border-emerald-800/40',
+    };
+  }
+  if (st === 'EXPIRED') {
+    return {
+      label: 'หมดเวลาชำระมัดจำ',
+      class: 'bg-zinc-900/50 text-zinc-400 border border-zinc-700/40',
+    };
+  }
+  if (st === 'CANCELLED' || st === 'REJECTED') {
+    return {
+      label: 'ยกเลิกแล้ว',
+      class: 'bg-red-950/50 text-red-400 border border-red-900/40',
+    };
+  }
+  return {
+    label: 'รอปิดงาน',
+    class: 'bg-amber-950/50 text-amber-400 border border-amber-800/40',
+  };
+}
+
+// Helper to compute recorded deposit payment amount for a booking
+function getDepositPaidSum(b: PaymentBookingDetail): number {
+  if (!b.payments || b.payments.length === 0) return 0;
+  return b.payments
+    .filter((p: any) => String(p.status || '').toUpperCase() === 'RECORDED' && String(p.payment_type || '').toUpperCase() === 'DEPOSIT')
+    .reduce((sum: number, p: any) => sum + Number(p.amount || 0), 0);
+}
+
+// Helper to compute recorded balance payment amount for a booking
+function getBalancePaidSum(b: PaymentBookingDetail): number {
+  if (!b.payments || b.payments.length === 0) return 0;
+  return b.payments
+    .filter((p: any) => String(p.status || '').toUpperCase() === 'RECORDED' && (String(p.payment_type || '').toUpperCase() === 'BALANCE' || String(p.payment_type || '').toUpperCase() === 'FULL_PAYMENT'))
+    .reduce((sum: number, p: any) => sum + Number(p.amount || 0), 0);
+}
+
+// Helper to compute total recorded payment amount for a booking
+function getRecordedPaymentsSum(b: PaymentBookingDetail): number {
+  if (!b.payments || b.payments.length === 0) return 0;
+  return b.payments
+    .filter((p: any) => String(p.status || '').toUpperCase() === 'RECORDED')
+    .reduce((sum: number, p: any) => sum + Number(p.amount || 0), 0);
+}
+
 export default function PaymentBookingList({
   bookings,
   selectedBookingId,
   onSelectBooking,
   searchQuery,
   onSearchChange,
-  financialFilter,
-  onFinancialFilterChange,
-  bookingStatusFilter,
-  onBookingStatusFilterChange,
+  selectedArtistId,
+  onArtistChange,
+  artists,
   isLoading,
 }: PaymentBookingListProps) {
-  const financialFilterOptions: { label: string; value: FinancialStatusFilter }[] = [
-    { label: 'ทั้งหมด', value: 'ALL' },
-    { label: 'ยังไม่ได้รับมัดจำ', value: 'UNPAID' },
-    { label: 'รับมัดจำบางส่วน', value: 'PARTIAL' },
-    { label: 'รับมัดจำครบแล้ว', value: 'PAID' },
-  ];
-
-  const bookingStatusOptions: { label: string; value: BookingStatusFilter }[] = [
-    { label: 'สถานะคิวทั้งหมด', value: 'ALL' },
-    { label: 'WAITING_DEPOSIT (รอมัดจำ)', value: 'WAITING_DEPOSIT' },
-    { label: 'CONFIRMED (ยืนยันแล้ว)', value: 'CONFIRMED' },
-    { label: 'IN_PROGRESS (กำลังสัก)', value: 'IN_PROGRESS' },
-    { label: 'COMPLETED (เสร็จสิ้น)', value: 'COMPLETED' },
-  ];
-
   return (
     <div className="bg-[#171512] border border-[#4A443A] rounded-lg overflow-hidden font-prompt">
       {/* Search & Filter Header */}
-      <div className="p-3.5 sm:p-4 border-b border-[#4A443A] space-y-3">
+      <div className="p-3.5 sm:p-4 border-b border-[#4A443A]">
         <div className="flex flex-col sm:flex-row gap-2.5 sm:gap-3 items-stretch sm:items-center justify-between">
           {/* Search Box */}
           <div className="relative flex-1">
@@ -184,44 +157,25 @@ export default function PaymentBookingList({
             />
           </div>
 
-          {/* Booking Status Filter Dropdown */}
-          <div className="flex items-center gap-2">
+          {/* Artist Filter Dropdown */}
+          <div className="flex items-center gap-1.5 bg-[#0E0D0C] border border-[#4A443A] rounded-md px-2.5 py-1.5 text-xs shrink-0">
+            <User size={13} className="text-[#7A7265]" />
             <select
-              value={bookingStatusFilter}
-              onChange={(e) => onBookingStatusFilterChange(e.target.value as BookingStatusFilter)}
-              aria-label="กรองตามสถานะคิวงาน"
-              className="bg-[#0E0D0C] border border-[#4A443A] rounded-md px-2.5 py-1.5 text-xs text-[#ECE4D3] focus:outline-none focus:border-[#ECE4D3] transition-colors cursor-pointer"
+              value={selectedArtistId}
+              onChange={(e) => onArtistChange(e.target.value)}
+              aria-label="เลือกช่างสัก"
+              className="bg-transparent text-[#ECE4D3] text-xs font-[#ECE4D3] font-medium focus:outline-none cursor-pointer pr-1"
             >
-              {bookingStatusOptions.map((opt) => (
-                <option key={opt.value} value={opt.value} className="bg-[#171512]">
-                  {opt.label}
+              <option value="ALL" className="bg-[#171512] text-[#ECE4D3]">
+                ช่างทั้งหมด
+              </option>
+              {artists.map((art) => (
+                <option key={art.id} value={art.id} className="bg-[#171512] text-[#ECE4D3]">
+                  {art.name} {art.nickname ? `(${art.nickname})` : ''}
                 </option>
               ))}
             </select>
           </div>
-        </div>
-
-        {/* Financial Filter Tabs */}
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
-          <span className="text-[11px] text-[#7A7265] font-medium mr-1 hidden sm:inline">
-            สถานะมัดจำ:
-          </span>
-          {financialFilterOptions.map((opt) => {
-            const isActive = financialFilter === opt.value;
-            return (
-              <button
-                key={opt.value}
-                onClick={() => onFinancialFilterChange(opt.value)}
-                className={`px-3 py-1 text-xs rounded-md font-medium tracking-wide transition-colors whitespace-nowrap ${
-                  isActive
-                    ? 'bg-[#ECE4D3] text-[#0E0D0C]'
-                    : 'bg-[#0E0D0C] text-[#A89F91] hover:text-[#ECE4D3] border border-[#4A443A]'
-                }`}
-              >
-                {opt.label}
-              </button>
-            );
-          })}
         </div>
       </div>
 
@@ -252,9 +206,11 @@ export default function PaymentBookingList({
                 <tr>
                   <th className="py-3 px-4">ลูกค้า / วันนัด</th>
                   <th className="py-3 px-4">ช่างสัก</th>
-                  <th className="py-3 px-4">สถานะคิว</th>
-                  <th className="py-3 px-4 text-right">มัดจำ</th>
-                  <th className="py-3 px-4 text-right">ยอดที่ต้องจ่าย</th>
+                  <th className="py-3 px-4">งาน / ลายสัก</th>
+                  <th className="py-3 px-4 text-right">เงินมัดจำ</th>
+                  <th className="py-3 px-4 text-right">ชำระวันปิดงาน</th>
+                  <th className="py-3 px-4 text-right">ยอดรับรวม</th>
+                  <th className="py-3 px-4 text-center">สถานะ</th>
                   <th className="py-3 px-3 text-center">จัดการ</th>
                 </tr>
               </thead>
@@ -262,10 +218,9 @@ export default function PaymentBookingList({
                 {bookings.map((b) => {
                   const isSelected = selectedBookingId === b.id;
                   const bStatus = getBookingStatusBadge(b.status);
-                  const quoted = b.summary.quoted_price || 0;
-                  const paid = b.summary.paid_total || 0;
-                  const amountDue = Math.max(0, quoted - paid);
-                  const isFullyPaid = (quoted > 0 && paid >= quoted) || b.summary.is_fully_paid;
+                  const depositSum = getDepositPaidSum(b);
+                  const balanceSum = getBalancePaidSum(b);
+                  const recordedSum = getRecordedPaymentsSum(b);
 
                   return (
                     <tr
@@ -294,38 +249,36 @@ export default function PaymentBookingList({
                         </div>
                       </td>
 
+                      {/* Artwork Title */}
+                      <td className="py-3.5 px-4 text-[#A89F91]">
+                        {b.artwork_title || 'ไม่พบรายละเอียดงาน'}
+                      </td>
+
+                      {/* Deposit Paid */}
+                      <td className="py-3.5 px-4 text-right text-amber-400 font-mono">
+                        {depositSum > 0 ? `฿${depositSum.toLocaleString('th-TH')}` : '—'}
+                      </td>
+
+                      {/* Balance Paid */}
+                      <td className="py-3.5 px-4 text-right text-emerald-400 font-mono">
+                        {balanceSum > 0 ? `฿${balanceSum.toLocaleString('th-TH')}` : '—'}
+                      </td>
+
+                      {/* Actual Received Amount (ยอดรับรวม) */}
+                      <td className="py-3.5 px-4 text-right text-emerald-400 font-mono font-bold text-sm">
+                        ฿{recordedSum.toLocaleString('th-TH')}
+                      </td>
+
                       {/* Booking Status */}
-                      <td className="py-3.5 px-4">
+                      <td className="py-3.5 px-4 text-center">
                         <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium border ${bStatus.class}`}>
                           {bStatus.label}
                         </span>
                       </td>
 
-                      {/* Deposit Required (มัดจำ) */}
-                      <td className="py-3.5 px-4 text-right text-amber-300/90 font-medium">
-                        {b.summary.deposit_required > 0
-                          ? `฿${b.summary.deposit_required.toLocaleString('th-TH')}`
-                          : '฿0'}
-                      </td>
-
-                      {/* Amount Due (ยอดที่ต้องจ่าย) */}
-                      <td className="py-3.5 px-4 text-right font-semibold">
-                        {isFullyPaid ? (
-                          <span className="text-emerald-400 font-semibold inline-flex items-center justify-end">
-                            <span className="px-1.5 py-0.5 rounded bg-emerald-950/60 border border-emerald-800 text-[10px] text-emerald-400 font-normal">
-                              ชำระครบแล้ว
-                            </span>
-                          </span>
-                        ) : (
-                          <span className="text-[#ECE4D3]">
-                            ฿{amountDue.toLocaleString('th-TH')}
-                          </span>
-                        )}
-                      </td>
-
                       {/* Action Column (จัดการ) */}
                       <td className="py-3.5 px-3 text-center text-[#7A7265]">
-                        <span className="inline-flex items-center gap-1 text-xs text-[#A89F91] hover:text-[#ECE4D3] transition-colors">
+                        <span className="inline-flex items-center gap-1 text-xs text-[#A89F91] hover:text-[#ECE4D3] transition-colors font-medium">
                           <span>รายละเอียด</span>
                           <ChevronRight size={14} />
                         </span>
@@ -337,73 +290,88 @@ export default function PaymentBookingList({
             </table>
           </div>
 
-          {/* Mobile Card View */}
+          {/* Mobile Card View (Layout C) */}
           <div className="md:hidden divide-y divide-[#4A443A]/60">
             {bookings.map((b) => {
               const isSelected = selectedBookingId === b.id;
               const bStatus = getBookingStatusBadge(b.status);
-              const quoted = b.summary.quoted_price || 0;
-              const paid = b.summary.paid_total || 0;
-              const amountDue = Math.max(0, quoted - paid);
-              const isFullyPaid = (quoted > 0 && paid >= quoted) || b.summary.is_fully_paid;
+              const depositSum = getDepositPaidSum(b);
+              const balanceSum = getBalancePaidSum(b);
+              const recordedSum = getRecordedPaymentsSum(b);
 
               return (
                 <div
                   key={b.id}
+                  role="button"
+                  tabIndex={0}
                   onClick={() => onSelectBooking(b)}
-                  className={`p-3.5 cursor-pointer transition-colors active:bg-[#1F1D1A] ${
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      onSelectBooking(b);
+                    }
+                  }}
+                  className={`p-3.5 cursor-pointer transition-colors active:bg-[#1F1D1A] hover:bg-[#1F1D1A]/80 focus:outline-none focus:ring-1 focus:ring-inset focus:ring-[#7A7265] ${
                     isSelected ? 'bg-[#1F1D1A]' : ''
                   }`}
                 >
+                  {/* Header: Customer Name, Status Badge, Artwork, Artist & Date, Chevron */}
                   <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <h4 className="text-sm font-medium text-[#ECE4D3]">
+                    <div className="min-w-0 flex-1">
+                      <h4 className="text-sm font-medium text-[#ECE4D3] truncate">
                         {b.customer_name}
                       </h4>
-                      <div className="flex items-center gap-3 text-[11px] text-[#7A7265] mt-0.5">
-                        <span className="flex items-center gap-1">
-                          <User size={11} /> {b.artist_name}
+                      <p className="text-xs text-[#A89F91] mt-0.5 font-medium truncate">
+                        {b.artwork_title || 'ไม่พบรายละเอียดงาน'}
+                      </p>
+                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-[#7A7265] mt-1.5">
+                        <span className="flex items-center gap-1 shrink-0">
+                          <User size={11} className="text-[#7A7265]" />
+                          <span className="text-[#A89F91]">{b.artist_name}</span>
                         </span>
-                        <span className="flex items-center gap-1">
-                          <Calendar size={11} /> {b.requested_date || '-'}
+                        <span className="flex items-center gap-1 shrink-0">
+                          <Calendar size={11} className="text-[#7A7265]" />
+                          <span>{b.requested_date || '-'}</span>
                         </span>
                       </div>
                     </div>
 
-                    <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium border ${bStatus.class}`}>
-                      {bStatus.label}
-                    </span>
-                  </div>
-
-                  {/* Financial Grid */}
-                  <div className="grid grid-cols-2 gap-2 mt-3 pt-2.5 border-t border-[#4A443A]/40 text-center">
-                    <div className="bg-[#0E0D0C] p-2 rounded border border-[#4A443A]/60">
-                      <p className="text-[10px] text-[#7A7265]">มัดจำ</p>
-                      <p className="text-xs font-medium text-amber-300/90 mt-0.5">
-                        {b.summary.deposit_required > 0
-                          ? `฿${b.summary.deposit_required.toLocaleString('th-TH')}`
-                          : '฿0'}
-                      </p>
-                    </div>
-
-                    <div className="bg-[#0E0D0C] p-2 rounded border border-[#4A443A]/60">
-                      <p className="text-[10px] text-[#7A7265]">ยอดที่ต้องจ่าย</p>
-                      <p className="text-xs font-semibold text-[#ECE4D3] mt-0.5">
-                        {isFullyPaid ? (
-                          <span className="px-1.5 py-0.5 rounded bg-emerald-950/60 border border-emerald-800 text-[10px] text-emerald-400 font-normal">
-                            ชำระครบแล้ว
-                          </span>
-                        ) : (
-                          `฿${amountDue.toLocaleString('th-TH')}`
-                        )}
-                      </p>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium border ${bStatus.class}`}>
+                        {bStatus.label}
+                      </span>
+                      <ChevronRight size={16} className="text-[#7A7265]" />
                     </div>
                   </div>
 
-                  <div className="flex items-center justify-end mt-2.5 text-[11px]">
-                    <span className="text-xs text-[#A89F91] flex items-center gap-1 font-medium">
-                      ดูรายละเอียดการเงิน <ChevronRight size={13} />
-                    </span>
+                  {/* Financial Boxes Section (Layout C: 2 side-by-side boxes with ~10px gap) */}
+                  <div className="grid grid-cols-2 gap-2.5 mt-3 pt-2.5 border-t border-[#4A443A]/40">
+                    {/* Left Box: Deposit (Top) & Balance (Bottom) separated by thin line */}
+                    <div className="bg-[#0E0D0C] p-2.5 rounded border border-[#4A443A]/60 flex flex-col justify-between gap-1.5 font-mono">
+                      <div className="flex items-center justify-between gap-1">
+                        <span className="text-[10px] text-[#7A7265] font-sans">มัดจำ</span>
+                        <span className="text-xs font-semibold text-amber-400">
+                          {depositSum > 0 ? `฿${depositSum.toLocaleString('th-TH')}` : '—'}
+                        </span>
+                      </div>
+                      <div className="border-t border-[#4A443A]/40" />
+                      <div className="flex items-center justify-between gap-1">
+                        <span className="text-[10px] text-[#7A7265] font-sans">ปิดงาน</span>
+                        <span className="text-xs font-semibold text-emerald-400">
+                          {balanceSum > 0 ? `฿${balanceSum.toLocaleString('th-TH')}` : '—'}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Right Box: Dark green bg & border, centered ยอดรับรวม & large green sum */}
+                    <div className="bg-emerald-950/40 border border-emerald-800/60 p-2.5 rounded flex flex-col items-center justify-center text-center font-mono">
+                      <span className="text-[10px] text-emerald-300/80 font-sans font-medium">
+                        ยอดรับรวม
+                      </span>
+                      <span className="text-base font-bold text-emerald-400 mt-0.5">
+                        ฿{recordedSum.toLocaleString('th-TH')}
+                      </span>
+                    </div>
                   </div>
                 </div>
               );

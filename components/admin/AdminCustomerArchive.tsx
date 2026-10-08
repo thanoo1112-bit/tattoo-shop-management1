@@ -5,6 +5,9 @@ import { useApp } from '../AppContext';
 import { Booking } from '@/data/mockBookings';
 import { EstimateRequest } from '@/data/mockEstimateRequests';
 import CustomerReferenceImage from '@/components/common/CustomerReferenceImage';
+import { formatTattooSize } from '@/lib/utils/formatters';
+import { calculateDurationTextFromTimes } from './calendar/calendarUtils';
+import { formatCustomerAgeDisplay, formatCustomerHealthInfo } from '@/lib/customerUtils';
 import {
   Search,
   User,
@@ -40,10 +43,14 @@ interface CustomerRecord {
   phone: string;
   avatar?: string;
   isActive?: boolean;
+  dateOfBirth?: string | null;
+  medicalConditions?: string | null;
+  allergies?: string | null;
   eligibilityConfirmedAt?: string | null;
   bookings: Booking[];
   estimates: EstimateRequest[];
-  completedCount: number;
+  confirmedCount: number;  // CONFIRMED + IN_PROGRESS (งานที่ยืนยันและกำลังดำเนินการ)
+  completedCount: number;  // COMPLETED เท่านั้น (ปิดงานแล้ว)
   activeBookings: Booking[];
   completedBookings: Booking[];
   totalSpent: number;
@@ -119,6 +126,25 @@ function CustomerArchiveReferenceGallery({
   );
 }
 
+function CustomerAvatar({
+  name,
+  sizeClass = "w-9 h-9",
+  textClass = "text-xs"
+}: {
+  avatar?: string;
+  name: string;
+  sizeClass?: string;
+  textClass?: string;
+}) {
+  const initials = name && name.trim() ? name.trim().charAt(0).toUpperCase() : 'C';
+
+  return (
+    <div className={`${sizeClass} rounded-full bg-[#171512] border border-[#4A443A] flex items-center justify-center font-bold ${textClass} text-[#ECE4D3] shrink-0`}>
+      {initials}
+    </div>
+  );
+}
+
 export default function AdminCustomerArchive() {
   const { bookings: appBookings, estimateRequests: appEstimates, artists: appArtists, supabase } = useApp();
 
@@ -150,12 +176,15 @@ export default function AdminCustomerArchive() {
     phone: string;
     avatar_url?: string;
     is_active: boolean;
+    date_of_birth?: string | null;
     eligibility_confirmed_at?: string | null;
   }[]>([]);
   const [fetchedBookings, setFetchedBookings] = useState<Booking[]>([]);
   const [fetchedEstimates, setFetchedEstimates] = useState<EstimateRequest[]>([]);
   const [approvedSubmissions, setApprovedSubmissions] = useState<any[]>([]);
   const [recordedPayments, setRecordedPayments] = useState<any[]>([]);
+  const [flashReservations, setFlashReservations] = useState<any[]>([]);
+  const [flashDesigns, setFlashDesigns] = useState<any[]>([]);
 
   // Close dropdowns on outside click
   useEffect(() => {
@@ -186,7 +215,7 @@ export default function AdminCustomerArchive() {
         // 1. Customers, Profiles & Artists
         const { data: custs } = await supabase
           .from('customers')
-          .select('id, user_id, display_name, email, phone, avatar_url, eligibility_confirmed_at');
+          .select('id, user_id, display_name, email, phone, avatar_url, date_of_birth, eligibility_confirmed_at');
 
         const { data: profs } = await supabase
           .from('profiles')
@@ -219,6 +248,7 @@ export default function AdminCustomerArchive() {
                 phone: c.phone || p?.phone || '-',
                 avatar_url: c.avatar_url || undefined,
                 is_active: p?.is_active ?? true,
+                date_of_birth: c.date_of_birth || null,
                 eligibility_confirmed_at: c.eligibility_confirmed_at || c.profile_completed_at || null,
               };
             });
@@ -237,6 +267,7 @@ export default function AdminCustomerArchive() {
                   phone: p.phone || '-',
                   avatar_url: undefined,
                   is_active: p.is_active ?? true,
+                  date_of_birth: null,
                 });
               }
             });
@@ -246,8 +277,8 @@ export default function AdminCustomerArchive() {
           setMasterCustomers(joinedCusts);
         }
 
-        // 2. Fetch Estimates for joining (excluding health disclosure fields)
-        const { data: eData } = await supabase.from('estimate_requests').select('id, customer_id, customer_user_id, artist_id, reference_images, width_cm, height_cm, placement, style, description, preferred_date, preferred_time, status, quoted_price, estimated_duration_minutes, deposit_required, quote_note, quoted_at, accepted_at, rejected_at, created_at, updated_at');
+        // 2. Fetch Estimates for joining (including health disclosure fields)
+        const { data: eData } = await supabase.from('estimate_requests').select('id, customer_id, customer_user_id, artist_id, reference_images, width_cm, height_cm, placement, style, description, preferred_date, preferred_time, status, quoted_price, estimated_duration_minutes, deposit_required, quote_note, quoted_at, accepted_at, rejected_at, created_at, updated_at, has_medical_condition, medical_condition_note, has_allergy, allergy_note');
 
         // Map estimates
         if (eData && isMounted) {
@@ -274,6 +305,14 @@ export default function AdminCustomerArchive() {
               quotedPrice: e.quoted_price,
               quotedDeposit: e.deposit_required || e.quoted_deposit,
               submittedDate: e.created_at ? e.created_at.split('T')[0] : new Date().toISOString().split('T')[0],
+              has_medical_condition: e.has_medical_condition,
+              medical_condition_note: e.medical_condition_note,
+              has_allergy: e.has_allergy,
+              allergy_note: e.allergy_note,
+              hasMedicalCondition: Boolean(e.has_medical_condition),
+              medicalConditionNote: e.medical_condition_note || null,
+              hasAllergy: Boolean(e.has_allergy),
+              allergyNote: e.allergy_note || null,
             } as any;
           });
           setFetchedEstimates(mappedEstimates);
@@ -282,7 +321,8 @@ export default function AdminCustomerArchive() {
         // 3. Direct Bookings (Valid Column Query)
         const { data: bData, error: errB } = await supabase
           .from('bookings')
-          .select('*, booking_sessions(*)');
+          .select('*, booking_sessions(*), flash_reservation_id');
+
 
         if (bData && isMounted) {
           const mappedBookings: Booking[] = bData.map((b: any) => {
@@ -310,7 +350,9 @@ export default function AdminCustomerArchive() {
                 : (b.reference_images && Array.isArray(b.reference_images) && b.reference_images.length > 0
                   ? b.reference_images
                   : (est?.reference_images?.[0] || b.reference_images?.[0] || b.artwork_image_url ? [est?.reference_images?.[0] || b.reference_images?.[0] || b.artwork_image_url] : [])),
-              placement: est?.placement || 'ตามตกลง',
+              placement: b.placement || est?.placement || 'ตามตกลง',
+              width_cm: b.width_cm ?? est?.width_cm ?? est?.width ?? null,
+              height_cm: b.height_cm ?? est?.height_cm ?? est?.height ?? null,
               date: b.requested_date || (firstSession?.start_at ? firstSession.start_at.split('T')[0] : new Date().toISOString().split('T')[0]),
               startTime: b.requested_start_time ? b.requested_start_time.slice(0, 5) : '13:00',
               endTime: '17:00',
@@ -323,6 +365,8 @@ export default function AdminCustomerArchive() {
               approved_at: b.approved_at,
               approvedAt: b.approved_at,
               artist_id: b.artist_id,
+              flash_reservation_id: b.flash_reservation_id || null,
+              estimate_request_id: b.estimate_request_id || null,
             } as any;
           });
           setFetchedBookings(mappedBookings);
@@ -342,6 +386,20 @@ export default function AdminCustomerArchive() {
         if (isMounted) {
           if (appSubs) setApprovedSubmissions(appSubs);
           if (recPays) setRecordedPayments(recPays);
+        }
+
+        // 5. Flash Reservations & Designs (Admin has broader RLS access)
+        const { data: flashResData } = await supabase
+          .from('flash_reservations')
+          .select('*');
+
+        const { data: flashDesData } = await supabase
+          .from('flash_designs')
+          .select('*');
+
+        if (isMounted) {
+          if (flashResData) setFlashReservations(flashResData);
+          if (flashDesData) setFlashDesigns(flashDesData);
         }
       } catch (err) {
         console.error('Error hydrating customer archive:', err);
@@ -388,12 +446,34 @@ export default function AdminCustomerArchive() {
       phone: string;
       avatar?: string;
       isActive?: boolean;
+      dateOfBirth?: string | null;
       eligibilityConfirmedAt?: string | null;
       bookings: Booking[];
       estimates: EstimateRequest[];
     }
 
     const holders: CustomerHolder[] = [];
+
+    // Helper: resolve flash booking details from bookings.flash_reservation_id → flash_reservations.id → flash_designs
+    const getFlashDetails = (booking: any) => {
+      // bookings.flash_reservation_id → flash_reservations.id
+      const flashResId = booking?.flash_reservation_id;
+      if (!flashResId) return null;
+      const fr = flashReservations.find((r: any) => r.id === flashResId);
+      if (!fr) return null;
+      const fd = flashDesigns.find((d: any) => d.id === fr.flash_design_id);
+      return {
+        title: fd?.title || fr?.flash_design_title || null,
+        style: fd?.style || 'Flash',
+        placement: fd?.placement || fr?.placement || null,
+        widthCm: fd?.width_cm ?? fr?.width_cm ?? null,
+        heightCm: fd?.height_cm ?? fr?.height_cm ?? null,
+        imageUrl: fd?.image_url || fr?.flash_design_image_url || null,
+        deposit: fd?.deposit_required ?? fd?.deposit_amount ?? fr?.deposit_required ?? 500,
+        reservationId: fr.id,
+        designId: fd?.id || fr.flash_design_id,
+      };
+    };
 
     // 1. Seed from Master Customers
     masterCustomers.forEach((mc) => {
@@ -405,6 +485,7 @@ export default function AdminCustomerArchive() {
         phone: mc.phone !== '-' ? mc.phone : '',
         avatar: mc.avatar_url,
         isActive: mc.is_active,
+        dateOfBirth: mc.date_of_birth,
         eligibilityConfirmedAt: mc.eligibility_confirmed_at,
         bookings: [],
         estimates: [],
@@ -505,7 +586,66 @@ export default function AdminCustomerArchive() {
     const records: CustomerRecord[] = [];
 
     holders.forEach((h) => {
-      const sortedBookings = [...h.bookings].sort((a, b) => b.date.localeCompare(a.date));
+      // Enrich Flash and Custom bookings with real flash details, approved deposit amounts, and actual recorded payments sum
+      const enrichedBookings = [...h.bookings].map((b: any) => {
+        const flash = getFlashDetails(b);
+
+        // Check real recorded payment / approved submission for this booking ID
+        const bookingPayment = recordedPayments.find(
+          (p: any) => p.booking_id === b.id && (p.status || '').toUpperCase() !== 'VOIDED'
+        );
+        const approvedSub = approvedSubmissions.find(
+          (s: any) => s.booking_id === b.id && (s.status || '').toUpperCase() === 'APPROVED'
+        );
+        const realDeposit = bookingPayment?.amount ?? (approvedSub ? (b.deposit || flash?.deposit || 500) : (b.deposit || (flash?.deposit ?? (b.status === 'CONFIRMED' ? 500 : 0))));
+
+        // Total recorded payments sum for this specific booking ID
+        const bRecordedPayments = recordedPayments.filter(
+          (p: any) => p.booking_id === b.id && String(p.status || '').toUpperCase() === 'RECORDED'
+        );
+        const actualPaidSum = bRecordedPayments.reduce(
+          (sum: number, p: any) => sum + Number(p.amount || 0),
+          0
+        );
+
+        if (!flash) {
+          const est = combinedEstimates.find(
+            (e: any) => e.id === b.estimate_request_id || e.id === b.id
+          );
+          return {
+            ...b,
+            placement: (b as any).placement || (est as any)?.placement || 'ตามตกลง',
+            width_cm: (b as any).width_cm ?? (est as any)?.width_cm ?? est?.width ?? null,
+            height_cm: (b as any).height_cm ?? (est as any)?.height_cm ?? est?.height ?? null,
+            deposit: realDeposit,
+            depositPaid: realDeposit > 0,
+            actualPaidSum,
+          };
+        }
+
+        const titleText = flash.title
+          ? (flash.title.startsWith('ลาย Flash:') ? flash.title : `ลาย Flash: ${flash.title}`)
+          : b.artworkTitle;
+
+        return {
+          ...b,
+          artworkTitle: titleText,
+          artworkImage: flash.imageUrl || b.artworkImage,
+          referenceImages: flash.imageUrl ? [flash.imageUrl] : b.referenceImages,
+          placement: flash.placement || b.placement || 'หน้าอก',
+          width_cm: flash.widthCm ?? b.width_cm ?? 10,
+          height_cm: flash.heightCm ?? b.height_cm ?? 15,
+          deposit: realDeposit,
+          depositPaid: realDeposit > 0,
+          actualPaidSum,
+          flashReservationId: flash.reservationId,
+          flashDesignId: flash.designId,
+          _flashStyle: flash.style,
+          _isFlash: true,
+        };
+      });
+
+      const sortedBookings = [...enrichedBookings].sort((a, b) => b.date.localeCompare(a.date));
       const sortedEstimates = [...h.estimates].sort((a, b) =>
         b.submittedDate.localeCompare(a.submittedDate)
       );
@@ -543,30 +683,38 @@ export default function AdminCustomerArchive() {
       const confirmedJobBookings = sortedBookings.filter(isConfirmedWork);
       const completedBookings = sortedBookings.filter((b) => (b.status || '').toUpperCase() === 'COMPLETED');
 
-      // Completed / Confirmed Job Count
-      const confirmedCount = confirmedJobBookings.length;
-      const completedCount = completedBookings.length > 0 ? completedBookings.length : (confirmedCount > 0 ? confirmedCount : 1);
+      // Completed count — เฉพาะงานที่ COMPLETED จริงเท่านั้น
+      const completedCount = completedBookings.length;
 
       // Active Bookings (CONFIRMED, IN_PROGRESS, WAITING_DEPOSIT)
       const activeBookings = sortedBookings.filter(
         (b) => b.status === 'WAITING_DEPOSIT' || b.status === 'CONFIRMED' || b.status === 'IN_PROGRESS'
       );
 
-      // Total spent on confirmed/completed jobs
-      const totalSpent = (confirmedJobBookings.length > 0 ? confirmedJobBookings : [])
-        .reduce((sum, b) => sum + (b.price || 0), 0);
+      // confirmedCount — จำนวนงานทั้งหมดที่ยืนยัน/ดำเนินการ/เสร็จสิ้นแล้ว (CONFIRMED + IN_PROGRESS + COMPLETED + approved slip)
+      const confirmedCount = confirmedJobBookings.length;
 
-      // Most recent job
-      const latestConfirmedBooking = confirmedJobBookings[0] || sortedBookings.find(isConfirmedWork);
-      const lastArtistName = latestConfirmedBooking?.artistName || 'ช่างสักประจำร้าน';
-      const lastArtworkTitle = latestConfirmedBooking?.artworkTitle || 'งานสัก';
-      const lastDate = latestConfirmedBooking?.date || '-';
+      // Total spent — นับเฉพาะงาน COMPLETED จริงเท่านั้น จากยอดรับเงินจริง (actualPaidSum)
+      const totalSpent = completedBookings.reduce((sum, b: any) => sum + (b.actualPaidSum || b.price || 0), 0);
 
-      // Next upcoming appointment
+      // Most recent COMPLETED job only
+      const latestCompletedBooking = completedBookings[0] || null;
+      const lastArtistName = latestCompletedBooking?.artistName || '—';
+      const lastArtworkTitle = latestCompletedBooking?.artworkTitle || '—';
+      const lastDate = latestCompletedBooking?.date || '-';
+
+      // Next upcoming appointment — เฉพาะอนาคตจริง (date > now)
+      const nowDateStr = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
       const activeUpcoming = sortedBookings.find(
-        (b) => b.status === 'CONFIRMED' || b.status === 'IN_PROGRESS'
+        (b) =>
+          (b.status === 'CONFIRMED' || b.status === 'IN_PROGRESS') &&
+          (b.date || '') >= nowDateStr
       );
-      const pendingAppointment = sortedBookings.find((b) => b.status === 'WAITING_DEPOSIT' || b.status === 'PENDING');
+      const pendingAppointment = sortedBookings.find(
+        (b) =>
+          (b.status === 'WAITING_DEPOSIT' || b.status === 'PENDING') &&
+          (b.date || '') >= nowDateStr
+      );
       const nextAppointment = activeUpcoming || pendingAppointment || null;
 
       let statusCategory: CustomerRecord['statusCategory'] = 'NO_APPOINTMENT';
@@ -584,9 +732,11 @@ export default function AdminCustomerArchive() {
         phone: h.phone || '-',
         avatar: h.avatar,
         isActive: h.isActive,
+        dateOfBirth: h.dateOfBirth,
         eligibilityConfirmedAt: h.eligibilityConfirmedAt,
         bookings: sortedBookings,
         estimates: sortedEstimates,
+        confirmedCount,
         completedCount,
         activeBookings,
         completedBookings,
@@ -600,7 +750,7 @@ export default function AdminCustomerArchive() {
     });
 
     return records;
-  }, [combinedBookings, combinedEstimates, masterCustomers, approvedSubmissions, recordedPayments]);
+  }, [combinedBookings, combinedEstimates, masterCustomers, approvedSubmissions, recordedPayments, flashReservations, flashDesigns]);
 
   // Filtered & Sorted Customer Records
   const filteredCustomers = useMemo(() => {
@@ -652,10 +802,11 @@ export default function AdminCustomerArchive() {
   };
 
   // Status Badge Presentation
-  const getBookingStatusBadge = (status: Booking['status']) => {
-    switch (status) {
+  const getBookingStatusBadge = (status?: string | null) => {
+    const st = (status || '').toUpperCase();
+    switch (st) {
       case 'CONFIRMED':
-        return { label: 'ยืนยันคิวแล้ว', dot: 'bg-green-400', badge: 'text-green-300 bg-green-950/60 border-green-800' };
+        return { label: 'นัดหมายแล้ว', dot: 'bg-blue-400', badge: 'text-blue-300 bg-blue-950/60 border-blue-800' };
       case 'IN_PROGRESS':
         return { label: 'กำลังสัก', dot: 'bg-[#9C2F2F]', badge: 'text-[#9C2F2F] bg-[#9C2F2F]/20 border-[#9C2F2F]' };
       case 'WAITING_DEPOSIT':
@@ -667,6 +818,8 @@ export default function AdminCustomerArchive() {
       case 'CANCELLED':
       case 'REJECTED':
         return { label: 'ยกเลิก', dot: 'bg-red-500', badge: 'text-red-400 bg-red-950/60 border-red-800' };
+      case 'EXPIRED':
+        return { label: 'หมดเวลาชำระมัดจำ', dot: 'bg-zinc-500', badge: 'text-zinc-400 bg-zinc-900/90 border-zinc-700' };
       default:
         return { label: status, dot: 'bg-[#7A7265]', badge: 'text-[#A89F91] bg-[#171512] border-[#4A443A]' };
     }
@@ -856,8 +1009,8 @@ export default function AdminCustomerArchive() {
             <tr className="border-b border-[#4A443A] bg-[#0E0D0C] text-[10px] uppercase font-semibold text-[#7A7265] tracking-wider">
               <th className="py-3 px-4">ลูกค้า</th>
               <th className="py-3 px-4">ข้อมูลติดต่อ</th>
-              <th className="py-3 px-4">ช่างล่าสุด</th>
-              <th className="py-3 px-4">งานล่าสุด</th>
+              <th className="py-3 px-4">ช่างของนัดถัดไป</th>
+              <th className="py-3 px-4">งานนัดถัดไป</th>
               <th className="py-3 px-4">นัดหมายถัดไป</th>
               <th className="py-3 px-4 text-center">จำนวนงาน</th>
               <th className="py-3 px-4 text-right">ดำเนินการ</th>
@@ -890,30 +1043,14 @@ export default function AdminCustomerArchive() {
                     {/* Customer Name & Initial Avatar */}
                     <td className="py-3 px-4">
                       <div className="flex items-center space-x-3">
-                        {cust.avatar ? (
-                          <img
-                            src={cust.avatar}
-                            alt={cust.name}
-                            className="w-9 h-9 rounded-full object-cover border border-[#4A443A] shrink-0"
-                          />
-                        ) : (
-                          <div className="w-9 h-9 rounded-full bg-[#171512] border border-[#4A443A] flex items-center justify-center font-bold text-xs text-[#ECE4D3] shrink-0">
-                            {getInitials(cust.name)}
-                          </div>
-                        )}
+                        <CustomerAvatar avatar={cust.avatar} name={cust.name} sizeClass="w-9 h-9" textClass="text-xs" />
                         <div>
                           <strong className="text-[#ECE4D3] font-medium block">
                             {cust.name}
                           </strong>
-                          {cust.isActive !== undefined && (
-                            <span
-                              className={`text-[9px] font-mono px-1.5 py-0.5 rounded border inline-block mt-0.5 ${
-                                cust.isActive
-                                  ? 'text-emerald-400 bg-emerald-950/40 border-emerald-800/60'
-                                  : 'text-red-400 bg-red-950/40 border-red-800/60'
-                              }`}
-                            >
-                              {cust.isActive ? 'เปิดใช้งาน' : 'ระงับการใช้งาน'}
+                          {cust.isActive === false && (
+                            <span className="text-[9px] font-mono px-1.5 py-0.5 rounded border inline-block mt-0.5 text-red-400 bg-red-950/40 border-red-800/60">
+                              ระงับการใช้งาน
                             </span>
                           )}
                         </div>
@@ -930,19 +1067,21 @@ export default function AdminCustomerArchive() {
                       </span>
                     </td>
 
-                    {/* Last Artist */}
+                    {/* Next Appointment Artist */}
                     <td className="py-3 px-4 text-[#ECE4D3] font-medium">
-                      {cust.lastArtistName}
+                      {cust.nextAppointment ? cust.nextAppointment.artistName : '—'}
                     </td>
 
-                    {/* Last Artwork */}
+                    {/* Next Appointment Artwork */}
                     <td className="py-3 px-4">
                       <span className="text-[#ECE4D3] font-medium block truncate max-w-[160px]">
-                        {cust.lastArtworkTitle}
+                        {cust.nextAppointment ? (cust.nextAppointment.artworkTitle || 'Custom Tattoo') : '—'}
                       </span>
-                      <span className="text-[10px] text-[#7A7265] font-mono block">
-                        {formatThaiDate(cust.lastDate)}
-                      </span>
+                      {cust.nextAppointment?.date && (
+                        <span className="text-[10px] text-[#7A7265] font-mono block">
+                          {formatThaiDate(cust.nextAppointment.date)}
+                        </span>
+                      )}
                     </td>
 
                     {/* Next Appointment */}
@@ -964,9 +1103,9 @@ export default function AdminCustomerArchive() {
                       )}
                     </td>
 
-                    {/* Total Completed Jobs */}
+                    {/* Total Confirmed Jobs */}
                     <td className="py-3 px-4 text-center font-mono font-semibold text-[#ECE4D3]">
-                      {cust.completedCount} งาน
+                      {cust.confirmedCount} งาน
                     </td>
 
                     {/* Action */}
@@ -1009,9 +1148,7 @@ export default function AdminCustomerArchive() {
             >
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-3">
-                  <div className="w-10 h-10 rounded-full bg-[#0E0D0C] border border-[#4A443A] flex items-center justify-center font-bold text-sm text-[#ECE4D3] shrink-0">
-                    {getInitials(cust.name)}
-                  </div>
+                  <CustomerAvatar avatar={cust.avatar} name={cust.name} sizeClass="w-10 h-10" textClass="text-sm" />
                   <div>
                     <h4 className="text-sm font-semibold text-[#ECE4D3]">
                       {cust.name}
@@ -1022,20 +1159,22 @@ export default function AdminCustomerArchive() {
                   </div>
                 </div>
                 <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-[#0E0D0C] border border-[#4A443A] text-[#ECE4D3] font-semibold">
-                  {cust.completedCount} งาน
+                  {cust.confirmedCount} งาน
                 </span>
               </div>
 
               <div className="grid grid-cols-2 gap-2 text-xs border-t border-[#4A443A]/40 pt-2 text-[#A89F91]">
                 <div>
-                  <span className="text-[10px] text-[#7A7265] block">งานล่าสุด:</span>
+                  <span className="text-[10px] text-[#7A7265] block">งานนัดถัดไป:</span>
                   <span className="text-[#ECE4D3] truncate block">
-                    {cust.lastArtworkTitle}
+                    {cust.nextAppointment ? (cust.nextAppointment.artworkTitle || 'Custom Tattoo') : '—'}
                   </span>
                 </div>
                 <div>
-                  <span className="text-[10px] text-[#7A7265] block">ช่างล่าสุด:</span>
-                  <span className="text-[#ECE4D3] block">{cust.lastArtistName}</span>
+                  <span className="text-[10px] text-[#7A7265] block">ช่างของนัดถัดไป:</span>
+                  <span className="text-[#ECE4D3] block">
+                    {cust.nextAppointment ? cust.nextAppointment.artistName : '—'}
+                  </span>
                 </div>
               </div>
 
@@ -1097,9 +1236,7 @@ export default function AdminCustomerArchive() {
               </div>
 
               <div className="flex items-center space-x-4">
-                <div className="w-16 h-16 rounded-full bg-[#0E0D0C] border-2 border-[#4A443A] flex items-center justify-center font-bold text-2xl text-[#ECE4D3] shrink-0">
-                  {getInitials(selectedCustomer.name)}
-                </div>
+                <CustomerAvatar avatar={selectedCustomer.avatar} name={selectedCustomer.name} sizeClass="w-16 h-16" textClass="text-2xl" />
                 <div className="min-w-0">
                   <h2 className="text-xl sm:text-2xl font-heading font-normal tracking-wide text-[#ECE4D3] truncate">
                     {selectedCustomer.name}
@@ -1112,6 +1249,12 @@ export default function AdminCustomerArchive() {
                     <span className="flex items-center space-x-1">
                       <Phone size={11} className="text-[#7A7265]" />
                       <span className="font-mono">{selectedCustomer.phone}</span>
+                    </span>
+                    <span className="flex items-center space-x-1">
+                      <Calendar size={11} className="text-[#7A7265]" />
+                      <span className="font-mono">
+                        {`อายุ: ${formatCustomerAgeDisplay(selectedCustomer.dateOfBirth)}`}
+                      </span>
                     </span>
                   </div>
                   <div className="flex items-center space-x-2 mt-2">
@@ -1152,7 +1295,25 @@ export default function AdminCustomerArchive() {
                       : 'text-[#7A7265] hover:text-[#A89F91]'
                   }`}
                 >
-                  คำขอจอง ({selectedCustomer.estimates.length})
+                  คำขอจอง ({(() => {
+                    const handled = new Set();
+                    let count = 0;
+                    selectedCustomer.estimates.forEach((e) => {
+                      const mb = selectedCustomer.bookings.find((b: any) => b.estimate_request_id === e.id || b.id === e.id);
+                      if (mb) {
+                        handled.add(mb.id);
+                        const bStatus = (mb.status || '').toUpperCase();
+                        if (['CONFIRMED', 'IN_PROGRESS', 'COMPLETED'].includes(bStatus)) return;
+                      }
+                      count++;
+                    });
+                    selectedCustomer.bookings.forEach((b: any) => {
+                      if (!handled.has(b.id) && ['EXPIRED', 'WAITING_DEPOSIT', 'PENDING', 'REJECTED'].includes((b.status || '').toUpperCase())) {
+                        count++;
+                      }
+                    });
+                    return count;
+                  })()})
                   {activeDetailTab === 'requests' && (
                     <span className="absolute bottom-0 left-0 right-0 h-[2px] bg-[#9C2F2F]" />
                   )}
@@ -1226,43 +1387,39 @@ export default function AdminCustomerArchive() {
                         <div>
                           <span className="text-[10px] text-[#7A7265] block">วันและเวลา:</span>
                           <span className="font-mono text-[#ECE4D3]">
-                            {formatThaiDate(selectedCustomer.nextAppointment.date)}{' '}
-                            {selectedCustomer.nextAppointment.startTime}–
-                            {selectedCustomer.nextAppointment.endTime} (
-                            {selectedCustomer.nextAppointment.duration} ชม.)
+                            {formatThaiDate(selectedCustomer.nextAppointment.date)} •{' '}
+                            {selectedCustomer.nextAppointment.startTime}
                           </span>
                         </div>
                         <div>
                           <span className="text-[10px] text-[#7A7265] block">ตำแหน่งและขนาด:</span>
                           <span className="text-[#ECE4D3]">
                             {selectedCustomer.nextAppointment.placement || 'ตามที่ตกลง'}
+                            {formatTattooSize(
+                              (selectedCustomer.nextAppointment as any).width_cm,
+                              (selectedCustomer.nextAppointment as any).height_cm
+                            )
+                              ? ` (${formatTattooSize(
+                                  (selectedCustomer.nextAppointment as any).width_cm,
+                                  (selectedCustomer.nextAppointment as any).height_cm
+                                )})`
+                              : ''}
                           </span>
                         </div>
                       </div>
 
-                      {/* Pricing Breakdown */}
-                      <div className="grid grid-cols-3 gap-2 pt-2 border-t border-[#4A443A]/40 text-center">
-                        <div className="p-2 bg-[#0E0D0C] rounded border border-[#4A443A]/40">
-                          <span className="text-[9px] text-[#7A7265] block">ราคาค่าสัก:</span>
-                          <strong className="text-xs font-mono text-[#ECE4D3]">
-                            ฿{selectedCustomer.nextAppointment.price?.toLocaleString()}
-                          </strong>
-                        </div>
-                        <div className="p-2 bg-[#0E0D0C] rounded border border-[#4A443A]/40">
-                          <span className="text-[9px] text-[#7A7265] block">มัดจำแล้ว:</span>
-                          <strong className="text-xs font-mono text-green-400">
-                            ฿{selectedCustomer.nextAppointment.deposit?.toLocaleString()}
-                          </strong>
-                        </div>
-                        <div className="p-2 bg-[#0E0D0C] rounded border border-[#4A443A]/40">
-                          <span className="text-[9px] text-[#7A7265] block">คงเหลือ:</span>
-                          <strong className="text-xs font-mono text-[#A89F91]">
-                            ฿{(
-                              (selectedCustomer.nextAppointment.price || 0) -
-                              (selectedCustomer.nextAppointment.deposit || 0)
-                            ).toLocaleString()}
-                          </strong>
-                        </div>
+                      {/* Payment Status Row — Styled identical to Artist Drawer */}
+                      <div className="pt-2 border-t border-[#4A443A]/40 flex justify-between items-center text-xs">
+                        <span className="text-[#A89F91]">สถานะการชำระ:</span>
+                        {selectedCustomer.nextAppointment.deposit && selectedCustomer.nextAppointment.deposit > 0 ? (
+                          <span className="font-mono font-bold text-emerald-400 bg-emerald-950/60 border border-emerald-800 px-2.5 py-1 rounded">
+                            มัดจำแล้ว (฿{selectedCustomer.nextAppointment.deposit.toLocaleString()})
+                          </span>
+                        ) : (
+                          <span className="font-mono text-[#7A7265] italic text-xs">
+                            ยังไม่ชำระมัดจำ
+                          </span>
+                        )}
                       </div>
                     </div>
                   ) : (
@@ -1299,21 +1456,28 @@ export default function AdminCustomerArchive() {
                       </div>
                       <div>
                         <span className="text-[#7A7265] text-[10px] block">ยอดใช้จ่ายรวม:</span>
-                        <span className="text-green-400 font-mono font-semibold">
-                          ฿{selectedCustomer.totalSpent.toLocaleString()}
+                        <span className={`font-mono font-semibold ${selectedCustomer.totalSpent > 0 ? 'text-green-400' : 'text-[#A89F91]'}`}>
+                          {selectedCustomer.totalSpent > 0 ? `฿${selectedCustomer.totalSpent.toLocaleString()}` : '—'}
                         </span>
                       </div>
-                      <div>
-                        <span className="text-[#7A7265] text-[10px] block">
-                          การยืนยันอายุและเงื่อนไข:
+                      <div className="col-span-2 pt-2 border-t border-[#4A443A]/40 space-y-2">
+                        <span className="text-[#7A7265] text-[10px] uppercase font-bold tracking-wider block">
+                          ข้อมูลสุขภาพ (สำหรับ Admin/ช่างเท่านั้น):
                         </span>
-                        {selectedCustomer.eligibilityConfirmedAt ||
-                        selectedCustomer.bookings.some((b) => (b as any).is_age_confirmed) ||
-                        selectedCustomer.estimates.some((e) => (e as any).is_age_confirmed) ? (
-                          <span className="text-emerald-400 font-semibold text-[11px]">✓ ยืนยันแล้ว</span>
-                        ) : (
-                          <span className="text-amber-400 font-semibold text-[11px]">ยังไม่ยืนยัน</span>
-                        )}
+                        <div className="grid grid-cols-2 gap-2 text-xs">
+                          <div className="p-2 bg-[#171512] rounded border border-[#4A443A]/50 space-y-0.5">
+                            <span className="text-[10px] text-[#7A7265] block font-medium">โรคประจำตัว:</span>
+                            <span className="text-[#ECE4D3] font-medium block">
+                              {formatCustomerHealthInfo({ estimates: selectedCustomer.estimates }).medicalCondition}
+                            </span>
+                          </div>
+                          <div className="p-2 bg-[#171512] rounded border border-[#4A443A]/50 space-y-0.5">
+                            <span className="text-[10px] text-[#7A7265] block font-medium">อาการแพ้ (เช่น ยา, โลหะ, ยาชา):</span>
+                            <span className="text-[#ECE4D3] font-medium block">
+                              {formatCustomerHealthInfo({ estimates: selectedCustomer.estimates }).allergy}
+                            </span>
+                          </div>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -1331,68 +1495,160 @@ export default function AdminCustomerArchive() {
               )}
 
               {/* TAB 2: BOOKING REQUESTS (คำขอจอง) */}
-              {activeDetailTab === 'requests' && (
-                <div className="space-y-3">
-                  {selectedCustomer.estimates.length === 0 ? (
-                    <div className="p-8 text-center text-xs text-[#7A7265]">
-                      ยังไม่มีประวัติคำขอจองคิว
-                    </div>
-                  ) : (
-                    selectedCustomer.estimates.map((e) => (
-                      <div
-                        key={e.id}
-                        className="p-3.5 bg-[#0E0D0C] border border-[#4A443A] rounded-[6px] space-y-2.5"
-                      >
-                        <div className="flex items-center justify-between">
-                          <div className="min-w-0 flex-1 pr-2">
-                            <strong className="text-xs text-[#ECE4D3] block">
-                              สไตล์ {e.style} • ขนาด {e.width}×{e.height} cm
-                            </strong>
-                            <span className="text-[10px] text-[#A89F91] block mt-0.5">
-                              ตำแหน่ง: {e.placement} • ช่าง: {e.artistName || 'ช่างประจำร้าน'}
-                            </span>
-                            <span className="text-[10px] text-[#7A7265] font-mono block mt-0.5">
-                              ส่งคำขอเมื่อ: {formatThaiDate(e.submittedDate)}
-                            </span>
-                          </div>
-                          <span
-                            className={`text-[9px] px-2 py-0.5 rounded font-semibold border shrink-0 ${
-                              e.status === 'QUOTED'
-                                ? 'text-amber-300 bg-amber-950/60 border-amber-800'
-                                : e.status === 'ACCEPTED'
-                                ? 'text-green-300 bg-green-950/60 border-green-800'
-                                : e.status === 'PENDING'
-                                ? 'text-[#9C2F2F] bg-[#9C2F2F]/20 border-[#9C2F2F]'
-                                : 'text-red-400 bg-red-950/60 border-red-800'
-                            }`}
-                          >
-                            {e.status === 'QUOTED' && 'เสนอราคาแล้ว'}
-                            {e.status === 'ACCEPTED' && 'ตอบรับราคาแล้ว'}
-                            {e.status === 'PENDING' && 'รอเสนอราคา'}
-                            {e.status === 'REJECTED' && 'ปฏิเสธ'}
-                          </span>
-                        </div>
+              {activeDetailTab === 'requests' && (() => {
+                // Deduplicate & unify estimate_requests and bookings
+                const handledBookingIds = new Set<string>();
+                const unifiedRequests: any[] = [];
 
-                        {e.quotedPrice && (
-                          <div className="p-2 bg-[#171512] rounded border border-amber-800/40 text-[11px] flex justify-between items-center">
-                            <span className="text-[#A89F91]">ราคาที่เสนอ:</span>
-                            <span className="font-mono font-semibold text-[#ECE4D3]">
-                              ฿{e.quotedPrice.toLocaleString()} (มัดจำ ฿
-                              {e.quotedDeposit?.toLocaleString() || 0})
-                            </span>
-                          </div>
-                        )}
+                // 1. Estimate requests
+                selectedCustomer.estimates.forEach((e) => {
+                  const matchingBooking = selectedCustomer.bookings.find(
+                    (b: any) => b.estimate_request_id === e.id || b.id === e.id
+                  );
 
-                        <CustomerArchiveReferenceGallery
-                          images={(e as any).referenceImages}
-                          singleFallback={e.referenceImage}
-                          onOpenLightbox={(imgs, idx) => setLightboxGallery({ images: imgs, index: idx })}
-                        />
+                  if (matchingBooking) {
+                    handledBookingIds.add(matchingBooking.id);
+                    const bStatus = (matchingBooking.status || '').toUpperCase();
+                    const effectiveStatus = bStatus || (e.status || 'PENDING').toUpperCase();
+
+                    // If the request has become a CONFIRMED, IN_PROGRESS, or COMPLETED job,
+                    // it belongs in the Queue or History tabs, NOT the Requests tab!
+                    if (['CONFIRMED', 'IN_PROGRESS', 'COMPLETED'].includes(effectiveStatus)) {
+                      return;
+                    }
+
+                    unifiedRequests.push({
+                      id: `unified-${e.id}-${matchingBooking.id}`,
+                      title: `สไตล์ ${e.style || 'Custom'}${formatTattooSize(e.width, e.height) ? ` • ${formatTattooSize(e.width, e.height)}` : ''}`,
+                      placement: matchingBooking.placement || e.placement || 'ตามที่ตกลง',
+                      artistName: matchingBooking.artistName || e.artistName || 'ช่างประจำร้าน',
+                      submittedDate: e.submittedDate || matchingBooking.date,
+                      status: effectiveStatus,
+                      depositRequired: (matchingBooking as any).deposit || e.quotedDeposit || (e as any).deposit_required || 500,
+                      quotedPrice: e.quotedPrice,
+                      quotedDeposit: e.quotedDeposit,
+                      referenceImages: (e as any).referenceImages?.length
+                        ? (e as any).referenceImages
+                        : ((matchingBooking as any).referenceImages?.length ? (matchingBooking as any).referenceImages : (e.referenceImage ? [e.referenceImage] : [])),
+                      artworkImage: (matchingBooking as any).artworkImage || e.referenceImage,
+                    });
+                  } else {
+                    unifiedRequests.push({
+                      id: `est-${e.id}`,
+                      title: `สไตล์ ${e.style || 'Custom'}${formatTattooSize(e.width, e.height) ? ` • ${formatTattooSize(e.width, e.height)}` : ''}`,
+                      placement: e.placement || 'ตามที่ตกลง',
+                      artistName: e.artistName || 'ช่างประจำร้าน',
+                      submittedDate: e.submittedDate,
+                      status: (e.status || 'PENDING').toUpperCase(),
+                      depositRequired: e.quotedDeposit || 500,
+                      quotedPrice: e.quotedPrice,
+                      quotedDeposit: e.quotedDeposit,
+                      referenceImages: (e as any).referenceImages?.length ? (e as any).referenceImages : (e.referenceImage ? [e.referenceImage] : []),
+                      artworkImage: e.referenceImage,
+                    });
+                  }
+                });
+
+                // 2. Standalone request bookings (Flash EXPIRED / WAITING_DEPOSIT / etc. without linked estimate_request)
+                selectedCustomer.bookings.forEach((b: any) => {
+                  if (handledBookingIds.has(b.id)) return;
+                  const bStatus = (b.status || '').toUpperCase();
+                  if (['EXPIRED', 'WAITING_DEPOSIT', 'PENDING', 'REJECTED'].includes(bStatus)) {
+                    const sizeText = formatTattooSize((b as any).width_cm, (b as any).height_cm);
+                    const titleText = b.artworkTitle
+                      ? `${b.artworkTitle}${sizeText ? ` · ${sizeText}` : ''}`
+                      : 'Custom Tattoo';
+
+                    unifiedRequests.push({
+                      id: `book-${b.id}`,
+                      title: titleText,
+                      placement: b.placement || 'ตามที่ตกลง',
+                      artistName: b.artistName || 'ช่างประจำร้าน',
+                      submittedDate: b.date,
+                      status: bStatus,
+                      depositRequired: b.deposit || 500,
+                      referenceImages: (b as any).referenceImages?.length ? (b as any).referenceImages : (b.artworkImage ? [b.artworkImage] : []),
+                      artworkImage: b.artworkImage,
+                    });
+                  }
+                });
+
+                return (
+                  <div className="space-y-3">
+                    {unifiedRequests.length === 0 ? (
+                      <div className="p-8 text-center text-xs text-[#7A7265]">
+                        ยังไม่มีประวัติคำขอจองคิว
                       </div>
-                    ))
-                  )}
-                </div>
-              )}
+                    ) : (
+                      unifiedRequests.map((req) => (
+                        <div
+                          key={req.id}
+                          className="p-3.5 bg-[#0E0D0C] border border-[#4A443A] rounded-[6px] space-y-2.5"
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="min-w-0 flex-1 pr-2">
+                              <strong className="text-xs text-[#ECE4D3] block">
+                                {req.title}
+                              </strong>
+                              <span className="text-[10px] text-[#A89F91] block mt-0.5">
+                                ตำแหน่ง: {req.placement} • ช่าง: {req.artistName}
+                              </span>
+                              <span className="text-[10px] text-[#7A7265] font-mono block mt-0.5">
+                                {req.status === 'EXPIRED'
+                                  ? `วันที่จอง: ${formatThaiDate(req.submittedDate)}`
+                                  : `ส่งคำขอเมื่อ: ${formatThaiDate(req.submittedDate)}`}
+                              </span>
+                            </div>
+                            <span
+                              className={`text-[9px] px-2 py-0.5 rounded font-semibold border shrink-0 ${
+                                req.status === 'EXPIRED'
+                                  ? 'text-zinc-400 bg-zinc-900/90 border-zinc-700'
+                                  : req.status === 'QUOTED'
+                                  ? 'text-amber-300 bg-amber-950/60 border-amber-800'
+                                  : req.status === 'ACCEPTED' || req.status === 'CONFIRMED'
+                                  ? 'text-green-300 bg-green-950/60 border-green-800'
+                                  : req.status === 'PENDING'
+                                  ? 'text-[#9C2F2F] bg-[#9C2F2F]/20 border-[#9C2F2F]'
+                                  : 'text-red-400 bg-red-950/60 border-red-800'
+                              }`}
+                            >
+                              {req.status === 'EXPIRED' && 'หมดเวลาชำระมัดจำ'}
+                              {req.status === 'QUOTED' && 'เสนอราคาแล้ว'}
+                              {(req.status === 'ACCEPTED' || req.status === 'CONFIRMED') && 'ตอบรับราคาแล้ว'}
+                              {req.status === 'PENDING' && 'รอเสนอราคา'}
+                              {req.status === 'REJECTED' && 'ปฏิเสธ'}
+                            </span>
+                          </div>
+
+                          {req.status === 'EXPIRED' ? (
+                            <div className="flex items-center justify-between p-2 bg-[#171512] rounded border border-[#4A443A]/60 text-[11px]">
+                              <span className="text-[#A89F91]">มัดจำที่กำหนด</span>
+                              <span className="font-mono font-semibold text-[#ECE4D3]">
+                                ฿{(req.depositRequired || 500).toLocaleString()}
+                              </span>
+                            </div>
+                          ) : req.quotedPrice ? (
+                            <div className="p-2 bg-[#171512] rounded border border-amber-800/40 text-[11px] flex justify-between items-center">
+                              <span className="text-[#A89F91]">ราคาที่เสนอ:</span>
+                              <span className="font-mono font-semibold text-[#ECE4D3]">
+                                ฿{req.quotedPrice.toLocaleString()} (มัดจำ ฿
+                                {(req.quotedDeposit || 500).toLocaleString()})
+                              </span>
+                            </div>
+                          ) : null}
+
+                          <CustomerArchiveReferenceGallery
+                            images={req.referenceImages}
+                            singleFallback={req.artworkImage}
+                            onOpenLightbox={(imgs, idx) => setLightboxGallery({ images: imgs, index: idx })}
+                          />
+                        </div>
+                      ))
+                    )}
+                  </div>
+                );
+              })()}
+
 
               {/* TAB 3: ACTIVE BOOKINGS (คิวงาน) */}
               {activeDetailTab === 'active' && (
@@ -1404,6 +1660,8 @@ export default function AdminCustomerArchive() {
                   ) : (
                     selectedCustomer.activeBookings.map((b) => {
                       const statusInfo = getBookingStatusBadge(b.status);
+                      const sizeText = formatTattooSize((b as any).width_cm, (b as any).height_cm);
+                      const titleLine = `${b.artworkTitle || 'Custom Tattoo'}${sizeText ? ` · ${sizeText}` : ''}`;
 
                       return (
                         <div
@@ -1413,13 +1671,13 @@ export default function AdminCustomerArchive() {
                           <div className="flex items-center justify-between">
                             <div className="min-w-0 flex-1 pr-2">
                               <strong className="text-xs text-[#ECE4D3] block">
-                                {b.artworkTitle || 'Custom Tattoo'}
+                                {titleLine}
                               </strong>
                               <span className="text-[10px] text-[#A89F91] block mt-0.5">
-                                ช่างสัก: {b.artistName}
+                                ตำแหน่ง: {b.placement || 'ตามที่ตกลง'} • ช่าง: {b.artistName}
                               </span>
                               <span className="text-[10px] text-[#7A7265] font-mono block mt-0.5">
-                                {formatThaiDate(b.date)} • {b.startTime} ({b.duration}h)
+                                {formatThaiDate(b.date)} • {b.startTime}
                               </span>
                             </div>
                             <span
@@ -1430,11 +1688,9 @@ export default function AdminCustomerArchive() {
                           </div>
 
                           <div className="flex justify-between items-center pt-2 border-t border-[#4A443A]/30 text-[11px]">
-                            <span className="text-[#A89F91]">
-                              ตำแหน่ง: <span className="text-[#ECE4D3]">{b.placement}</span>
-                            </span>
-                            <span className="font-mono font-semibold text-[#ECE4D3]">
-                              ฿{b.price?.toLocaleString()} (มัดจำ ฿{b.deposit?.toLocaleString() || 0})
+                            <span className="font-semibold text-green-400">ชำระมัดจำแล้ว</span>
+                            <span className="font-mono font-semibold text-green-400">
+                              ฿{(b.deposit || 0).toLocaleString()}
                             </span>
                           </div>
 
@@ -1466,18 +1722,20 @@ export default function AdminCustomerArchive() {
                         <div className="flex items-center justify-between">
                           <div className="min-w-0 flex-1 pr-2">
                             <strong className="text-xs text-[#ECE4D3] block">
-                              {b.artworkTitle || 'Custom Tattoo Piece'}
+                              {b.artworkTitle || 'Custom Tattoo Piece'}{formatTattooSize((b as any).width_cm, (b as any).height_cm) ? ` • ${formatTattooSize((b as any).width_cm, (b as any).height_cm)}` : ''}
                             </strong>
                             <span className="text-[10px] text-[#A89F91] block mt-0.5">
-                              ช่างสัก: {b.artistName} • {formatThaiDate(b.date)}
+                              ช่างสัก: {b.artistName || 'ช่างสักประจำร้าน'} • {formatThaiDate(b.date)}
                             </span>
                             <span className="text-[10px] text-[#7A7265] block mt-0.5">
-                              ตำแหน่ง: {b.placement || 'ตามกำหนด'} • {b.duration} ชม.
+                              ตำแหน่ง: {b.placement || 'ตามกำหนด'} • {calculateDurationTextFromTimes(b.startTime, b.endTime) || `${b.duration} ชม.`}
                             </span>
                           </div>
                           <div className="text-right shrink-0">
-                            <span className="text-xs font-mono font-bold text-[#ECE4D3] block">
-                              ฿{b.price?.toLocaleString()}
+                            <span className="text-xs font-mono font-bold text-emerald-400 block">
+                              {((b as any).actualPaidSum || 0) > 0
+                                ? `ยอดรับจริง ฿${((b as any).actualPaidSum).toLocaleString('th-TH')}`
+                                : 'ยอดรับจริง —'}
                             </span>
                             <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-950/60 border border-emerald-800 text-emerald-300 font-mono inline-block mt-0.5">
                               ✓ เสร็จสิ้น

@@ -2,6 +2,7 @@
 
 import React, { useMemo, useEffect, useState } from 'react';
 import CustomerReferenceImage from '@/components/common/CustomerReferenceImage';
+import { formatTattooSize } from '@/lib/utils/formatters';
 import { CalendarSessionEvent, CalendarArtist } from './types';
 import {
   getDateStrBangkok,
@@ -10,6 +11,9 @@ import {
   calculateDurationText,
   getSessionStatusConfig,
   getBookingStatusConfig,
+  getEffectiveEventStatus,
+  getEventStatusConfig,
+  getEventSpecs,
   THAI_DAYS_SHORT,
   THAI_MONTHS_SHORT,
   TIMEZONE,
@@ -175,72 +179,14 @@ function getDenseStatusStyle(ev: CalendarSessionEvent): {
   badgeText: string;
   label: string;
 } {
-  const status = ev.status;
-  const bookingStatus = ev.booking?.status;
-
-  if (status === 'CANCELLED' || bookingStatus === 'CANCELLED') {
-    return {
-      bg: 'bg-[#18181b]/80',
-      border: 'border-zinc-800/60',
-      text: 'text-zinc-500 line-through',
-      badgeBg: 'bg-zinc-900',
-      badgeText: 'text-zinc-500',
-      label: 'ยกเลิก',
-    };
-  }
-
-  if (bookingStatus === 'REJECTED') {
-    return {
-      bg: 'bg-red-950/30',
-      border: 'border-red-900/60',
-      text: 'text-red-400',
-      badgeBg: 'bg-red-950',
-      badgeText: 'text-red-400',
-      label: 'ปฏิเสธ',
-    };
-  }
-
-  if (status === 'COMPLETED' || bookingStatus === 'COMPLETED') {
-    return {
-      bg: 'bg-emerald-950/20',
-      border: 'border-emerald-900/40',
-      text: 'text-zinc-400',
-      badgeBg: 'bg-zinc-800/80',
-      badgeText: 'text-zinc-300',
-      label: 'เสร็จสิ้น',
-    };
-  }
-
-  if (status === 'IN_PROGRESS' || bookingStatus === 'IN_PROGRESS') {
-    return {
-      bg: 'bg-[#9c2f2f]/16',
-      border: 'border-[#9c2f2f]/85',
-      text: 'text-rose-300',
-      badgeBg: 'bg-rose-950/80',
-      badgeText: 'text-rose-400',
-      label: 'กำลังสัก',
-    };
-  }
-
-  if (bookingStatus === 'WAITING_DEPOSIT') {
-    return {
-      bg: 'bg-[#d9a441]/12',
-      border: 'border-[#d9a441]/70',
-      text: 'text-amber-300',
-      badgeBg: 'bg-amber-950/80',
-      badgeText: 'text-amber-400',
-      label: 'รอมัดจำ',
-    };
-  }
-
-  // CONFIRMED / SCHEDULED
+  const cfg = getEventStatusConfig(ev);
   return {
-    bg: 'bg-[#2ea064]/12',
-    border: 'border-[#2ea064]/70',
-    text: 'text-emerald-300',
-    badgeBg: 'bg-emerald-950/80',
-    badgeText: 'text-emerald-400',
-    label: 'ยืนยันแล้ว',
+    bg: cfg.bg,
+    border: cfg.border,
+    text: cfg.text,
+    badgeBg: cfg.badgeBg,
+    badgeText: cfg.badgeText,
+    label: cfg.label,
   };
 }
 
@@ -349,26 +295,8 @@ export default function WeekCalendarView({
       maximumFractionDigits: 2,
     });
 
-  const getEventSpecs = (ev: CalendarSessionEvent) => {
-    let style = 'งานสัก';
-    if (ev.estimate?.style && ev.estimate.style !== 'Custom' && ev.estimate.style !== 'CUSTOM') {
-      style = ev.estimate.style;
-    }
-
-    let size = 'ไม่ระบุขนาด';
-    if (ev.estimate?.width_cm && ev.estimate?.height_cm) {
-      size = `${ev.estimate.width_cm}×${ev.estimate.height_cm} ซม.`;
-    }
-
-    const placement = ev.estimate?.placement || 'ไม่ระบุตำแหน่ง';
-    const referenceImage = ev.estimate?.reference_images?.[0] || null;
-    const timeText = `${formatTimeBangkok(ev.start_at)}–${formatTimeBangkok(ev.end_at)}`;
-
-    return { style, size, placement, referenceImage, timeText };
-  };
-
   const selectedSpecs = selectedEvent ? getEventSpecs(selectedEvent) : null;
-  const selectedSessionCfg = selectedEvent ? getSessionStatusConfig(selectedEvent.status) : null;
+  const selectedSessionCfg = selectedEvent ? getDenseStatusStyle(selectedEvent) : null;
   const selectedBookingCfg = selectedEvent?.booking
     ? getBookingStatusConfig(selectedEvent.booking.status)
     : null;
@@ -378,15 +306,25 @@ export default function WeekCalendarView({
     return eventsByDate.get(selectedDateStr) || [];
   }, [eventsByDate, selectedDateStr]);
 
+  // Current Week Events (Events that fall within the 7 days of the selected week)
+  const weekEvents = useMemo(() => {
+    const list: CalendarSessionEvent[] = [];
+    weekDays.forEach((day) => {
+      const dayEvs = eventsByDate.get(day.dateStr) || [];
+      list.push(...dayEvs);
+    });
+    return list;
+  }, [weekDays, eventsByDate]);
+
   // Weekly Metrics Breakdown
   const metrics = useMemo(() => {
-    const total = events.length;
-    const confirmed = events.filter((e) => e.status === 'SCHEDULED' || e.status === 'COMPLETED').length;
-    const waitingDeposit = events.filter((e) => e.booking?.status === 'WAITING_DEPOSIT').length;
-    const inProgress = events.filter((e) => e.status === 'IN_PROGRESS').length;
-    const completed = events.filter((e) => e.status === 'COMPLETED').length;
+    const total = weekEvents.length;
+    const completed = weekEvents.filter((e) => getEffectiveEventStatus(e) === 'COMPLETED').length;
+    const inProgress = weekEvents.filter((e) => getEffectiveEventStatus(e) === 'IN_PROGRESS').length;
+    const waitingDeposit = weekEvents.filter((e) => getEffectiveEventStatus(e) === 'WAITING_DEPOSIT').length;
+    const confirmed = weekEvents.filter((e) => getEffectiveEventStatus(e) === 'CONFIRMED').length;
     return { total, confirmed, waitingDeposit, inProgress, completed };
-  }, [events]);
+  }, [weekEvents]);
 
   const currentLineTop =
     currentBangkokMins >= START_MINUTES && currentBangkokMins <= 1380
@@ -551,7 +489,7 @@ export default function WeekCalendarView({
                             {/* Line 1: Style & Status Badge / Conflict Icon */}
                             <div className="flex items-center justify-between gap-1 min-w-0">
                               <span className="text-[11px] font-bold text-[#ECE4D3] truncate leading-tight">
-                                {style} {size !== 'ไม่ระบุขนาด' ? `• ${size}` : ''}
+                                {style !== 'ไม่ระบุ' ? style : 'งานสัก'} {size !== 'ไม่ระบุขนาด' ? `• ${size}` : ''}
                               </span>
                               <div className="flex items-center gap-1 shrink-0">
                                 {hasArtistConflict && (
@@ -699,12 +637,12 @@ export default function WeekCalendarView({
                   <span>{formatDateBangkok(selectedEvent.start_at, true)}</span>
                 </div>
                 <div className="flex items-center justify-between text-[#A89F91] pt-1.5 border-t border-[#4A443A]/30">
-                  <div className="flex items-center gap-1.5 font-mono text-[11px]">
-                    <Clock size={12} className="text-[#7A7265]" />
-                    <span>{selectedSpecs.timeText} น.</span>
+                  <div className="flex items-center gap-1.5 text-[11px] text-[#ECE4D3] font-medium">
+                    <Clock size={12} className="text-[#9C2F2F]" />
+                    <span>{selectedSpecs.timeText}</span>
                   </div>
-                  <span className="text-[9px] text-[#ECE4D3] bg-[#0E0D0C] px-2 py-0.5 rounded border border-[#4A443A]/40">
-                    {calculateDurationText(selectedEvent.start_at, selectedEvent.end_at)}
+                  <span className="text-[9px] text-[#A89F91] bg-[#0E0D0C] px-2 py-0.5 rounded border border-[#4A443A]/40">
+                    กันคิวประมาณ {calculateDurationText(selectedEvent.start_at, selectedEvent.end_at)}
                   </span>
                 </div>
               </div>
@@ -850,21 +788,21 @@ export default function WeekCalendarView({
                   </span>
                 </div>
                 <div className="bg-[#171512] border border-[#4A443A]/40 rounded-lg p-2.5">
-                  <span className="text-[9px] text-[#A89F91] block">ยืนยันเรียบร้อย</span>
-                  <span className="text-lg font-bold text-emerald-400 mt-0.5 block">
+                  <span className="text-[9px] text-[#A89F91] block">นัดหมายแล้ว</span>
+                  <span className="text-lg font-bold text-blue-400 mt-0.5 block">
                     {metrics.confirmed} <span className="text-[10px] text-[#7A7265] font-normal">งาน</span>
                   </span>
                 </div>
                 <div className="bg-[#171512] border border-[#4A443A]/40 rounded-lg p-2.5">
                   <span className="text-[9px] text-[#A89F91] block">รอมัดจำ</span>
-                  <span className="text-lg font-bold text-amber-400 mt-0.5 block">
+                  <span className="text-lg font-bold text-purple-400 mt-0.5 block">
                     {metrics.waitingDeposit} <span className="text-[10px] text-[#7A7265] font-normal">งาน</span>
                   </span>
                 </div>
                 <div className="bg-[#171512] border border-[#4A443A]/40 rounded-lg p-2.5">
-                  <span className="text-[9px] text-[#A89F91] block">กำลังดำเนินการ</span>
-                  <span className="text-lg font-bold text-sky-400 mt-0.5 block">
-                    {metrics.inProgress} <span className="text-[10px] text-[#7A7265] font-normal">งาน</span>
+                  <span className="text-[9px] text-[#A89F91] block">งานเสร็จสิ้น</span>
+                  <span className="text-lg font-bold text-emerald-400 mt-0.5 block">
+                    {metrics.completed} <span className="text-[10px] text-[#7A7265] font-normal">งาน</span>
                   </span>
                 </div>
               </div>
@@ -889,7 +827,7 @@ export default function WeekCalendarView({
                   ) : (
                     selectedDateEvents.map((ev) => {
                       const { style, timeText } = getEventSpecs(ev);
-                      const statusCfg = getSessionStatusConfig(ev.status);
+                      const statusCfg = getDenseStatusStyle(ev);
 
                       return (
                         <div
@@ -943,7 +881,7 @@ export default function WeekCalendarView({
                     </span>
                   ) : (
                     activeArtists.map((artist) => {
-                      const artistSessionCount = events.filter((e) => e.artist_id === artist.id).length;
+                      const artistSessionCount = weekEvents.filter((e) => e.artist_id === artist.id).length;
                       const maxCount = Math.max(1, metrics.total);
                       const percent = Math.round((artistSessionCount / maxCount) * 100);
 

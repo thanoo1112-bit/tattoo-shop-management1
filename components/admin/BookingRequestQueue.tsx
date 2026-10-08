@@ -4,6 +4,8 @@ import React, { useState } from 'react';
 import { useApp } from '../AppContext';
 import { Booking } from '@/data/mockBookings';
 import BookingStatusBadge from '../portal/BookingStatusBadge';
+import { formatTattooSize } from '@/lib/utils/formatters';
+import { calculateDurationTextFromTimes } from './calendar/calendarUtils';
 import { Mail, Calendar, Clock, DollarSign, Check, X, Loader2, AlertCircle } from 'lucide-react';
 
 interface BookingRequestQueueProps {
@@ -42,6 +44,10 @@ export default function BookingRequestQueue({ singleArtistId = null }: BookingRe
     }
   };
 
+  const resetRejectState = () => {
+    setRejectionReason('');
+  };
+
   const confirmDecline = async () => {
     if (!rejectingBooking) return;
     if (!rejectionReason.trim()) {
@@ -55,7 +61,7 @@ export default function BookingRequestQueue({ singleArtistId = null }: BookingRe
     try {
       await updateBookingStatus(id, 'REJECTED', rejectionReason.trim());
       setRejectingBooking(null);
-      setRejectionReason('');
+      resetRejectState();
     } catch (err: any) {
       setError(err.message || 'ไม่สามารถปฏิเสธคำขอจองได้');
     } finally {
@@ -122,7 +128,7 @@ export default function BookingRequestQueue({ singleArtistId = null }: BookingRe
                 )}
                 <td className="p-4 flex items-center space-x-2.5">
                   <div className="w-10 h-10 bg-studio-main border border-studio-border rounded-[3px] overflow-hidden shrink-0">
-                    <img src={book.artworkImage || 'https://images.unsplash.com/photo-1598440947619-2c35fc9aa908?w=100'} alt="" className="w-full h-full object-cover" />
+                    <img src={book.artworkImage || 'https://images.unsplash.com/photo-1598440947619-2c35fc9aa908?w=100'} alt="" className="w-full h-full object-cover" loading="lazy" decoding="async" />
                   </div>
                   <div className="truncate max-w-[120px]">
                     <span className="font-bold block truncate">{book.artworkTitle}</span>
@@ -138,7 +144,12 @@ export default function BookingRequestQueue({ singleArtistId = null }: BookingRe
                   </div>
                   <div className="flex items-center space-x-1">
                     <Clock size={11} className="text-studio-red" />
-                    <span className="text-studio-secondary font-mono">{book.startTime} - {book.endTime} ({book.duration} ชม.)</span>
+                    <span className="text-studio-secondary font-mono">
+                      {book.startTime} - {book.endTime}
+                      {calculateDurationTextFromTimes(book.startTime, book.endTime) && (
+                        ` (${calculateDurationTextFromTimes(book.startTime, book.endTime)})`
+                      )}
+                    </span>
                   </div>
                 </td>
                 <td className="p-4 space-y-0.5">
@@ -172,7 +183,7 @@ export default function BookingRequestQueue({ singleArtistId = null }: BookingRe
                       <button
                         onClick={() => {
                           setRejectingBooking(book);
-                          setRejectionReason('');
+                          resetRejectState();
                         }}
                         disabled={loadingId === book.id}
                         className="bg-transparent border border-studio-border hover:border-red-500/40 text-studio-muted hover:text-red-500 text-[10px] font-bold tracking-wide uppercase p-1.5 rounded-[3px] transition-colors disabled:opacity-50"
@@ -215,14 +226,17 @@ export default function BookingRequestQueue({ singleArtistId = null }: BookingRe
 
       {/* Inline Reject Modal (Replaces window.prompt) */}
       {rejectingBooking && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fadeIn">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fadeIn font-prompt">
           <div className="bg-studio-card border border-studio-border p-6 rounded-[8px] max-w-md w-full space-y-4 shadow-2xl">
             <div className="flex justify-between items-center border-b border-studio-border pb-3">
               <h4 className="text-sm font-bold text-studio-primary">
-                ปฏิเสธคำขอจองคิว #{rejectingBooking.id}
+                ระบุเหตุผลในการปฏิเสธคำขอ #{rejectingBooking.id}
               </h4>
               <button
-                onClick={() => setRejectingBooking(null)}
+                onClick={() => {
+                  resetRejectState();
+                  setRejectingBooking(null);
+                }}
                 className="text-studio-muted hover:text-studio-primary"
               >
                 <X size={16} />
@@ -231,30 +245,32 @@ export default function BookingRequestQueue({ singleArtistId = null }: BookingRe
             <p className="text-xs text-studio-secondary">
               ลูกค้า: <strong>{rejectingBooking.customerName}</strong> ({rejectingBooking.artworkTitle})
             </p>
-            <div>
-              <label className="text-[10px] uppercase font-bold text-studio-secondary block mb-1">
-                ระบุเหตุผลในการปฏิเสธ *
-              </label>
-              <textarea
-                value={rejectionReason}
-                onChange={(e) => setRejectionReason(e.target.value)}
-                placeholder="เช่น คิวเต็มแล้ว หรือช่างติดภารกิจด่วน"
-                className="w-full h-20 bg-studio-main border border-studio-border p-2.5 rounded text-xs text-studio-primary outline-none focus:border-studio-red"
-              />
-            </div>
-            <div className="flex gap-2 justify-end pt-2">
+            <textarea
+              rows={3}
+              value={rejectionReason}
+              onChange={(e) => setRejectionReason(e.target.value)}
+              placeholder="ระบุเหตุผลที่ปฏิเสธ เพื่อแจ้งให้ลูกค้าทราบ"
+              disabled={loadingId === rejectingBooking.id}
+              className="w-full bg-studio-sec border border-studio-border rounded-xl p-3 text-xs text-studio-primary placeholder-studio-muted focus:outline-none focus:border-red-500 font-prompt resize-none"
+            />
+            <div className="flex gap-2 justify-end pt-2 border-t border-studio-border">
               <button
-                onClick={() => setRejectingBooking(null)}
-                className="px-3 py-1.5 bg-transparent border border-studio-border text-xs text-studio-secondary rounded hover:text-studio-primary"
+                type="button"
+                onClick={() => {
+                  resetRejectState();
+                  setRejectingBooking(null);
+                }}
+                className="px-3 py-1.5 bg-transparent border border-studio-border text-xs text-studio-secondary rounded hover:text-studio-primary cursor-pointer"
               >
                 ยกเลิก
               </button>
               <button
+                type="button"
                 onClick={confirmDecline}
                 disabled={loadingId === rejectingBooking.id || !rejectionReason.trim()}
-                className="px-4 py-1.5 bg-studio-red hover:bg-tattoo-red-dark text-xs text-studio-paper font-semibold rounded disabled:opacity-50"
+                className="px-4 py-1.5 bg-studio-red hover:bg-tattoo-red-dark text-xs text-studio-paper font-semibold rounded cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                ยืนยันการปฏิเสธ
+                {loadingId === rejectingBooking.id ? 'กำลังบันทึก...' : 'ยืนยันการปฏิเสธ'}
               </button>
             </div>
           </div>

@@ -28,6 +28,7 @@ import {
 import Image from 'next/image';
 import CustomerReferenceImage from '@/components/common/CustomerReferenceImage';
 import PaymentSlipImage from '@/components/common/PaymentSlipImage';
+import { formatTattooSize } from '@/lib/utils/formatters';
 import { formatDateBangkok, formatTimeBangkok } from '@/components/admin/calendar/calendarUtils';
 
 interface PaymentSubmissionReviewDrawerProps {
@@ -58,6 +59,11 @@ export default function PaymentSubmissionReviewDrawer({
     appointmentDate?: string;
     appointmentTime?: string;
     bookingStatus?: string;
+    requestType?: 'FLASH' | 'CUSTOM';
+    flashReservationId?: string | null;
+    flashCode?: string | null;
+    artworkTitle?: string | null;
+    artworkImageUrl?: string | null;
     placement?: string;
     widthCm?: number | null;
     heightCm?: number | null;
@@ -67,6 +73,10 @@ export default function PaymentSubmissionReviewDrawer({
     depositRequired?: number;
     paidTotal?: number;
     refImages?: string[];
+    hasMedicalCondition?: boolean | null;
+    medicalConditionNote?: string | null;
+    hasAllergy?: boolean | null;
+    allergyNote?: string | null;
   } | null>(null);
 
   // Approve Form State
@@ -100,25 +110,37 @@ export default function PaymentSubmissionReviewDrawer({
 
     async function loadFullData() {
       try {
-        // 1. Fetch booking with joined artist and booking_sessions
+        // 1. Fetch booking with joined artist, booking_sessions, and flash_reservations + flash_designs
         const { data: b } = await supabase
           .from('bookings')
-          .select('*, artists(id, name, nickname), booking_sessions(id, session_number, start_at, end_at, status)')
+          .select('*, artists(id, name, nickname), booking_sessions(id, session_number, start_at, end_at, status), flash_reservations(*, flash_designs(*))')
           .eq('id', currentSub.booking_id)
           .maybeSingle();
 
-        // 2. Fetch linked estimate_request if exists
+        // 2. Fetch linked flash_reservations if not included in join
+        const flashResId = b?.flash_reservation_id || (currentSub as any).flash_reservation_id;
+        let flashRes: any = Array.isArray(b?.flash_reservations) ? b.flash_reservations[0] : b?.flash_reservations;
+        if (flashResId && (!flashRes || !flashRes.flash_designs)) {
+          const { data: fr } = await supabase
+            .from('flash_reservations')
+            .select('*, flash_designs(*)')
+            .eq('id', flashResId)
+            .maybeSingle();
+          if (fr) flashRes = fr;
+        }
+
+        // 3. Fetch linked estimate_request if exists
         const estId = b?.estimate_request_id || currentSub.estimate_request_id;
         const { data: est } = estId
           ? await supabase.from('estimate_requests').select('*').eq('id', estId).maybeSingle()
           : { data: null };
 
-        // 3. Fetch customer and profile for real customer information
+        // 4. Fetch customer and profile for real customer information
         const cUid = currentSub.customer_user_id;
         const { data: cust } = await supabase.from('customers').select('*').eq('user_id', cUid).maybeSingle();
         const { data: prof } = await supabase.from('profiles').select('*').eq('user_id', cUid).maybeSingle();
 
-        // 4. Fetch payment summary
+        // 5. Fetch payment summary
         const { data: summary } = await supabase
           .from('booking_payment_summary')
           .select('*')
@@ -162,20 +184,119 @@ export default function PaymentSubmissionReviewDrawer({
           apptDate = formatDateBangkok(currentSub.requested_date);
         }
 
-        // Resolve original tattoo reference images: estimate_requests -> booking -> artwork_image_url
-        let images: string[] = [];
-        if (est?.reference_images && Array.isArray(est.reference_images) && est.reference_images.length > 0) {
-          images = est.reference_images;
-        } else if (currentSub.estimate_reference_images && currentSub.estimate_reference_images.length > 0) {
-          images = currentSub.estimate_reference_images;
-        } else if (b?.reference_images && Array.isArray(b.reference_images) && b.reference_images.length > 0) {
-          images = b.reference_images;
-        } else if (currentSub.reference_images && currentSub.reference_images.length > 0) {
-          images = currentSub.reference_images;
-        } else if (b?.artwork_image_url) {
-          images = [b.artwork_image_url];
-        } else if (currentSub.artwork_image_url) {
-          images = [currentSub.artwork_image_url];
+        const isFlash = Boolean(flashResId || flashRes);
+        const flashCodeStr = flashResId
+          ? (flashResId.toUpperCase().startsWith('FLASH-') ? flashResId : `FLASH-${flashResId.slice(0, 8).toUpperCase()}`)
+          : (currentSub as any).flash_reservation_code || null;
+
+        const flashDesign = flashRes?.flash_designs;
+        const artworkTitleStr = flashDesign?.title || b?.artwork_title || currentSub.artwork_title || (isFlash ? 'งานสัก Flash' : 'งานสัก Custom');
+        const artworkImgStr = flashDesign?.image_url || b?.artwork_image_url || currentSub.artwork_image_url || null;
+
+        // Resolve original tattoo reference images & Flash design image
+        const rawImagesList: string[] = [];
+        if (flashDesign?.image_url) {
+          rawImagesList.push(flashDesign.image_url);
+        }
+        if (est?.reference_images && Array.isArray(est.reference_images)) {
+          rawImagesList.push(...est.reference_images);
+        }
+        if (currentSub.estimate_reference_images && Array.isArray(currentSub.estimate_reference_images)) {
+          rawImagesList.push(...currentSub.estimate_reference_images);
+        }
+        if (b?.reference_images && Array.isArray(b.reference_images)) {
+          rawImagesList.push(...b.reference_images);
+        }
+        if (currentSub.reference_images && Array.isArray(currentSub.reference_images)) {
+          rawImagesList.push(...currentSub.reference_images);
+        }
+        if (b?.artwork_image_url) {
+          rawImagesList.push(b.artwork_image_url);
+        }
+        if (currentSub.artwork_image_url) {
+          rawImagesList.push(currentSub.artwork_image_url);
+        }
+
+        const images = Array.from(new Set(rawImagesList.filter(Boolean)));
+
+        // Health Info Resolution (Unified Customer Health Resolver)
+        let resolvedHasMed: boolean | null | undefined = undefined;
+        let resolvedMedNote: string = '';
+        let resolvedHasAllergy: boolean | null | undefined = undefined;
+        let resolvedAllergyNote: string = '';
+
+        // 1. Check customers master row first
+        if (cust) {
+          if ((cust as any).has_medical_condition !== undefined && (cust as any).has_medical_condition !== null) {
+            resolvedHasMed = Boolean((cust as any).has_medical_condition);
+            resolvedMedNote = (cust as any).medical_condition_note || (cust as any).medical_conditions || '';
+          } else if (cust.medical_conditions?.trim()) {
+            resolvedHasMed = true;
+            resolvedMedNote = cust.medical_conditions.trim();
+          }
+
+          if ((cust as any).has_allergy !== undefined && (cust as any).has_allergy !== null) {
+            resolvedHasAllergy = Boolean((cust as any).has_allergy);
+            resolvedAllergyNote = (cust as any).allergy_note || (cust as any).allergies || '';
+          } else if (cust.allergies?.trim()) {
+            resolvedHasAllergy = true;
+            resolvedAllergyNote = cust.allergies.trim();
+          }
+        }
+
+        // 2. Check estimate_requests row if health fields still unresolved
+        if (est) {
+          if (resolvedHasMed === undefined && est.has_medical_condition !== undefined && est.has_medical_condition !== null) {
+            resolvedHasMed = Boolean(est.has_medical_condition);
+            resolvedMedNote = est.medical_condition_note || '';
+          }
+          if (resolvedHasAllergy === undefined && est.has_allergy !== undefined && est.has_allergy !== null) {
+            resolvedHasAllergy = Boolean(est.has_allergy);
+            resolvedAllergyNote = est.allergy_note || '';
+          }
+        }
+
+        // Fallback to customer history in estimate_requests table
+        if (resolvedHasMed === undefined && cUid) {
+          try {
+            const { data: estHist } = await supabase
+              .from('estimate_requests')
+              .select('has_medical_condition, medical_condition_note, has_allergy, allergy_note')
+              .eq('customer_user_id', cUid)
+              .order('created_at', { ascending: false })
+              .limit(5);
+
+            if (Array.isArray(estHist) && estHist.length > 0) {
+              for (const rec of estHist) {
+                if (resolvedHasMed === undefined) {
+                  const noteStr = (rec.medical_condition_note || '').trim();
+                  if (noteStr) {
+                    resolvedHasMed = true;
+                    resolvedMedNote = noteStr;
+                  } else if (rec.has_medical_condition === true) {
+                    resolvedHasMed = true;
+                    resolvedMedNote = 'มีโรคประจำตัว';
+                  } else if (rec.has_medical_condition === false) {
+                    resolvedHasMed = false;
+                  }
+                }
+                if (resolvedHasAllergy === undefined) {
+                  const algStr = (rec.allergy_note || '').trim();
+                  if (algStr) {
+                    resolvedHasAllergy = true;
+                    resolvedAllergyNote = algStr;
+                  } else if (rec.has_allergy === true) {
+                    resolvedHasAllergy = true;
+                    resolvedAllergyNote = 'มีประวัติการแพ้';
+                  } else if (rec.has_allergy === false) {
+                    resolvedHasAllergy = false;
+                  }
+                }
+              }
+            }
+          } catch (e) {
+            console.warn('Error querying estimate_requests history in PaymentSubmissionReviewDrawer:', e);
+          }
         }
 
         const isConfirmed = Boolean(cust?.eligibility_confirmed_at || cust?.profile_completed_at);
@@ -189,15 +310,24 @@ export default function PaymentSubmissionReviewDrawer({
             appointmentDate: apptDate,
             appointmentTime: apptTime,
             bookingStatus: b?.status || currentSub.booking_status || 'WAITING_DEPOSIT',
-            placement: b?.placement || est?.placement || currentSub.placement || 'ไม่ระบุ',
-            widthCm: b?.width_cm ?? est?.width_cm ?? currentSub.width_cm ?? null,
-            heightCm: b?.height_cm ?? est?.height_cm ?? currentSub.height_cm ?? null,
-            style: est?.style || currentSub.style || 'Custom',
-            description: est?.description || b?.description || currentSub.description || '',
-            quotedPrice: Number(summary?.quoted_price ?? est?.quoted_price ?? currentSub.quoted_price ?? 0),
-            depositRequired: Number(summary?.deposit_required ?? est?.deposit_required ?? currentSub.deposit_required ?? 0),
+            requestType: isFlash ? 'FLASH' : 'CUSTOM',
+            flashReservationId: flashResId || null,
+            flashCode: flashCodeStr,
+            artworkTitle: artworkTitleStr,
+            artworkImageUrl: artworkImgStr,
+            placement: flashRes?.placement || b?.placement || est?.placement || currentSub.placement || 'ไม่ระบุ',
+            widthCm: flashRes?.width_cm ?? b?.width_cm ?? est?.width_cm ?? currentSub.width_cm ?? null,
+            heightCm: flashRes?.height_cm ?? b?.height_cm ?? est?.height_cm ?? currentSub.height_cm ?? null,
+            style: flashDesign?.style ? `Flash (${flashDesign.style})` : (est?.style || currentSub.style || (isFlash ? 'Flash' : 'Custom')),
+            description: flashRes?.customer_note || est?.description || b?.description || currentSub.description || '',
+            quotedPrice: Number(summary?.quoted_price ?? est?.quoted_price ?? flashDesign?.price ?? b?.quoted_price ?? currentSub.quoted_price ?? 0),
+            depositRequired: 500,
             paidTotal: Number(summary?.paid_total ?? currentSub.paid_total ?? 0),
             refImages: images,
+            hasMedicalCondition: resolvedHasMed,
+            medicalConditionNote: resolvedMedNote,
+            hasAllergy: resolvedHasAllergy,
+            allergyNote: resolvedAllergyNote,
           });
         }
       } catch (err) {
@@ -246,7 +376,7 @@ export default function PaymentSubmissionReviewDrawer({
   if (!isOpen || !submission) return null;
 
   const verifiedAmountNum = parseFloat(verifiedAmount) || 0;
-  const depRequiredNum = hydratedDetails?.depositRequired ?? submission.deposit_required ?? 0;
+  const depRequiredNum = hydratedDetails?.depositRequired ?? 500;
   const paidTotalNum = hydratedDetails?.paidTotal ?? submission.paid_total ?? 0;
   const outstandingNum = Math.max(0, depRequiredNum - paidTotalNum);
   const isOverpayment = verifiedAmountNum > outstandingNum && outstandingNum > 0;
@@ -350,10 +480,9 @@ export default function PaymentSubmissionReviewDrawer({
   const displayPlacement = hydratedDetails?.placement || submission.placement || 'ไม่ระบุ';
   const wCm = hydratedDetails?.widthCm ?? submission.width_cm;
   const hCm = hydratedDetails?.heightCm ?? submission.height_cm;
-  const displaySize = wCm && hCm ? `${wCm} × ${hCm} ซม.` : 'ไม่ระบุขนาด';
+  const displaySize = formatTattooSize(wCm, hCm);
   const displayStyle = hydratedDetails?.style || submission.style || 'ไม่ระบุ';
   const displayQuotedPrice = hydratedDetails?.quotedPrice ?? submission.quoted_price ?? 0;
-  const descriptionDisplay = hydratedDetails?.description || 'ไม่มีคำอธิบายเพิ่มเติม';
   const refImages = hydratedDetails?.refImages || [];
 
   return (
@@ -377,11 +506,23 @@ export default function PaymentSubmissionReviewDrawer({
                 <h3 className="text-sm sm:text-base font-heading font-semibold text-[#ECE4D3]">
                   ตรวจสอบสลิปการโอนเงิน
                 </h3>
+                {hydratedDetails?.requestType === 'FLASH' ? (
+                  <span className="bg-purple-950/80 text-purple-300 border border-purple-800/80 px-2 py-0.5 rounded text-xs font-semibold">
+                    งาน Flash
+                  </span>
+                ) : (
+                  <span className="bg-amber-950/60 text-amber-300 border border-amber-800/60 px-2 py-0.5 rounded text-xs font-semibold">
+                    งาน Custom
+                  </span>
+                )}
                 <span className="bg-amber-950/80 text-amber-300 border border-amber-800/80 px-2.5 py-0.5 rounded text-xs font-semibold animate-pulse">
                   สลิปรอตรวจ
                 </span>
               </div>
               <p className="text-[10px] text-[#7A7265] mt-0.5">
+                {hydratedDetails?.flashCode ? (
+                  <span className="text-purple-300 font-mono font-semibold mr-2">{hydratedDetails.flashCode}</span>
+                ) : null}
                 คิว #{submission.booking_id.slice(0, 8)} • ส่งเมื่อ: {formatThaiDate(submission.submitted_at)} {formatTimeBangkok(submission.submitted_at)}
               </p>
             </div>
@@ -421,37 +562,38 @@ export default function PaymentSubmissionReviewDrawer({
                 </span>
               )}
             </div>
-            <div className="flex items-center justify-between text-xs pt-1.5 border-t border-[#4A443A]/40">
-              <span className="text-[11px] text-[#7A7265]">การยืนยันอายุและเงื่อนไข:</span>
-              {confirmationState === 'loading' ? (
-                <span className="text-[#A89F91] bg-[#171512] border border-[#4A443A]/50 px-2 py-0.5 rounded text-[10px]">
-                  กำลังตรวจสอบ...
-                </span>
-              ) : confirmationState === 'confirmed' ? (
-                <span className="text-emerald-400 bg-emerald-950/50 border border-emerald-800/60 px-2 py-0.5 rounded text-[10px] font-semibold flex items-center gap-1">
-                  <CheckCircle2 size={11} />
-                  <span>ยืนยันแล้ว</span>
-                </span>
-              ) : confirmationState === 'error' ? (
-                <span className="text-amber-400/80 bg-amber-950/30 border border-amber-800/30 px-2 py-0.5 rounded text-[10px]">
-                  ! ไม่สามารถตรวจสอบได้
-                </span>
-              ) : (
-                <span className="text-amber-400 bg-amber-950/50 border border-amber-800/60 px-2 py-0.5 rounded text-[10px] font-semibold">
-                  ยังไม่ยืนยัน
-                </span>
-              )}
-            </div>
           </div>
 
           {/* Consolidated Booking Details (2-Column Grid) */}
           <div className="bg-[#0E0D0C] border border-[#4A443A]/70 rounded-xl p-3.5 space-y-3">
-            <span className="text-[11px] font-semibold text-[#7A7265] uppercase tracking-wider block">
-              รายละเอียดคิวงาน
-            </span>
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-semibold text-[#7A7265] uppercase tracking-wider block">
+                รายละเอียดคิวงาน
+              </span>
+              {hydratedDetails?.requestType === 'FLASH' && hydratedDetails?.flashCode && (
+                <span className="text-xs font-mono font-bold text-purple-300 bg-purple-950/80 border border-purple-800/70 px-2 py-0.5 rounded">
+                  {hydratedDetails.flashCode}
+                </span>
+              )}
+            </div>
 
             <div className="grid grid-cols-2 gap-2 text-xs">
-              {/* Row 1: Artist & Style */}
+              {/* Row 1: Request Type & Artwork Title */}
+              <div className="bg-[#171512] p-2.5 rounded-lg border border-[#4A443A]/40 min-w-0">
+                <span className="text-[10px] text-[#7A7265] block">ประเภทงาน</span>
+                <span className="font-semibold text-[#ECE4D3] mt-0.5 block truncate">
+                  {hydratedDetails?.requestType === 'FLASH' ? 'งานสัก Flash' : 'งานสัก Custom'}
+                </span>
+              </div>
+
+              <div className="bg-[#171512] p-2.5 rounded-lg border border-[#4A443A]/40 min-w-0">
+                <span className="text-[10px] text-[#7A7265] block">ชื่อผลงาน / ลาย</span>
+                <span className="font-semibold text-[#ECE4D3] mt-0.5 block truncate">
+                  {hydratedDetails?.artworkTitle || displayStyle}
+                </span>
+              </div>
+
+              {/* Row 2: Artist & Style */}
               <div className="bg-[#171512] p-2.5 rounded-lg border border-[#4A443A]/40 min-w-0">
                 <span className="text-[10px] text-[#7A7265] block">ช่างสัก</span>
                 <span className="font-medium text-[#ECE4D3] mt-0.5 block truncate">{displayArtistName}</span>
@@ -462,7 +604,7 @@ export default function PaymentSubmissionReviewDrawer({
                 <span className="font-medium text-[#ECE4D3] mt-0.5 block truncate">{displayStyle}</span>
               </div>
 
-              {/* Row 2: Placement & Size */}
+              {/* Row 3: Placement & Size */}
               <div className="bg-[#171512] p-2.5 rounded-lg border border-[#4A443A]/40 min-w-0">
                 <span className="text-[10px] text-[#7A7265] block">ตำแหน่งสัก</span>
                 <span className="font-medium text-[#ECE4D3] mt-0.5 block truncate">{displayPlacement}</span>
@@ -473,7 +615,7 @@ export default function PaymentSubmissionReviewDrawer({
                 <span className="font-medium text-[#ECE4D3] mt-0.5 block truncate">{displaySize}</span>
               </div>
 
-              {/* Row 3: Date & Time */}
+              {/* Row 4: Date & Time */}
               <div className="bg-[#171512] p-2.5 rounded-lg border border-[#4A443A]/40 min-w-0">
                 <span className="text-[10px] text-[#7A7265] block">วันที่นัด</span>
                 <span className="font-medium text-[#ECE4D3] mt-0.5 block truncate">{displayApptDate}</span>
@@ -484,7 +626,7 @@ export default function PaymentSubmissionReviewDrawer({
                 <span className="font-medium text-[#ECE4D3] mt-0.5 block truncate">{displayApptTime}</span>
               </div>
 
-              {/* Row 4: Price & Deposit */}
+              {/* Row 5: Price & Deposit */}
               <div className="bg-[#171512] p-2.5 rounded-lg border border-[#4A443A]/40 min-w-0">
                 <span className="text-[10px] text-[#7A7265] block">ราคางานสัก</span>
                 <span className="font-semibold text-[#ECE4D3] mt-0.5 block truncate">
@@ -493,26 +635,98 @@ export default function PaymentSubmissionReviewDrawer({
               </div>
 
               <div className="bg-[#171512] p-2.5 rounded-lg border border-[#4A443A]/40 min-w-0">
-                <span className="text-[10px] text-[#7A7265] block">เงินมัดจำ</span>
-                <span className="font-semibold text-emerald-400 mt-0.5 block truncate">
-                  {depRequiredNum > 0 ? `฿${formatCurrency(depRequiredNum)}` : 'ไม่มีมัดจำ'}
+                <span className="text-[10px] text-[#7A7265] block">มัดจำที่กำหนด</span>
+                <span className="font-semibold text-red-400 mt-0.5 block truncate font-mono">
+                  ฿500
                 </span>
               </div>
 
               {/* Full Width: Description */}
               <div className="bg-[#171512] p-2.5 rounded-lg border border-[#4A443A]/40 min-w-0 col-span-2">
-                <span className="text-[10px] text-[#7A7265] block mb-1">รายละเอียดงานสัก</span>
+                <span className="text-[10px] text-[#7A7265] block mb-1">รายละเอียดงานสัก / คำขอเพิ่มเติม</span>
                 <p className="text-[#ECE4D3] font-light leading-relaxed whitespace-pre-wrap break-words">
                   {hydratedDetails?.description || 'ไม่มีคำอธิบายเพิ่มเติม'}
                 </p>
               </div>
 
-              {/* Full Width: Reference Gallery */}
+              {/* Full Width: Health & Medical Disclosure */}
+              <div className="col-span-2 bg-[#171512] p-2.5 rounded-lg border border-[#4A443A]/40 min-w-0 space-y-2">
+                <span className="text-[10px] text-[#7A7265] block mb-1 font-semibold uppercase tracking-wider">ข้อมูลสุขภาพ / ข้อควรระวัง</span>
+                {(() => {
+                  const hasMed = hydratedDetails?.hasMedicalCondition;
+                  const medNote = hydratedDetails?.medicalConditionNote;
+                  const hasAlg = hydratedDetails?.hasAllergy;
+                  const algNote = hydratedDetails?.allergyNote;
+
+                  const isBothFalse = hasMed === false && hasAlg === false;
+                  const isBothNull = (hasMed === null || hasMed === undefined) && (hasAlg === null || hasAlg === undefined);
+
+                  if (isBothFalse) {
+                    return (
+                      <div className="flex items-center gap-1.5 text-emerald-400 text-xs bg-emerald-950/20 border border-emerald-800/30 p-2 rounded">
+                        <CheckCircle2 size={13} className="shrink-0 text-emerald-400" />
+                        <span>สุขภาพปกติ (ไม่มีโรคประจำตัวและประวัติการแพ้)</span>
+                      </div>
+                    );
+                  }
+
+                  if (isBothNull) {
+                    return (
+                      <div className="flex items-center gap-1.5 text-studio-muted text-xs bg-[#0E0D0C] border border-[#4A443A]/40 p-2 rounded">
+                        <AlertCircle size={13} className="shrink-0 text-studio-muted" />
+                        <span>ยังไม่ให้ข้อมูลสุขภาพ</span>
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <div className="space-y-2">
+                      {/* โรคประจำตัว */}
+                      {hasMed === true ? (
+                        <div className="flex items-start gap-1.5 text-red-300 bg-red-950/40 border border-red-800/60 p-2 rounded text-xs">
+                          <AlertTriangle size={14} className="shrink-0 text-red-400 mt-0.5" />
+                          <div>
+                            <span className="font-semibold block text-red-300">มีโรคประจำตัว</span>
+                            <p className="text-[11px] text-red-200/90 mt-0.5">
+                              {medNote?.trim() || 'ลูกค้าแจ้งว่ามีโรคประจำตัว'}
+                            </p>
+                          </div>
+                        </div>
+                      ) : hasMed === false ? (
+                        <div className="flex items-center gap-1.5 text-emerald-400 text-xs">
+                          <CheckCircle2 size={13} className="shrink-0" />
+                          <span>ไม่มีโรคประจำตัว</span>
+                        </div>
+                      ) : null}
+
+                      {/* ประวัติการแพ้ */}
+                      {hasAlg === true ? (
+                        <div className="flex items-start gap-1.5 text-amber-300 bg-amber-950/40 border border-amber-800/60 p-2 rounded text-xs">
+                          <AlertTriangle size={14} className="shrink-0 text-amber-400 mt-0.5" />
+                          <div>
+                            <span className="font-semibold block text-amber-300">มีประวัติการแพ้</span>
+                            <p className="text-[11px] text-amber-200/90 mt-0.5">
+                              {algNote?.trim() || 'ลูกค้าแจ้งว่ามีประวัติการแพ้'}
+                            </p>
+                          </div>
+                        </div>
+                      ) : hasAlg === false ? (
+                        <div className="flex items-center gap-1.5 text-emerald-400 text-xs">
+                          <CheckCircle2 size={13} className="shrink-0" />
+                          <span>ไม่มีประวัติการแพ้</span>
+                        </div>
+                      ) : null}
+                    </div>
+                  );
+                })()}
+              </div>
+
+              {/* Full Width: Reference / Flash Gallery */}
               {refImages.length > 0 && (
                 <div className="col-span-2 pt-1">
                   <span className="text-[10px] text-[#7A7265] block mb-1.5 flex items-center gap-1">
                     <ImageIcon size={12} />
-                    รูปภาพอ้างอิง ({refImages.length} รูป)
+                    {hydratedDetails?.requestType === 'FLASH' ? 'ภาพลาย Flash & อ้างอิง' : 'รูปภาพอ้างอิง'} ({refImages.length} รูป)
                   </span>
                   <div className="flex flex-wrap gap-2">
                     {refImages.map((imgUrl: string, idx: number) => (
@@ -549,7 +763,14 @@ export default function PaymentSubmissionReviewDrawer({
 
             <div className="space-y-2 bg-[#171512] p-2.5 rounded-lg border border-[#4A443A]/40 text-xs">
               <div className="flex items-center justify-between gap-2">
-                <span className="text-[#A89F91]">ยอดเงินที่ลูกค้าแจ้ง:</span>
+                <span className="text-[#A89F91]">มัดจำที่กำหนด:</span>
+                <span className="font-bold text-red-400 font-mono text-sm">
+                  ฿500
+                </span>
+              </div>
+
+              <div className="flex items-center justify-between gap-2 border-t border-[#4A443A]/30 pt-2">
+                <span className="text-[#A89F91]">ยอดที่ลูกค้าแจ้งโอน:</span>
                 <span className="text-sm font-bold text-amber-300 font-mono">
                   ฿{formatCurrency(submission.claimed_amount)}
                 </span>

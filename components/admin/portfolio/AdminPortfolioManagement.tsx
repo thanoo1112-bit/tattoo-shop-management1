@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { createPortal } from 'react-dom';
 import { useApp } from '@/components/AppContext';
 import { uploadStudioImage } from '@/lib/utils/storageUploader';
+import { getThumbnailUrl, handleThumbnailError } from '@/lib/utils/thumbnailHelper';
 import {
   Sparkles,
   Plus,
@@ -14,8 +15,6 @@ import {
   Eye,
   EyeOff,
   User,
-  Clock,
-  Maximize2,
   X,
   AlertCircle,
   CheckCircle2,
@@ -24,7 +23,6 @@ import {
   Upload,
   Camera,
   Loader2,
-  Link as LinkIcon,
 } from 'lucide-react';
 
 export interface AdminPortfolioArtwork {
@@ -46,6 +44,7 @@ export interface AdminPortfolioArtwork {
     nickname: string | null;
     avatar_url: string | null;
     is_active?: boolean;
+    is_visible?: boolean;
   } | null;
 }
 
@@ -90,7 +89,6 @@ export default function AdminPortfolioManagement() {
   const [formError, setFormError] = useState<string | null>(null);
   const [imageUploadError, setImageUploadError] = useState<string | null>(null);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
-  const [showManualUrlInput, setShowManualUrlInput] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // File Upload Handler for Portfolio Artworks (studio-assets/portfolio)
@@ -122,9 +120,6 @@ export default function AdminPortfolioManagement() {
     title: '',
     description: '',
     style: '',
-    size_label: '',
-    duration_hours: '',
-    duration_minutes: '',
     image_url: '',
     is_visible: true,
     sort_order: 0,
@@ -199,7 +194,8 @@ export default function AdminPortfolioManagement() {
             name,
             nickname,
             avatar_url,
-            is_active
+            is_active,
+            is_visible
           )
         `)
         .order('sort_order', { ascending: true })
@@ -266,9 +262,6 @@ export default function AdminPortfolioManagement() {
       title: '',
       description: '',
       style: defaultSpecs.length > 0 ? defaultSpecs[0] : '',
-      size_label: '',
-      duration_hours: '',
-      duration_minutes: '',
       image_url: '',
       is_visible: true,
       sort_order: (artworks.length + 1) * 10,
@@ -276,16 +269,12 @@ export default function AdminPortfolioManagement() {
     setFormError(null);
     setImageUploadError(null);
     setIsUploadingImage(false);
-    setShowManualUrlInput(false);
     setIsModalOpen(true);
   };
 
   // 3. Open Edit Modal
   const handleOpenEditModal = (artwork: AdminPortfolioArtwork) => {
     setEditingArtwork(artwork);
-    const totalMinutes = artwork.estimated_duration_minutes || 0;
-    const hours = totalMinutes > 0 ? Math.floor(totalMinutes / 60) : '';
-    const mins = totalMinutes > 0 && totalMinutes % 60 > 0 ? (totalMinutes % 60).toString() : '';
 
     const currentArtist = artists.find((a) => a.id === artwork.artist_id);
     const currentSpecs = getArtistSpecialties(currentArtist);
@@ -296,9 +285,6 @@ export default function AdminPortfolioManagement() {
       title: artwork.title,
       description: artwork.description || '',
       style: initialStyle,
-      size_label: artwork.size_label || '',
-      duration_hours: hours ? hours.toString() : '',
-      duration_minutes: mins,
       image_url: artwork.image_url,
       is_visible: artwork.is_visible,
       sort_order: artwork.sort_order ?? 0,
@@ -306,7 +292,6 @@ export default function AdminPortfolioManagement() {
     setFormError(null);
     setImageUploadError(null);
     setIsUploadingImage(false);
-    setShowManualUrlInput(false);
     setIsModalOpen(true);
   };
 
@@ -337,35 +322,6 @@ export default function AdminPortfolioManagement() {
       return;
     }
 
-    // Calculate total duration in minutes with Data Preservation for existing artworks
-    let calculatedDurationMinutes: number | null = null;
-
-    if (editingArtwork) {
-      const origTotal = editingArtwork.estimated_duration_minutes ?? null;
-      const origHours = origTotal && origTotal > 0 ? Math.floor(origTotal / 60) : null;
-      const origHoursStr = origHours !== null ? origHours.toString() : '';
-
-      // Check if user modified the duration_hours input field
-      if (formData.duration_hours === origHoursStr) {
-        // User did NOT edit duration field -> preserve exact original estimated_duration_minutes (e.g. 90 mins)
-        calculatedDurationMinutes = origTotal;
-      } else {
-        // User explicitly modified duration_hours field -> calculate new total minutes from hours
-        const h = parseInt(formData.duration_hours, 10);
-        if (!isNaN(h) && h > 0) {
-          calculatedDurationMinutes = h * 60;
-        } else {
-          calculatedDurationMinutes = null;
-        }
-      }
-    } else {
-      // New Artwork -> calculate total minutes from duration_hours * 60
-      const h = parseInt(formData.duration_hours, 10);
-      if (!isNaN(h) && h > 0) {
-        calculatedDurationMinutes = h * 60;
-      }
-    }
-
     setSubmitting(true);
     try {
       if (editingArtwork) {
@@ -377,8 +333,6 @@ export default function AdminPortfolioManagement() {
             title: formData.title.trim(),
             description: formData.description.trim() || null,
             style: formData.style,
-            size_label: formData.size_label.trim() || null,
-            estimated_duration_minutes: calculatedDurationMinutes,
             image_url: formData.image_url.trim(),
             is_visible: formData.is_visible,
             sort_order: Number(formData.sort_order) || 0,
@@ -397,8 +351,6 @@ export default function AdminPortfolioManagement() {
             title: formData.title.trim(),
             description: formData.description.trim() || null,
             style: formData.style,
-            size_label: formData.size_label.trim() || null,
-            estimated_duration_minutes: calculatedDurationMinutes,
             image_url: formData.image_url.trim(),
             is_visible: formData.is_visible,
             sort_order: Number(formData.sort_order) || 0,
@@ -659,18 +611,18 @@ export default function AdminPortfolioManagement() {
         <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2.5 sm:gap-4">
           {filteredArtworks.map((item) => {
             const artistName = item.artists?.name || 'ไม่ระบุช่าง';
-            const durationHours = item.estimated_duration_minutes
-              ? Math.floor(item.estimated_duration_minutes / 60)
-              : null;
-            const durationMins = item.estimated_duration_minutes
-              ? item.estimated_duration_minutes % 60
-              : null;
+
+            const isArtistInactive = Boolean(
+              item.artists && (item.artists.is_active === false || item.artists.is_visible === false)
+            );
 
             return (
               <div
                 key={item.id}
                 className={`bg-[#171512] border rounded-[6px] overflow-hidden flex flex-col justify-between transition-all ${
-                  item.is_visible
+                  isArtistInactive
+                    ? 'border-[#2D2820]/60 opacity-80 bg-[#13110F]'
+                    : item.is_visible
                     ? 'border-[#2D2820] hover:border-[#3E372C]'
                     : 'border-[#2D2820]/40 opacity-70 bg-[#13110F]'
                 }`}
@@ -679,9 +631,14 @@ export default function AdminPortfolioManagement() {
                   {/* Image & Status Tag */}
                   <div className="aspect-[4/3] bg-[#0E0D0C] relative overflow-hidden group">
                     <img
-                      src={item.image_url}
+                      src={getThumbnailUrl(item.image_url)}
+                      onError={(e) => handleThumbnailError(e, item.image_url)}
                       alt={item.title}
-                      className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-500"
+                      className={`w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-500 ${
+                        isArtistInactive ? 'grayscale contrast-90 brightness-90' : ''
+                      }`}
+                      loading="lazy"
+                      decoding="async"
                     />
 
                     {/* Style Badge */}
@@ -691,7 +648,11 @@ export default function AdminPortfolioManagement() {
 
                     {/* Visibility Indicator */}
                     <div className="absolute top-2 right-2">
-                      {item.is_visible ? (
+                      {isArtistInactive ? (
+                        <span className="bg-[#2D2820]/90 border border-[#4A443A] text-[#A89F91] text-[9px] font-bold px-2 py-0.5 rounded flex items-center gap-1">
+                          <EyeOff size={10} /> ซ่อนตามสถานะช่าง
+                        </span>
+                      ) : item.is_visible ? (
                         <span className="bg-green-950/90 border border-green-700/50 text-green-300 text-[9px] font-bold px-2 py-0.5 rounded flex items-center gap-1">
                           <Eye size={10} /> แสดง
                         </span>
@@ -711,7 +672,12 @@ export default function AdminPortfolioManagement() {
                       </h3>
                       <div className="flex items-center gap-1 text-[11px] sm:text-xs text-[#A89F91] mt-0.5 min-w-0">
                         <User size={12} className="text-[#C5A880] shrink-0" />
-                        <span className="truncate">{artistName}</span>
+                        <span className="truncate">
+                          {artistName}
+                          {isArtistInactive && (
+                            <span className="text-red-400/90 ml-1 font-medium">· ปิดใช้งาน</span>
+                          )}
+                        </span>
                       </div>
                     </div>
 
@@ -720,22 +686,6 @@ export default function AdminPortfolioManagement() {
                         {item.description}
                       </p>
                     )}
-
-                    {/* Metadata Grid */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-1 sm:gap-2 border-t border-[#2D2820] pt-2 sm:pt-2.5 text-[10px] sm:text-[11px] text-[#A89F91]">
-                      <div className="flex items-center gap-1 min-w-0">
-                        <Maximize2 size={11} className="text-[#7A7162] shrink-0" />
-                        <span className="truncate">{item.size_label || 'ไม่ระบุขนาด'}</span>
-                      </div>
-                      <div className="flex items-center gap-1 min-w-0">
-                        <Clock size={11} className="text-[#7A7162] shrink-0" />
-                        <span className="truncate">
-                          {item.estimated_duration_minutes
-                            ? `${durationHours ? `${durationHours}ชม.` : ''} ${durationMins ? `${durationMins}น.` : ''}`
-                            : 'ไม่ระบุเวลา'}
-                        </span>
-                      </div>
-                    </div>
                   </div>
                 </div>
 
@@ -876,17 +826,6 @@ export default function AdminPortfolioManagement() {
                         <Camera size={14} className="text-[#9C2F2F] shrink-0" />
                         <span>{formData.image_url ? 'เลือกรูปใหม่' : 'เลือกรูปภาพ'}</span>
                       </button>
-
-                      <button
-                        type="button"
-                        disabled={isUploadingImage || submitting}
-                        onClick={() => setShowManualUrlInput(!showManualUrlInput)}
-                        className="w-full h-9 bg-[#0E0D0C] hover:bg-[#1a1714] border border-[#2D2820] text-xs text-[#ECE4D3] rounded font-medium flex items-center justify-center gap-1.5 transition-colors active:scale-[0.98] disabled:opacity-50"
-                      >
-                        <LinkIcon size={13} className="text-[#7A7162] shrink-0" />
-                        <span>{showManualUrlInput ? 'ซ่อนช่อง URL' : 'วาง URL รูปภาพ'}</span>
-                      </button>
-
                       {formData.image_url && (
                         <button
                           type="button"
@@ -903,23 +842,6 @@ export default function AdminPortfolioManagement() {
                       )}
                     </div>
                   </div>
-
-                  {/* Fallback URL Input */}
-                  {showManualUrlInput && (
-                    <div className="bg-[#0E0D0C] border border-[#2D2820] rounded-lg p-2.5 space-y-1 animate-fadeIn">
-                      <label className="text-xs font-semibold text-[#ECE4D3] block flex items-center gap-1.5">
-                        <LinkIcon size={12} className="text-[#9C2F2F]" />
-                        <span>URL รูปภาพตรง (Direct Image URL)</span>
-                      </label>
-                      <input
-                        type="url"
-                        value={formData.image_url}
-                        onChange={(e) => setFormData({ ...formData, image_url: e.target.value })}
-                        placeholder="https://example.com/artwork.jpg"
-                        className="w-full bg-[#171512] border border-[#3E372C] rounded px-3 py-1.5 text-xs text-[#ECE4D3] placeholder:text-[#7A7162] focus:outline-none focus:border-[#9C2F2F]"
-                      />
-                    </div>
-                  )}
 
                   {imageUploadError && (
                     <p className="text-xs text-red-400 flex items-center gap-1 pt-1">
@@ -999,61 +921,19 @@ export default function AdminPortfolioManagement() {
                       )}
                     </select>
                   </div>
-                </div>
 
-                {/* Section: ขนาดและเวลา */}
-                <div className="space-y-3">
-                  <div className="border-b border-[#2D2820] pb-1">
-                    <h3 className="text-xs font-bold text-[#ECE4D3] uppercase tracking-wider flex items-center gap-1.5">
-                      <Clock size={13} className="text-[#9C2F2F]" />
-                      <span>ขนาดและเวลา</span>
-                    </h3>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-1 min-w-0">
-                      <label className="text-xs font-semibold text-[#ECE4D3] block">ขนาดชิ้นงาน</label>
-                      <input
-                        type="text"
-                        value={formData.size_label}
-                        onChange={(e) => setFormData({ ...formData, size_label: e.target.value })}
-                        placeholder="เช่น 15x10 ซม."
-                        className="w-full bg-[#0E0D0C] border border-[#3E372C] rounded-[4px] px-2.5 py-2 text-xs text-[#ECE4D3] placeholder:text-[#7A7162] focus:outline-none focus:border-[#9C2F2F]"
-                      />
-                    </div>
-
-                    <div className="space-y-1 min-w-0">
-                      <label className="text-xs font-semibold text-[#ECE4D3] block">เวลาสัก</label>
-                      <div className="flex items-center gap-1.5 bg-[#0E0D0C] border border-[#3E372C] rounded-[4px] px-2.5 py-2">
-                        <input
-                          type="number"
-                          min="0"
-                          max="100"
-                          value={formData.duration_hours}
-                          onChange={(e) => setFormData({ ...formData, duration_hours: e.target.value })}
-                          placeholder="0"
-                          className="w-full bg-transparent text-xs text-[#ECE4D3] focus:outline-none"
-                        />
-                        <span className="text-xs text-[#7A7162] shrink-0">ชั่วโมง</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Section: รายละเอียด */}
-                <div className="space-y-3">
-                  <div className="border-b border-[#2D2820] pb-1">
-                    <h3 className="text-xs font-bold text-[#ECE4D3] uppercase tracking-wider block">
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold text-[#ECE4D3] block">
                       รายละเอียดผลงาน
-                    </h3>
+                    </label>
+                    <textarea
+                      rows={3}
+                      value={formData.description}
+                      onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                      placeholder="อธิบายเทคนิค ลวดลาย หรือแนวคิดของผลงานสักนี้..."
+                      className="w-full bg-[#0E0D0C] border border-[#3E372C] rounded-[4px] px-3 py-2 text-xs text-[#ECE4D3] placeholder:text-[#7A7162] focus:outline-none focus:border-[#9C2F2F] resize-none"
+                    />
                   </div>
-                  <textarea
-                    rows={3}
-                    value={formData.description}
-                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                    placeholder="อธิบายเทคนิค ลวดลาย หรือแนวคิดของผลงานสักนี้..."
-                    className="w-full bg-[#0E0D0C] border border-[#3E372C] rounded-[4px] px-3 py-2 text-xs text-[#ECE4D3] placeholder:text-[#7A7162] focus:outline-none focus:border-[#9C2F2F] resize-none"
-                  />
                 </div>
 
                 {/* Section: การแสดงผล */}
@@ -1161,16 +1041,6 @@ export default function AdminPortfolioManagement() {
                       <span>{formData.image_url ? 'เปลี่ยนรูปภาพ' : 'เลือกรูปภาพ'}</span>
                     </button>
 
-                    <button
-                      type="button"
-                      disabled={isUploadingImage || submitting}
-                      onClick={() => setShowManualUrlInput(!showManualUrlInput)}
-                      className="px-3 py-1.5 bg-[#25201A] hover:bg-[#322A22] border border-[#2D2820] text-xs text-[#A89F91] hover:text-[#ECE4D3] rounded transition-colors font-medium flex items-center gap-1"
-                    >
-                      <LinkIcon size={12} />
-                      <span>วาง URL รูปภาพ</span>
-                    </button>
-
                     {formData.image_url && (
                       <button
                         type="button"
@@ -1186,20 +1056,6 @@ export default function AdminPortfolioManagement() {
                       </button>
                     )}
                   </div>
-
-                  {/* Fallback Manual URL Input on Desktop */}
-                  {showManualUrlInput && (
-                    <div className="w-full bg-[#0E0D0C] border border-[#2D2820] rounded-lg p-3 space-y-1 animate-fadeIn">
-                      <label className="text-[10px] text-[#A89F91] block">วาง URL รูปภาพภายนอก (HTTPS):</label>
-                      <input
-                        type="url"
-                        value={formData.image_url}
-                        onChange={(e) => setFormData({ ...formData, image_url: e.target.value })}
-                        placeholder="https://images.unsplash.com/..."
-                        className="w-full bg-[#171512] border border-[#3E372C] rounded px-3 py-1.5 text-xs text-[#ECE4D3] placeholder:text-[#7A7162] focus:outline-none focus:border-[#9C2F2F] font-mono"
-                      />
-                    </div>
-                  )}
 
                   {imageUploadError && (
                     <p className="text-xs text-red-400 flex items-center gap-1 mt-1 justify-center">
@@ -1274,36 +1130,6 @@ export default function AdminPortfolioManagement() {
                         </>
                       )}
                     </select>
-                  </div>
-
-                  {/* ขนาดชิ้นงาน + เวลาสัก */}
-                  <div className="grid grid-cols-2 gap-2.5">
-                    <div className="space-y-1 min-w-0">
-                      <label className="text-xs font-semibold text-[#ECE4D3] block">ขนาดชิ้นงาน</label>
-                      <input
-                        type="text"
-                        value={formData.size_label}
-                        onChange={(e) => setFormData({ ...formData, size_label: e.target.value })}
-                        placeholder="เช่น 15x10 ซม."
-                        className="w-full bg-[#0E0D0C] border border-[#3E372C] rounded-[4px] px-2.5 py-2 text-xs text-[#ECE4D3] placeholder:text-[#7A7162] focus:outline-none focus:border-[#9C2F2F]"
-                      />
-                    </div>
-
-                    <div className="space-y-1 min-w-0">
-                      <label className="text-xs font-semibold text-[#ECE4D3] block">เวลาสัก</label>
-                      <div className="flex items-center gap-1.5 bg-[#0E0D0C] border border-[#3E372C] rounded-[4px] px-2.5 py-2">
-                        <input
-                          type="number"
-                          min="0"
-                          max="100"
-                          value={formData.duration_hours}
-                          onChange={(e) => setFormData({ ...formData, duration_hours: e.target.value })}
-                          placeholder="0"
-                          className="w-full bg-transparent text-xs text-[#ECE4D3] focus:outline-none"
-                        />
-                        <span className="text-xs text-[#7A7162] shrink-0">ชั่วโมง</span>
-                      </div>
-                    </div>
                   </div>
 
                   {/* รายละเอียดผลงาน */}

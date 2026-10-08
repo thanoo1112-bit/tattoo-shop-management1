@@ -2,7 +2,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { Search, ChevronRight, User, Calendar, DollarSign, Clock, ShieldCheck, CreditCard, TriangleAlert } from 'lucide-react';
-import { BookingItem, BookingStatus, formatDateTimeBangkok, formatCurrency } from './types';
+import { BookingItem, BookingStatus, formatDateTimeBangkok, formatCurrency, isMultiSessionIncompleteBooking, resolveBookingOperationalStatus } from './types';
 
 interface BookingListProps {
   bookings: BookingItem[];
@@ -28,23 +28,70 @@ export default function BookingList({
     }
   }, [initialFilter]);
 
+  const getCategory = (b: BookingItem) => {
+    const statusStr = (b.status || '').toUpperCase();
+    const opKey = b.operational_status?.key || statusStr;
+
+    if (statusStr === 'COMPLETED' || opKey === 'COMPLETED') {
+      return 'COMPLETED';
+    }
+    if (statusStr === 'CANCELLED' || statusStr === 'EXPIRED' || opKey === 'CANCELLED' || opKey === 'EXPIRED') {
+      return 'CANCELLED';
+    }
+    const isMultiSession = Boolean(
+      (b.sessions && b.sessions.length > 1) ||
+      (b.sessions && b.sessions.some(s => (s.session_number || 1) >= 2)) ||
+      isMultiSessionIncompleteBooking(b).isIncomplete ||
+      opKey === 'MULTI_SESSION_INCOMPLETE'
+    );
+    if (isMultiSession) {
+      return 'SESSIONS';
+    }
+    return 'SCHEDULED';
+  };
+
+  const statusCounts = useMemo(() => {
+    let sessionsCount = 0;
+    let completed = 0;
+    let cancelled = 0;
+
+    bookings.forEach((b) => {
+      const cat = getCategory(b);
+      if (cat === 'COMPLETED') completed++;
+      else if (cat === 'CANCELLED') cancelled++;
+      else if (cat === 'SESSIONS') sessionsCount++;
+    });
+
+    const scheduledCount = bookings.filter(b => {
+      const cat = getCategory(b);
+      return cat === 'SCHEDULED' || cat === 'SESSIONS';
+    }).length;
+
+    return {
+      all: bookings.length,
+      scheduled: scheduledCount,
+      sessions: sessionsCount,
+      completed,
+      cancelled,
+    };
+  }, [bookings]);
+
   const filterPills: Array<{ id: string; label: string }> = [
-    { id: 'ALL', label: 'ทั้งหมด' },
-    { id: 'CONFIRMED', label: 'ยืนยันคิว' },
-    { id: 'COMPLETED', label: 'เสร็จสิ้น' },
-    { id: 'CANCELLED', label: 'ยกเลิก' },
+    { id: 'ALL', label: `ทั้งหมด (${statusCounts.all})` },
+    { id: 'SCHEDULED', label: `นัดหมายแล้ว (${statusCounts.scheduled})` },
+    { id: 'COMPLETED', label: `งานเสร็จสิ้น (${statusCounts.completed})` },
+    { id: 'CANCELLED', label: `ยกเลิก (${statusCounts.cancelled})` },
   ];
 
   const filteredBookings = useMemo(() => {
     return bookings.filter((b) => {
-      if (statusFilter === 'CONFIRMED') {
-        if (b.status !== 'CONFIRMED') return false;
-      } else if (statusFilter === 'COMPLETED') {
-        if (b.status !== 'COMPLETED') return false;
-      } else if (statusFilter === 'CANCELLED') {
-        if (b.status !== 'CANCELLED') return false;
-      } else if (statusFilter !== 'ALL') {
-        if (b.status !== statusFilter) return false;
+      const cat = getCategory(b);
+
+      if (statusFilter !== 'ALL') {
+        if ((statusFilter === 'SCHEDULED' || statusFilter === 'CONFIRMED') && cat !== 'SCHEDULED' && cat !== 'SESSIONS') return false;
+        if ((statusFilter === 'SESSIONS' || statusFilter === 'MULTI_SESSION_INCOMPLETE') && cat !== 'SESSIONS') return false;
+        if (statusFilter === 'COMPLETED' && cat !== 'COMPLETED') return false;
+        if (statusFilter === 'CANCELLED' && cat !== 'CANCELLED') return false;
       }
 
       if (searchQuery.trim()) {
@@ -59,8 +106,13 @@ export default function BookingList({
   }, [bookings, statusFilter, searchQuery]);
 
   const renderHealthAlertBadge = (book: BookingItem) => {
-    const hasAlert = Boolean(book.has_medical_condition || book.has_allergy);
-    if (hasAlert) {
+    const hasMed = book.has_medical_condition;
+    const hasAll = book.has_allergy;
+
+    const isAlert = hasMed === true || hasAll === true;
+    const isHealthy = hasMed === false && hasAll === false;
+
+    if (isAlert) {
       return (
         <span
           title="มีข้อมูลสุขภาพ กรุณาตรวจสอบรายละเอียดก่อนให้บริการ"
@@ -71,38 +123,63 @@ export default function BookingList({
         </span>
       );
     }
+
+    if (isHealthy) {
+      return (
+        <span className="bg-emerald-950/60 text-emerald-400 border border-emerald-800/60 px-2 py-0.5 rounded text-[10px] font-medium inline-flex items-center">
+          ปกติ
+        </span>
+      );
+    }
+
     return (
-      <span className="bg-[#171512] text-[#9C9486] border border-[#4A443A] px-2 py-0.5 rounded text-[10px] font-medium inline-flex items-center">
-        ปกติ
+      <span className="bg-[#1F1D1A] text-[#A89F91] border border-[#4A443A] px-2 py-0.5 rounded text-[10px] font-medium inline-flex items-center">
+        ไม่ระบุ
       </span>
     );
   };
 
   const renderStatusBadge = (book: BookingItem) => {
+    const isDirectBooking = (book as any).request_type === 'DIRECT_BOOKING' || (book as any).booking_source === 'ADMIN_CALENDAR';
+
     if (
       (book.operational_status?.key === 'WAITING_SLIP_VERIFICATION' || book.has_pending_payment_submission) &&
       onCheckSlip
     ) {
       return (
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            onCheckSlip(book.id);
-          }}
-          title="กดเพื่อตรวจสลิป"
-          className="bg-amber-950/80 hover:bg-amber-900 text-amber-300 border border-amber-800/80 px-2 py-0.5 rounded text-[10px] font-semibold inline-flex items-center animate-pulse transition-colors cursor-pointer shadow-sm"
-        >
-          <span>สลิปรอตรวจ</span>
-        </button>
+        <div className="flex items-center gap-1">
+          {isDirectBooking && (
+            <span className="bg-purple-950/80 text-purple-300 border border-purple-800/80 px-2 py-0.5 rounded text-[10px] font-semibold">
+              สร้างโดยแอดมิน
+            </span>
+          )}
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onCheckSlip(book.id);
+            }}
+            title="กดเพื่อตรวจสลิป"
+            className="bg-amber-950/80 hover:bg-amber-900 text-amber-300 border border-amber-800/80 px-2 py-0.5 rounded text-[10px] font-semibold inline-flex items-center animate-pulse transition-colors cursor-pointer shadow-sm"
+          >
+            <span>สลิปรอตรวจ</span>
+          </button>
+        </div>
       );
     }
 
     if (book.operational_status) {
       return (
-        <span className={`${book.operational_status.badgeClass} px-2 py-0.5 rounded text-[10px] font-semibold`}>
-          {book.operational_status.label}
-        </span>
+        <div className="flex items-center gap-1">
+          {isDirectBooking && (
+            <span className="bg-purple-950/80 text-purple-300 border border-purple-800/80 px-2 py-0.5 rounded text-[10px] font-semibold">
+              สร้างโดยแอดมิน
+            </span>
+          )}
+          <span className={`${book.operational_status.badgeClass} px-2 py-0.5 rounded text-[10px] font-semibold`}>
+            {book.operational_status.label}
+          </span>
+        </div>
       );
     }
 
@@ -120,15 +197,10 @@ export default function BookingList({
           </span>
         );
       case 'WAITING_DEPOSIT':
-        return (
-          <span className="bg-amber-950/60 text-amber-400 border border-amber-800/60 px-2 py-0.5 rounded text-[10px] font-semibold">
-            รอมัดจำ
-          </span>
-        );
       case 'CONFIRMED':
         return (
           <span className="bg-emerald-950/60 text-emerald-400 border border-emerald-800/60 px-2 py-0.5 rounded text-[10px] font-semibold">
-            ยืนยันคิว
+            ยืนยันคิวแล้ว
           </span>
         );
       case 'IN_PROGRESS':
@@ -261,7 +333,7 @@ export default function BookingList({
             <table className="w-full text-left text-xs text-[#ECE4D3]">
               <thead className="bg-[#0E0D0C] text-[#7A7265] uppercase text-[10px] tracking-wider border-b border-[#4A443A]">
                 <tr>
-                  <th className="py-3 px-3">วันที่</th>
+                  <th className="py-3 px-3">รหัสคิว / วันเวลานัด</th>
                   <th className="py-3 px-3">ลูกค้า</th>
                   <th className="py-3 px-3">ช่างสัก</th>
                   <th className="py-3 px-3">สถานะ</th>
@@ -274,6 +346,9 @@ export default function BookingList({
               <tbody className="divide-y divide-[#4A443A]/50">
                 {filteredBookings.map((book) => {
                   const isSelected = selectedBooking?.id === book.id;
+                  const reqTime = book.requested_start_time || book.requested_time;
+                  const timeFormatted = reqTime ? (reqTime.length >= 5 ? reqTime.slice(0, 5) : reqTime) : null;
+
                   return (
                     <tr
                       key={book.id}
@@ -283,7 +358,17 @@ export default function BookingList({
                       }`}
                     >
                       <td className="py-3 px-3 text-[#A89F91]">
-                        {book.requested_date || '-'}
+                        <span className="text-[10px] text-[#7A7265] font-mono block font-semibold">
+                          #{book.id.slice(0, 8)}
+                        </span>
+                        <div className="font-medium text-[#ECE4D3] text-xs mt-0.5">
+                          {book.requested_date || '-'}
+                        </div>
+                        {timeFormatted && (
+                          <div className="text-[10px] text-amber-400/90 font-mono">
+                            {timeFormatted} น.
+                          </div>
+                        )}
                       </td>
                       <td className="py-3 px-3 font-medium text-[#ECE4D3]">
                         {book.customer_name}
@@ -319,6 +404,9 @@ export default function BookingList({
           <div className="md:hidden space-y-2.5">
             {filteredBookings.map((book) => {
               const isSelected = selectedBooking?.id === book.id;
+              const reqTime = book.requested_start_time || book.requested_time;
+              const timeFormatted = reqTime ? (reqTime.length >= 5 ? reqTime.slice(0, 5) : reqTime) : null;
+
               return (
                 <div
                   key={book.id}
@@ -331,10 +419,17 @@ export default function BookingList({
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div>
+                      <span className="text-[10px] text-[#7A7265] font-mono mr-1.5 font-semibold">
+                        #{book.id.slice(0, 8)}
+                      </span>
                       <span className="font-semibold text-xs text-[#ECE4D3]">{book.customer_name}</span>
                       <p className="text-[11px] text-[#7A7265] mt-0.5">
                         ช่าง: <span className="text-[#A89F91]">{book.artist_name}</span>
-                        {book.requested_date && ` • วันที่: ${book.requested_date}`}
+                        {book.requested_date && (
+                          <span>
+                            {' • '}วันที่: {book.requested_date} {timeFormatted ? `(${timeFormatted} น.)` : ''}
+                          </span>
+                        )}
                       </p>
                     </div>
                     <div className="flex items-center gap-1.5">

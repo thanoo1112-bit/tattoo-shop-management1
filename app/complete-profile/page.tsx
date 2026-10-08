@@ -11,8 +11,11 @@ import {
   AlertCircle, 
   CheckCircle2, 
   LogOut,
-  ArrowRight
+  ArrowRight,
+  Calendar
 } from 'lucide-react';
+import { validateCustomerAge } from '@/lib/customerUtils';
+import ThaiDateOfBirthPicker from '@/components/common/ThaiDateOfBirthPicker';
 
 function CompleteProfileContent() {
   const { 
@@ -38,11 +41,11 @@ function CompleteProfileContent() {
 
   const [displayName, setDisplayName] = useState('');
   const [phone, setPhone] = useState('');
-  const [disclaimerAccepted, setDisclaimerAccepted] = useState(false);
+  const [dateOfBirth, setDateOfBirth] = useState('');
 
   const [nameError, setNameError] = useState('');
   const [phoneError, setPhoneError] = useState('');
-  const [disclaimerError, setDisclaimerError] = useState('');
+  const [dobError, setDobError] = useState('');
   const [serverError, setServerError] = useState('');
   const [loading, setLoading] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
@@ -101,13 +104,23 @@ function CompleteProfileContent() {
           return;
         }
 
+        if (cData?.date_of_birth) {
+          setDateOfBirth(cData.date_of_birth);
+          const ageVal = validateCustomerAge(cData.date_of_birth);
+          if (!ageVal.valid) {
+            setServerError(ageVal.error || 'ระบบเปิดให้บริการสำหรับผู้มีอายุ 18 ปีบริบูรณ์ขึ้นไป');
+            setDobError(ageVal.error || 'ระบบเปิดให้บริการสำหรับผู้มีอายุ 18 ปีบริบูรณ์ขึ้นไป');
+          }
+        }
+
         const effectivePhone = pData?.phone || cData?.phone || '';
         const isComplete = checkIsCustomerProfileComplete(
           liveRole,
           pData?.is_active !== false,
           effectivePhone,
           cData?.profile_completed_at,
-          cData?.eligibility_confirmed_at
+          cData?.eligibility_confirmed_at,
+          cData?.date_of_birth
         );
 
         if (isComplete) {
@@ -159,6 +172,7 @@ function CompleteProfileContent() {
     e.preventDefault();
     setNameError('');
     setPhoneError('');
+    setDobError('');
     setServerError('');
 
     let hasError = false;
@@ -175,8 +189,9 @@ function CompleteProfileContent() {
       hasError = true;
     }
 
-    if (!disclaimerAccepted) {
-      setDisclaimerError('กรุณายืนยันเงื่อนไขก่อนรับบริการ');
+    const ageVal = validateCustomerAge(dateOfBirth);
+    if (!ageVal.valid) {
+      setDobError(ageVal.error || 'ระบบเปิดให้บริการสำหรับผู้มีอายุ 18 ปีบริบูรณ์ขึ้นไป');
       hasError = true;
     }
 
@@ -185,7 +200,7 @@ function CompleteProfileContent() {
     setLoading(true);
     // Single Authority: Call RPC with eligibilityConfirmed = true
     // NO direct update fallback
-    const res = await completeCustomerProfile(trimmedName, trimmedPhone, true);
+    const res = await completeCustomerProfile(trimmedName, trimmedPhone, true, dateOfBirth);
     setLoading(false);
 
     if (res.success) {
@@ -303,29 +318,33 @@ function CompleteProfileContent() {
             )}
           </div>
 
-          {/* 3. Disclaimer Checkbox */}
-          <div className="pt-2">
-            <label className="flex items-start space-x-2.5 cursor-pointer select-none group">
-              <input
-                type="checkbox"
-                checked={disclaimerAccepted}
-                onChange={(e) => {
-                  setDisclaimerAccepted(e.target.checked);
-                  if (disclaimerError) setDisclaimerError('');
-                }}
-                className="mt-0.5 w-4 h-4 rounded border-[#4A443A] bg-[#0E0D0C] text-[#9C2F2F] focus:ring-[#9C2F2F] focus:ring-offset-0 transition-colors shrink-0 accent-[#9C2F2F]"
-              />
-              <span className="text-xs text-[#A89F91] leading-relaxed group-hover:text-[#ECE4D3] transition-colors">
-                ฉันยืนยันว่ามีอายุ 18 ปีบริบูรณ์ขึ้นไป และยอมรับข้อกำหนดการใช้งานและนโยบายความเป็นส่วนตัว
-              </span>
+          {/* 3. Date of Birth Field */}
+          <div>
+            <label className="block text-xs font-medium text-[#ECE4D3] mb-1.5">
+              วัน/เดือน/ปีเกิด <span className="text-[#9C2F2F]">*</span>
             </label>
-            {disclaimerError && (
-              <p className="text-[11px] text-[#9C2F2F] mt-1.5 flex items-center space-x-1 font-medium">
-                <AlertCircle size={12} className="shrink-0" />
-                <span>{disclaimerError}</span>
+            <ThaiDateOfBirthPicker
+              value={dateOfBirth}
+              onChange={(iso) => {
+                setDateOfBirth(iso);
+                if (dobError) setDobError('');
+              }}
+              hasError={Boolean(dobError)}
+              theme="dark"
+            />
+            {dobError ? (
+              <p className="text-[11px] text-[#9C2F2F] mt-1 flex items-center space-x-1">
+                <AlertCircle size={12} />
+                <span>{dobError}</span>
+              </p>
+            ) : (
+              <p className="text-[10px] text-[#7A7265] mt-1 font-light">
+                * สงวนสิทธิ์การสมัครและจองคิวสำหรับผู้มีอายุ 18 ปีบริบูรณ์ขึ้นไป
               </p>
             )}
           </div>
+
+
 
           {/* Submit Button */}
           <div className="pt-3">

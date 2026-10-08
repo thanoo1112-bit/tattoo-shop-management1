@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useApp } from '@/components/AppContext';
+import { CustomerPortalBooking } from './types';
 import {
   Sparkles,
   Calendar,
@@ -17,17 +18,28 @@ import {
   ShieldCheck,
   RefreshCw,
   ExternalLink,
+  Palette,
+  MapPin,
+  Maximize2,
+  FileText,
 } from 'lucide-react';
 import Link from 'next/link';
 import CustomerReferenceImage from '@/components/common/CustomerReferenceImage';
+import CustomerDepositPaymentSection from './CustomerDepositPaymentSection';
+import { formatTattooSize } from '@/lib/utils/formatters';
+import { parseFlashCustomerNote } from './portalUtils';
+
 
 export interface CustomerFlashReservationRecord {
   id: string;
   flash_design_id: string;
   customer_user_id: string;
-  status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELLED' | 'COMPLETED';
+  status: 'PENDING' | 'WAITING_DEPOSIT' | 'APPROVED' | 'REJECTED' | 'CANCELLED' | 'COMPLETED' | string;
   requested_date?: string | null;
   requested_start_time?: string | null;
+  placement?: string | null;
+  width_cm?: number | null;
+  height_cm?: number | null;
   customer_note?: string | null;
   admin_note?: string | null;
   approved_at?: string | null;
@@ -35,6 +47,8 @@ export interface CustomerFlashReservationRecord {
   cancelled_at?: string | null;
   completed_at?: string | null;
   created_at: string;
+  has_pending_payment_submission?: boolean;
+  booking?: CustomerPortalBooking | null;
   flash_design?: {
     id: string;
     title: string;
@@ -43,6 +57,7 @@ export interface CustomerFlashReservationRecord {
     price: number;
     deposit_amount: number;
     image_url: string;
+    is_repeatable?: boolean;
     artist?: {
       id: string;
       name: string;
@@ -74,6 +89,9 @@ export default function CustomerFlashReservations() {
           status,
           requested_date,
           requested_start_time,
+          placement,
+          width_cm,
+          height_cm,
           customer_note,
           admin_note,
           approved_at,
@@ -89,6 +107,7 @@ export default function CustomerFlashReservations() {
             price,
             deposit_amount,
             image_url,
+            is_repeatable,
             artists (
               id,
               name,
@@ -101,35 +120,93 @@ export default function CustomerFlashReservations() {
 
       if (fetchErr) throw fetchErr;
 
-      const formatted: CustomerFlashReservationRecord[] = (data || []).map((r: any) => ({
-        id: r.id,
-        flash_design_id: r.flash_design_id,
-        customer_user_id: r.customer_user_id,
-        status: r.status,
-        requested_date: r.requested_date,
-        requested_start_time: r.requested_start_time,
-        customer_note: r.customer_note,
-        admin_note: r.admin_note,
-        approved_at: r.approved_at,
-        rejected_at: r.rejected_at,
-        cancelled_at: r.cancelled_at,
-        completed_at: r.completed_at,
-        created_at: r.created_at,
-        flash_design: r.flash_designs ? {
-          id: r.flash_designs.id,
-          title: r.flash_designs.title,
-          style: r.flash_designs.style,
-          size_label: r.flash_designs.size_label,
-          price: Number(r.flash_designs.price) || 0,
-          deposit_amount: Number(r.flash_designs.deposit_amount) || 0,
-          image_url: r.flash_designs.image_url,
-          artist: r.flash_designs.artists ? {
-            id: r.flash_designs.artists.id,
-            name: r.flash_designs.artists.name,
-            nickname: r.flash_designs.artists.nickname,
+      const rawFlashList = data || [];
+      const flashIds = rawFlashList.map((r: any) => r.id);
+      let linkedBookingsMap: Record<string, any> = {};
+
+      if (flashIds.length > 0) {
+        const { data: bData } = await supabase
+          .from('bookings')
+          .select('id, flash_reservation_id, customer_user_id, artist_id, status, approved_at, quoted_price, created_at')
+          .in('flash_reservation_id', flashIds);
+
+        if (bData && bData.length > 0) {
+          const bookingIds = bData.map((b: any) => b.id);
+          const { data: finData } = await supabase
+            .from('booking_payment_summary')
+            .select('*')
+            .in('booking_id', bookingIds);
+
+          const { data: subData } = await supabase
+            .from('booking_payment_submissions')
+            .select('id, booking_id, status')
+            .in('booking_id', bookingIds)
+            .eq('status', 'PENDING');
+
+          (bData || []).forEach((b: any) => {
+            const fin = (finData || []).find((f: any) => f.booking_id === b.id);
+            const hasPending = (subData || []).some((s: any) => s.booking_id === b.id);
+            linkedBookingsMap[b.flash_reservation_id] = {
+              id: b.id,
+              customer_user_id: b.customer_user_id,
+              artist_id: b.artist_id,
+              status: b.status,
+              approved_at: b.approved_at,
+              created_at: b.created_at,
+              financial: {
+                booking_id: b.id,
+                customer_user_id: b.customer_user_id,
+                quoted_price: fin?.quoted_price ? Number(fin.quoted_price) : Number(b.quoted_price || 10000),
+                deposit_required: fin?.deposit_required ? Number(fin.deposit_required) : 500,
+                paid_total: Number(fin?.paid_total || 0),
+                remaining_balance: fin?.remaining_balance ? Number(fin.remaining_balance) : null,
+                deposit_paid: Boolean(fin?.deposit_paid),
+                is_fully_paid: Boolean(fin?.is_fully_paid),
+              },
+              has_pending_payment_submission: hasPending,
+            };
+          });
+        }
+      }
+
+      const formatted: CustomerFlashReservationRecord[] = rawFlashList.map((r: any) => {
+        const lBooking = linkedBookingsMap[r.id] || null;
+        return {
+          id: r.id,
+          flash_design_id: r.flash_design_id,
+          customer_user_id: r.customer_user_id,
+          status: r.status,
+          requested_date: r.requested_date,
+          requested_start_time: r.requested_start_time,
+          placement: r.placement,
+          width_cm: r.width_cm ? Number(r.width_cm) : null,
+          height_cm: r.height_cm ? Number(r.height_cm) : null,
+          customer_note: r.customer_note,
+          admin_note: r.admin_note,
+          approved_at: r.approved_at,
+          rejected_at: r.rejected_at,
+          cancelled_at: r.cancelled_at,
+          completed_at: r.completed_at,
+          created_at: r.created_at,
+          has_pending_payment_submission: Boolean(lBooking?.has_pending_payment_submission),
+          booking: lBooking,
+          flash_design: r.flash_designs ? {
+            id: r.flash_designs.id,
+            title: r.flash_designs.title,
+            style: r.flash_designs.style,
+            size_label: r.flash_designs.size_label,
+            price: Number(r.flash_designs.price) || 0,
+            deposit_amount: Number(r.flash_designs.deposit_amount) || 0,
+            image_url: r.flash_designs.image_url,
+            is_repeatable: Boolean(r.flash_designs.is_repeatable),
+            artist: r.flash_designs.artists ? {
+              id: r.flash_designs.artists.id,
+              name: r.flash_designs.artists.name,
+              nickname: r.flash_designs.artists.nickname,
+            } : null,
           } : null,
-        } : null,
-      }));
+        };
+      });
 
       setReservations(formatted);
     } catch (err: any) {
@@ -234,16 +311,25 @@ export default function CustomerFlashReservations() {
       {!loading && !error && reservations.length > 0 && (
         <div className="space-y-3">
           {reservations.map((res) => {
-            const isPending = res.status === 'PENDING';
-            const isApproved = res.status === 'APPROVED';
-            const isCompleted = res.status === 'COMPLETED';
-            const isCancelled = res.status === 'CANCELLED';
-            const isRejected = res.status === 'REJECTED';
+            const isWaitingDeposit = res.status === 'WAITING_DEPOSIT' || res.booking?.status === 'WAITING_DEPOSIT';
+            const hasPendingSlip = Boolean(res.has_pending_payment_submission || res.booking?.has_pending_payment_submission);
+            const isPending = res.status === 'PENDING' && !isWaitingDeposit;
+            const isApproved = (res.status === 'APPROVED' || res.status === 'CONFIRMED' || res.booking?.status === 'CONFIRMED') && !isWaitingDeposit;
+            const isCompleted = res.status === 'COMPLETED' || res.booking?.status === 'COMPLETED';
+            const isCancelled = res.status === 'CANCELLED' || res.booking?.status === 'CANCELLED';
+            const isRejected = res.status === 'REJECTED' || res.booking?.status === 'REJECTED';
 
             const design = res.flash_design;
             const artistName = design?.artist?.name
               ? `${design.artist.name}${design.artist.nickname ? ` (${design.artist.nickname})` : ''}`
               : 'ช่างสักประจำร้าน';
+
+            const parsedNote = parseFlashCustomerNote(res.customer_note);
+            const placementDisplay = (res.placement && res.placement.trim())
+              ? res.placement.trim()
+              : (parsedNote.parsedPlacement || 'ไม่ระบุ');
+            const sizeFormatted = formatTattooSize(res.width_cm, res.height_cm, parsedNote.parsedSizeRaw);
+            const hasSize = sizeFormatted !== 'ไม่ระบุ';
 
             return (
               <div
@@ -267,9 +353,19 @@ export default function CustomerFlashReservations() {
                         <Clock3 size={11} /> รอดำเนินการ (PENDING)
                       </span>
                     )}
+                    {isWaitingDeposit && !hasPendingSlip && (
+                      <span className="text-[10px] bg-amber-950/60 border border-amber-600/40 text-amber-300 px-2 py-0.5 rounded font-bold inline-flex items-center gap-1">
+                        <Clock3 size={11} /> รอมัดจำ ฿500 (WAITING_DEPOSIT)
+                      </span>
+                    )}
+                    {isWaitingDeposit && hasPendingSlip && (
+                      <span className="text-[10px] bg-purple-950/60 border border-purple-600/40 text-purple-300 px-2 py-0.5 rounded font-bold inline-flex items-center gap-1">
+                        <Clock3 size={11} /> รอตรวจสลิป (SLIP_REVIEW)
+                      </span>
+                    )}
                     {isApproved && (
-                      <span className="text-[10px] bg-indigo-950/60 border border-indigo-600/40 text-indigo-300 px-2 py-0.5 rounded font-bold inline-flex items-center gap-1">
-                        <CheckCircle2 size={11} /> ร้านยืนยันแล้ว (APPROVED)
+                      <span className="text-[10px] bg-emerald-950/60 border border-emerald-600/40 text-emerald-300 px-2 py-0.5 rounded font-bold inline-flex items-center gap-1">
+                        <CheckCircle2 size={11} /> ยืนยันคิวแล้ว (CONFIRMED)
                       </span>
                     )}
                     {isCompleted && (
@@ -291,62 +387,114 @@ export default function CustomerFlashReservations() {
                 </div>
 
                 {/* Content Body */}
-                <div className="flex gap-3.5 items-start">
-                  <div className="w-16 h-20 sm:w-20 sm:h-24 bg-studio-main rounded overflow-hidden shrink-0 border border-studio-border/60">
-                    <CustomerReferenceImage
-                      src={design?.image_url}
-                      alt={design?.title || ''}
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
+                <div className="space-y-3">
+                  <div className="flex gap-3.5 items-start">
+                    <div className="w-16 h-20 sm:w-20 sm:h-24 bg-studio-main rounded overflow-hidden shrink-0 border border-studio-border/60">
+                      <CustomerReferenceImage
+                        src={design?.image_url}
+                        alt={design?.title || ''}
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
 
-                  <div className="flex-1 min-w-0 space-y-1.5 text-xs">
-                    <div className="flex justify-between items-start">
+                    <div className="flex-1 min-w-0 space-y-1 text-xs">
                       <h4 className="font-bold text-studio-primary text-sm truncate">
                         {design?.title || 'แบบลายสัก Flash'}
                       </h4>
-                      <span className="font-bold text-studio-red text-sm shrink-0 pl-2">
-                        ฿{design?.price ? design.price.toLocaleString() : '0'}
+                      <p className="text-[11px] text-studio-secondary font-light">
+                        ลายสัก Flash พร้อมสักราคาคงที่ (Fixed Price)
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* กล่อง “รายละเอียดงานสัก” รูปแบบเดียวกับการจองคิวสักปกติ */}
+                  <div className="bg-studio-main border border-studio-border p-3.5 rounded-[6px] space-y-2.5 text-xs text-studio-primary">
+                    <div className="text-[11px] font-bold text-studio-secondary uppercase tracking-wider border-b border-studio-border/40 pb-1.5 mb-1">
+                      รายละเอียดงานสัก
+                    </div>
+
+                    {/* 1. ช่างสัก */}
+                    <div className="flex justify-between items-center">
+                      <span className="text-studio-secondary flex items-center gap-1.5">
+                        <User size={13} className="text-studio-red" /> ช่างสัก
+                      </span>
+                      <span className="font-semibold text-studio-primary">{artistName}</span>
+                    </div>
+
+                    {/* 2. สไตล์ลายสัก */}
+                    <div className="flex justify-between items-center">
+                      <span className="text-studio-secondary flex items-center gap-1.5">
+                        <Palette size={13} className="text-studio-red" /> สไตล์ลายสัก
+                      </span>
+                      <span className="font-semibold text-studio-primary">{design?.style || '-'}</span>
+                    </div>
+
+                    {/* 3. ตำแหน่งที่สัก */}
+                    <div className="flex justify-between items-center">
+                      <span className="text-studio-secondary flex items-center gap-1.5">
+                        <MapPin size={13} className="text-studio-red" /> ตำแหน่งที่สัก
+                      </span>
+                      <span className="font-semibold text-studio-primary">{placementDisplay}</span>
+                    </div>
+
+                    {/* 4. ขนาดงานสัก */}
+                    {hasSize && (
+                      <div className="flex justify-between items-center">
+                        <span className="text-studio-secondary flex items-center gap-1.5">
+                          <Maximize2 size={13} className="text-studio-red" /> ขนาดงานสัก
+                        </span>
+                        <span className="font-semibold text-studio-primary">
+                          {sizeFormatted}
+                        </span>
+                      </div>
+                    )}
+
+                    {/* 5. วันนัด */}
+                    <div className="flex justify-between items-center">
+                      <span className="text-studio-secondary flex items-center gap-1.5">
+                        <Calendar size={13} className="text-studio-red" /> วันนัด
+                      </span>
+                      <span className="font-semibold text-studio-primary">
+                        {res.requested_date ? formatThaiDate(res.requested_date) : '-'}
                       </span>
                     </div>
 
-                    <div className="text-[11px] text-studio-secondary flex items-center gap-1">
-                      <User size={11} className="text-studio-red shrink-0" />
-                      <span>ช่างสัก: <strong className="text-studio-primary">{artistName}</strong></span>
-                      {design?.style && (
-                        <span className="text-studio-muted">({design.style})</span>
-                      )}
+                    {/* 6. เวลาเริ่ม */}
+                    <div className="flex justify-between items-center">
+                      <span className="text-studio-secondary flex items-center gap-1.5">
+                        <Clock size={13} className="text-studio-red" /> เวลาเริ่ม
+                      </span>
+                      <span className="font-semibold text-studio-primary">
+                        {res.requested_start_time ? `${res.requested_start_time.slice(0, 5)} น.` : '-'}
+                      </span>
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 text-[11px] text-studio-muted pt-1">
-                      {res.requested_date && (
-                        <div className="flex items-center gap-1">
-                          <Calendar size={11} className="text-studio-red shrink-0" />
-                          <span>วันที่สะดวก: <strong className="text-studio-primary">{formatThaiDate(res.requested_date)}</strong></span>
-                        </div>
-                      )}
-                      {res.requested_start_time && (
-                        <div className="flex items-center gap-1">
-                          <Clock size={11} className="text-studio-red shrink-0" />
-                          <span>เวลาที่สะดวก: <strong className="text-studio-primary">{res.requested_start_time.slice(0, 5)} น.</strong></span>
-                        </div>
-                      )}
-                    </div>
-
+                    {/* 7. รายละเอียดเพิ่มเติม */}
                     {res.customer_note && (
-                      <div className="text-[11px] text-studio-secondary bg-studio-main/60 p-2 rounded border border-studio-border/30 mt-1 font-light">
-                        <span className="text-studio-muted font-normal">หมายเหตุจากคุณ: </span>
-                        {res.customer_note}
-                      </div>
-                    )}
-
-                    {res.admin_note && (
-                      <div className="text-[11px] text-amber-300 bg-amber-950/20 p-2 rounded border border-amber-800/30 mt-1 font-light">
-                        <span className="text-amber-400 font-medium">หมายเหตุจากทางร้าน: </span>
-                        {res.admin_note}
+                      <div className="pt-2 border-t border-studio-border/30 text-[11px]">
+                        <span className="text-studio-secondary block mb-1 flex items-center gap-1.5 font-medium">
+                          <FileText size={12} className="text-studio-red" /> รายละเอียดเพิ่มเติม:
+                        </span>
+                        <p className="text-studio-primary bg-studio-card/80 p-2 rounded border border-studio-border/40 font-light whitespace-pre-wrap">
+                          {res.customer_note}
+                        </p>
                       </div>
                     )}
                   </div>
+
+
+
+                  {/* Deposit Payment Section for Flash Reservation */}
+                  {res.booking && (
+                    (isWaitingDeposit || isApproved || hasPendingSlip)
+                  ) && (
+                    <div className="pt-2 border-t border-studio-border/30">
+                      <CustomerDepositPaymentSection
+                        booking={res.booking}
+                        onRefresh={fetchCustomerFlashReservations}
+                      />
+                    </div>
+                  )}
                 </div>
 
                 {/* Status Notice & Customer Action */}
@@ -375,8 +523,8 @@ export default function CustomerFlashReservations() {
                     )}
                   </div>
 
-                  {/* Customer Cancel Button (PENDING only) */}
-                  {isPending && (
+                  {/* Customer Cancel Button (PENDING & no deposit slip submitted only) */}
+                  {isPending && !hasPendingSlip && !res.booking?.financial?.deposit_paid && (
                     <button
                       type="button"
                       disabled={actionLoadingId === res.id}

@@ -21,6 +21,15 @@ export interface RevenueRecord {
   booking_status: string;
 }
 
+export interface CompletedBookingRecord {
+  id: string;
+  customer_name: string;
+  artist_name: string;
+  completed_at: string;
+  agreed_price: number;
+  actual_total_received: number;
+}
+
 export interface ArtistRevenueItem {
   artist_id: string;
   name: string;
@@ -53,13 +62,13 @@ export interface DailyRevenueItem {
   count: number;
 }
 
-export type DateFilterPreset = 'today' | '7days' | '30days' | 'this_month' | 'last_month' | 'custom';
+export type DateFilterPreset = 'this_month' | 'last_month' | 'custom';
 
 export interface RevenueKpiData {
   todayRevenue: number;
   monthRevenue: number;
-  monthDepositRevenue: number;
-  currentOutstanding: number;
+  monthCompletedBookingsCount: number;
+  unfinishedBookingsCount: number;
   todayTransactionCount: number;
   monthTransactionCount: number;
 }
@@ -71,8 +80,10 @@ export interface RevenueKpiData {
 /**
  * Returns a 'YYYY-MM-DD' date string strictly in Asia/Bangkok timezone.
  */
-export function toBangkokDate(dateInput: Date | string): string {
+export function toBangkokDate(dateInput: Date | string | null | undefined): string {
+  if (!dateInput) return '';
   const d = typeof dateInput === 'string' ? new Date(dateInput) : dateInput;
+  if (!d || isNaN(d.getTime())) return '';
   return new Intl.DateTimeFormat('en-CA', {
     timeZone: 'Asia/Bangkok',
     year: 'numeric',

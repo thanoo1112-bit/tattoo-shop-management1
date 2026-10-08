@@ -2,6 +2,7 @@
 
 import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import { useApp } from '../AppContext';
+import { createClient } from '@/lib/supabase/client';
 import { Artist } from '@/data/mockArtists';
 import {
   Search,
@@ -382,36 +383,7 @@ function ArtistForm({
         )}
 
         <div className="space-y-4 text-xs">
-          {/* 1. ชื่อช่าง * & 2. ชื่อเล่น */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label className="block text-[#A89F91] mb-1 font-medium">
-                ชื่อช่าง *
-              </label>
-              <input
-                type="text"
-                required
-                value={formName}
-                onChange={(e) => setFormName(e.target.value)}
-                placeholder="เช่น ช่างปอนด์ (Pond)"
-                className="w-full h-9 px-3 bg-[#0E0D0C] border border-[#4A443A] focus:border-[#9C2F2F] rounded text-xs text-[#ECE4D3] outline-none"
-              />
-            </div>
-            <div>
-              <label className="block text-[#A89F91] mb-1 font-medium">
-                ชื่อเล่น
-              </label>
-              <input
-                type="text"
-                value={formNickname}
-                onChange={(e) => setFormNickname(e.target.value)}
-                placeholder="เช่น ปอนด์"
-                className="w-full h-9 px-3 bg-[#0E0D0C] border border-[#4A443A] focus:border-[#9C2F2F] rounded text-xs text-[#ECE4D3] outline-none"
-              />
-            </div>
-          </div>
-
-          {/* 3. รูปโปรไฟล์ช่าง */}
+          {/* 1. รูปโปรไฟล์ช่าง (Artist Avatar) */}
           <ArtistAvatarUploader
             previewUrl={formAvatarPreview}
             onImageSelected={(file, preview) => {
@@ -423,7 +395,22 @@ function ArtistForm({
             }}
           />
 
-          {/* 4. ประวัติ (Bio) */}
+          {/* 2. ชื่อช่าง * */}
+          <div>
+            <label className="block text-[#A89F91] mb-1 font-medium">
+              ชื่อช่าง *
+            </label>
+            <input
+              type="text"
+              required
+              value={formName}
+              onChange={(e) => setFormName(e.target.value)}
+              placeholder="เช่น ช่างปอนด์ (Pond)"
+              className="w-full h-9 px-3 bg-[#0E0D0C] border border-[#4A443A] focus:border-[#9C2F2F] rounded text-xs text-[#ECE4D3] outline-none"
+            />
+          </div>
+
+          {/* 3. ประวัติ (Bio) */}
           <div>
             <label className="block text-[#A89F91] mb-1 font-medium">
               ประวัติ (Bio)
@@ -437,7 +424,7 @@ function ArtistForm({
             />
           </div>
 
-          {/* 5. สไตล์ที่ถนัด (Specialties) */}
+          {/* 4. สไตล์ที่ถนัด (Specialties) */}
           <div>
             <label className="block text-[#A89F91] mb-1.5 font-medium">
               สไตล์ที่ถนัด (Specialties)
@@ -504,7 +491,7 @@ function ArtistForm({
             </div>
           </div>
 
-          {/* 6. วันทำงาน */}
+          {/* 5. วันทำงาน (Working Days) */}
           <div>
             <label className="block text-[#A89F91] mb-1.5 font-medium">
               วันทำงาน (Working Days)
@@ -531,44 +518,6 @@ function ArtistForm({
             </div>
           </div>
 
-          {/* 7. สถานะการทำงาน (Status) */}
-          <div>
-            <label className="block text-[#A89F91] mb-1 font-medium">
-              สถานะการทำงาน (Status)
-            </label>
-            <select
-              value={formStatus}
-              onChange={(e) => setFormStatus(e.target.value as any)}
-              className="w-full h-9 px-3 bg-[#0E0D0C] border border-[#4A443A] focus:border-[#9C2F2F] rounded text-xs text-[#ECE4D3] outline-none"
-            >
-              <option value="AVAILABLE">ว่าง (Available)</option>
-              <option value="TATTOOING">กำลังสัก (Tattooing)</option>
-              <option value="BREAK">พัก (Break)</option>
-              <option value="OFF_DUTY">ไม่เข้าร้าน (Off Duty)</option>
-            </select>
-          </div>
-
-          {/* 8. แสดงบนหน้าเว็บ (Visible) & 9. เปิดใช้งาน (Active) */}
-          <div className="grid grid-cols-2 gap-3 pt-2 border-t border-[#4A443A]/40">
-            <label className="flex items-center space-x-2.5 p-2 bg-[#0E0D0C] border border-[#4A443A] rounded cursor-pointer">
-              <input
-                type="checkbox"
-                checked={formIsVisible}
-                onChange={(e) => setFormIsVisible(e.target.checked)}
-                className="rounded border-[#4A443A] text-[#9C2F2F] focus:ring-0"
-              />
-              <span className="text-xs text-[#ECE4D3]">แสดงบนหน้าเว็บ (Visible)</span>
-            </label>
-            <label className="flex items-center space-x-2.5 p-2 bg-[#0E0D0C] border border-[#4A443A] rounded cursor-pointer">
-              <input
-                type="checkbox"
-                checked={formIsActive}
-                onChange={(e) => setFormIsActive(e.target.checked)}
-                className="rounded border-[#4A443A] text-[#9C2F2F] focus:ring-0"
-              />
-              <span className="text-xs text-[#ECE4D3]">เปิดใช้งาน (Active)</span>
-            </label>
-          </div>
         </div>
       </div>
 
@@ -629,6 +578,7 @@ export default function AdminArtistManagement() {
   const [isAddDrawerOpen, setIsAddDrawerOpen] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   const [deleteConfirmArtist, setDeleteConfirmArtist] = useState<Artist | null>(null);
+  const [deactivateConfirmArtist, setDeactivateConfirmArtist] = useState<Artist | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
@@ -918,7 +868,6 @@ export default function AdminArtistManagement() {
         bio: formBio.trim() || null,
         specialties: formSpecialties,
         working_days: formWorkingDays,
-        status: formStatus,
         is_active: formIsActive,
         is_visible: formIsVisible,
         base_price: parsedBasePrice,
@@ -1026,7 +975,6 @@ export default function AdminArtistManagement() {
         bio: formBio.trim() || null,
         specialties: formSpecialties,
         working_days: formWorkingDays,
-        status: formStatus,
         is_active: formIsActive,
         is_visible: formIsVisible,
         base_price: parsedBasePrice,
@@ -1101,18 +1049,18 @@ export default function AdminArtistManagement() {
 
   // Direct Toggle Active
   const handleToggleActive = async (artist: Artist) => {
-    const nextVal = !artist.is_active;
+    const nextVal = artist.is_active === false;
     setArtists((prev) =>
-      prev.map((a) => (a.id === artist.id ? { ...a, is_active: nextVal } : a))
+      prev.map((a) => (a.id === artist.id ? { ...a, is_active: nextVal, is_visible: nextVal } : a))
     );
     if (selectedArtist && selectedArtist.id === artist.id) {
-      setSelectedArtist((prev) => (prev ? { ...prev, is_active: nextVal } : null));
+      setSelectedArtist((prev) => (prev ? { ...prev, is_active: nextVal, is_visible: nextVal } : null));
     }
 
     try {
       await supabase
         .from('artists')
-        .update({ is_active: nextVal })
+        .update({ is_active: nextVal, is_visible: nextVal })
         .eq('id', artist.id);
     } catch (err) {
       console.error('Failed to toggle active:', err);
@@ -1199,9 +1147,20 @@ export default function AdminArtistManagement() {
         ? { artistId: accountModalArtist.id, password: accountPassword }
         : { artistId: accountModalArtist.id, email: accountEmail.trim(), password: accountPassword };
 
+      const supabaseClient = createClient();
+      const { data: { session } } = await supabaseClient.auth.getSession();
+
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
+      if (session?.access_token) {
+        headers['Authorization'] = `Bearer ${session.access_token}`;
+      }
+
       const res = await fetch(endpoint, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
+        credentials: 'include',
         body: JSON.stringify(payload),
       });
 
@@ -1533,11 +1492,7 @@ export default function AdminArtistManagement() {
               return (
                 <div
                   key={artist.id}
-                  onClick={() => {
-                    setSelectedArtist(artist);
-                    setIsEditMode(false);
-                  }}
-                  className={`bg-[#171512] border rounded-[8px] overflow-hidden flex flex-col justify-between transition-all duration-200 cursor-pointer group shadow-lg ${
+                  className={`bg-[#171512] border rounded-[8px] overflow-hidden flex flex-col justify-between transition-all duration-200 group shadow-lg ${
                     artist.is_active === false
                       ? 'border-[#4A443A]/40 opacity-60'
                       : 'border-[#4A443A] hover:border-[#9C2F2F]'
@@ -1657,12 +1612,17 @@ export default function AdminArtistManagement() {
                         type="button"
                         onClick={(e) => {
                           e.stopPropagation();
-                          setSelectedArtist(artist);
-                          setIsEditMode(false);
+                          setDeactivateConfirmArtist(artist);
                         }}
-                        className="h-8 px-3 bg-[#0E0D0C] hover:bg-[#9C2F2F] border border-[#4A443A] hover:border-[#9C2F2F] text-[#ECE4D3] rounded-[4px] text-xs font-semibold transition-colors flex items-center justify-center"
+                        className={`px-2.5 h-8 rounded-[4px] text-xs font-semibold transition-colors flex items-center justify-center space-x-1 ${
+                          artist.is_active !== false
+                            ? 'bg-[#2A1212] hover:bg-[#3D1A1A] border border-[#9C2F2F] text-[#E8B4B4]'
+                            : 'bg-emerald-950/60 hover:bg-emerald-900/60 border border-emerald-800/80 text-emerald-400'
+                        }`}
+                        title={artist.is_active !== false ? 'ปิดใช้งานช่างสัก' : 'เปิดใช้งานช่างสัก'}
                       >
-                        <ChevronRight size={14} />
+                        <Power size={12} />
+                        <span>{artist.is_active !== false ? 'ปิดใช้งาน' : 'เปิดใช้งาน'}</span>
                       </button>
                     </div>
                   </div>
@@ -1677,7 +1637,7 @@ export default function AdminArtistManagement() {
       {/* 7. ADD ARTIST DRAWER */}
       {/* ========================================================================= */}
       {isAddDrawerOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-end bg-black/80 backdrop-blur-sm font-prompt animate-fadeIn">
+        <div className="fixed inset-0 z-[100] flex items-center justify-end bg-black/85 backdrop-blur-md font-prompt animate-fadeIn">
           <div className="absolute inset-0" onClick={() => setIsAddDrawerOpen(false)} />
 
           <div className="relative w-full max-w-lg md:max-w-xl h-full bg-[#171512] border-l border-[#4A443A] p-6 sm:p-8 flex flex-col justify-between overflow-y-auto z-10 shadow-2xl animate-slideLeft">
@@ -1720,10 +1680,10 @@ export default function AdminArtistManagement() {
       )}
 
       {/* ========================================================================= */}
-      {/* 8. ARTIST DETAIL / EDIT DRAWER */}
+      {/* 8. EDIT ARTIST DRAWER */}
       {/* ========================================================================= */}
-      {selectedArtist && (
-        <div className="fixed inset-0 z-50 flex items-center justify-end bg-black/80 backdrop-blur-sm font-prompt animate-fadeIn">
+      {selectedArtist && isEditMode && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-end bg-black/85 backdrop-blur-md font-prompt animate-fadeIn">
           <div
             className="absolute inset-0"
             onClick={() => {
@@ -1733,219 +1693,104 @@ export default function AdminArtistManagement() {
           />
 
           <div className="relative w-full max-w-lg md:max-w-xl h-full bg-[#171512] border-l border-[#4A443A] p-6 sm:p-8 flex flex-col justify-between overflow-y-auto z-10 shadow-2xl animate-slideLeft">
-            {!isEditMode ? (
-              /* VIEW MODE */
-              <div className="space-y-5 flex-1 flex flex-col justify-between">
-                <div>
-                  {/* Drawer Header */}
-                  <div className="flex justify-between items-center border-b border-[#4A443A]/60 pb-4 mb-4">
-                    <div className="flex items-center space-x-2">
-                      <Sparkles size={16} className="text-[#9C2F2F]" />
-                      <span className="text-xs uppercase font-heading tracking-wider text-[#ECE4D3]">
-                        ARTIST DETAILS • ข้อมูลช่างสัก
-                      </span>
-                    </div>
-                    <button
-                      onClick={() => setSelectedArtist(null)}
-                      className="text-[#7A7265] hover:text-[#ECE4D3] transition-colors"
-                    >
-                      <X size={20} />
-                    </button>
-                  </div>
+            <ArtistForm
+              mode="edit"
+              artistName={selectedArtist.name}
+              formName={formName}
+              setFormName={setFormName}
+              formNickname={formNickname}
+              setFormNickname={setFormNickname}
+              formAvatarPreview={formAvatarPreview}
+              setFormAvatarPreview={setFormAvatarPreview}
+              setFormAvatarFile={setFormAvatarFile}
+              setFormAvatarUrl={setFormAvatarUrl}
+              formBio={formBio}
+              setFormBio={setFormBio}
+              formSpecialties={formSpecialties}
+              setFormSpecialties={setFormSpecialties}
+              handleToggleSpecialty={handleToggleSpecialty}
+              customSpecialtyInput={customSpecialtyInput}
+              setCustomSpecialtyInput={setCustomSpecialtyInput}
+              handleAddCustomSpecialty={handleAddCustomSpecialty}
+              formWorkingDays={formWorkingDays}
+              handleToggleWorkingDay={handleToggleWorkingDay}
+              formStatus={formStatus}
+              setFormStatus={setFormStatus}
+              formBasePrice={formBasePrice}
+              setFormBasePrice={setFormBasePrice}
+              formIsVisible={formIsVisible}
+              setFormIsVisible={setFormIsVisible}
+              formIsActive={formIsActive}
+              setFormIsActive={setFormIsActive}
+              formError={formError}
+              isSubmitting={isSubmitting}
+              isAuthValid={isAuthValid}
+              onSubmit={handleUpdateArtist}
+              onCancel={() => {
+                setSelectedArtist(null);
+                setIsEditMode(false);
+              }}
+            />
+          </div>
+        </div>
+      )}
 
-                  {/* Profile Header Block */}
-                  <div className="flex items-start space-x-4 pb-4 border-b border-[#4A443A]/40">
-                    <div className="w-24 h-28 rounded-[6px] overflow-hidden bg-[#0E0D0C] border border-[#4A443A] shrink-0">
-                      <img
-                        src={selectedArtist.avatar_url || selectedArtist.avatar}
-                        alt={selectedArtist.name}
-                        className="w-full h-full object-cover"
-                      />
-                    </div>
-                    <div className="flex-1 min-w-0 space-y-1.5">
-                      <div className="flex items-center justify-between">
-                        <h2 className="text-2xl font-heading font-normal tracking-wide text-[#ECE4D3] truncate">
-                          {selectedArtist.name}
-                        </h2>
-                      </div>
-                      {selectedArtist.nickname && (
-                        <p className="text-xs text-[#7A7265] font-mono">
-                          ชื่อเล่น: {selectedArtist.nickname}
-                        </p>
-                      )}
-                      <div className="flex flex-wrap gap-1">
-                        {(selectedArtist.specialties && selectedArtist.specialties.length > 0
-                          ? selectedArtist.specialties
-                          : selectedArtist.specialty ? selectedArtist.specialty.split('/') : []
-                        ).map((s) => (
-                          <span
-                            key={s}
-                            className="px-2 py-0.5 rounded bg-[#0E0D0C] border border-[#4A443A] text-[#ECE4D3] text-[10px] font-heading tracking-wider"
-                          >
-                            {s.trim()}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
+      {/* ========================================================================= */}
+      {/* 9. DEACTIVATE / ACTIVATE CONFIRMATION MODAL */}
+      {/* ========================================================================= */}
+      {deactivateConfirmArtist && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/85 backdrop-blur-md font-prompt animate-fadeIn">
+          <div className={`w-full max-w-md bg-[#171512] border rounded-[8px] p-6 space-y-4 shadow-2xl animate-scaleUp ${
+            deactivateConfirmArtist.is_active !== false ? 'border-[#9C2F2F]/60' : 'border-emerald-800/60'
+          }`}>
+            <div className={`w-12 h-12 rounded-full border flex items-center justify-center mx-auto ${
+              deactivateConfirmArtist.is_active !== false
+                ? 'bg-[#9C2F2F]/20 border-[#9C2F2F] text-[#9C2F2F]'
+                : 'bg-emerald-950/40 border-emerald-800 text-emerald-400'
+            }`}>
+              <Power size={20} />
+            </div>
 
-                  {/* Status & Toggles Controls */}
-                  <div className="py-4 space-y-3 border-b border-[#4A443A]/40 text-xs">
-                    <span className="text-[10px] uppercase font-bold text-[#7A7265] tracking-wider block">
-                      สถานะและการแสดงผล:
-                    </span>
-                    <div className="grid grid-cols-2 gap-2.5">
-                      {/* Status Selector */}
-                      <div className="space-y-1">
-                        <label className="text-[10px] text-[#A89F91]">เปลี่ยนสถานะ:</label>
-                        <select
-                          value={normalizeStatus(selectedArtist.status)}
-                          onChange={(e) => handleQuickStatusChange(selectedArtist.id, e.target.value as any)}
-                          className="w-full h-8 px-2.5 bg-[#0E0D0C] border border-[#4A443A] focus:border-[#9C2F2F] rounded text-xs text-[#ECE4D3] outline-none"
-                        >
-                          <option value="AVAILABLE">🟢 ว่าง (Available)</option>
-                          <option value="TATTOOING">🔴 กำลังสัก (Tattooing)</option>
-                          <option value="BREAK">🟡 พัก (Break)</option>
-                          <option value="OFF_DUTY">⚪ หยุด (Off Duty)</option>
-                        </select>
-                      </div>
+            <div className="text-center space-y-1.5">
+              <h3 className="text-lg font-heading text-[#ECE4D3]">
+                {deactivateConfirmArtist.is_active !== false
+                  ? `ยืนยันปิดใช้งานช่าง ${deactivateConfirmArtist.name} ใช่หรือไม่?`
+                  : `ยืนยันเปิดใช้งานช่าง ${deactivateConfirmArtist.name} ใช่หรือไม่?`}
+              </h3>
+              <p className="text-xs text-[#A89F91] leading-relaxed font-light">
+                {deactivateConfirmArtist.is_active !== false
+                  ? 'ลูกค้าจะไม่สามารถเลือกช่างคนนี้สำหรับคำขอใหม่ได้'
+                  : 'ช่างคนนี้จะกลับมาแสดงผลและเปิดให้ลูกค้าเลือกจองคิวใหม่ได้ตามปกติ'}
+              </p>
+            </div>
 
-                      {/* Visibility Quick Toggle */}
-                      <div className="space-y-1">
-                        <label className="text-[10px] text-[#A89F91]">การแสดงผล:</label>
-                        <button
-                          type="button"
-                          onClick={() => handleToggleVisibility(selectedArtist)}
-                          className={`w-full h-8 px-2.5 rounded border text-xs font-medium flex items-center justify-center space-x-1.5 transition-colors ${
-                            selectedArtist.is_visible !== false
-                              ? 'bg-[#0E0D0C] border-emerald-800/80 text-emerald-400'
-                              : 'bg-[#0E0D0C] border-amber-800/80 text-amber-300'
-                          }`}
-                        >
-                          {selectedArtist.is_visible !== false ? <Eye size={12} /> : <EyeOff size={12} />}
-                          <span>{selectedArtist.is_visible !== false ? 'แสดงหน้าเว็บ' : 'ซ่อนจากหน้าเว็บ'}</span>
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Bio & Details */}
-                  <div className="py-4 space-y-3 text-xs">
-                    <div>
-                      <span className="text-[10px] uppercase font-bold text-[#7A7265] tracking-wider block mb-1">
-                        ประวัติและรายละเอียด:
-                      </span>
-                      <p className="text-xs text-[#A89F91] leading-relaxed font-light bg-[#0E0D0C] p-3 rounded border border-[#4A443A]/40">
-                        {selectedArtist.bio || 'ยังไม่มีข้อมูลประวัติ'}
-                      </p>
-                    </div>
-
-                    <div>
-                      <span className="text-[10px] uppercase font-bold text-[#7A7265] tracking-wider block mb-1">
-                        วันปฏิบัติงาน:
-                      </span>
-                      <div className="flex flex-wrap gap-1.5">
-                        {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day) => {
-                          const isAvail = (selectedArtist.working_days || selectedArtist.availability || []).includes(day);
-                          return (
-                            <span
-                              key={day}
-                              className={`px-2.5 py-1 rounded text-xs font-mono font-bold ${
-                                isAvail
-                                  ? 'bg-[#9C2F2F]/20 border border-[#9C2F2F] text-[#ECE4D3]'
-                                  : 'bg-[#0E0D0C] border border-[#4A443A]/30 text-[#7A7265]'
-                              }`}
-                            >
-                              {day}
-                            </span>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* View Mode Footer Actions */}
-                <div className="pt-4 border-t border-[#4A443A]/60 space-y-2">
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      onClick={() => handleOpenEdit(selectedArtist)}
-                      className="flex-1 h-10 bg-[#0E0D0C] hover:bg-[#1f1b17] border border-[#4A443A] text-[#ECE4D3] rounded text-xs font-semibold transition-colors flex items-center justify-center space-x-1.5"
-                    >
-                      <Edit3 size={14} className="text-[#A89F91]" />
-                      <span>แก้ไขข้อมูลช่างสัก</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleOpenAccountModal(selectedArtist)}
-                      className="px-3.5 h-10 bg-[#171512] hover:bg-[#25211D] border border-[#4A443A] hover:border-[#9C2F2F] text-[#ECE4D3] rounded text-xs font-semibold transition-colors flex items-center justify-center space-x-1.5"
-                    >
-                      <User size={14} className="text-[#9C2F2F]" />
-                      <span>{selectedArtist.user_id ? 'ตั้งรหัสผ่านใหม่' : 'ตั้งค่าบัญชี'}</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleToggleActive(selectedArtist)}
-                      className={`h-10 px-3.5 rounded border text-xs font-medium flex items-center space-x-1.5 transition-colors ${
-                        selectedArtist.is_active !== false
-                          ? 'bg-[#0E0D0C] border-[#4A443A] text-[#A89F91] hover:text-[#ECE4D3]'
-                          : 'bg-[#9C2F2F]/20 border-[#9C2F2F] text-[#9C2F2F]'
-                      }`}
-                    >
-                      <Power size={13} />
-                      <span>{selectedArtist.is_active !== false ? 'ปิดใช้งาน' : 'เปิดใช้งาน'}</span>
-                    </button>
-                  </div>
-
-                  {/* Secondary Dangerous Delete Action */}
-                  <button
-                    type="button"
-                    onClick={() => setDeleteConfirmArtist(selectedArtist)}
-                    className="w-full h-8 text-[11px] text-[#7A7265] hover:text-[#9C2F2F] transition-colors text-center"
-                  >
-                    ลบช่างคนนี้ออกจากระบบ...
-                  </button>
-                </div>
-              </div>
-            ) : (
-              /* EDIT MODE FORM */
-              <ArtistForm
-                mode="edit"
-                artistName={selectedArtist.name}
-                formName={formName}
-                setFormName={setFormName}
-                formNickname={formNickname}
-                setFormNickname={setFormNickname}
-                formAvatarPreview={formAvatarPreview}
-                setFormAvatarPreview={setFormAvatarPreview}
-                setFormAvatarFile={setFormAvatarFile}
-                setFormAvatarUrl={setFormAvatarUrl}
-                formBio={formBio}
-                setFormBio={setFormBio}
-                formSpecialties={formSpecialties}
-                setFormSpecialties={setFormSpecialties}
-                handleToggleSpecialty={handleToggleSpecialty}
-                customSpecialtyInput={customSpecialtyInput}
-                setCustomSpecialtyInput={setCustomSpecialtyInput}
-                handleAddCustomSpecialty={handleAddCustomSpecialty}
-                formWorkingDays={formWorkingDays}
-                handleToggleWorkingDay={handleToggleWorkingDay}
-                formStatus={formStatus}
-                setFormStatus={setFormStatus}
-                formBasePrice={formBasePrice}
-                setFormBasePrice={setFormBasePrice}
-                formIsVisible={formIsVisible}
-                setFormIsVisible={setFormIsVisible}
-                formIsActive={formIsActive}
-                setFormIsActive={setFormIsActive}
-                formError={formError}
-                isSubmitting={isSubmitting}
-                isAuthValid={isAuthValid}
-                onSubmit={handleUpdateArtist}
-                onCancel={() => setIsEditMode(false)}
-              />
-            )}
+            <div className="flex gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setDeactivateConfirmArtist(null)}
+                disabled={isSubmitting}
+                className="flex-1 h-10 bg-[#0E0D0C] hover:bg-[#1a1714] border border-[#4A443A] text-[#ECE4D3] rounded text-xs font-medium transition-colors"
+              >
+                ยกเลิก
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  const target = deactivateConfirmArtist;
+                  setDeactivateConfirmArtist(null);
+                  if (target) {
+                    await handleToggleActive(target);
+                  }
+                }}
+                className={`flex-1 h-10 text-[#ECE4D3] rounded text-xs font-semibold transition-colors flex items-center justify-center ${
+                  deactivateConfirmArtist.is_active !== false
+                    ? 'bg-[#9C2F2F] hover:bg-[#802222]'
+                    : 'bg-emerald-600 hover:bg-emerald-500'
+                }`}
+              >
+                {deactivateConfirmArtist.is_active !== false ? 'ปิดใช้งาน' : 'เปิดใช้งาน'}
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -1954,7 +1799,7 @@ export default function AdminArtistManagement() {
       {/* 9. CUSTOM DELETE CONFIRMATION MODAL (No window.confirm) */}
       {/* ========================================================================= */}
       {deleteConfirmArtist && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-sm font-prompt animate-fadeIn">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/85 backdrop-blur-md font-prompt animate-fadeIn">
           <div className="w-full max-w-md bg-[#171512] border border-[#9C2F2F]/60 rounded-[8px] p-6 space-y-4 shadow-2xl animate-scaleUp">
             <div className="w-12 h-12 rounded-full bg-[#9C2F2F]/20 border border-[#9C2F2F] flex items-center justify-center text-[#9C2F2F] mx-auto">
               <Trash2 size={20} />
@@ -2000,7 +1845,7 @@ export default function AdminArtistManagement() {
       {/* 10. ARTIST ACCOUNT SETUP / RESET PASSWORD MODAL */}
       {/* ========================================================================= */}
       {accountModalArtist && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-sm font-prompt animate-fadeIn">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/85 backdrop-blur-md font-prompt animate-fadeIn">
           <div className="w-full max-w-md bg-[#171512] border border-[#4A443A] rounded-[8px] p-6 space-y-5 shadow-2xl animate-scaleUp">
             {/* Header */}
             <div className="flex justify-between items-center border-b border-[#4A443A]/60 pb-3">

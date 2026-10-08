@@ -8,6 +8,7 @@ import {
   LayoutDashboard,
   ClipboardList,
   CalendarDays,
+  CalendarCheck,
   CreditCard,
   X,
   Plus,
@@ -19,13 +20,14 @@ import {
 
 export default function AdminMobileBottomNav() {
   const pathname = usePathname();
-  const { bookingPayments, estimateRequests } = useApp();
+  const { bookingPayments, estimateRequests, flashReservations } = useApp();
   const [isFabOpen, setIsFabOpen] = useState(false);
 
   // Calculate pending badge count for requests
   const pendingCount =
     bookingPayments.filter((p) => p.paymentType === 'DEPOSIT' && p.status === 'SUBMITTED').length +
-    estimateRequests.filter((e) => e.status === 'PENDING' && e.request_type !== 'DIRECT_BOOKING').length;
+    estimateRequests.filter((e) => e.status === 'PENDING' && e.request_type !== 'DIRECT_BOOKING').length +
+    (flashReservations || []).filter((r: any) => r.status === 'PENDING').length;
 
   // Body scroll lock and ESC key listener for FAB Menu Panel
   useEffect(() => {
@@ -52,6 +54,11 @@ export default function AdminMobileBottomNav() {
   // Quick Action Items for Concept 6 Dock
   const quickActions = [
     {
+      name: 'คิวงาน',
+      href: '/admin/queue',
+      icon: CalendarCheck,
+    },
+    {
       name: 'ลูกค้า',
       href: '/admin/customers',
       icon: Users,
@@ -67,7 +74,7 @@ export default function AdminMobileBottomNav() {
       icon: Images,
     },
     {
-      name: 'จัดการช่าง',
+      name: 'ช่างสัก',
       href: '/admin/artists',
       icon: User,
     },
@@ -83,7 +90,7 @@ export default function AdminMobileBottomNav() {
         />
       )}
 
-      {/* QUICK ACTIONS DOCK (CONCEPT 6: 4 EQUAL HORIZONTAL CARDS IN 1 ROW FLOATING ABOVE BOTTOM NAV) */}
+      {/* QUICK ACTIONS DOCK (CONCEPT 6: 5 EQUAL HORIZONTAL CARDS IN 1 ROW FLOATING ABOVE BOTTOM NAV) */}
       {isFabOpen && (
         <div
           role="menu"
@@ -91,7 +98,7 @@ export default function AdminMobileBottomNav() {
           className="md:hidden fixed left-3 right-3 sm:left-4 sm:right-4 z-40 bg-[#171512] border border-[#4A443A] rounded-2xl p-2.5 shadow-2xl font-prompt animate-slideUp"
           style={{ bottom: 'calc(86px + env(safe-area-inset-bottom, 0px))' }}
         >
-          <div className="grid grid-cols-4 gap-1.5 sm:gap-2">
+          <div className="grid grid-cols-5 gap-1 sm:gap-1.5">
             {quickActions.map((action) => {
               const Icon = action.icon;
               return (

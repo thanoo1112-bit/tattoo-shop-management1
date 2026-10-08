@@ -10,7 +10,8 @@ export type BookingStatus =
   | 'IN_PROGRESS'
   | 'COMPLETED'
   | 'CANCELLED'
-  | 'REJECTED';
+  | 'REJECTED'
+  | 'EXPIRED';
 
 export interface CalendarArtist {
   id: string;
@@ -73,6 +74,8 @@ export interface CalendarSessionEvent {
     reference_images?: string[] | null;
     work_type?: string | null;
     description?: string | null;
+    quoted_price?: number | null;
+    deposit_required?: number | null;
   } | null;
   customer?: CalendarCustomer | null;
   financial?: CalendarFinancialSummary | null;

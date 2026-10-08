@@ -1,8 +1,9 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import { Search, Filter, FileText, ChevronRight, User, Calendar, Image as ImageIcon, CreditCard, TriangleAlert, Trash2 } from 'lucide-react';
-import { EstimateRequestItem, EstimateStatus, formatDateTimeBangkok } from './types';
+import { Search, Filter, FileText, ChevronRight, User, Calendar, Image as ImageIcon, CreditCard, TriangleAlert, Trash2, Sparkles } from 'lucide-react';
+import { EstimateRequestItem, EstimateStatus, formatDateTimeBangkok, formatDateBangkok, formatTimeBangkok } from './types';
+import { formatTattooSize } from '@/lib/utils/formatters';
 import CustomerReferenceImage from '@/components/common/CustomerReferenceImage';
 import { parseNoteWithPreferredTime, extractHHMM } from '@/lib/noteUtils';
 
@@ -32,29 +33,79 @@ export default function EstimateRequestList({
     }
   }, [initialFilter]);
 
+  const getCategory = (e: EstimateRequestItem) => {
+    const opKey = e.operational_status?.key || e.status;
+    const hasPendingSlip = Boolean(
+      e.has_pending_payment_submission ||
+      e.pending_submission?.status === 'PENDING' ||
+      opKey === 'WAITING_SLIP_VERIFICATION'
+    );
+
+    if (hasPendingSlip || opKey === 'WAITING_SLIP_VERIFICATION') {
+      return 'PENDING_SLIP';
+    }
+    if (opKey === 'EXPIRED' || opKey === 'CANCELLED' || e.status === 'EXPIRED' || e.status === 'CANCELLED') {
+      return 'CANCELLED_EXPIRED';
+    }
+    if (opKey === 'REJECTED' || e.status === 'REJECTED') {
+      return 'REJECTED';
+    }
+    if (
+      opKey === 'WAITING_DEPOSIT' ||
+      e.status === 'QUOTED' ||
+      e.status === 'ACCEPTED' ||
+      e.status === 'APPROVED'
+    ) {
+      return 'WAITING_DEPOSIT';
+    }
+    return 'NEW';
+  };
+
+  const statusCounts = useMemo(() => {
+    let newCount = 0;
+    let waitingDeposit = 0;
+    let pendingSlip = 0;
+    let rejected = 0;
+    let cancelledExpired = 0;
+
+    estimates.forEach((e) => {
+      const cat = getCategory(e);
+      if (cat === 'NEW') newCount++;
+      else if (cat === 'WAITING_DEPOSIT') waitingDeposit++;
+      else if (cat === 'PENDING_SLIP') pendingSlip++;
+      else if (cat === 'REJECTED') rejected++;
+      else if (cat === 'CANCELLED_EXPIRED') cancelledExpired++;
+    });
+
+    return {
+      all: estimates.length,
+      new: newCount,
+      waitingDeposit,
+      pendingSlip,
+      rejected,
+      cancelledExpired,
+    };
+  }, [estimates]);
+
   const filterPills: Array<{ id: string; label: string }> = [
-    { id: 'ALL', label: 'ทั้งหมด' },
-    { id: 'PENDING', label: 'รอตรวจสอบ' },
-    { id: 'WAITING_DEPOSIT', label: 'รอมัดจำ' },
-    { id: 'WAITING_SLIP', label: 'สลิปรอตรวจ' },
-    { id: 'REJECTED', label: 'ปฏิเสธ' },
+    { id: 'ALL', label: `ทั้งหมด (${statusCounts.all})` },
+    { id: 'NEW', label: `คำขอใหม่ (${statusCounts.new})` },
+    { id: 'WAITING_DEPOSIT', label: `รอมัดจำ (${statusCounts.waitingDeposit})` },
+    { id: 'PENDING_SLIP', label: `สลิปรอตรวจ (${statusCounts.pendingSlip})` },
+    { id: 'REJECTED', label: `ปฏิเสธ (${statusCounts.rejected})` },
+    { id: 'CANCELLED_EXPIRED', label: `ยกเลิก / หมดอายุ (${statusCounts.cancelledExpired})` },
   ];
 
   const filteredEstimates = useMemo(() => {
     return estimates.filter((e) => {
-      const opKey = e.operational_status?.key || e.status;
-      const hasPendingSlip = Boolean(
-        e.has_pending_payment_submission ||
-        e.pending_submission?.status === 'PENDING' ||
-        opKey === 'WAITING_SLIP_VERIFICATION'
-      );
+      const cat = getCategory(e);
 
       if (statusFilter !== 'ALL') {
-        if (statusFilter === 'PENDING' && opKey !== 'PENDING') return false;
-        if (statusFilter === 'QUOTED' && opKey !== 'WAITING_DEPOSIT') return false;
-        if (statusFilter === 'WAITING_DEPOSIT' && opKey !== 'WAITING_DEPOSIT') return false;
-        if (statusFilter === 'WAITING_SLIP' && opKey !== 'WAITING_SLIP_VERIFICATION') return false;
-        if (statusFilter === 'REJECTED' && opKey !== 'REJECTED') return false;
+        if ((statusFilter === 'NEW' || statusFilter === 'PENDING') && cat !== 'NEW') return false;
+        if (statusFilter === 'WAITING_DEPOSIT' && cat !== 'WAITING_DEPOSIT') return false;
+        if (statusFilter === 'REJECTED' && cat !== 'REJECTED') return false;
+        if ((statusFilter === 'CANCELLED_EXPIRED' || statusFilter === 'CANCELLED') && cat !== 'CANCELLED_EXPIRED') return false;
+        if (statusFilter === 'TERMINATED' && cat !== 'REJECTED' && cat !== 'CANCELLED_EXPIRED') return false;
       }
       if (searchQuery.trim()) {
         const query = searchQuery.toLowerCase();
@@ -71,25 +122,58 @@ export default function EstimateRequestList({
 
   const renderHealthAlertBadge = (est: EstimateRequestItem) => {
     const hasAlert = Boolean(est.has_medical_condition || est.has_allergy);
+    const isInactive = est.operational_status?.key === 'CANCELLED' || est.status === 'CANCELLED' || est.status === 'EXPIRED' || est.status === 'REJECTED';
     if (hasAlert) {
       return (
         <span
           title="มีข้อมูลสุขภาพ กรุณาตรวจสอบรายละเอียดก่อนให้บริการ"
-          className="bg-[#2A1212] text-[#E8B4B4] border border-[#9C2F2F] px-2 py-0.5 rounded text-[10px] font-semibold inline-flex items-center gap-1 cursor-help"
+          className={
+            isInactive
+              ? "bg-zinc-900/90 text-zinc-400 border border-zinc-700/80 px-2 py-0.5 rounded text-[10px] font-medium inline-flex items-center gap-1 cursor-help"
+              : "bg-[#2A1212] text-[#E8B4B4] border border-[#9C2F2F] px-2 py-0.5 rounded text-[10px] font-semibold inline-flex items-center gap-1 cursor-help"
+          }
         >
-          <TriangleAlert size={11} className="text-[#E8B4B4] shrink-0" />
+          <TriangleAlert size={11} className={isInactive ? "text-zinc-500 shrink-0" : "text-[#E8B4B4] shrink-0"} />
           <span>มีข้อมูล</span>
         </span>
       );
     }
     return (
-      <span className="bg-[#171512] text-[#9C9486] border border-[#4A443A] px-2 py-0.5 rounded text-[10px] font-medium inline-flex items-center">
+      <span className={isInactive ? "bg-zinc-900/60 text-zinc-500 border border-zinc-800/80 px-2 py-0.5 rounded text-[10px] font-medium inline-flex items-center" : "bg-emerald-950/60 text-emerald-400 border border-emerald-800/60 px-2 py-0.5 rounded text-[10px] font-medium inline-flex items-center"}>
         ปกติ
       </span>
     );
   };
 
+  const renderRequestTypeBadge = (est: EstimateRequestItem) => {
+    const isInactive = est.operational_status?.key === 'CANCELLED' || est.status === 'CANCELLED' || est.status === 'EXPIRED' || est.status === 'REJECTED';
+    if (est.request_type === 'FLASH') {
+      return (
+        <span className={isInactive ? "bg-zinc-900/90 text-zinc-400 border border-zinc-800 px-2 py-0.5 rounded text-[10px] font-semibold inline-flex items-center gap-1 shadow-xs" : "bg-amber-500/20 text-amber-300 border border-amber-500/40 px-2 py-0.5 rounded text-[10px] font-semibold inline-flex items-center gap-1 shadow-sm"}>
+          <Sparkles size={11} className={isInactive ? "text-zinc-500" : "text-amber-400"} />
+          <span>Flash</span>
+        </span>
+      );
+    }
+    if (est.request_type === 'DIRECT_BOOKING') {
+      return (
+        <span className={isInactive ? "bg-zinc-900/90 text-zinc-400 border border-zinc-800 px-2 py-0.5 rounded text-[10px] font-semibold" : "bg-purple-950/80 text-purple-300 border border-purple-800/80 px-2 py-0.5 rounded text-[10px] font-semibold"}>
+          สร้างโดยแอดมิน
+        </span>
+      );
+    }
+    return null;
+  };
+
   const renderStatusBadge = (est: EstimateRequestItem) => {
+    if (est.request_type === 'DIRECT_BOOKING') {
+      return (
+        <span className="bg-purple-950/80 text-purple-300 border border-purple-800/80 px-2 py-0.5 rounded text-[10px] font-semibold">
+          สร้างโดยแอดมิน
+        </span>
+      );
+    }
+
     if (
       (est.operational_status?.key === 'WAITING_SLIP_VERIFICATION' || est.has_pending_payment_submission) &&
       est.linked_booking?.id &&
@@ -145,8 +229,14 @@ export default function EstimateRequestList({
         );
       case 'EXPIRED':
         return (
-          <span className="bg-[#1F1D1A] text-[#7A7265] border border-[#4A443A] px-2 py-0.5 rounded text-[10px] font-semibold">
-            หมดอายุ
+          <span className="bg-zinc-900/90 text-zinc-400 border border-zinc-700/80 px-2 py-0.5 rounded text-[10px] font-semibold">
+            หมดเวลาชำระมัดจำ
+          </span>
+        );
+      case 'CANCELLED':
+        return (
+          <span className="bg-zinc-900/90 text-zinc-400 border border-zinc-700/80 px-2 py-0.5 rounded text-[10px] font-semibold">
+            ยกเลิก
           </span>
         );
       default:
@@ -208,19 +298,21 @@ export default function EstimateRequestList({
             <table className="w-full text-left text-xs text-[#ECE4D3]">
               <thead className="bg-[#0E0D0C] text-[#7A7265] uppercase text-[10px] tracking-wider border-b border-[#4A443A]">
                 <tr>
-                  <th className="py-3 px-3">ยื่นเมื่อ</th>
-                  <th className="py-3 px-3">ลูกค้า</th>
-                  <th className="py-3 px-3">ช่างสัก</th>
-                  <th className="py-3 px-3">ตำแหน่ง / ขนาด</th>
-                  <th className="py-3 px-3">วันที่สะดวก</th>
+                  <th className="py-3 px-3">รหัส / ลูกค้า</th>
+                  <th className="py-3 px-3">งานที่ต้องการสักและขนาด</th>
+                  <th className="py-3 px-3">ช่างสัก / สไตล์</th>
+                  <th className="py-3 px-3">วันและเวลานัดหมาย</th>
+                  <th className="py-3 px-3 text-center">แจ้งเตือนสุขภาพ</th>
+                  <th className="py-3 px-3">ยื่นคำขอเมื่อ</th>
                   <th className="py-3 px-3">สถานะ</th>
-                  <th className="py-3 px-3 text-center">แจ้งเตือนด้านสุขภาพ</th>
-                  <th className="py-3 px-3 text-center">จัดการ</th>
+                  <th className="py-3 px-3 text-center">การจัดการ</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#4A443A]/50">
                 {filteredEstimates.map((est) => {
                   const isSelected = selectedEstimate?.id === est.id;
+                  const isInactive = est.operational_status?.key === 'CANCELLED' || est.status === 'CANCELLED' || est.status === 'EXPIRED' || est.status === 'REJECTED';
+                  const typeBadge = renderRequestTypeBadge(est);
                   return (
                     <tr
                       key={est.id}
@@ -228,47 +320,124 @@ export default function EstimateRequestList({
                       className={`cursor-pointer transition-colors ${
                         isSelected
                           ? 'bg-[#1F1D1A]'
+                          : isInactive
+                          ? 'bg-zinc-950/40 text-zinc-400 opacity-80 hover:bg-zinc-900/50'
                           : 'hover:bg-[#0E0D0C]/70'
                       }`}
                     >
-                      <td className="py-3 px-3 text-[#A89F91]">
-                        {formatDateTimeBangkok(est.created_at)}
-                      </td>
-                      <td className="py-3 px-3 font-medium text-[#ECE4D3]">
-                        {est.customer_name}
-                      </td>
-                      <td className="py-3 px-3 text-[#A89F91]">
-                        {est.artist_name}
-                      </td>
+                      {/* 1. รหัส / ลูกค้า */}
                       <td className="py-3 px-3">
-                        <span className="text-[#ECE4D3]">{est.placement}</span>
-                        {est.width_cm && est.height_cm && (
-                          <span className="text-[10px] text-[#7A7265] block">
-                            {est.width_cm} × {est.height_cm} ซม.
-                          </span>
+                        {typeBadge && (
+                          <div className="flex items-center gap-1.5 mb-1">
+                            {typeBadge}
+                          </div>
                         )}
+                        <div className={`font-semibold ${isInactive ? 'text-zinc-300' : 'text-[#ECE4D3]'}`}>
+                          {est.customer_name}
+                        </div>
+                        <div className="text-[10px] text-[#7A7265] font-mono">
+                          ID: {est.id ? (est.id.length > 8 ? est.id.slice(0, 8).toUpperCase() : est.id.toUpperCase()) : '-'}
+                        </div>
                       </td>
-                      <td className="py-3 px-3 text-[#A89F91]">
+
+                      {/* 2. งานที่ต้องการสักและขนาด */}
+                      <td className="py-3 px-3 max-w-[220px]">
+                        <div className="flex items-center gap-2.5">
+                          {est.reference_images && est.reference_images.length > 0 ? (
+                            <div className="w-9 h-9 rounded-lg overflow-hidden border border-[#4A443A] shrink-0 bg-[#0E0D0C]">
+                              <CustomerReferenceImage
+                                src={est.reference_images[0]}
+                                alt="ภาพตัวอย่าง"
+                                className="w-full h-full object-cover"
+                              />
+                            </div>
+                          ) : (
+                            <div className="w-9 h-9 rounded-lg border border-[#4A443A] shrink-0 bg-[#0E0D0C] flex items-center justify-center text-[#7A7265]">
+                              {est.request_type === 'FLASH' ? (
+                                <Sparkles size={16} className="text-amber-400/80" />
+                              ) : (
+                                <ImageIcon size={16} />
+                              )}
+                            </div>
+                          )}
+                          <div className="min-w-0 flex-1">
+                            <span className={`block font-medium truncate ${isInactive ? 'text-zinc-300' : 'text-[#ECE4D3]'}`}>
+                              {est.artwork_title || (est.request_type === 'FLASH' ? 'งานสัก Flash' : 'งานสัก Custom')}
+                            </span>
+                            <span className={`text-[10px] ${isInactive ? 'text-zinc-500' : 'text-[#7A7265]'} block truncate`}>
+                              {est.placement || 'ไม่ระบุ'}
+                              {formatTattooSize(est.width_cm, est.height_cm) !== 'ไม่ระบุ' ? ` • ${formatTattooSize(est.width_cm, est.height_cm)}` : ''}
+                            </span>
+                          </div>
+                        </div>
+                      </td>
+
+                      {/* 3. ช่างสัก / สไตล์ */}
+                      <td className="py-3 px-3">
+                        <span className={`${isInactive ? 'text-zinc-300' : 'text-[#ECE4D3]'} block font-medium`}>
+                          {est.artist_name}
+                        </span>
+                        <span className={`text-[10px] ${isInactive ? 'text-zinc-500' : 'text-[#7A7265]'} block`}>
+                          {est.style || est.style_preference || 'ไม่ระบุ'}
+                        </span>
+                      </td>
+
+                      {/* 4. วันและเวลานัดหมาย */}
+                      <td className="py-3 px-3">
                         {(() => {
                           const rawTime = est.preferred_time || (est as any).preferredTime;
                           let timeStr = '';
                           if (rawTime) {
                             const hhmm = extractHHMM(rawTime) || rawTime;
-                            const formatted = hhmm.endsWith('น.') || hhmm.endsWith('น') ? hhmm : `${hhmm} น.`;
-                            timeStr = ` · ${formatted}`;
+                            timeStr = hhmm.endsWith('น.') || hhmm.endsWith('น') ? hhmm : `${hhmm} น.`;
                           } else {
                             const { extractedTime } = parseNoteWithPreferredTime(est.description);
-                            if (extractedTime) timeStr = ` · ${extractedTime}`;
+                            if (extractedTime) timeStr = extractedTime;
                           }
-                          return est.preferred_date ? `${est.preferred_date}${timeStr}` : 'ไม่ระบุ';
+
+                          if (!est.preferred_date) {
+                            return <span className={isInactive ? 'text-zinc-400' : 'text-[#ECE4D3]'}>ไม่ระบุ</span>;
+                          }
+
+                          return (
+                            <>
+                              <span className={`${isInactive ? 'text-zinc-300' : 'text-[#ECE4D3]'} block font-medium`}>
+                                {formatDateBangkok(est.preferred_date)}
+                              </span>
+                              {timeStr && (
+                                <span className={`text-[10px] ${isInactive ? 'text-zinc-500' : 'text-[#7A7265]'} block`}>
+                                  {timeStr}
+                                </span>
+                              )}
+                            </>
+                          );
                         })()}
                       </td>
-                      <td className="py-3 px-3">
-                        {renderStatusBadge(est)}
-                      </td>
+
+                      {/* 5. แจ้งเตือนสุขภาพ */}
                       <td className="py-3 px-3 text-center">
                         {renderHealthAlertBadge(est)}
                       </td>
+
+                      {/* 6. ยื่นคำขอเมื่อ */}
+                      <td className="py-3 px-3">
+                        <span className={`${isInactive ? 'text-zinc-300' : 'text-[#ECE4D3]'} block font-medium`}>
+                          {formatDateBangkok(est.created_at)}
+                        </span>
+                        <span className={`text-[10px] ${isInactive ? 'text-zinc-500' : 'text-[#7A7265]'} block`}>
+                          {(() => {
+                            const t = formatTimeBangkok(est.created_at);
+                            return t.endsWith('น.') || t.endsWith('น') ? t : `${t} น.`;
+                          })()}
+                        </span>
+                      </td>
+
+                      {/* 7. สถานะ */}
+                      <td className="py-3 px-3">
+                        {renderStatusBadge(est)}
+                      </td>
+
+                      {/* 8. การจัดการ */}
                       <td className="py-3 px-3 text-center">
                         <div className="flex items-center justify-center gap-1.5">
                           <button
@@ -277,12 +446,16 @@ export default function EstimateRequestList({
                               e.stopPropagation();
                               onSelectEstimate(est);
                             }}
-                            className="px-2.5 py-1 bg-[#0E0D0C] hover:bg-[#1F1D1A] text-[#ECE4D3] text-xs font-medium rounded border border-[#4A443A] hover:border-[#7A7265] transition-colors inline-flex items-center gap-1"
+                            className={
+                              isInactive
+                                ? "px-2.5 py-1 bg-zinc-900 hover:bg-zinc-800 text-zinc-300 text-xs font-medium rounded border border-zinc-800 transition-colors inline-flex items-center gap-1 cursor-pointer"
+                                : "px-2.5 py-1 bg-[#0E0D0C] hover:bg-[#1F1D1A] text-[#ECE4D3] text-xs font-medium rounded border border-[#4A443A] hover:border-[#7A7265] transition-colors inline-flex items-center gap-1 cursor-pointer"
+                            }
                           >
-                            <span>{est.status === 'REJECTED' ? 'ดูรายละเอียด' : 'จัดการคำขอจอง'}</span>
+                            <span>{isInactive ? 'ดูรายละเอียด' : 'จัดการคำขอจอง'}</span>
                             <ChevronRight size={13} />
                           </button>
-                          {est.status === 'REJECTED' && onDeleteRequest && (
+                          {est.status === 'REJECTED' && !est.linked_booking && est.request_type !== 'DIRECT_BOOKING' && onDeleteRequest && (
                             <button
                               type="button"
                               onClick={(e) => {
@@ -307,79 +480,74 @@ export default function EstimateRequestList({
 
           {/* Mobile Card List */}
           <div className="md:hidden space-y-3">
-            {filteredEstimates.map((est) => (
-              <div
-                key={est.id}
-                onClick={() => onSelectEstimate(est)}
-                className="bg-[#0E0D0C] border border-[#4A443A] rounded-xl p-3.5 space-y-2.5 shadow cursor-pointer active:scale-[0.99] transition-all"
-              >
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-xs font-semibold text-[#ECE4D3] flex items-center gap-1.5">
-                    <User size={13} className="text-[#9C2F2F]" />
-                    {est.customer_name}
-                  </span>
-                  <div className="flex items-center gap-1.5">
-                    {renderHealthAlertBadge(est)}
-                    {renderStatusBadge(est)}
+            {filteredEstimates.map((est) => {
+              const isInactive = est.operational_status?.key === 'CANCELLED' || est.status === 'CANCELLED' || est.status === 'EXPIRED' || est.status === 'REJECTED';
+              return (
+                <div
+                  key={est.id}
+                  onClick={() => onSelectEstimate(est)}
+                  className={
+                    isInactive
+                      ? "bg-zinc-950/40 border border-zinc-800/70 rounded-xl p-3.5 space-y-2.5 shadow opacity-85 cursor-pointer"
+                      : "bg-[#0E0D0C] border border-[#4A443A] rounded-xl p-3.5 space-y-2.5 shadow cursor-pointer active:scale-[0.99] transition-all"
+                  }
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      {renderRequestTypeBadge(est)}
+                      <span className={`text-xs font-semibold ${isInactive ? 'text-zinc-300' : 'text-[#ECE4D3]'} flex items-center gap-1.5 truncate`}>
+                        <User size={13} className={isInactive ? 'text-zinc-500 shrink-0' : 'text-[#9C2F2F] shrink-0'} />
+                        {est.customer_name}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      {renderHealthAlertBadge(est)}
+                      {renderStatusBadge(est)}
+                    </div>
                   </div>
-                </div>
 
-                <div className="grid grid-cols-2 gap-1.5 text-xs">
-                  <div className="bg-[#171512] p-2 rounded border border-[#4A443A]/40">
-                    <span className="text-[9px] text-[#7A7265] block">ช่างที่ระบุ</span>
-                    <span className="text-[#ECE4D3] truncate block">{est.artist_name}</span>
+                  <div className="grid grid-cols-2 gap-1.5 text-xs">
+                    <div className={isInactive ? "bg-zinc-900/70 p-2 rounded border border-zinc-800/60" : "bg-[#171512] p-2 rounded border border-[#4A443A]/40"}>
+                      <span className="text-[9px] text-[#7A7265] block">ช่างที่ระบุ</span>
+                      <span className={isInactive ? "text-zinc-300 truncate block" : "text-[#ECE4D3] truncate block"}>{est.artist_name}</span>
+                    </div>
+                    <div className={isInactive ? "bg-zinc-900/70 p-2 rounded border border-zinc-800/60" : "bg-[#171512] p-2 rounded border border-[#4A443A]/40"}>
+                      <span className="text-[9px] text-[#7A7265] block">ตำแหน่ง</span>
+                      <span className={isInactive ? "text-zinc-300 truncate block" : "text-[#ECE4D3] truncate block"}>{est.placement}</span>
+                    </div>
                   </div>
-                  <div className="bg-[#171512] p-2 rounded border border-[#4A443A]/40">
-                    <span className="text-[9px] text-[#7A7265] block">ตำแหน่ง</span>
-                    <span className="text-[#ECE4D3] truncate block">{est.placement}</span>
-                  </div>
-                </div>
 
-                <div className="flex items-center justify-between text-[11px] text-[#A89F91] pt-1">
-                  <span>
-                    วันที่สะดวก: {(() => {
-                      const rawTime = est.preferred_time || (est as any).preferredTime;
-                      let timeStr = '';
-                      if (rawTime) {
-                        const hhmm = extractHHMM(rawTime) || rawTime;
-                        const formatted = hhmm.endsWith('น.') || hhmm.endsWith('น') ? hhmm : `${hhmm} น.`;
-                        timeStr = ` · ${formatted}`;
-                      } else {
-                        const { extractedTime } = parseNoteWithPreferredTime(est.description);
-                        if (extractedTime) timeStr = ` · ${extractedTime}`;
-                      }
-                      return est.preferred_date ? `${est.preferred_date}${timeStr}` : 'ไม่ระบุ';
-                    })()}
-                  </span>
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onSelectEstimate(est);
-                      }}
-                      className="text-xs font-medium text-emerald-400 hover:text-emerald-300 flex items-center gap-0.5"
-                    >
-                      <span>{est.status === 'REJECTED' ? 'ดูรายละเอียด' : 'จัดการคำขอจอง'}</span>
-                      <ChevronRight size={13} />
-                    </button>
-                    {est.status === 'REJECTED' && onDeleteRequest && (
+                  <div className="flex items-center justify-end text-[11px] text-[#A89F91] pt-1">
+                    <div className="flex items-center gap-2">
                       <button
                         type="button"
                         onClick={(e) => {
                           e.stopPropagation();
-                          onDeleteRequest(est);
+                          onSelectEstimate(est);
                         }}
-                        className="px-2 py-0.5 bg-[#2A1212] hover:bg-[#3D1A1A] text-[#E8B4B4] text-[11px] font-semibold rounded border border-[#9C2F2F] flex items-center gap-1 transition-all"
+                        className={isInactive ? "text-xs font-medium text-zinc-400 hover:text-zinc-300 flex items-center gap-0.5" : "text-xs font-medium text-emerald-400 hover:text-emerald-300 flex items-center gap-0.5"}
                       >
-                        <Trash2 size={11} />
-                        <span>ลบรายการ</span>
+                        <span>{isInactive ? 'ดูรายละเอียด' : 'จัดการคำขอจอง'}</span>
+                        <ChevronRight size={13} />
                       </button>
-                    )}
+                      {est.status === 'REJECTED' && !est.linked_booking && est.request_type !== 'DIRECT_BOOKING' && onDeleteRequest && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onDeleteRequest(est);
+                          }}
+                          className="px-2 py-0.5 bg-[#2A1212] hover:bg-[#3D1A1A] text-[#E8B4B4] text-[11px] font-semibold rounded border border-[#9C2F2F] flex items-center gap-1 transition-all"
+                        >
+                          <Trash2 size={11} />
+                          <span>ลบรายการ</span>
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </>
       )}

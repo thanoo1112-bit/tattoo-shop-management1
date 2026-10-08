@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Ruler } from 'lucide-react';
+import { Check, Clock } from 'lucide-react';
 
 interface TattooSizeInputProps {
   width: number;
@@ -10,49 +10,67 @@ interface TattooSizeInputProps {
   onHeightChange: (h: number) => void;
 }
 
-export interface PopularTattooSize {
+export interface TattooSizeOption {
   id: string;
-  sizeLabel: string;
-  description: string;
+  name: string;
+  dimensions: string;
+  priceDisplay: string;
+  durationDisplay: string;
+  referenceDisplay: string;
   width: number;
   height: number;
 }
 
-export const POPULAR_TATTOO_SIZES: PopularTattooSize[] = [
+export const TATTOO_SIZE_OPTIONS: TattooSizeOption[] = [
   {
-    id: 'preset-3x3',
-    sizeLabel: '3 × 3 ซม.',
-    description: 'เหรียญ 10 บาท',
-    width: 3,
-    height: 3,
-  },
-  {
-    id: 'preset-5x5',
-    sizeLabel: '5 × 5 ซม.',
-    description: 'ฝากระป๋อง',
+    id: 'size-s',
+    name: 'Size S',
+    dimensions: '5 × 5 ซม.',
+    priceDisplay: '500.-',
+    durationDisplay: '30–60 นาที',
+    referenceDisplay: 'เหรียญสิบ / ฝากระป๋อง',
     width: 5,
     height: 5,
   },
   {
-    id: 'preset-8x8',
-    sizeLabel: '8 × 8 ซม.',
-    description: 'นามบัตร',
-    width: 8,
-    height: 8,
-  },
-  {
-    id: 'preset-10x10',
-    sizeLabel: '10 × 10 ซม.',
-    description: 'เต็มฝ่ามือ',
-    width: 10,
+    id: 'size-m',
+    name: 'Size M',
+    dimensions: '5 × 10 ซม.',
+    priceDisplay: '1,000.-',
+    durationDisplay: '1–2 ชั่วโมง',
+    referenceDisplay: 'แนวยาว / บัตรประชาชน',
+    width: 5,
     height: 10,
   },
   {
-    id: 'preset-15x20',
-    sizeLabel: '15 × 20 ซม.',
-    description: 'กระดาษ A4',
+    id: 'size-l',
+    name: 'Size L',
+    dimensions: '10 × 15 ซม.',
+    priceDisplay: '2,500 - 3,000.-',
+    durationDisplay: '2–4 ชั่วโมง',
+    referenceDisplay: 'หน้าจอมือถือ / 1 ฝ่ามือ',
+    width: 10,
+    height: 15,
+  },
+  {
+    id: 'size-xl',
+    name: 'Size XL',
+    dimensions: '15 × 25 ซม.',
+    priceDisplay: '4,000.-',
+    durationDisplay: '4–6 ชั่วโมง',
+    referenceDisplay: 'ต้นแขนเต็ม / น่อง / หลังส่วนเล็ก',
     width: 15,
-    height: 20,
+    height: 25,
+  },
+  {
+    id: 'size-xxl',
+    name: 'Size XXL',
+    dimensions: 'ใหญ่กว่า A4',
+    priceDisplay: '6,000.-',
+    durationDisplay: '6 ชั่วโมงขึ้นไป / อาจแบ่งหลายรอบ',
+    referenceDisplay: 'เต็มแขน / เต็มหลัง',
+    width: 21,
+    height: 30,
   },
 ];
 
@@ -63,79 +81,64 @@ export default function TattooSizeInput({
   onHeightChange,
 }: TattooSizeInputProps) {
   return (
-    <div className="bg-studio-main border border-studio-border p-4 rounded-[6px] flex flex-col space-y-3 font-prompt">
-      <div className="flex items-center space-x-1.5 mb-0.5">
-        <Ruler size={14} className="text-studio-red" />
-        <span className="text-[11px] uppercase tracking-wider text-studio-muted font-semibold">
-          ขนาดของรอยสักโดยประมาณ (Width × Height)
-        </span>
-      </div>
-
-      <div className="grid grid-cols-2 gap-3">
-        {/* Width */}
-        <div>
-          <label className="text-[11px] text-studio-secondary block mb-1 font-medium">ความกว้าง (ซม.)</label>
-          <input
-            type="number"
-            inputMode="decimal"
-            min={1}
-            max={100}
-            value={width || ''}
-            onChange={(e) => onWidthChange(Number(e.target.value))}
-            placeholder="เช่น 10"
-            className="w-full min-h-[46px] bg-studio-card border border-studio-border focus:border-studio-red text-sm text-studio-primary px-3.5 py-2.5 outline-none rounded-[4px] transition-colors"
-            required
-          />
-        </div>
-
-        {/* Height */}
-        <div>
-          <label className="text-[11px] text-studio-secondary block mb-1 font-medium">ความสูง (ซม.)</label>
-          <input
-            type="number"
-            inputMode="decimal"
-            min={1}
-            max={100}
-            value={height || ''}
-            onChange={(e) => onHeightChange(Number(e.target.value))}
-            placeholder="เช่น 10"
-            className="w-full min-h-[46px] bg-studio-card border border-studio-border focus:border-studio-red text-sm text-studio-primary px-3.5 py-2.5 outline-none rounded-[4px] transition-colors"
-            required
-          />
-        </div>
-      </div>
-
-      {/* Preset Quick Chips */}
-      <div className="pt-2 border-t border-studio-border/60">
-        <span className="text-[10px] text-studio-muted block mb-2 font-medium">ขนาดยอดนิยม:</span>
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
-          {POPULAR_TATTOO_SIZES.map((preset) => {
-            const isActive = width === preset.width && height === preset.height;
-            return (
-              <button
-                key={preset.id}
-                type="button"
-                onClick={() => {
-                  onWidthChange(preset.width);
-                  onHeightChange(preset.height);
-                }}
-                className={`flex flex-col items-center justify-center p-2 rounded-[4px] border transition-all text-center select-none active:scale-[0.98] ${
-                  isActive
-                    ? 'bg-studio-red/10 border-studio-red text-studio-primary ring-1 ring-studio-red/40'
-                    : 'bg-studio-card border-studio-border text-studio-secondary hover:text-studio-primary hover:border-studio-red/50'
-                }`}
-              >
-                <span className="text-[11px] font-bold tracking-wide">
-                  {preset.sizeLabel}
+    <div className="w-full space-y-2.5 font-prompt">
+      {/* 5 Size Cards Grid */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5 sm:gap-3">
+        {TATTOO_SIZE_OPTIONS.map((opt) => {
+          const isSelected = width === opt.width && height === opt.height;
+          return (
+            <button
+              key={opt.id}
+              type="button"
+              onClick={() => {
+                onWidthChange(opt.width);
+                onHeightChange(opt.height);
+              }}
+              className={`p-3.5 rounded-[6px] border text-left flex flex-col justify-between space-y-2 transition-all duration-200 select-none relative ${
+                isSelected
+                  ? 'bg-studio-red/10 border-studio-red text-studio-primary ring-1 ring-studio-red/50 shadow-md font-medium'
+                  : 'bg-studio-main border-studio-border/70 text-studio-secondary hover:border-studio-red/50 hover:text-studio-primary'
+              }`}
+            >
+              <div className="flex items-center justify-between w-full">
+                <span className={`text-xs font-bold ${isSelected ? 'text-studio-red' : 'text-studio-primary'}`}>
+                  {opt.name}
                 </span>
-                <span className="text-[9px] text-studio-muted mt-0.5 font-medium truncate max-w-full">
-                  {preset.description}
-                </span>
-              </button>
-            );
-          })}
-        </div>
+                <div
+                  className={`w-4 h-4 rounded-[3px] flex items-center justify-center shrink-0 transition-colors ${
+                    isSelected
+                      ? 'bg-studio-red border border-studio-red text-white'
+                      : 'border border-studio-border bg-studio-card'
+                  }`}
+                >
+                  {isSelected && <Check size={12} strokeWidth={3} />}
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <div className="text-xs text-studio-primary font-medium">
+                  {opt.dimensions}
+                </div>
+                <div className="text-xs text-studio-red font-semibold">
+                  {opt.priceDisplay}
+                </div>
+                <div className="text-[10.5px] text-studio-secondary font-normal flex items-center space-x-1">
+                  <Clock size={14} className="text-studio-red shrink-0" aria-label="ระยะเวลาโดยประมาณ" />
+                  <span>{opt.durationDisplay}</span>
+                </div>
+                <div className="text-[10px] text-studio-muted font-light leading-tight">
+                  {opt.referenceDisplay}
+                </div>
+              </div>
+            </button>
+          );
+        })}
       </div>
+
+      {/* Note below size cards */}
+      <p className="text-[10.5px] text-[#7A7265] font-light leading-relaxed pt-0.5">
+        * ราคาและระยะเวลาเป็นค่าประเมินเบื้องต้น อาจมีการปรับเปลี่ยนตามรายละเอียดของแบบและตำแหน่งที่เลือก
+      </p>
     </div>
   );
 }

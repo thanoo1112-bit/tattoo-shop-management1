@@ -54,6 +54,9 @@ export function getSafeReturnUrl(urlParam: string | null | undefined): string {
         ) {
           return '/portal';
         }
+        if (parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1') {
+          return parsed.origin + path;
+        }
         return path;
       }
     }

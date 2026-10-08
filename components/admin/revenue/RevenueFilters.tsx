@@ -11,9 +11,9 @@ interface RevenueFiltersProps {
   onCustomStartDateChange: (date: string) => void;
   customEndDate: string;
   onCustomEndDateChange: (date: string) => void;
-  selectedArtistId: string;
-  onArtistChange: (artistId: string) => void;
-  artists: Array<{ id: string; name: string; nickname: string | null }>;
+  selectedArtistId?: string;
+  onArtistChange?: (artistId: string) => void;
+  artists?: Array<{ id: string; name: string; nickname: string | null }>;
   onResetFilters: () => void;
 }
 
@@ -30,9 +30,6 @@ export default function RevenueFilters({
   onResetFilters,
 }: RevenueFiltersProps) {
   const datePresets: Array<{ id: DateFilterPreset; label: string }> = [
-    { id: 'today', label: 'วันนี้' },
-    { id: '7days', label: '7 วันล่าสุด' },
-    { id: '30days', label: '30 วันล่าสุด' },
     { id: 'this_month', label: 'เดือนนี้' },
     { id: 'last_month', label: 'เดือนก่อน' },
     { id: 'custom', label: 'กำหนดเอง' },
@@ -40,12 +37,12 @@ export default function RevenueFilters({
 
   return (
     <div className="bg-[#171512] border border-[#4A443A] rounded-xl p-3.5 sm:p-4 shadow-lg space-y-3 font-prompt">
-      {/* Top Filter Controls: Presets and Artist Dropdown */}
+      {/* Top Filter Controls: Presets and Reset */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
         {/* Date Presets Pills */}
         <div className="flex items-center gap-1.5 overflow-x-auto pb-1 lg:pb-0 scrollbar-none">
-          <span className="text-xs font-medium text-[#7A7265] flex items-center gap-1 mr-1 shrink-0">
-            <Calendar size={13} className="text-[#9C2F2F]" />
+          <span className="text-xs font-medium text-[#A89F91] flex items-center gap-1.5 mr-1 shrink-0">
+            <Calendar size={14} className="text-[#ECE4D3]" />
             <span>ช่วงเวลา:</span>
           </span>
           {datePresets.map((p) => {
@@ -67,54 +64,44 @@ export default function RevenueFilters({
           })}
         </div>
 
-        {/* Right side: Artist Filter Dropdown & Reset */}
+        {/* Right side: Reset Button */}
         <div className="flex items-center gap-2 shrink-0">
-          <div className="flex items-center gap-1.5 bg-[#0E0D0C] border border-[#4A443A] rounded-md px-2.5 py-1 text-xs">
-            <User size={13} className="text-[#7A7265]" />
-            <select
-              value={selectedArtistId}
-              onChange={(e) => onArtistChange(e.target.value)}
-              className="bg-transparent text-[#ECE4D3] text-xs font-medium focus:outline-none cursor-pointer pr-2"
-            >
-              <option value="ALL" className="bg-[#171512] text-[#ECE4D3]">
-                ช่างทั้งหมด
-              </option>
-              {artists.map((art) => (
-                <option key={art.id} value={art.id} className="bg-[#171512] text-[#ECE4D3]">
-                  {art.name} {art.nickname ? `(${art.nickname})` : ''}
-                </option>
-              ))}
-            </select>
-          </div>
-
           <button
             type="button"
             onClick={onResetFilters}
-            className="p-1.5 text-[#7A7265] hover:text-[#ECE4D3] bg-[#0E0D0C] border border-[#4A443A] hover:border-[#7A7265] rounded-md transition-colors"
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-[#ECE4D3] bg-[#0E0D0C] border border-[#4A443A] hover:border-[#7A7265] rounded-md transition-colors cursor-pointer"
             title="รีเซ็ตตัวกรองเป็นเดือนนี้"
           >
-            <RotateCcw size={13} />
+            <RotateCcw size={13} className="text-[#ECE4D3]" />
+            <span>รีเซ็ตตัวกรอง</span>
           </button>
         </div>
       </div>
 
       {/* Custom Date Range Selector (Only visible if 'custom' is selected) */}
       {datePreset === 'custom' && (
-        <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-[#4A443A]/50 text-xs text-[#A89F91] animate-fadeIn">
-          <span>ตั้งแต่วันที่:</span>
-          <input
-            type="date"
-            value={customStartDate}
-            onChange={(e) => onCustomStartDateChange(e.target.value)}
-            className="bg-[#0E0D0C] border border-[#4A443A] rounded px-2 py-1 text-xs text-[#ECE4D3] focus:outline-none focus:border-[#ECE4D3]"
-          />
-          <span>ถึงวันที่:</span>
-          <input
-            type="date"
-            value={customEndDate}
-            onChange={(e) => onCustomEndDateChange(e.target.value)}
-            className="bg-[#0E0D0C] border border-[#4A443A] rounded px-2 py-1 text-xs text-[#ECE4D3] focus:outline-none focus:border-[#ECE4D3]"
-          />
+        <div className="flex flex-wrap items-center gap-3 pt-2.5 border-t border-[#4A443A]/50 text-xs text-[#A89F91] animate-fadeIn">
+          <div className="flex items-center gap-1.5">
+            <span>ตั้งแต่วันที่:</span>
+            <input
+              type="date"
+              value={customStartDate}
+              onChange={(e) => onCustomStartDateChange(e.target.value)}
+              style={{ colorScheme: 'dark' }}
+              className="bg-[#0E0D0C] border border-[#4A443A] hover:border-[#7A7265] rounded px-2.5 py-1.5 text-xs text-[#ECE4D3] focus:outline-none focus:border-[#ECE4D3] cursor-pointer [&::-webkit-calendar-picker-indicator]:invert [&::-webkit-calendar-picker-indicator]:cursor-pointer"
+            />
+          </div>
+
+          <div className="flex items-center gap-1.5">
+            <span>ถึงวันที่:</span>
+            <input
+              type="date"
+              value={customEndDate}
+              onChange={(e) => onCustomEndDateChange(e.target.value)}
+              style={{ colorScheme: 'dark' }}
+              className="bg-[#0E0D0C] border border-[#4A443A] hover:border-[#7A7265] rounded px-2.5 py-1.5 text-xs text-[#ECE4D3] focus:outline-none focus:border-[#ECE4D3] cursor-pointer [&::-webkit-calendar-picker-indicator]:invert [&::-webkit-calendar-picker-indicator]:cursor-pointer"
+            />
+          </div>
         </div>
       )}
     </div>

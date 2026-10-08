@@ -144,10 +144,12 @@ export default function ReferenceUploader({
         ['jpg', 'jpeg', 'png', 'webp'].includes(ext);
       if (!isTypeValid) {
         setUploadError('รองรับเฉพาะไฟล์ JPG, PNG และ WEBP');
+        if (fileInputRef.current) fileInputRef.current.value = '';
         return;
       }
       if (file.size > maxSizeBytes) {
-        setUploadError('รูปภาพแต่ละไฟล์ต้องมีขนาดไม่เกิน 10 MB');
+        setUploadError('รูปภาพแต่ละรูปต้องมีขนาดไม่เกิน 10 MB');
+        if (fileInputRef.current) fileInputRef.current.value = '';
         return;
       }
     }
@@ -216,9 +218,7 @@ export default function ReferenceUploader({
     e.preventDefault();
     setIsDragging(false);
     if (!canAddMore) return;
-    const files = Array.from(e.dataTransfer.files).filter((f) =>
-      ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'].includes(f.type)
-    );
+    const files = Array.from(e.dataTransfer.files);
     processFiles(files);
   };
 

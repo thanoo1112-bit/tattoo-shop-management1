@@ -4,7 +4,7 @@ import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useApp } from '@/components/AppContext';
-import { LayoutDashboard, Calendar, Users, DollarSign, LogOut, User as UserIcon } from 'lucide-react';
+import { LayoutDashboard, Calendar, Users, DollarSign, LogOut, User as UserIcon, Sparkles, Image as ImageIcon } from 'lucide-react';
 
 export default function ArtistHeader() {
   const pathname = usePathname();
@@ -16,14 +16,16 @@ export default function ArtistHeader() {
   const navItems = [
     { href: '/artist/dashboard', label: 'ภาพรวม', icon: LayoutDashboard },
     { href: '/artist/calendar', label: 'ปฏิทินของฉัน', icon: Calendar },
+    { href: '/artist/portfolio', label: 'ผลงาน', icon: ImageIcon },
+    { href: '/artist/flash', label: 'ลาย Flash', icon: Sparkles },
     { href: '/artist/customers', label: 'ลูกค้าของฉัน', icon: Users },
     { href: '/artist/revenue', label: 'รายได้', icon: DollarSign },
   ];
 
   return (
     <header className="border-b border-studio-border bg-studio-card/90 backdrop-blur-md sticky top-0 z-40 font-prompt">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-        {/* Brand & Badge */}
+      <div className="max-w-[1600px] mx-auto px-4 sm:px-6 md:px-10 xl:px-12 h-16 flex items-center justify-between">
+        {/* Brand & Badge & Desktop Navigation */}
         <div className="flex items-center space-x-4">
           <Link href="/artist/dashboard" className="flex items-center space-x-2.5">
             <span className="font-heading text-lg sm:text-xl tracking-[0.1em] text-studio-primary font-bold">

@@ -1,68 +1,66 @@
 'use client';
 
 import React from 'react';
-import { Clock3, Wallet, AlertCircle, ShieldCheck } from 'lucide-react';
+import { Wallet, Layers, Clock3, CheckCircle2 } from 'lucide-react';
 
 interface PaymentSummaryCardsProps {
-  waitingDepositCount: number;
-  waitingDepositAmount: number;
-  totalPaid: number;
-  depositPaidCount: number;
-  totalBookings: number;
+  totalRecordedRevenue: number;
+  totalActiveBookingsCount: number;
+  bookedFlashCount: number;
+  completedBookingsCount: number;
 }
 
 export default function PaymentSummaryCards({
-  waitingDepositCount,
-  waitingDepositAmount,
-  totalPaid,
-  depositPaidCount,
-  totalBookings,
+  totalRecordedRevenue,
+  totalActiveBookingsCount,
+  bookedFlashCount,
+  completedBookingsCount,
 }: PaymentSummaryCardsProps) {
   const cards = [
     {
-      title: 'รอรับมัดจำ',
-      subtitle: `${waitingDepositCount} คิวงาน`,
-      value: `฿${waitingDepositAmount.toLocaleString('th-TH')}`,
-      hint: 'ยอดมัดจำที่รอชำระเพื่อยืนยันสิทธิ์',
-      icon: Clock3,
-      borderColor: 'border-amber-900/40',
-      iconBg: 'bg-amber-950/40 text-amber-400 border border-amber-800/40',
-      accentColor: 'text-amber-400',
-    },
-    {
-      title: 'รับเงินจริงรวม',
-      subtitle: `จาก ${totalBookings} คิวงาน`,
-      value: `฿${totalPaid.toLocaleString('th-TH')}`,
-      hint: 'ยอดเงินจริงที่ร้านได้รับทั้งหมด',
+      title: 'รายรับรวม',
+      subtitle: 'ยอดเงินที่รับจริงทั้งหมด',
+      value: `฿${totalRecordedRevenue.toLocaleString('th-TH')}`,
+      hint: '',
       icon: Wallet,
       borderColor: 'border-emerald-900/40',
       iconBg: 'bg-emerald-950/40 text-emerald-400 border border-emerald-800/40',
       accentColor: 'text-emerald-400',
     },
     {
-      title: 'รับมัดจำครบแล้ว',
-      subtitle: `${depositPaidCount} จาก ${totalBookings} คิว`,
-      value: `${depositPaidCount} คิว`,
-      hint: 'คิวงานที่ได้รับมัดจำครบตามกำหนด',
-      icon: ShieldCheck,
+      title: 'งานที่ยืนยันแล้วทั้งหมด',
+      subtitle: 'จำนวน booking ที่ยืนยันคิวแล้ว',
+      value: `${totalActiveBookingsCount} คิว`,
+      hint: '',
+      icon: Layers,
       borderColor: 'border-cyan-900/40',
       iconBg: 'bg-cyan-950/40 text-cyan-400 border border-cyan-800/40',
       accentColor: 'text-cyan-400',
     },
     {
-      title: 'คิวงานทั้งหมด',
-      subtitle: 'สถานะในระบบ',
-      value: `${totalBookings} คิว`,
-      hint: 'จำนวนรายการคิวทั้งหมดในระบบ',
-      icon: AlertCircle,
-      borderColor: 'border-[#4A443A]',
-      iconBg: 'bg-[#1F1D1A] text-[#ECE4D3] border border-[#4A443A]',
-      accentColor: 'text-[#ECE4D3]',
+      title: 'ลาย Flash ที่ถูกจอง',
+      subtitle: 'จำนวนลาย Flash ที่ลูกค้าจองแล้ว',
+      value: `${bookedFlashCount} ลาย`,
+      hint: '',
+      icon: Clock3,
+      borderColor: 'border-amber-900/40',
+      iconBg: 'bg-amber-950/40 text-amber-400 border border-amber-800/40',
+      accentColor: 'text-amber-400',
+    },
+    {
+      title: 'งานเสร็จสิ้น',
+      subtitle: 'ปิดงานและบันทึกยอดเรียบร้อย',
+      value: `${completedBookingsCount} คิว`,
+      hint: '',
+      icon: CheckCircle2,
+      borderColor: 'border-teal-900/40',
+      iconBg: 'bg-teal-950/40 text-teal-400 border border-teal-800/40',
+      accentColor: 'text-teal-400',
     },
   ];
 
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 font-prompt">
       {cards.map((card, idx) => {
         const Icon = card.icon;
         return (
@@ -75,9 +73,11 @@ export default function PaymentSummaryCards({
                 <p className="text-[11px] sm:text-xs text-[#A89F91] font-medium tracking-wide">
                   {card.title}
                 </p>
-                <p className="text-[10px] text-[#7A7265] font-light mt-0.5">
-                  {card.subtitle}
-                </p>
+                {card.subtitle ? (
+                  <p className="text-[10px] text-[#7A7265] font-light mt-0.5 truncate max-w-[120px] sm:max-w-none">
+                    {card.subtitle}
+                  </p>
+                ) : null}
               </div>
               <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${card.iconBg}`}>
                 <Icon size={16} />
@@ -88,9 +88,11 @@ export default function PaymentSummaryCards({
               <div className={`text-lg sm:text-2xl font-heading font-semibold tracking-tight ${card.accentColor}`}>
                 {card.value}
               </div>
-              <p className="text-[10px] text-[#7A7265] mt-1 font-light truncate">
-                {card.hint}
-              </p>
+              {card.hint ? (
+                <p className="text-[10px] text-[#7A7265] mt-1 font-light truncate">
+                  {card.hint}
+                </p>
+              ) : null}
             </div>
           </div>
         );

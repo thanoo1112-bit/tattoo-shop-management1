@@ -96,6 +96,8 @@ export default function PaymentSlipImage({
       src={resolvedUrl}
       alt={alt}
       className={className}
+      loading="lazy"
+      decoding="async"
       onError={() => {
         setHasError(true);
       }}

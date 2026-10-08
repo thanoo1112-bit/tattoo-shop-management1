@@ -4,6 +4,8 @@ import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { useApp } from '../AppContext';
 import { Booking, BookingPayment } from '@/data/mockBookings';
 import { EstimateRequest } from '@/data/mockEstimateRequests';
+import { formatTattooSize } from '@/lib/utils/formatters';
+import { calculateDurationTextFromTimes } from './calendar/calendarUtils';
 import {
   Search,
   Filter,
@@ -750,7 +752,7 @@ export default function AdminRequestCenter() {
                           {b.startTime}–{b.endTime}
                         </td>
                         <td className="py-3 px-4 font-mono text-[#A89F91]">
-                          {b.duration} ชม.
+                          {calculateDurationTextFromTimes(b.startTime, b.endTime) || `${b.duration} ชม.`}
                         </td>
                         <td className="py-3 px-4 font-mono font-semibold text-[#ECE4D3]">
                           ฿{b.price?.toLocaleString()}
@@ -988,7 +990,7 @@ export default function AdminRequestCenter() {
                           {e.customerName}
                         </h4>
                         <p className="text-xs text-[#A89F91] truncate">
-                          สไตล์ {e.style} • ขนาด {e.width}×{e.height} cm
+                          สไตล์ {e.style} • {formatTattooSize(e.width, e.height)}
                         </p>
                         <span
                           className={`text-[9px] px-2 py-0.2 rounded font-semibold border inline-block mt-1 ${statusInfo.badge}`}
@@ -1271,7 +1273,10 @@ export default function AdminRequestCenter() {
                   <div>
                     <span className="text-[#7A7265] text-[10px] block">วันและเวลา:</span>
                     <span className="text-[#ECE4D3] font-mono">
-                      {formatThaiDate(selectedBooking.date)} {selectedBooking.startTime}–{selectedBooking.endTime} ({selectedBooking.duration} ชม.)
+                      {formatThaiDate(selectedBooking.date)} {selectedBooking.startTime}–{selectedBooking.endTime}
+                      {calculateDurationTextFromTimes(selectedBooking.startTime, selectedBooking.endTime) && (
+                        ` (${calculateDurationTextFromTimes(selectedBooking.startTime, selectedBooking.endTime)})`
+                      )}
                     </span>
                   </div>
                 </div>
@@ -1290,9 +1295,7 @@ export default function AdminRequestCenter() {
                   <div>
                     <span className="text-[#7A7265] text-[10px] block">ขนาด:</span>
                     <span className="text-[#ECE4D3]">
-                      {selectedBooking.width && selectedBooking.height
-                        ? `${selectedBooking.width} × ${selectedBooking.height} cm`
-                        : 'ประเมินหน้างาน'}
+                      {formatTattooSize(selectedBooking.width, selectedBooking.height)}
                     </span>
                   </div>
                 </div>
@@ -1315,35 +1318,40 @@ export default function AdminRequestCenter() {
               {/* Reject Reason Area (when clicked reject) */}
               {isRejectingBooking && (
                 <div className="p-4 bg-red-950/30 border border-red-800 rounded-[6px] space-y-3 animate-fadeIn">
-                  <span className="text-xs font-semibold text-red-300 block">
-                    ระบุเหตุผลในการปฏิเสธคำขอ:
+                  <span className="text-xs font-semibold text-red-400 block">
+                    ระบุเหตุผลในการปฏิเสธคำขอ
                   </span>
                   <textarea
                     rows={3}
                     value={bookingRejectReason}
                     onChange={(e) => setBookingRejectReason(e.target.value)}
-                    placeholder="ช่วงเวลานี้ไม่ว่าง / รายละเอียดงานไม่ครบถ้วน..."
-                    className="w-full p-2.5 bg-[#0E0D0C] border border-red-800/80 rounded text-xs text-[#ECE4D3] outline-none focus:ring-1 focus:ring-red-500 placeholder-[#7A7265]"
+                    placeholder="ระบุเหตุผลที่ปฏิเสธ เพื่อแจ้งให้ลูกค้าทราบ"
+                    className="w-full bg-[#0E0D0C] border border-[#4A443A] rounded p-2.5 text-xs text-[#ECE4D3] placeholder-[#7A7265] focus:outline-none focus:border-red-500 font-prompt resize-none"
                   />
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 pt-2 border-t border-red-900/40">
                     <button
                       type="button"
+                      disabled={!bookingRejectReason.trim()}
                       onClick={() => {
+                        if (!bookingRejectReason.trim()) return;
                         updateBookingStatus(
                           selectedBooking.id,
                           'REJECTED',
-                          bookingRejectReason || 'ทางร้านไม่สามารถรับคิวนี้ได้'
+                          bookingRejectReason.trim()
                         );
                         closeAllDrawers();
                       }}
-                      className="flex-1 min-h-[40px] bg-red-800 hover:bg-red-700 text-[#ECE4D3] rounded text-xs font-semibold"
+                      className="flex-1 min-h-[40px] bg-red-800 hover:bg-red-700 text-[#ECE4D3] rounded text-xs font-semibold cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       ยืนยันการปฏิเสธ
                     </button>
                     <button
                       type="button"
-                      onClick={() => setIsRejectingBooking(false)}
-                      className="px-4 min-h-[40px] bg-transparent border border-[#4A443A] text-[#A89F91] hover:text-[#ECE4D3] rounded text-xs font-medium"
+                      onClick={() => {
+                        setBookingRejectReason('');
+                        setIsRejectingBooking(false);
+                      }}
+                      className="px-4 min-h-[40px] bg-transparent border border-[#4A443A] text-[#A89F91] hover:text-[#ECE4D3] rounded text-xs font-medium cursor-pointer"
                     >
                       กลับ
                     </button>
@@ -1477,7 +1485,7 @@ export default function AdminRequestCenter() {
                   <div>
                     <span className="text-[#7A7265] text-[10px] block">ขนาด:</span>
                     <span className="text-[#ECE4D3] font-mono">
-                      {selectedEstimate.width} × {selectedEstimate.height} ซม.
+                      {formatTattooSize(selectedEstimate.width, selectedEstimate.height)}
                     </span>
                   </div>
                   {(() => {

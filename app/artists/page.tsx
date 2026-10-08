@@ -10,17 +10,19 @@ import EstimateForm from '@/components/estimate/EstimateForm';
 import BookingFlow from '@/components/booking/BookingFlow';
 import { useApp } from '@/components/AppContext';
 import { Artist } from '@/data/mockArtists';
-import { ArrowLeft, Users, Loader2 } from 'lucide-react';
+import { ArrowLeft, Users, Loader2, AlertCircle } from 'lucide-react';
 
 function ArtistsContent() {
   const searchParams = useSearchParams();
   const { supabase } = useApp();
 
   const [artists, setArtists] = useState<Artist[]>([]);
+  const [allArtists, setAllArtists] = useState<Artist[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Selected Artist state
   const [selectedArtist, setSelectedArtist] = useState<Artist | null>(null);
+  const [inactiveArtistNotice, setInactiveArtistNotice] = useState<string | null>(null);
 
   // Form states loaded from artist profile details
   const [activeForm, setActiveForm] = useState<'none' | 'estimate' | 'booking'>('none');
@@ -33,7 +35,6 @@ function ArtistsContent() {
       const { data, error } = await supabase
         .from('artists')
         .select('*')
-        .eq('is_active', true)
         .order('sort_order', { ascending: true })
         .order('created_at', { ascending: true });
 
@@ -72,7 +73,9 @@ function ArtistsContent() {
             updated_at: item.updated_at,
           };
         });
-        setArtists(mapped);
+        setAllArtists(mapped);
+        const activeOnly = mapped.filter((a) => a.is_active !== false && a.is_visible !== false);
+        setArtists(activeOnly);
       }
     } catch (_) {}
     finally {
@@ -86,27 +89,41 @@ function ArtistsContent() {
 
   // Inspect URL parameters (e.g. ?id=<artist_uuid>)
   useEffect(() => {
+    if (loading) return;
+
     const artistId = searchParams.get('id');
-    if (artistId && artists.length > 0) {
-      const artist = artists.find(a => a.id === artistId);
-      if (artist) {
-        setSelectedArtist(artist);
+    if (artistId) {
+      const target = allArtists.find(a => a.id === artistId);
+      if (target && target.is_active !== false && target.is_visible !== false) {
+        setSelectedArtist(target);
+        setInactiveArtistNotice(null);
         setActiveForm('none');
+      } else {
+        setSelectedArtist(null);
+        setInactiveArtistNotice('ช่างคนนี้ถูกปิดใช้งาน');
       }
+    } else {
+      setSelectedArtist(null);
+      setInactiveArtistNotice(null);
     }
-  }, [searchParams, artists]);
+  }, [searchParams, allArtists, loading]);
 
   const handleArtistSelect = (artistId: string) => {
     const artist = artists.find(a => a.id === artistId);
-    if (artist) {
+    if (artist && artist.is_active !== false && artist.is_visible !== false) {
       setSelectedArtist(artist);
+      setInactiveArtistNotice(null);
       setActiveForm('none');
     }
   };
 
   const handleBackToList = () => {
     setSelectedArtist(null);
+    setInactiveArtistNotice(null);
     setActiveForm('none');
+    if (typeof window !== 'undefined' && searchParams.get('id')) {
+      window.history.pushState({}, '', '/artists');
+    }
   };
 
   return (
@@ -122,6 +139,29 @@ function ArtistsContent() {
             <span className="text-[10px] uppercase tracking-widest text-studio-red font-bold">Resident Artists</span>
             <h1 className="text-xl md:text-3xl font-bold tracking-wider text-studio-primary mt-0.5">ทีมช่างสักประจำร้าน</h1>
             <p className="text-xs text-studio-secondary mt-1">พบกับศิลปินผู้สร้างสรรค์ผลงานศิลปะบนผิวหนังประจำสตูดิโอ 157 TATTOO</p>
+          </div>
+        )}
+
+        {/* Inactive Artist Notice Banner */}
+        {inactiveArtistNotice && (
+          <div className="py-16 px-6 text-center space-y-4 bg-studio-card border border-studio-border rounded-[8px] max-w-lg mx-auto shadow-lg my-6">
+            <div className="w-14 h-14 rounded-full bg-amber-950/40 border border-amber-600/40 flex items-center justify-center mx-auto text-amber-400">
+              <AlertCircle size={28} />
+            </div>
+            <div className="space-y-1">
+              <h3 className="text-lg font-heading text-studio-primary">
+                {inactiveArtistNotice}
+              </h3>
+              <p className="text-xs text-studio-secondary leading-relaxed">
+                ช่างสักที่คุณกำลังค้นหาไม่เปิดให้จองคิวในขณะนี้ คุณสามารถเลือกชมทีมช่างสักท่านอื่นของสตูดิโอ 157 TATTOO ได้ด้านล่าง
+              </p>
+            </div>
+            <button
+              onClick={handleBackToList}
+              className="inline-block bg-studio-red hover:bg-tattoo-red-dark text-studio-paper px-4 py-2 rounded text-xs font-semibold tracking-wider uppercase transition-colors"
+            >
+              ดูรายชื่อช่างสักทั้งหมด
+            </button>
           </div>
         )}
 

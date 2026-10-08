@@ -9,11 +9,11 @@ const config: Config = {
   theme: {
     extend: {
       fontFamily: {
-        sans: ["var(--font-prompt)", "sans-serif"],
-        prompt: ["var(--font-prompt)", "sans-serif"],
-        heading: ["var(--font-bebas)", "var(--font-prompt)", "sans-serif"],
-        bebas: ["var(--font-bebas)", "var(--font-prompt)", "sans-serif"],
-        caveat: ["var(--font-caveat)", "cursive"],
+        sans: ["var(--font-prompt)", "'Prompt'", "sans-serif"],
+        prompt: ["var(--font-prompt)", "'Prompt'", "sans-serif"],
+        heading: ["var(--font-bebas)", "'Bebas Neue'", "var(--font-prompt)", "'Prompt'", "sans-serif"],
+        bebas: ["var(--font-bebas)", "'Bebas Neue'", "var(--font-prompt)", "'Prompt'", "sans-serif"],
+        caveat: ["var(--font-caveat)", "'Caveat'", "cursive"],
       },
       colors: {
         studio: {

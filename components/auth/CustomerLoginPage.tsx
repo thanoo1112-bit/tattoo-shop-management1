@@ -1,12 +1,14 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useApp } from '../AppContext';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { AlertTriangle, ArrowLeft, Sparkles, ShieldCheck, Eye, EyeOff, CheckCircle, Shield, ArrowRight } from 'lucide-react';
 import { sanitizeDigitsOnly, validateCustomerPhone } from '@/lib/phoneUtils';
 import { getSafeReturnUrl } from '@/lib/urlUtils';
+import { validateCustomerAge } from '@/lib/customerUtils';
+import ThaiDateOfBirthPicker from '@/components/common/ThaiDateOfBirthPicker';
 
 interface CustomerLoginPageProps {
   initialFlipped?: boolean;
@@ -38,6 +40,9 @@ export default function CustomerLoginPage({ initialFlipped = false }: CustomerLo
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [dateOfBirth, setDateOfBirth] = useState('');
   const [displayName, setDisplayName] = useState('');
   const [consentAccepted, setConsentAccepted] = useState(false);
   
@@ -52,6 +57,8 @@ export default function CustomerLoginPage({ initialFlipped = false }: CustomerLo
   const [showStaffPassword, setShowStaffPassword] = useState(false);
   const [staffError, setStaffError] = useState('');
   const [staffLoading, setStaffLoading] = useState(false);
+  const [selectedStaffType, setSelectedStaffType] = useState<'admin' | 'artist'>('admin');
+  const staffPasswordInputRef = useRef<HTMLInputElement>(null);
 
   const rawNext = searchParams.get('next') || searchParams.get('redirect') || '';
   const redirectUrl = getSafeReturnUrl(rawNext);
@@ -113,15 +120,32 @@ export default function CustomerLoginPage({ initialFlipped = false }: CustomerLo
         setCustomerError(phoneValidation.error || 'กรุณากรอกเบอร์โทรศัพท์ 10 หลัก');
         return;
       }
-      if (!consentAccepted) {
-        setCustomerError('กรุณายืนยันว่ามีอายุ 18 ปีบริบูรณ์ขึ้นไป และยอมรับข้อกำหนดการใช้งาน');
+      const ageValidation = validateCustomerAge(dateOfBirth);
+      if (!ageValidation.valid) {
+        setCustomerError(ageValidation.error || 'ระบบเปิดให้บริการสำหรับผู้มีอายุ 18 ปีบริบูรณ์ขึ้นไป');
         return;
       }
-    }
-
-    if (!password || password.trim() === '') {
-      setCustomerError('กรุณากรอกรหัสผ่าน');
-      return;
+      if (!password || password.trim() === '') {
+        setCustomerError('กรุณากรอกรหัสผ่าน');
+        return;
+      }
+      if (password.length < 6) {
+        setCustomerError('รหัสผ่านต้องมีความยาวอย่างน้อย 6 ตัวอักษร');
+        return;
+      }
+      if (password !== confirmPassword) {
+        setCustomerError('รหัสผ่านและยืนยันรหัสผ่านไม่ตรงกัน');
+        return;
+      }
+      if (!consentAccepted) {
+        setCustomerError('กรุณายืนยันว่าข้อมูลเป็นความจริงและยอมรับเงื่อนไขการใช้บริการ');
+        return;
+      }
+    } else {
+      if (!password || password.trim() === '') {
+        setCustomerError('กรุณากรอกรหัสผ่าน');
+        return;
+      }
     }
 
     setCustomerLoading(true);
@@ -145,12 +169,14 @@ export default function CustomerLoginPage({ initialFlipped = false }: CustomerLo
       }
     } else {
       // Register Mode
-      const res = await signUpCustomer(email, password, displayName, phone, consentAccepted);
+      const res = await signUpCustomer(email, password, displayName, phone, consentAccepted, dateOfBirth);
       setCustomerLoading(false);
       if (res.success) {
         setAuthMode('login');
         setSuccessMessage('สมัครสมาชิกสำเร็จ กรุณาเข้าสู่ระบบ');
         setPassword('');
+        setConfirmPassword('');
+        setDateOfBirth('');
         setDisplayName('');
         setPhone('');
         setConsentAccepted(false);
@@ -363,20 +389,36 @@ export default function CustomerLoginPage({ initialFlipped = false }: CustomerLo
                   </div>
 
                   {authMode === 'register' && (
-                    <div>
-                      <label className="text-[11px] uppercase tracking-wider text-studio-secondary block mb-1.5 font-medium">
-                        เบอร์โทรศัพท์ (10 หลัก)
-                      </label>
-                      <input
-                        type="tel"
-                        value={phone}
-                        onChange={(e) => setPhone(sanitizeDigitsOnly(e.target.value))}
-                        required
-                        maxLength={10}
-                        className="w-full min-h-[50px] bg-studio-main border border-studio-border focus:border-studio-red text-sm text-studio-primary px-4 py-3 outline-none rounded-[4px] transition-colors"
-                        placeholder="0812345678"
-                      />
-                    </div>
+                    <>
+                      <div>
+                        <label className="text-[11px] uppercase tracking-wider text-studio-secondary block mb-1.5 font-medium">
+                          เบอร์โทรศัพท์ (10 หลัก)
+                        </label>
+                        <input
+                          type="tel"
+                          value={phone}
+                          onChange={(e) => setPhone(sanitizeDigitsOnly(e.target.value))}
+                          required
+                          maxLength={10}
+                          className="w-full min-h-[50px] bg-studio-main border border-studio-border focus:border-studio-red text-sm text-studio-primary px-4 py-3 outline-none rounded-[4px] transition-colors"
+                          placeholder="0812345678"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-[11px] uppercase tracking-wider text-studio-secondary block mb-1.5 font-medium">
+                          วัน/เดือน/ปีเกิด
+                        </label>
+                        <ThaiDateOfBirthPicker
+                          value={dateOfBirth}
+                          onChange={(iso) => setDateOfBirth(iso)}
+                          theme="studio"
+                        />
+                        <p className="text-[10px] text-studio-muted mt-1 font-light">
+                          * สงวนสิทธิ์การสมัครและจองคิวสำหรับผู้มีอายุ 18 ปีบริบูรณ์ขึ้นไป
+                        </p>
+                      </div>
+                    </>
                   )}
 
                   <div>
@@ -415,6 +457,31 @@ export default function CustomerLoginPage({ initialFlipped = false }: CustomerLo
                   </div>
 
                   {authMode === 'register' && (
+                    <div>
+                      <label className="text-[11px] uppercase tracking-wider text-studio-secondary block mb-1.5 font-medium">
+                        ยืนยันรหัสผ่าน
+                      </label>
+                      <div className="relative">
+                        <input
+                          type={showConfirmPassword ? 'text' : 'password'}
+                          value={confirmPassword}
+                          onChange={(e) => setConfirmPassword(e.target.value)}
+                          required
+                          className="w-full min-h-[50px] bg-studio-main border border-studio-border focus:border-studio-red text-sm text-studio-primary pl-4 pr-12 py-3 outline-none rounded-[4px] transition-colors"
+                          placeholder="••••••••"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                          className="absolute right-1 top-1 bottom-1 w-10 flex items-center justify-center text-studio-secondary hover:text-studio-primary transition-colors focus:outline-none"
+                        >
+                          {showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {authMode === 'register' && (
                     <div className="pt-1">
                       <label className="flex items-start space-x-2.5 cursor-pointer group">
                         <input
@@ -424,7 +491,7 @@ export default function CustomerLoginPage({ initialFlipped = false }: CustomerLo
                           className="mt-0.5 rounded border-studio-border bg-studio-main text-studio-red focus:ring-0 focus:ring-offset-0 shrink-0"
                         />
                         <span className="text-[11px] text-studio-secondary leading-snug group-hover:text-studio-primary transition-colors">
-                          ฉันยืนยันว่ามีอายุ 18 ปีบริบูรณ์ขึ้นไป และยอมรับข้อกำหนดการใช้งานและนโยบายความเป็นส่วนตัว
+                          ฉันยืนยันว่าข้อมูลข้างต้นเป็นความจริง และยอมรับเงื่อนไขการใช้บริการ รวมทั้งนโยบายความเป็นส่วนตัว
                         </span>
                       </label>
                     </div>
@@ -575,12 +642,20 @@ export default function CustomerLoginPage({ initialFlipped = false }: CustomerLo
                 <form onSubmit={handleStaffSubmit} className="mt-5 space-y-4">
                   <div>
                     <label className="text-[11px] uppercase tracking-wider text-studio-secondary block mb-1.5 font-medium">
-                      ADMIN EMAIL
+                      อีเมลสำหรับเข้าสู่ระบบ
                     </label>
                     <input
                       type="email"
                       value={staffEmail}
-                      onChange={(e) => setStaffEmail(e.target.value)}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setStaffEmail(val);
+                        if (val.toLowerCase().includes('artist')) {
+                          setSelectedStaffType('artist');
+                        } else {
+                          setSelectedStaffType('admin');
+                        }
+                      }}
                       required
                       placeholder="admin@157tattoo.com"
                       className="w-full min-h-[50px] bg-studio-main border border-studio-border focus:border-studio-red text-sm text-studio-primary px-4 py-3 outline-none rounded-[4px] transition-colors"
@@ -593,6 +668,7 @@ export default function CustomerLoginPage({ initialFlipped = false }: CustomerLo
                     </label>
                     <div className="relative">
                       <input
+                        ref={staffPasswordInputRef}
                         type={showStaffPassword ? 'text' : 'password'}
                         value={staffPassword}
                         onChange={(e) => setStaffPassword(e.target.value)}
@@ -611,29 +687,61 @@ export default function CustomerLoginPage({ initialFlipped = false }: CustomerLo
                     </div>
                   </div>
 
-                  {/* Account Shortcut */}
-                  <div className="pt-1">
-                    <label className="text-[11px] uppercase tracking-wider text-studio-secondary block mb-2 font-medium">
-                      บัญชีผู้ดูแลระบบ:
+                  {/* Account Shortcuts */}
+                  <div className="pt-1 space-y-1.5">
+                    <label className="text-[11px] uppercase tracking-wider text-studio-secondary block font-medium">
+                      เลือกบัญชีเจ้าหน้าที่ / ช่างสัก:
                     </label>
-                    <div>
+                    <div className="grid grid-cols-2 gap-2">
                       {/* Owner Card */}
                       <button
                         type="button"
                         onClick={() => {
                           setStaffEmail('admin@157tattoo.com');
+                          setSelectedStaffType('admin');
                           setStaffError('');
+                          staffPasswordInputRef.current?.focus();
                         }}
-                        className="w-full p-2.5 sm:p-3 rounded-[6px] bg-studio-sec/80 hover:bg-studio-sec border border-studio-border hover:border-studio-red/40 transition-all text-left group flex items-center justify-between cursor-pointer"
+                        className={`p-2.5 sm:p-3 rounded-[6px] bg-studio-sec/80 hover:bg-studio-sec border transition-all text-left group flex flex-col justify-center cursor-pointer min-w-0 ${
+                          selectedStaffType === 'admin' && !staffEmail.toLowerCase().includes('artist')
+                            ? 'border-studio-red/80 bg-studio-sec shadow-sm'
+                            : 'border-studio-border hover:border-studio-red/40'
+                        }`}
                       >
-                        <div className="flex items-center space-x-2">
-                          <span className="text-xs sm:text-sm">👑</span>
-                          <span className="text-[11px] sm:text-xs font-semibold text-studio-primary group-hover:text-studio-red transition-colors">
+                        <div className="flex items-center space-x-1.5 min-w-0">
+                          <span className="text-xs sm:text-sm shrink-0">👑</span>
+                          <span className="text-[11px] sm:text-xs font-semibold text-studio-primary group-hover:text-studio-red transition-colors truncate">
                             เจ้าของร้าน
                           </span>
                         </div>
-                        <span className="text-[10px] sm:text-[11px] font-mono text-studio-secondary">
+                        <span className="text-[9px] sm:text-[10px] font-mono text-studio-secondary mt-1 truncate block">
                           admin@157tattoo.com
+                        </span>
+                      </button>
+
+                      {/* Artist Card */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setStaffEmail('artist1@157tattoo.com');
+                          setSelectedStaffType('artist');
+                          setStaffError('');
+                          staffPasswordInputRef.current?.focus();
+                        }}
+                        className={`p-2.5 sm:p-3 rounded-[6px] bg-studio-sec/80 hover:bg-studio-sec border transition-all text-left group flex flex-col justify-center cursor-pointer min-w-0 ${
+                          selectedStaffType === 'artist' || staffEmail.toLowerCase().includes('artist')
+                            ? 'border-studio-red/80 bg-studio-sec shadow-sm'
+                            : 'border-studio-border hover:border-studio-red/40'
+                        }`}
+                      >
+                        <div className="flex items-center space-x-1.5 min-w-0">
+                          <span className="text-xs sm:text-sm shrink-0">🎨</span>
+                          <span className="text-[11px] sm:text-xs font-semibold text-studio-primary group-hover:text-studio-red transition-colors truncate">
+                            ช่างสัก
+                          </span>
+                        </div>
+                        <span className="text-[9px] sm:text-[10px] font-mono text-studio-secondary mt-1 truncate block">
+                          artist1@157tattoo.com
                         </span>
                       </button>
                     </div>
@@ -645,7 +753,12 @@ export default function CustomerLoginPage({ initialFlipped = false }: CustomerLo
                       disabled={staffLoading}
                       className="w-full min-h-[52px] bg-studio-red border border-studio-red text-studio-paper hover:bg-tattoo-red-dark active:scale-[0.99] text-xs sm:text-sm uppercase tracking-wider px-4 font-semibold transition-all duration-200 rounded-[4px] disabled:opacity-50 shadow-md flex items-center justify-center"
                     >
-                      {staffLoading ? 'กำลังเข้าสู่ระบบ...' : 'เข้าสู่ระบบผู้ดูแล'}
+                      {staffLoading
+                        ? 'กำลังเข้าสู่ระบบ...'
+                        : (selectedStaffType === 'artist' || staffEmail.toLowerCase().includes('artist')
+                            ? 'เข้าสู่ระบบช่าง'
+                            : 'เข้าสู่ระบบผู้ดูแล')
+                      }
                     </button>
                   </div>
                 </form>

@@ -1,4 +1,4 @@
-export type EstimateStatus = 'PENDING' | 'QUOTED' | 'ACCEPTED' | 'REJECTED' | 'EXPIRED';
+export type EstimateStatus = 'PENDING' | 'QUOTED' | 'ACCEPTED' | 'REJECTED' | 'EXPIRED' | 'CANCELLED';
 
 export type BookingStatus =
   | 'PENDING'
@@ -8,7 +8,8 @@ export type BookingStatus =
   | 'IN_PROGRESS'
   | 'COMPLETED'
   | 'CANCELLED'
-  | 'REJECTED';
+  | 'REJECTED'
+  | 'EXPIRED';
 
 export type SessionStatus = 'SCHEDULED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
 
@@ -48,11 +49,21 @@ export interface CustomerPortalFinancialSummary {
   is_fully_paid: boolean;
 }
 
-export type TattooWorkType = 'NEW_TATTOO' | 'REWORK' | 'COVER_UP' | 'SCAR_COVER';
+export type TattooWorkType = 'NEW_TATTOO' | 'CUSTOM_DESIGN' | 'REWORK' | 'COVER_UP' | 'SCAR_COVER';
 
 export type ColorTechnique = 'LINEWORK' | 'BLACK_AND_GREY' | 'FULL_COLOR';
 
 export type EstimatedSizeTier = 'MICRO' | 'SMALL_MED' | 'LARGE' | 'XL' | 'FULL_PROJECT';
+
+export interface EstimateDateOption {
+  id: string;
+  estimate_request_id: string;
+  proposed_date: string;
+  proposed_time: string;
+  option_order: number;
+  status: 'PENDING' | 'SELECTED' | 'UNAVAILABLE' | 'CANCELLED';
+  created_at?: string;
+}
 
 export interface CustomerPortalEstimate {
   id: string;
@@ -94,6 +105,16 @@ export interface CustomerPortalEstimate {
   // Linked booking if already booked
   booking_id?: string | null;
   has_pending_payment_submission?: boolean;
+  has_medical_condition?: boolean | null;
+  medical_condition_note?: string | null;
+  has_allergy?: boolean | null;
+  allergy_note?: string | null;
+  proposed_date?: string | null;
+  proposed_time?: string | null;
+  proposed_price?: number | null;
+  proposed_artist_note?: string | null;
+  is_date_proposed?: boolean | null;
+  date_options?: EstimateDateOption[] | null;
 }
 
 export interface CustomerPortalBooking {
@@ -101,6 +122,7 @@ export interface CustomerPortalBooking {
   customer_user_id: string;
   artist_id: string;
   estimate_request_id: string | null;
+  flash_reservation_id?: string | null;
   booking_source?: string;
   source_ref?: string | null;
   artwork_title?: string | null;
@@ -124,6 +146,12 @@ export interface CustomerPortalBooking {
   completed_at: string | null;
   created_at: string;
   has_pending_payment_submission?: boolean;
+  has_medical_condition?: boolean | null;
+  medical_condition_note?: string | null;
+  has_allergy?: boolean | null;
+  allergy_note?: string | null;
+  is_flash?: boolean;
+  flash_reservation?: CustomerFlashReservationRecord | null;
   // Joined Relations
   artist?: CustomerPortalArtist | null;
   sessions: CustomerPortalSession[];
@@ -168,5 +196,66 @@ export interface PaymentSetting {
   created_at: string;
   updated_at: string;
   updated_by?: string | null;
+}
+
+export interface CustomerFlashReservationRecord {
+  id: string;
+  flash_design_id: string;
+  customer_user_id: string;
+  status: string;
+  requested_date?: string | null;
+  requested_start_time?: string | null;
+  placement?: string | null;
+  width_cm?: number | null;
+  height_cm?: number | null;
+  customer_note?: string | null;
+  admin_note?: string | null;
+  approved_at?: string | null;
+  rejected_at?: string | null;
+  cancelled_at?: string | null;
+  completed_at?: string | null;
+  created_at: string;
+  has_pending_payment_submission?: boolean;
+  booking?: CustomerPortalBooking | null;
+  flash_designs?: {
+    id: string;
+    title: string;
+    style: string;
+    size_label?: string | null;
+    price: number;
+    deposit_amount: number;
+    image_url: string;
+    is_repeatable?: boolean;
+    artists?: {
+      id: string;
+      name: string;
+      nickname?: string | null;
+    } | null;
+    artist?: {
+      id: string;
+      name: string;
+      nickname?: string | null;
+    } | null;
+  } | null;
+  flash_design?: {
+    id: string;
+    title: string;
+    style: string;
+    size_label?: string | null;
+    price: number;
+    deposit_amount: number;
+    image_url: string;
+    is_repeatable?: boolean;
+    artists?: {
+      id: string;
+      name: string;
+      nickname?: string | null;
+    } | null;
+    artist?: {
+      id: string;
+      name: string;
+      nickname?: string | null;
+    } | null;
+  } | null;
 }
 

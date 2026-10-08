@@ -1,4 +1,5 @@
-import { SessionStatus, BookingStatus } from './types';
+import { SessionStatus, BookingStatus, CalendarSessionEvent } from './types';
+import { formatTattooSize } from '@/lib/utils/formatters';
 
 export const TIMEZONE = 'Asia/Bangkok';
 
@@ -114,20 +115,209 @@ export function getDateStrBangkok(iso: string): string {
 }
 
 /**
- * Calculate duration string "3 ชม." or "2 ชม. 30 นาที"
+ * Format total minutes to duration string: e.g. 120 -> "2 ชม.", 90 -> "1 ชม. 30 นาที", 45 -> "45 นาที"
+ */
+export function formatMinutesToDurationText(totalMinutes: number): string {
+  const roundedMins = Math.round(totalMinutes);
+  if (roundedMins <= 0 || isNaN(roundedMins)) return '0 นาที';
+  const hours = Math.floor(roundedMins / 60);
+  const mins = roundedMins % 60;
+  if (hours > 0 && mins > 0) return `${hours} ชม. ${mins} นาที`;
+  if (hours > 0) return `${hours} ชม.`;
+  return `${mins} นาที`;
+}
+
+/**
+ * Calculate duration string "2 ชม." or "1 ชม. 30 นาที" or "45 นาที" from ISO strings
  */
 export function calculateDurationText(startIso: string, endIso: string): string {
   try {
-    const diffMs = new Date(endIso).getTime() - new Date(startIso).getTime();
-    if (diffMs <= 0) return '0 นาที';
+    const startMs = new Date(startIso).getTime();
+    const endMs = new Date(endIso).getTime();
+    const diffMs = endMs - startMs;
+    if (diffMs <= 0 || isNaN(diffMs)) return '0 นาที';
     const totalMinutes = Math.round(diffMs / (1000 * 60));
-    const hours = Math.floor(totalMinutes / 60);
-    const mins = totalMinutes % 60;
-    if (hours > 0 && mins > 0) return `${hours} ชม. ${mins} นาที`;
-    if (hours > 0) return `${hours} ชม.`;
-    return `${mins} นาที`;
+    return formatMinutesToDurationText(totalMinutes);
   } catch {
     return '-';
+  }
+}
+
+/**
+ * Calculate duration string "2 ชม." or "1 ชม. 30 นาที" or "45 นาที" from time strings (e.g. "14:20", "16:20")
+ */
+export function calculateDurationTextFromTimes(startTimeStr?: string | null, endTimeStr?: string | null): string {
+  if (!startTimeStr || !endTimeStr) return '';
+  try {
+    const cleanStart = startTimeStr.replace(' น.', '').trim();
+    const cleanEnd = endTimeStr.replace(' น.', '').trim();
+    const [startH, startM] = cleanStart.split(':').map(Number);
+    const [endH, endM] = cleanEnd.split(':').map(Number);
+    if (isNaN(startH) || isNaN(startM) || isNaN(endH) || isNaN(endM)) return '';
+    const startTotalMins = startH * 60 + startM;
+    const endTotalMins = endH * 60 + endM;
+    const diffMins = Math.round(endTotalMins - startTotalMins);
+    return formatMinutesToDurationText(diffMins);
+  } catch {
+    return '';
+  }
+}
+
+export type EffectiveEventStatus =
+  | 'CANCELLED'
+  | 'REJECTED'
+  | 'EXPIRED'
+  | 'COMPLETED'
+  | 'IN_PROGRESS'
+  | 'WAITING_DEPOSIT'
+  | 'PENDING'
+  | 'CONFIRMED';
+
+/**
+ * Derives the effective event status combining booking status and session status.
+ * Order of precedence: EXPIRED > REJECTED > CANCELLED > COMPLETED > IN_PROGRESS > WAITING_DEPOSIT > PENDING > CONFIRMED
+ */
+export function getEffectiveEventStatus(ev: CalendarSessionEvent): EffectiveEventStatus {
+  const status = ev.status;
+  const bookingStatus = ev.booking?.status;
+
+  // 1. Booking terminal status takes precedence
+  if (bookingStatus === 'EXPIRED') return 'EXPIRED';
+  if (bookingStatus === 'REJECTED') return 'REJECTED';
+  if (bookingStatus === 'CANCELLED' || status === 'CANCELLED') return 'CANCELLED';
+
+  // 2. Execution & Payment statuses (Booking status takes precedence over session)
+  if (bookingStatus === 'COMPLETED' || status === 'COMPLETED') return 'COMPLETED';
+  if (bookingStatus === 'IN_PROGRESS' || status === 'IN_PROGRESS') return 'IN_PROGRESS';
+  if (bookingStatus === 'WAITING_DEPOSIT') return 'WAITING_DEPOSIT';
+  if (bookingStatus === 'PENDING') return 'PENDING';
+
+  return 'CONFIRMED';
+}
+
+/**
+ * Unified visual configuration for Calendar Events aligned with Admin Requests
+ */
+export function getEventStatusConfig(ev: CalendarSessionEvent): {
+  key: EffectiveEventStatus;
+  label: string;
+  bg: string;
+  border: string;
+  text: string;
+  badgeBg: string;
+  badgeText: string;
+  badgeBorder: string;
+  dotClass: string;
+  colorClass: string;
+} {
+  const eff = getEffectiveEventStatus(ev);
+
+  switch (eff) {
+    case 'CANCELLED':
+      return {
+        key: 'CANCELLED',
+        label: 'ยกเลิก',
+        bg: 'bg-red-950/20',
+        border: 'border-red-900/40',
+        text: 'text-zinc-500 line-through',
+        badgeBg: 'bg-red-950/60',
+        badgeText: 'text-red-400',
+        badgeBorder: 'border-red-800/60',
+        dotClass: 'bg-red-400',
+        colorClass: 'text-red-400',
+      };
+    case 'REJECTED':
+      return {
+        key: 'REJECTED',
+        label: 'ปฏิเสธ',
+        bg: 'bg-zinc-900/90',
+        border: 'border-zinc-700/80',
+        text: 'text-zinc-400',
+        badgeBg: 'bg-zinc-900/90',
+        badgeText: 'text-zinc-400',
+        badgeBorder: 'border-zinc-700/80',
+        dotClass: 'bg-zinc-400',
+        colorClass: 'text-zinc-400',
+      };
+    case 'EXPIRED':
+      return {
+        key: 'EXPIRED',
+        label: 'หมดเวลาชำระมัดจำ',
+        bg: 'bg-zinc-950/30',
+        border: 'border-zinc-800/60',
+        text: 'text-zinc-500',
+        badgeBg: 'bg-zinc-900/90',
+        badgeText: 'text-zinc-400',
+        badgeBorder: 'border-zinc-700/80',
+        dotClass: 'bg-zinc-500',
+        colorClass: 'text-zinc-500',
+      };
+    case 'COMPLETED':
+      return {
+        key: 'COMPLETED',
+        label: 'งานเสร็จสิ้น',
+        bg: 'bg-emerald-950/25',
+        border: 'border-emerald-800/50',
+        text: 'text-emerald-300',
+        badgeBg: 'bg-emerald-950/60',
+        badgeText: 'text-emerald-400',
+        badgeBorder: 'border-emerald-800/60',
+        dotClass: 'bg-emerald-400',
+        colorClass: 'text-emerald-400',
+      };
+    case 'IN_PROGRESS':
+      return {
+        key: 'IN_PROGRESS',
+        label: 'กำลังสัก',
+        bg: 'bg-amber-950/25',
+        border: 'border-amber-800/50',
+        text: 'text-amber-300',
+        badgeBg: 'bg-amber-950/60',
+        badgeText: 'text-amber-400',
+        badgeBorder: 'border-amber-800/60',
+        dotClass: 'bg-amber-400',
+        colorClass: 'text-amber-400',
+      };
+    case 'WAITING_DEPOSIT':
+      return {
+        key: 'WAITING_DEPOSIT',
+        label: 'รอมัดจำ',
+        bg: 'bg-purple-950/25',
+        border: 'border-purple-800/50',
+        text: 'text-purple-300',
+        badgeBg: 'bg-purple-950/60',
+        badgeText: 'text-purple-400',
+        badgeBorder: 'border-purple-800/60',
+        dotClass: 'bg-purple-400',
+        colorClass: 'text-purple-400',
+      };
+    case 'PENDING':
+      return {
+        key: 'PENDING',
+        label: 'รอตรวจสอบ',
+        bg: 'bg-blue-950/20',
+        border: 'border-blue-800/40',
+        text: 'text-blue-300',
+        badgeBg: 'bg-blue-950/60',
+        badgeText: 'text-blue-400',
+        badgeBorder: 'border-blue-800/60',
+        dotClass: 'bg-blue-400',
+        colorClass: 'text-blue-400',
+      };
+    case 'CONFIRMED':
+    default:
+      return {
+        key: 'CONFIRMED',
+        label: 'นัดหมายแล้ว',
+        bg: 'bg-blue-950/25',
+        border: 'border-blue-800/50',
+        text: 'text-blue-300',
+        badgeBg: 'bg-blue-950/60',
+        badgeText: 'text-blue-400',
+        badgeBorder: 'border-blue-800/60',
+        dotClass: 'bg-blue-400',
+        colorClass: 'text-blue-400',
+      };
   }
 }
 
@@ -146,24 +336,24 @@ export function getSessionStatusConfig(status: SessionStatus): {
     case 'SCHEDULED':
       return {
         label: 'นัดหมายแล้ว',
-        bg: 'bg-[#171512]',
-        border: 'border-[#4A443A]',
-        text: 'text-[#ECE4D3]',
-        badgeBg: 'bg-[#1A1815]',
-        badgeText: 'text-[#A89F91]',
+        bg: 'bg-blue-950/25',
+        border: 'border-blue-800/40',
+        text: 'text-blue-300',
+        badgeBg: 'bg-blue-950/60',
+        badgeText: 'text-blue-400',
       };
     case 'IN_PROGRESS':
       return {
-        label: 'กำลังสัก',
-        bg: 'bg-[#9C2F2F]/20',
-        border: 'border-[#9C2F2F]',
-        text: 'text-[#ECE4D3]',
-        badgeBg: 'bg-[#9C2F2F]',
-        badgeText: 'text-white',
+        label: 'มีรอบสัก',
+        bg: 'bg-purple-950/25',
+        border: 'border-purple-800/40',
+        text: 'text-purple-300',
+        badgeBg: 'bg-purple-950/60',
+        badgeText: 'text-purple-400',
       };
     case 'COMPLETED':
       return {
-        label: 'เสร็จสิ้น',
+        label: 'งานเสร็จสิ้น',
         bg: 'bg-emerald-950/25',
         border: 'border-emerald-800/40',
         text: 'text-emerald-300',
@@ -173,11 +363,11 @@ export function getSessionStatusConfig(status: SessionStatus): {
     case 'CANCELLED':
       return {
         label: 'ยกเลิก',
-        bg: 'bg-zinc-900/40 opacity-60',
-        border: 'border-zinc-800',
-        text: 'text-zinc-500',
-        badgeBg: 'bg-zinc-800',
-        badgeText: 'text-zinc-400',
+        bg: 'bg-red-950/25 opacity-60',
+        border: 'border-red-800/40',
+        text: 'text-red-400',
+        badgeBg: 'bg-red-950/60',
+        badgeText: 'text-red-400',
       };
     default:
       return {
@@ -204,27 +394,27 @@ export function getBookingStatusConfig(status: BookingStatus): {
     case 'WAITING_DEPOSIT':
       return {
         label: 'รอมัดจำ',
-        text: 'text-amber-400',
-        bg: 'bg-amber-950/40',
-        border: 'border-amber-800/50',
+        text: 'text-purple-300',
+        bg: 'bg-purple-950/60',
+        border: 'border-purple-800/60',
       };
     case 'CONFIRMED':
       return {
-        label: 'ยืนยันคิวแล้ว',
+        label: 'นัดหมายแล้ว',
         text: 'text-blue-400',
         bg: 'bg-blue-950/40',
         border: 'border-blue-800/50',
       };
     case 'IN_PROGRESS':
       return {
-        label: 'กำลังดำเนินงาน',
-        text: 'text-[#9C2F2F]',
-        bg: 'bg-[#9C2F2F]/20',
-        border: 'border-[#9C2F2F]/40',
+        label: 'มีรอบสัก',
+        text: 'text-purple-400',
+        bg: 'bg-purple-950/40',
+        border: 'border-purple-800/50',
       };
     case 'COMPLETED':
       return {
-        label: 'เสร็จสมบูรณ์',
+        label: 'งานเสร็จสิ้น',
         text: 'text-emerald-400',
         bg: 'bg-emerald-950/40',
         border: 'border-emerald-800/50',
@@ -358,4 +548,28 @@ export function getArtistColorTheme(artistId?: string | null): ArtistColorTheme 
   }
   const index = Math.abs(hash) % ARTIST_PALETTE.length;
   return ARTIST_PALETTE[index];
+}
+
+/**
+  * Resolve tattoo specs (style, size, placement, reference images) from a CalendarSessionEvent
+  */
+export function getEventSpecs(ev: CalendarSessionEvent) {
+  const rawStyle = ev.estimate?.style?.trim();
+  const style = rawStyle || 'ไม่ระบุ';
+
+  const width = ev.estimate?.width_cm;
+  const height = ev.estimate?.height_cm;
+  const rawSize = formatTattooSize(width, height);
+  const size = rawSize && rawSize !== 'ไม่ระบุ' ? rawSize : 'ไม่ระบุขนาด';
+
+  const rawPlacement = ev.estimate?.placement?.trim();
+  const placement = rawPlacement || 'ไม่ระบุตำแหน่ง';
+
+  const referenceImages = ev.estimate?.reference_images || [];
+  const referenceImage = referenceImages[0] || null;
+
+  const startStr = formatTimeBangkok(ev.start_at).replace(' น.', '');
+  const timeText = `เวลานัด ${startStr}`;
+
+  return { style, size, placement, referenceImages, referenceImage, timeText };
 }

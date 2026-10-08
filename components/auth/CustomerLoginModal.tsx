@@ -5,6 +5,8 @@ import Link from 'next/link';
 import { useApp } from '../AppContext';
 import { X, AlertTriangle, Eye, EyeOff, CheckCircle } from 'lucide-react';
 import { sanitizeDigitsOnly, validateCustomerPhone, normalizeThaiPhone } from '@/lib/phoneUtils';
+import { validateCustomerAge } from '@/lib/customerUtils';
+import ThaiDateOfBirthPicker from '@/components/common/ThaiDateOfBirthPicker';
 
 interface CustomerLoginModalProps {
   onClose: () => void;
@@ -17,6 +19,9 @@ export default function CustomerLoginModal({ onClose, onSuccess }: CustomerLogin
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [dateOfBirth, setDateOfBirth] = useState('');
   
   // Tab: login, register
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
@@ -57,15 +62,32 @@ export default function CustomerLoginModal({ onClose, onSuccess }: CustomerLogin
         setError(phoneValidation.error || 'กรุณากรอกเบอร์โทรศัพท์ 10 หลัก');
         return;
       }
-      if (!consentAccepted) {
-        setError('กรุณายืนยันเงื่อนไขก่อนรับบริการ');
+      const ageValidation = validateCustomerAge(dateOfBirth);
+      if (!ageValidation.valid) {
+        setError(ageValidation.error || 'ระบบเปิดให้บริการสำหรับผู้มีอายุ 18 ปีบริบูรณ์ขึ้นไป');
         return;
       }
-    }
-
-    if (!password || password.trim() === '') {
-      setError('กรุณากรอกรหัสผ่าน');
-      return;
+      if (!password || password.trim() === '') {
+        setError('กรุณากรอกรหัสผ่าน');
+        return;
+      }
+      if (password.length < 6) {
+        setError('รหัสผ่านต้องมีความยาวอย่างน้อย 6 ตัวอักษร');
+        return;
+      }
+      if (password !== confirmPassword) {
+        setError('รหัสผ่านและยืนยันรหัสผ่านไม่ตรงกัน');
+        return;
+      }
+      if (!consentAccepted) {
+        setError('กรุณายืนยันว่าข้อมูลเป็นความจริงและยอมรับเงื่อนไขการใช้บริการ');
+        return;
+      }
+    } else {
+      if (!password || password.trim() === '') {
+        setError('กรุณากรอกรหัสผ่าน');
+        return;
+      }
     }
 
     setLoading(true);
@@ -89,7 +111,7 @@ export default function CustomerLoginModal({ onClose, onSuccess }: CustomerLogin
       }
     } else {
       // Register Mode
-      const res = await signUpCustomer(email, password, displayName, phone, consentAccepted);
+      const res = await signUpCustomer(email, password, displayName, phone, consentAccepted, dateOfBirth);
       setLoading(false);
       if (res.success) {
         // Enforce Register-then-Login:
@@ -97,6 +119,8 @@ export default function CustomerLoginModal({ onClose, onSuccess }: CustomerLogin
         setAuthMode('login');
         setSuccessMessage('สมัครสมาชิกสำเร็จ กรุณาเข้าสู่ระบบ');
         setPassword('');
+        setConfirmPassword('');
+        setDateOfBirth('');
         setDisplayName('');
         setPhone('');
         setConsentAccepted(false);
@@ -184,21 +208,37 @@ export default function CustomerLoginModal({ onClose, onSuccess }: CustomerLogin
           </div>
 
           {authMode === 'register' && (
-            <div>
-              <label className="text-[11px] uppercase tracking-wider text-studio-secondary block mb-2 font-medium">
-                เบอร์โทรศัพท์
-              </label>
-              <input
-                type="tel"
-                inputMode="numeric"
-                maxLength={10}
-                value={phone}
-                onChange={(e) => setPhone(sanitizeDigitsOnly(e.target.value))}
-                placeholder="0812345678"
-                required
-                className="w-full min-h-[54px] sm:min-h-[56px] bg-studio-main border border-studio-border focus:border-studio-red text-sm text-studio-primary px-4 py-3 outline-none rounded-[4px] transition-colors"
-              />
-            </div>
+            <>
+              <div>
+                <label className="text-[11px] uppercase tracking-wider text-studio-secondary block mb-2 font-medium">
+                  เบอร์โทรศัพท์
+                </label>
+                <input
+                  type="tel"
+                  inputMode="numeric"
+                  maxLength={10}
+                  value={phone}
+                  onChange={(e) => setPhone(sanitizeDigitsOnly(e.target.value))}
+                  placeholder="0812345678"
+                  required
+                  className="w-full min-h-[54px] sm:min-h-[56px] bg-studio-main border border-studio-border focus:border-studio-red text-sm text-studio-primary px-4 py-3 outline-none rounded-[4px] transition-colors"
+                />
+              </div>
+
+              <div>
+                <label className="text-[11px] uppercase tracking-wider text-studio-secondary block mb-2 font-medium">
+                  วัน/เดือน/ปีเกิด
+                </label>
+                <ThaiDateOfBirthPicker
+                  value={dateOfBirth}
+                  onChange={(iso) => setDateOfBirth(iso)}
+                  theme="studio"
+                />
+                <p className="text-[10px] text-studio-muted mt-1 font-light">
+                  * สงวนสิทธิ์การสมัครและจองคิวสำหรับผู้มีอายุ 18 ปีบริบูรณ์ขึ้นไป
+                </p>
+              </div>
+            </>
           )}
 
           <div>
@@ -236,6 +276,32 @@ export default function CustomerLoginModal({ onClose, onSuccess }: CustomerLogin
             )}
           </div>
 
+          {authMode === 'register' && (
+            <div>
+              <label className="text-[11px] uppercase tracking-wider text-studio-secondary block mb-2 font-medium">
+                ยืนยันรหัสผ่าน
+              </label>
+              <div className="relative">
+                <input
+                  type={showConfirmPassword ? 'text' : 'password'}
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  placeholder="••••••••"
+                  required
+                  className="w-full min-h-[54px] sm:min-h-[56px] bg-studio-main border border-studio-border focus:border-studio-red text-sm text-studio-primary pl-4 pr-14 py-3 outline-none rounded-[4px] transition-colors"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  aria-label={showConfirmPassword ? 'ซ่อนรหัสผ่าน' : 'แสดงรหัสผ่าน'}
+                  className="absolute right-1 top-1 bottom-1 w-12 min-w-[44px] flex items-center justify-center text-studio-secondary hover:text-studio-primary transition-colors focus:outline-none"
+                >
+                  {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Consent Checkbox (Register Mode Only) */}
           {authMode === 'register' && (
             <div className="pt-1">
@@ -248,7 +314,7 @@ export default function CustomerLoginModal({ onClose, onSuccess }: CustomerLogin
                   className="mt-0.5 w-4 h-4 rounded border-studio-border bg-studio-main text-studio-red focus:ring-studio-red focus:ring-offset-0 transition-colors shrink-0 accent-studio-red"
                 />
                 <span className="text-xs text-studio-secondary leading-relaxed group-hover:text-studio-primary transition-colors">
-                  ฉันยืนยันว่ามีอายุ 18 ปีบริบูรณ์ขึ้นไป และยอมรับข้อกำหนดการใช้งานและนโยบายความเป็นส่วนตัว
+                  ฉันยืนยันว่าข้อมูลข้างต้นเป็นความจริง และยอมรับเงื่อนไขการใช้บริการ รวมทั้งนโยบายความเป็นส่วนตัว
                 </span>
               </label>
             </div>

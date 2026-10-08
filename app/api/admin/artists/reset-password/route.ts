@@ -7,10 +7,23 @@ export async function POST(req: NextRequest) {
     const supabase = createClient();
 
     // 1. Verify Admin Authorization
-    const {
+    let {
       data: { user: adminUser },
       error: authError,
     } = await supabase.auth.getUser();
+
+    // Fallback: If cookie-based auth fails, check Bearer token in Authorization header
+    if (!adminUser) {
+      const authHeader = req.headers.get('authorization') || req.headers.get('Authorization');
+      const bearerToken = authHeader?.startsWith('Bearer ') ? authHeader.substring(7) : null;
+      if (bearerToken) {
+        const { data: tokenData, error: tokenErr } = await supabase.auth.getUser(bearerToken);
+        if (tokenData?.user && !tokenErr) {
+          adminUser = tokenData.user;
+          authError = null;
+        }
+      }
+    }
 
     if (authError || !adminUser) {
       return NextResponse.json(
@@ -23,11 +36,16 @@ export async function POST(req: NextRequest) {
       .from('profiles')
       .select('role, is_active')
       .eq('user_id', adminUser.id)
-      .single();
+      .maybeSingle();
 
-    if (profileError || !adminProfile || adminProfile.role !== 'admin' || adminProfile.is_active === false) {
+    const isAllowedRole =
+      adminProfile &&
+      (adminProfile.role === 'admin' || adminProfile.role === 'owner') &&
+      adminProfile.is_active !== false;
+
+    if (profileError || !isAllowedRole) {
       return NextResponse.json(
-        { error: 'คุณไม่มีสิทธิ์ในการเปลี่ยนรหัสผ่านช่างสัก (เฉพาะ Admin เท่านั้น)', code: 'FORBIDDEN' },
+        { error: 'คุณไม่มีสิทธิ์ในการเปลี่ยนรหัสผ่านช่างสัก (เฉพาะ Admin / Owner เท่านั้น)', code: 'FORBIDDEN' },
         { status: 403 }
       );
     }
@@ -139,7 +157,11 @@ export async function POST(req: NextRequest) {
     }
 
     // 5. Ensure artists.user_id is linked and profile is active artist
-    await supabase
+    const dbClient = serviceRoleKey
+      ? createAdminClient(supabaseUrl, serviceRoleKey, { auth: { autoRefreshToken: false, persistSession: false } })
+      : supabase;
+
+    await dbClient
       .from('artists')
       .update({ user_id: targetUserId, is_active: true, updated_at: new Date().toISOString() })
       .eq('id', artistId);

@@ -38,8 +38,10 @@ export default function RootLayout({
     <html 
       lang="th" 
       className={`dark bg-studio-main text-studio-primary ${bebasNeue.variable} ${prompt.variable} ${caveat.variable}`}
+      style={{ backgroundColor: '#0E0D0C', margin: 0, padding: 0 }}
     >
-      <body className="min-h-screen bg-studio-main text-studio-primary font-sans antialiased selection:bg-studio-red selection:text-studio-paper">
+      <head />
+      <body className="min-h-screen bg-studio-main text-studio-primary font-prompt antialiased selection:bg-studio-red selection:text-studio-paper m-0 p-0">
         <AppProvider>
           {children}
         </AppProvider>

@@ -52,7 +52,7 @@ export default function BookingSessionList({
   // Active Action Menu & Modals State
   const [openMenuSessionId, setOpenMenuSessionId] = useState<string | null>(null);
   const [activeModalSession, setActiveModalSession] = useState<BookingSessionItem | null>(null);
-  const [modalType, setModalType] = useState<'edit' | 'reschedule' | 'cancel' | 'delete' | null>(null);
+  const [modalType, setModalType] = useState<'edit' | 'reschedule' | 'cancel' | 'delete' | 'complete' | null>(null);
   const [recordPaymentSession, setRecordPaymentSession] = useState<BookingSessionItem | null>(null);
 
   // Check if booking is fully paid
@@ -62,10 +62,10 @@ export default function BookingSessionList({
   const paymentBookingDetail: PaymentBookingDetail | null = recordPaymentSession ? {
     id: booking.id,
     estimate_request_id: booking.estimate_request_id,
-    customer_user_id: booking.customer_user_id,
+    customer_user_id: booking.customer_user_id || '',
     artist_id: booking.artist_id,
     requested_date: booking.requested_date,
-    status: booking.status,
+    status: (booking.status === 'EXPIRED' ? 'CANCELLED' : booking.status) as any,
     approved_at: null,
     confirmed_at: null,
     created_at: booking.created_at,
@@ -78,7 +78,7 @@ export default function BookingSessionList({
     summary: {
       booking_id: booking.id,
       estimate_request_id: booking.estimate_request_id,
-      customer_user_id: booking.customer_user_id,
+      customer_user_id: booking.customer_user_id || '',
       artist_id: booking.artist_id,
       quoted_price: booking.financial?.quoted_price || 0,
       deposit_required: booking.financial?.deposit_required || 0,
@@ -117,12 +117,20 @@ export default function BookingSessionList({
     setUpdatingSessionId(session.id);
     try {
       const supabase = createClient();
-      const { error } = await supabase
-        .from('booking_sessions')
-        .update({ status: 'IN_PROGRESS' })
-        .eq('id', session.id);
+      // Try SECURITY DEFINER RPC first for artist & admin RLS bypass
+      const { error: rpcErr } = await supabase.rpc('artist_start_session', {
+        p_session_id: session.id,
+      });
 
-      if (error) throw error;
+      if (rpcErr) {
+        // Fallback to direct table update for Admin or if RPC signature differs
+        const { error: updateErr } = await supabase
+          .from('booking_sessions')
+          .update({ status: 'IN_PROGRESS' })
+          .eq('id', session.id);
+
+        if (updateErr) throw updateErr;
+      }
       onRefresh();
     } catch (err: any) {
       console.error('Error starting session:', err);
@@ -132,28 +140,50 @@ export default function BookingSessionList({
     }
   };
 
-  const handleCompleteSession = async (session: BookingSessionItem) => {
+  const handleCompleteSession = (session: BookingSessionItem) => {
+    handleOpenActionModal(session, 'complete');
+  };
+
+  const handleExecuteComplete = async () => {
+    if (!activeModalSession || isSubmittingModal) return;
+    setIsSubmittingModal(true);
     setSessionError(null);
-    setUpdatingSessionId(session.id);
     try {
       const supabase = createClient();
-      const { error } = await supabase
-        .from('booking_sessions')
-        .update({ status: 'COMPLETED' })
-        .eq('id', session.id);
+      // Try SECURITY DEFINER RPC first to complete session without closing parent booking or requiring payment
+      const { error: rpcErr } = await supabase.rpc('complete_booking_session', {
+        p_booking_id: booking.id,
+        p_session_id: activeModalSession.id,
+      });
 
-      if (error) throw error;
+      if (rpcErr) {
+        const { error: rpcErr2 } = await supabase.rpc('admin_complete_booking_session', {
+          p_booking_id: booking.id,
+          p_session_id: activeModalSession.id,
+        });
+
+        if (rpcErr2) {
+          const { error: updateErr } = await supabase
+            .from('booking_sessions')
+            .update({ status: 'COMPLETED' })
+            .eq('id', activeModalSession.id);
+
+          if (updateErr) throw updateErr;
+        }
+      }
+      setModalType(null);
+      setActiveModalSession(null);
       onRefresh();
     } catch (err: any) {
       console.error('Error completing session:', err);
-      setSessionError(err.message || 'เกิดข้อผิดพลาดในการจบรอบสัก');
+      setSessionError(err.message || 'เกิดข้อผิดพลาดในการเสร็จสิ้นรอบสัก');
     } finally {
-      setUpdatingSessionId(null);
+      setIsSubmittingModal(false);
     }
   };
 
   // Open Modal Handlers
-  const handleOpenActionModal = (session: BookingSessionItem, type: 'edit' | 'reschedule' | 'cancel' | 'delete') => {
+  const handleOpenActionModal = (session: BookingSessionItem, type: 'edit' | 'reschedule' | 'cancel' | 'delete' | 'complete') => {
     setOpenMenuSessionId(null);
     setActiveModalSession(session);
     setModalType(type);
@@ -352,8 +382,9 @@ export default function BookingSessionList({
         );
       case 'COMPLETED':
         return (
-          <span className="bg-emerald-950/60 text-emerald-400 border border-emerald-800/60 px-2 py-0.5 rounded text-[10px] font-semibold">
-            เสร็จสิ้นรอบนี้
+          <span className="bg-emerald-950/60 text-emerald-400 border border-emerald-800/60 px-2 py-0.5 rounded text-[10px] font-semibold flex items-center gap-1">
+            <CheckCircle2 size={11} className="shrink-0 text-emerald-400" />
+            <span>เสร็จสิ้น</span>
           </span>
         );
       case 'CANCELLED':
@@ -368,6 +399,9 @@ export default function BookingSessionList({
   };
 
   const sessions = booking.sessions || [];
+  const maxSessionNumber = sessions.length > 0
+    ? Math.max(...sessions.map((s) => s.session_number || 0))
+    : 0;
 
   return (
     <div className={embedMode ? "space-y-3 font-prompt" : "bg-[#0E0D0C] border border-[#4A443A]/70 rounded-xl p-3.5 sm:p-4 space-y-3 font-prompt"}>
@@ -419,7 +453,7 @@ export default function BookingSessionList({
             const isCompleted = ses.status === 'COMPLETED';
             const isInProgress = ses.status === 'IN_PROGRESS';
             const isDeleteDisabled = isCancelled || isCompleted || isInProgress;
-            const displayedRoundNum = idx + 1;
+            const displayedRoundNum = ses.session_number || idx + 1;
 
             return (
               <div
@@ -444,20 +478,7 @@ export default function BookingSessionList({
 
                   {/* Actions Right Side */}
                   <div className="flex items-center gap-1.5">
-                    {!embedMode && ses.status === 'SCHEDULED' && (
-                      <button
-                        id={`btn-start-session-${displayedRoundNum}`}
-                        type="button"
-                        disabled={updatingSessionId === ses.id}
-                        onClick={() => handleStartSession(ses)}
-                        className="px-2.5 py-1 bg-purple-600 hover:bg-purple-500 text-white text-[10px] font-medium rounded transition-colors flex items-center gap-1 cursor-pointer"
-                      >
-                        <PlayCircle size={11} />
-                        <span>{updatingSessionId === ses.id ? 'กำลังเริ่ม...' : 'เริ่มงาน'}</span>
-                      </button>
-                    )}
-
-                    {!embedMode && ses.status === 'IN_PROGRESS' && (
+                    {!embedMode && (ses.status === 'SCHEDULED' || ses.status === 'IN_PROGRESS') && (
                       <button
                         id={`btn-complete-session-${displayedRoundNum}`}
                         type="button"
@@ -466,7 +487,7 @@ export default function BookingSessionList({
                         className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] font-medium rounded transition-colors flex items-center gap-1 cursor-pointer"
                       >
                         <Check size={11} />
-                        <span>{updatingSessionId === ses.id ? 'กำลังบันทึก...' : 'จบรอบสัก'}</span>
+                        <span>เสร็จสิ้นรอบสัก</span>
                       </button>
                     )}
 
@@ -484,6 +505,21 @@ export default function BookingSessionList({
                       {/* Dropdown Menu */}
                       {openMenuSessionId === ses.id && (
                         <div className="absolute right-0 top-7 z-30 w-44 bg-[#171512] border border-[#4A443A] rounded-xl shadow-2xl py-1 text-xs font-prompt animate-in fade-in duration-100">
+                          {/* Direct Complete Option for Uncompleted Sessions */}
+                          {!isCompleted && !isCancelled && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setOpenMenuSessionId(null);
+                                handleCompleteSession(ses);
+                              }}
+                              className="w-full px-3 py-2 text-left text-emerald-400 hover:bg-[#26221D] flex items-center gap-2 transition-colors cursor-pointer font-medium"
+                            >
+                              <CheckCircle2 size={13} />
+                              <span>เสร็จสิ้นรอบสัก</span>
+                            </button>
+                          )}
+
                           <button
                             type="button"
                             onClick={() => handleOpenActionModal(ses, 'edit')}
@@ -551,7 +587,7 @@ export default function BookingSessionList({
 
                 <div className="flex items-center justify-between gap-2 text-[11px] text-[#A89F91] pt-0.5">
                   <span className={`font-medium shrink-0 ${isCancelled ? 'text-[#7A7265] line-through' : 'text-[#ECE4D3]'}`}>
-                    {formatDateBangkok(ses.start_at)} · {formatTimeBangkok(ses.start_at)} น.
+                    {formatDateBangkok(ses.start_at)} · เวลานัด {formatTimeBangkok(ses.start_at)}
                   </span>
                   {(() => {
                     const rawNote = ses.note?.trim();
@@ -603,6 +639,70 @@ export default function BookingSessionList({
           }}
           onCancel={() => setIsCreatingSession(false)}
         />
+      )}
+
+      {/* --------------------------------------------------------------------- */}
+      {/* 0. COMPLETE SESSION CONFIRMATION MODAL */}
+      {/* --------------------------------------------------------------------- */}
+      {modalType === 'complete' && activeModalSession && mounted && createPortal(
+        <div className="fixed inset-0 z-[9999] bg-black/80 backdrop-blur-xs flex items-center justify-center p-4 font-prompt">
+          <div className="bg-[#171512] border border-[#4A443A] rounded-2xl w-full max-w-sm p-5 space-y-4 shadow-2xl animate-in zoom-in-95 duration-150 text-xs">
+            <div className="flex items-center justify-between border-b border-[#4A443A]/60 pb-3">
+              <div className="flex items-center space-x-2 text-emerald-400 font-bold text-sm">
+                <CheckCircle2 size={18} />
+                <span>ยืนยันเสร็จสิ้นรอบสัก</span>
+              </div>
+              <button onClick={() => setModalType(null)} className="text-[#A89F91] hover:text-white cursor-pointer">
+                <X size={16} />
+              </button>
+            </div>
+
+            <div className="space-y-2 text-[#ECE4D3] bg-[#0E0D0C] p-3.5 rounded-xl border border-[#332E27]">
+              <p className="font-semibold text-xs text-[#ECE4D3]">
+                คุณต้องการยืนยันว่า รอบที่ {activeModalSession.session_number || 1} เสร็จสิ้นแล้วจริงหรือไม่?
+              </p>
+              {activeModalSession.start_at && (
+                <p className="text-[11px] text-[#A89F91]">
+                  วันที่นัด: <span className="text-[#ECE4D3] font-medium">{formatDateBangkok(activeModalSession.start_at)} · เวลานัด {formatTimeBangkok(activeModalSession.start_at)}</span>
+                </p>
+              )}
+            </div>
+
+            <p className="text-[10px] text-[#A89F91] leading-relaxed italic">
+              * การเสร็จสิ้นรอบสักนี้จะเปลี่ยนเฉพาะสถานะของรอบนี้เท่านั้น จะไม่ปิดงานรวมทั้ง Booking และไม่บันทึกรับเงินโดยอัตโนมัติ
+            </p>
+
+            <div className="grid grid-cols-2 gap-2.5 pt-1">
+              <button
+                type="button"
+                onClick={() => {
+                  setModalType(null);
+                  setActiveModalSession(null);
+                }}
+                disabled={isSubmittingModal}
+                className="w-full py-2.5 px-3 rounded-xl border border-[#4A443A] bg-[#0E0D0C] hover:bg-[#26221D] text-[#ECE4D3] font-medium text-xs transition-colors cursor-pointer"
+              >
+                ยกเลิก
+              </button>
+              <button
+                type="button"
+                onClick={handleExecuteComplete}
+                disabled={isSubmittingModal}
+                className="w-full py-2.5 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs flex items-center justify-center space-x-1.5 transition-colors cursor-pointer shadow"
+              >
+                {isSubmittingModal ? (
+                  <>
+                    <Loader2 size={14} className="animate-spin" />
+                    <span>กำลังบันทึก...</span>
+                  </>
+                ) : (
+                  <span>ยืนยันเสร็จสิ้นรอบ</span>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
       )}
 
       {/* --------------------------------------------------------------------- */}

@@ -10,6 +10,8 @@ import { normalizeThaiPhone, formatThaiPhoneForDisplay, sanitizeDigitsOnly } fro
 import { getThailandTodayStr } from './portal/portalUtils';
 import { mapServerCompletionError } from './admin/requests/adminCompletionGuard';
 import { getSafeReturnUrl } from '@/lib/urlUtils';
+import { validateCustomerAge } from '@/lib/customerUtils';
+import { calculateBlockingEndTime } from '@/lib/utils/tattooDuration';
 import { AlertTriangle } from 'lucide-react';
 
 interface Profile {
@@ -51,15 +53,20 @@ interface AppContextType {
   bookings: Booking[];
   bookingPayments: BookingPayment[];
   estimateRequests: EstimateRequest[];
+  flashReservations: any[];
+  fetchFlashReservations: () => Promise<void>;
   
   bookingDraft: Partial<Booking> | null;
   estimateDraft: Partial<EstimateRequest> | null;
   
   loginCustomer: (email: string, password?: string) => Promise<{ success: boolean; isProfileComplete?: boolean; error?: string }>;
-  signUpCustomer: (email: string, password?: string, displayName?: string, phone?: string, eligibilityConfirmed?: boolean) => Promise<{ success: boolean; error?: string }>;
+  signUpCustomer: (email: string, password?: string, displayName?: string, phone?: string, eligibilityConfirmed?: boolean, dateOfBirth?: string) => Promise<{ success: boolean; error?: string }>;
   loginWithGoogle: (returnUrl?: string) => Promise<{ success: boolean; error?: string }>;
+  updateCustomerName: (name: string) => Promise<{ success: boolean; error?: string }>;
   updateCustomerPhone: (phone: string) => Promise<{ success: boolean; error?: string }>;
-  completeCustomerProfile: (displayName: string, phone: string, eligibilityConfirmed: boolean) => Promise<{ success: boolean; error?: string }>;
+  updateCustomerDateOfBirth: (dateOfBirth: string) => Promise<{ success: boolean; error?: string }>;
+  customerDateOfBirth: string | null;
+  completeCustomerProfile: (displayName: string, phone: string, eligibilityConfirmed: boolean, dateOfBirth?: string) => Promise<{ success: boolean; error?: string }>;
   logoutCustomer: () => Promise<void>;
   
   loginStaff: (email: string, password?: string) => Promise<{ success: boolean; role: 'ADMIN' | 'ARTIST' | null; error?: string }>;
@@ -117,12 +124,16 @@ export const checkIsCustomerProfileComplete = (
   isActive?: boolean,
   phone?: string | null,
   completedAt?: string | null,
-  confirmedAt?: string | null
+  confirmedAt?: string | null,
+  dateOfBirth?: string | null
 ): boolean => {
   if (role !== 'customer') return true;
   if (isActive !== true) return false;
   if (!phone || !/^0[0-9]{9}$/.test(phone.trim())) return false;
   if (!completedAt || !confirmedAt) return false;
+  if (!dateOfBirth) return false;
+  const ageVal = validateCustomerAge(dateOfBirth);
+  if (!ageVal.valid) return false;
   return true;
 };
 
@@ -142,13 +153,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [bookingPayments, setBookingPayments] = useState<BookingPayment[]>([]);
   const [estimateRequests, setEstimateRequests] = useState<EstimateRequest[]>([]);
+  const [flashReservations, setFlashReservations] = useState<any[]>([]);
 
   // Drafts
   const [bookingDraft, setBookingDraftState] = useState<Partial<Booking> | null>(null);
   const [estimateDraft, setEstimateDraftState] = useState<Partial<EstimateRequest> | null>(null);
 
-  // Customer Profile Completion Timestamps & Phone (Database Authority)
+  // Customer Profile Completion Timestamps, Phone & Date of Birth (Database Authority)
   const [customerMasterPhone, setCustomerMasterPhone] = useState<string | null>(null);
+  const [customerDateOfBirth, setCustomerDateOfBirth] = useState<string | null>(null);
   const [customerProfileCompletedAt, setCustomerProfileCompletedAt] = useState<string | null>(null);
   const [customerEligibilityConfirmedAt, setCustomerEligibilityConfirmedAt] = useState<string | null>(null);
 
@@ -161,7 +174,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     try {
       const { data, error } = await supabase
         .from('artists')
-        .select('*')
+        .select('id, user_id, name, nickname, slug, specialties, bio, avatar_url, working_days, status, is_active, is_visible, sort_order, created_at, updated_at')
         .eq('is_active', true)
         .order('sort_order', { ascending: true })
         .order('created_at', { ascending: true });
@@ -202,6 +215,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return [];
   }, [supabase]);
 
+  // Fetch flash reservations from Supabase
+  const fetchFlashReservations = useCallback(async () => {
+    try {
+      const { data } = await supabase
+        .from('flash_reservations')
+        .select('id, flash_design_id, customer_user_id, status, requested_date, requested_start_time, placement, width_cm, height_cm, customer_note, admin_note, approved_at, rejected_at, cancelled_at, completed_at, created_at, flash_designs(id, artist_id, title, style, price, deposit_amount, image_url, status, artists(id, name, nickname))')
+        .order('created_at', { ascending: false });
+      setFlashReservations(data || []);
+    } catch (err) {
+      console.error('Error fetching flash_reservations in AppContext:', err);
+    }
+  }, [supabase]);
+
   // Fetch estimate requests from Supabase
   const fetchEstimates = useCallback(async (currentUser = user) => {
     if (!currentUser) {
@@ -211,7 +237,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
     const { data: dbEstimates, error: errEst } = await supabase
       .from('estimate_requests')
-      .select('id, customer_id, customer_user_id, artist_id, reference_images, width_cm, height_cm, placement, style, description, preferred_date, preferred_time, status, quoted_price, estimated_duration_minutes, deposit_required, quote_note, quoted_at, accepted_at, rejected_at, created_at, updated_at')
+      .select('id, customer_id, customer_user_id, artist_id, reference_images, width_cm, height_cm, placement, style, description, preferred_date, preferred_time, status, quoted_price, estimated_duration_minutes, deposit_required, quote_note, quoted_at, accepted_at, rejected_at, created_at, updated_at, proposed_date, proposed_time, proposed_price, proposed_artist_note, is_date_proposed')
       .order('created_at', { ascending: false });
 
     if (errEst) {
@@ -289,6 +315,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         quoteNote: item.quote_note || undefined,
         request_type: (item as any).request_type || undefined,
         work_type: (item as any).work_type || null,
+        proposed_date: (item as any).proposed_date || null,
+        proposed_time: (item as any).proposed_time || null,
+        proposed_price: (item as any).proposed_price ? Number((item as any).proposed_price) : null,
+        proposed_artist_note: (item as any).proposed_artist_note || null,
+        is_date_proposed: Boolean((item as any).is_date_proposed),
       };
     });
 
@@ -306,7 +337,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     // 1. Fetch bookings along with joined booking_sessions and estimate_requests (excluding health disclosure fields)
     const { data: dbBookings, error: errBook } = await supabase
       .from('bookings')
-      .select('*, booking_sessions(*), estimate_requests(id, customer_id, customer_user_id, artist_id, reference_images, width_cm, height_cm, placement, style, description, preferred_date, status, quoted_price, estimated_duration_minutes, deposit_required, quote_note, quoted_at, accepted_at, rejected_at, created_at, updated_at)')
+      .select('*, booking_sessions(id, booking_id, artist_id, session_number, start_at, end_at, status, note, created_at, updated_at), estimate_requests(id, customer_id, customer_user_id, artist_id, reference_images, width_cm, height_cm, placement, style, description, preferred_date, status, quoted_price, estimated_duration_minutes, deposit_required, quote_note, quoted_at, accepted_at, rejected_at, created_at, updated_at, estimated_size_tier)')
       .order('created_at', { ascending: false });
 
     if (errBook) {
@@ -323,7 +354,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     // 2. Fetch payments
     const { data: dbPayments } = await supabase
       .from('booking_payments')
-      .select('*')
+      .select('id, booking_id, customer_id, customer_user_id, payment_type, amount, currency, payment_method, payment_reference, status, created_at, verified_at, notes, booking_session_id')
       .order('created_at', { ascending: false });
 
     const rawPayments: BookingPayment[] = (dbPayments || []).map((p: any) => ({
@@ -405,19 +436,21 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const tattooPrice = item.tattoo_price ? Number(item.tattoo_price) : 0;
       const remainingBalance = Math.max(0, tattooPrice - verifiedDepositAmount);
 
-      let computedEndTime = endParsed.time;
-      if (!computedEndTime && item.requested_start_time) {
-        const [h, m] = item.requested_start_time.split(':').map(Number);
-        if (!isNaN(h)) {
-          const endH = Math.min(23, h + durationHours);
-          computedEndTime = `${endH.toString().padStart(2, '0')}:${(m || 0).toString().padStart(2, '0')}`;
-        }
-      }
-
       const derivedStyle = item.style || linkedEstimate?.style || undefined;
       const derivedPlacement = item.placement || linkedEstimate?.placement || undefined;
       const derivedWidth = item.width_cm ? Number(item.width_cm) : (linkedEstimate?.width_cm ? Number(linkedEstimate.width_cm) : undefined);
       const derivedHeight = item.height_cm ? Number(item.height_cm) : (linkedEstimate?.height_cm ? Number(linkedEstimate.height_cm) : undefined);
+
+      let computedEndTime = endParsed.time;
+      if (!computedEndTime && item.requested_start_time) {
+        computedEndTime = calculateBlockingEndTime(
+          item.requested_start_time,
+          linkedEstimate?.estimated_size_tier,
+          derivedWidth,
+          derivedHeight,
+          derivedStyle
+        );
+      }
 
       return {
         id: item.id,
@@ -470,7 +503,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       try {
         const promises: Promise<any>[] = [
           fetchEstimates(targetUser),
-          fetchBookings(targetUser)
+          fetchBookings(targetUser),
+          fetchFlashReservations()
         ];
         if (targetRole === 'customer') {
           promises.push(
@@ -478,13 +512,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
               try {
                 const { data: custData } = await supabase
                   .from('customers')
-                  .select('profile_completed_at, eligibility_confirmed_at')
+                  .select('profile_completed_at, eligibility_confirmed_at, date_of_birth')
                   .eq('user_id', targetUser.id)
                   .maybeSingle();
 
                 if (custData) {
                   setCustomerProfileCompletedAt(custData.profile_completed_at || null);
                   setCustomerEligibilityConfirmedAt(custData.eligibility_confirmed_at || null);
+                  setCustomerDateOfBirth(custData.date_of_birth || null);
                 }
               } catch (_) {}
             })()
@@ -493,7 +528,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         await Promise.all(promises);
       } catch (_) {}
     }
-  }, [fetchEstimates, fetchBookings]);
+  }, [fetchEstimates, fetchBookings, fetchFlashReservations]);
 
   // 1. Coordinated Auth Resolution and Data Loading on Mount
   useEffect(() => {
@@ -565,6 +600,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
                   if (custData && isMountedLocal) {
                     setCustomerMasterPhone(custData.phone || null);
+                    setCustomerDateOfBirth(custData.date_of_birth || null);
                     setCustomerProfileCompletedAt(custData.profile_completed_at || null);
                     setCustomerEligibilityConfirmedAt(custData.eligibility_confirmed_at || null);
                     if (!resolvedProf.phone && custData.phone) {
@@ -573,6 +609,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
                     }
                   } else {
                     setCustomerMasterPhone(null);
+                    setCustomerDateOfBirth(null);
                     setCustomerProfileCompletedAt(null);
                     setCustomerEligibilityConfirmedAt(null);
                   }
@@ -645,6 +682,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     // 2. Auth State Change Listener (Only handles subsequent auth transitions!)
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'INITIAL_SESSION') {
+        return;
+      }
+
+      if (event === 'PASSWORD_RECOVERY') {
+        if (typeof window !== 'undefined' && window.location.pathname !== '/reset-password') {
+          window.location.href = '/reset-password';
+        }
         return;
       }
 
@@ -875,11 +919,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
         const effectivePhone = (resolvedProf.phone || customerData?.phone || '').trim();
         const validPhone = Boolean(effectivePhone && /^0[0-9]{9}$/.test(effectivePhone));
+        const dobVal = validateCustomerAge(customerData?.date_of_birth);
         const isComplete = Boolean(
           resolvedProf.role === 'customer' &&
           validPhone &&
           customerData?.profile_completed_at &&
-          customerData?.eligibility_confirmed_at
+          customerData?.eligibility_confirmed_at &&
+          dobVal.valid
         );
 
         if (typeof document !== 'undefined') {
@@ -909,7 +955,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     password?: string, 
     displayName?: string, 
     phone?: string,
-    eligibilityConfirmed?: boolean
+    eligibilityConfirmed?: boolean,
+    dateOfBirth?: string
   ) => {
     const cleanEmail = email.trim().toLowerCase();
     const name = displayName || cleanEmail.split('@')[0];
@@ -925,7 +972,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             name: name,
             role: 'customer',
             phone: contactPhone,
-            eligibility_confirmed: Boolean(eligibilityConfirmed)
+            eligibility_confirmed: Boolean(eligibilityConfirmed),
+            birthdate: dateOfBirth || null
           }
         }
       });
@@ -1032,6 +1080,42 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const updateCustomerName = async (newName: string) => {
+    const cleanName = newName.trim();
+    if (!cleanName) {
+      return { success: false, error: 'กรุณากรอกชื่อผู้ใช้งาน' };
+    }
+    if (user && profile) {
+      const { error: profError } = await supabase
+        .from('profiles')
+        .update({ display_name: cleanName })
+        .eq('user_id', user.id);
+
+      try {
+        await supabase
+          .from('customers')
+          .update({ display_name: cleanName })
+          .eq('user_id', user.id);
+      } catch (_) {}
+
+      if (!profError) {
+        const updated = { ...profile, display_name: cleanName };
+        setProfile(updated);
+        saveToStorage('157_customer_session', { user, profile: updated });
+        return { success: true };
+      } else {
+        return { success: false, error: profError.message || 'เกิดข้อผิดพลาดในการบันทึกชื่อผู้ใช้งาน' };
+      }
+    }
+    if (profile) {
+      const updated = { ...profile, display_name: cleanName };
+      setProfile(updated);
+      saveToStorage('157_customer_session', { user, profile: updated });
+      return { success: true };
+    }
+    return { success: false, error: 'ไม่พบบัญชีผู้ใช้' };
+  };
+
   const updateCustomerPhone = async (newPhone: string) => {
     const cleanPhone = newPhone.trim();
     if (!/^0[0-9]{9}$/.test(cleanPhone)) {
@@ -1058,10 +1142,34 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return { success: false, error: 'ไม่พบบัญชีผู้ใช้' };
   };
 
+  const updateCustomerDateOfBirth = async (newDob: string) => {
+    const cleanDob = newDob.trim();
+    if (!cleanDob || !/^(19|20)[0-9]{2}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$/.test(cleanDob)) {
+      return { success: false, error: 'กรุณาระบุวัน/เดือน/ปีเกิดที่ถูกต้อง' };
+    }
+    if (new Date(cleanDob) > new Date()) {
+      return { success: false, error: 'วันเกิดต้องไม่เป็นวันที่ในอนาคต' };
+    }
+    if (user) {
+      const { error } = await supabase
+        .from('customers')
+        .update({ date_of_birth: cleanDob, updated_at: new Date().toISOString() })
+        .eq('user_id', user.id);
+      if (!error) {
+        setCustomerDateOfBirth(cleanDob);
+        return { success: true };
+      } else {
+        return { success: false, error: error.message || 'เกิดข้อผิดพลาดในการบันทึกวันเกิด' };
+      }
+    }
+    return { success: false, error: 'ไม่พบบัญชีผู้ใช้' };
+  };
+
   const completeCustomerProfile = async (
     name: string,
     phone: string,
-    eligibilityConfirmed: boolean = true
+    eligibilityConfirmed: boolean = true,
+    dateOfBirth?: string
   ): Promise<{ success: boolean; error?: string }> => {
     if (!user) {
       return { success: false, error: 'กรุณาเข้าสู่ระบบก่อนดำเนินการ' };
@@ -1082,7 +1190,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const { data: rpcData, error: rpcError } = await supabase.rpc('complete_customer_profile', {
         p_display_name: cleanName,
         p_phone: cleanPhone,
-        p_eligibility_confirmed: eligibilityConfirmed
+        p_eligibility_confirmed: eligibilityConfirmed,
+        p_date_of_birth: dateOfBirth || null
       });
 
       if (rpcError) {
@@ -1115,6 +1224,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       } catch (_) {}
 
       setCustomerMasterPhone(cleanPhone);
+      setCustomerDateOfBirth(dateOfBirth || resultCustData?.date_of_birth || null);
       setCustomerProfileCompletedAt(resultCustData?.profile_completed_at || nowIso);
       setCustomerEligibilityConfirmedAt(resultCustData?.eligibility_confirmed_at || nowIso);
 
@@ -1412,7 +1522,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       ? artistRecord.specialties.map((s: string) => s.trim()).filter(Boolean)
       : [];
 
-    if (!validStyles.includes(estimate.style.trim())) {
+    if (validStyles.length > 0 && !validStyles.includes(estimate.style.trim())) {
       throw new Error('สไตล์งานสักที่เลือกไม่ตรงกับช่างสัก กรุณาเลือกใหม่');
     }
 
@@ -1429,43 +1539,37 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       ? (rawTime.trim().length === 5 ? `${rawTime.trim()}:00` : rawTime.trim())
       : null;
 
-    const newDbEstimate: any = {
-      customer_user_id: user.id,
-      artist_id: estimate.artistId,
-      reference_images: finalRefImages.slice(0, 5),
-      width_cm: estimate.width || 10,
-      height_cm: estimate.height || 10,
-      placement: estimate.placement || 'ไม่ระบุ',
-      style: estimate.style.trim(),
-      description: estimate.description || '',
-      preferred_date: estimate.preferredDate || null,
-      preferred_time: formattedPreferredTime,
-      has_medical_condition: Boolean(estimate.hasMedicalCondition),
-      medical_condition_note: estimate.hasMedicalCondition && estimate.medicalConditionNote?.trim() ? estimate.medicalConditionNote.trim() : null,
-      has_allergy: Boolean(estimate.hasAllergy),
-      allergy_note: estimate.hasAllergy && estimate.allergyNote?.trim() ? estimate.allergyNote.trim() : null,
-      request_type: 'ESTIMATE',
-      work_type: estimate.work_type || null,
-      status: 'PENDING'
-    };
-
-    const { data, error } = await supabase
-      .from('estimate_requests')
-      .insert(newDbEstimate)
-      .select()
-      .single();
-
-    if (error) {
-      console.error('Error inserting estimate:', error);
-      if (error.message?.includes('สไตล์งานสักที่เลือกไม่ตรงกับช่างสัก')) {
-        throw new Error('สไตล์งานสักที่เลือกไม่ตรงกับช่างสัก กรุณาเลือกใหม่');
+    const { data: rpcRes, error: rpcErr } = await supabase.rpc(
+      'create_customer_estimate_request',
+      {
+        p_artist_id: estimate.artistId,
+        p_style: estimate.style.trim(),
+        p_placement: estimate.placement || 'ไม่ระบุ',
+        p_width_cm: estimate.width || 10,
+        p_height_cm: estimate.height || 10,
+        p_preferred_date: estimate.preferredDate || null,
+        p_preferred_time: formattedPreferredTime,
+        p_reference_images: finalRefImages.slice(0, 5),
+        p_description: estimate.description || '',
+        p_has_medical_condition: Boolean(estimate.hasMedicalCondition),
+        p_medical_condition_note: estimate.hasMedicalCondition && estimate.medicalConditionNote?.trim() ? estimate.medicalConditionNote.trim() : null,
+        p_has_allergy: Boolean(estimate.hasAllergy),
+        p_allergy_note: estimate.hasAllergy && estimate.allergyNote?.trim() ? estimate.allergyNote.trim() : null,
+        p_work_type: estimate.work_type || null,
       }
-      throw new Error(error.message || 'เกิดข้อผิดพลาดในการบันทึกข้อมูลคำขอประเมินราคา');
+    );
+
+    if (rpcErr) {
+      console.error('Error in create_customer_estimate_request RPC:', rpcErr);
+      if (rpcErr.message?.includes('วันที่เลือกไม่ว่าง')) {
+        throw new Error('วันที่เลือกไม่ว่าง กรุณาเลือกวันใหม่');
+      }
+      throw new Error(rpcErr.message || 'เกิดข้อผิดพลาดในการบันทึกข้อมูลคำขอประเมินราคา');
     }
 
     setEstimateDraft(null);
     await fetchEstimates(user);
-    return data.id;
+    return rpcRes?.id || (rpcRes as any);
   };
 
   // Update Booking status in Supabase
@@ -1675,7 +1779,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     profile?.is_active,
     effectiveCustomerPhone,
     customerProfileCompletedAt,
-    customerEligibilityConfirmedAt
+    customerEligibilityConfirmedAt,
+    customerDateOfBirth
   );
 
   return (
@@ -1704,12 +1809,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       bookings,
       bookingPayments,
       estimateRequests,
+      flashReservations,
+      fetchFlashReservations,
       bookingDraft,
       estimateDraft,
       loginCustomer,
       signUpCustomer,
       loginWithGoogle,
+      updateCustomerName,
       updateCustomerPhone,
+      updateCustomerDateOfBirth,
+      customerDateOfBirth,
       completeCustomerProfile,
       logoutCustomer,
       loginStaff,

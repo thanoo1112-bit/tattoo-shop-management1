@@ -7,27 +7,38 @@ import AdminMobileBottomNav from '@/components/admin/AdminMobileBottomNav';
 import KPICard from '@/components/admin/KPICard';
 import ArtistTimeline from '@/components/admin/ArtistTimeline';
 import UnifiedActionQueue from '@/components/admin/UnifiedActionQueue';
-import { Calendar, User, Clock, Inbox, ClipboardCheck, ShieldCheck, Sparkles } from 'lucide-react';
+import { Calendar, User, DollarSign, FileText, Sparkles } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 
-// Helper for Bangkok Date ISO Boundaries
-function getBangkokTodayISO() {
-  const options: Intl.DateTimeFormatOptions = {
+import Link from 'next/link';
+
+// Helper for Bangkok Timezone Date Conversion (Asia/Bangkok = UTC+07:00)
+function toBangkokDate(dateInput: Date | string | null | undefined): string {
+  if (!dateInput) return '';
+  const d = typeof dateInput === 'string' ? new Date(dateInput) : dateInput;
+  if (!d || isNaN(d.getTime())) return '';
+  return new Intl.DateTimeFormat('en-CA', {
     timeZone: 'Asia/Bangkok',
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
-  };
-  const parts = new Intl.DateTimeFormat('en-CA', options).formatToParts(new Date());
-  const year = parts.find((p) => p.type === 'year')?.value;
-  const month = parts.find((p) => p.type === 'month')?.value;
-  const day = parts.find((p) => p.type === 'day')?.value;
-  const todayStr = `${year}-${month}-${day}`;
+  }).format(d);
+}
 
-  const startTodayISO = new Date(`${todayStr}T00:00:00+07:00`).toISOString();
-  const endTodayISO = new Date(`${todayStr}T23:59:59.999+07:00`).toISOString();
+function getBangkokToday(): string {
+  return toBangkokDate(new Date());
+}
 
-  return { startTodayISO, endTodayISO };
+function getBangkokCurrentMonth(): string {
+  return getBangkokToday().slice(0, 7);
+}
+
+function formatCurrency(amount: number): string {
+  return new Intl.NumberFormat('th-TH', {
+    style: 'currency',
+    currency: 'THB',
+    maximumFractionDigits: 0,
+  }).format(amount);
 }
 
 export default function AdminDashboardPage() {
@@ -35,11 +46,13 @@ export default function AdminDashboardPage() {
 
   const [authTimedOut, setAuthTimedOut] = useState(false);
 
-  // Live 4 Operational Dashboard KPI State
+  // 4 Primary Operational Dashboard KPI State
+  const [monthRevenue, setMonthRevenue] = useState<number>(0);
+  const [monthTransactionCount, setMonthTransactionCount] = useState<number>(0);
   const [todaySessionsCount, setTodaySessionsCount] = useState<number>(0);
-  const [upcomingSessionsCount, setUpcomingSessionsCount] = useState<number>(0);
-  const [awaitingEvaluationCount, setAwaitingEvaluationCount] = useState<number>(0);
-  const [pendingSubmissionsCount, setPendingSubmissionsCount] = useState<number>(0);
+  const [workingArtistsCount, setWorkingArtistsCount] = useState<number>(0);
+  const [totalArtistsCount, setTotalArtistsCount] = useState<number>(0);
+  const [pendingRequestsCount, setPendingRequestsCount] = useState<number>(0);
   const [isMetricsLoading, setIsMetricsLoading] = useState<boolean>(true);
 
   // Authentication timeout safety guard (10s)
@@ -66,42 +79,109 @@ export default function AdminDashboardPage() {
     setIsMetricsLoading(true);
     try {
       const supabase = createClient();
-      const { startTodayISO, endTodayISO } = getBangkokTodayISO();
+      const todayBangkok = getBangkokToday();
+      const currentMonthBangkok = getBangkokCurrentMonth();
 
-      // 1. KPI: คิววันนี้ (booking_sessions with start_at today in Bangkok, excluding CANCELLED)
-      const { count: todayQueue } = await supabase
+      // 1. Card 1: รายรับเดือนนี้ (booking_payments with status = 'RECORDED' in current month Bangkok time)
+      const { data: paymentsData, error: payErr } = await supabase
+        .from('booking_payments')
+        .select('id, amount, paid_at, created_at, status')
+        .eq('status', 'RECORDED');
+
+      if (payErr) console.warn('[Dashboard] Revenue fetch error:', payErr);
+
+      let monthRevenueSum = 0;
+      let monthTxCount = 0;
+
+      (paymentsData || []).forEach((p: any) => {
+        const pDate = p.paid_at || p.created_at;
+        const bkkDate = toBangkokDate(pDate);
+        if (bkkDate && bkkDate.startsWith(currentMonthBangkok)) {
+          monthRevenueSum += Number(p.amount) || 0;
+          monthTxCount += 1;
+        }
+      });
+
+      setMonthRevenue(monthRevenueSum);
+      setMonthTransactionCount(monthTxCount);
+
+      // 2. Card 2 & Card 3: คิวนัดหมายวันนี้ & ช่างสักปฏิบัติงาน
+      // Fetch booking_sessions for today in Bangkok, excluding status = CANCELLED
+      const { data: sessionsData, error: sessErr } = await supabase
         .from('booking_sessions')
-        .select('*', { count: 'exact', head: true })
-        .gte('start_at', startTodayISO)
-        .lte('start_at', endTodayISO)
+        .select(`
+          id,
+          booking_id,
+          start_at,
+          status,
+          bookings (
+            id,
+            artist_id,
+            status
+          )
+        `)
         .neq('status', 'CANCELLED');
-      setTodaySessionsCount(todayQueue || 0);
 
-      // 2. KPI: คิวที่จะมาถึง (booking_sessions with start_at in future after today in Bangkok, excluding COMPLETED, CANCELLED)
-      const { count: upcomingQueue } = await supabase
-        .from('booking_sessions')
-        .select('*', { count: 'exact', head: true })
-        .gt('start_at', endTodayISO)
-        .not('status', 'in', '("COMPLETED","CANCELLED")');
-      setUpcomingSessionsCount(upcomingQueue || 0);
+      if (sessErr) console.warn('[Dashboard] Sessions fetch error:', sessErr);
 
-      // 3. KPI: รอช่างประเมิน (estimate_requests with status = 'PENDING' and request_type = 'ESTIMATE')
-      const { count: awaitEval } = await supabase
+      // Filter sessions that occur today in Bangkok time and associated booking is not CANCELLED
+      const todaySessions = (sessionsData || []).filter((s: any) => {
+        if (!s.start_at) return false;
+        const sBkkDate = toBangkokDate(s.start_at);
+        if (sBkkDate !== todayBangkok) return false;
+
+        // Exclude if associated booking is CANCELLED
+        const bookingStatus = String(s.bookings?.status || '').toUpperCase();
+        if (bookingStatus === 'CANCELLED') return false;
+
+        return true;
+      });
+
+      setTodaySessionsCount(todaySessions.length);
+
+      // Count unique assigned artists for today's active sessions
+      const uniqueArtistIds = new Set<string>();
+      todaySessions.forEach((s: any) => {
+        const artistId = s.bookings?.artist_id;
+        if (artistId) {
+          uniqueArtistIds.add(artistId);
+        }
+      });
+
+      setWorkingArtistsCount(uniqueArtistIds.size);
+
+      // Fetch total artists in studio
+      const { data: artistsData, error: artErr } = await supabase
+        .from('artists')
+        .select('id, is_active');
+
+      if (artErr) console.warn('[Dashboard] Artists fetch error:', artErr);
+
+      const activeArtists = (artistsData || []).filter((a: any) => a.is_active !== false);
+      setTotalArtistsCount(activeArtists.length || (artistsData || []).length || 0);
+
+      // 3. Card 4: คำขอที่รอดำเนินการ (estimate_requests and flash_reservations with status = 'PENDING')
+      const { data: estData, error: estErr } = await supabase
         .from('estimate_requests')
-        .select('*', { count: 'exact', head: true })
-        .eq('status', 'PENDING')
-        .neq('request_type', 'DIRECT_BOOKING');
-      setAwaitingEvaluationCount(awaitEval || 0);
-
-      // 4. KPI: สลิปรอตรวจ (booking_payment_submissions with status = 'PENDING')
-      const { count: slipCount } = await supabase
-        .from('booking_payment_submissions')
-        .select('*', { count: 'exact', head: true })
+        .select('id, status, request_type')
         .eq('status', 'PENDING');
-      setPendingSubmissionsCount(slipCount || 0);
+
+      if (estErr) console.warn('[Dashboard] Pending estimate requests fetch error:', estErr);
+
+      const { data: flashData, error: flashErr } = await supabase
+        .from('flash_reservations')
+        .select('id, status')
+        .eq('status', 'PENDING');
+
+      if (flashErr) console.warn('[Dashboard] Pending flash reservations fetch error:', flashErr);
+
+      const customPending = (estData || []).filter((e: any) => e.request_type !== 'DIRECT_BOOKING').length;
+      const flashPending = (flashData || []).length;
+
+      setPendingRequestsCount(customPending + flashPending);
 
     } catch (err) {
-      console.error('Error fetching dashboard live metrics:', err);
+      console.error('[Dashboard] Error fetching dashboard live metrics:', err);
     } finally {
       setIsMetricsLoading(false);
     }
@@ -111,6 +191,15 @@ export default function AdminDashboardPage() {
     if (isStaffLoggedIn && staffRole === 'ADMIN') {
       fetchDashboardMetrics();
     }
+
+    const handleRealtime = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (['booking_payments', 'booking_sessions', 'bookings', 'estimate_requests', 'flash_reservations'].includes(detail?.table)) {
+        fetchDashboardMetrics();
+      }
+    };
+    window.addEventListener('admin:realtime', handleRealtime);
+    return () => window.removeEventListener('admin:realtime', handleRealtime);
   }, [isStaffLoggedIn, staffRole, fetchDashboardMetrics]);
 
   if (authTimedOut && authLoading) {
@@ -164,33 +253,35 @@ export default function AdminDashboardPage() {
 
         {/* 1. TOP: 4 Primary Operational Dashboard KPI Cards */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
+          <Link href="/admin/requests?filter=PENDING" className="block transition-transform hover:scale-[1.01]">
+            <KPICard
+              title="คำขอที่รอดำเนินการ"
+              value={isMetricsLoading ? '...' : `${pendingRequestsCount} คำขอ`}
+              icon={FileText}
+              change={isMetricsLoading ? 'กำลังโหลด...' : 'รอตรวจสอบจากร้าน'}
+              changeType={pendingRequestsCount > 0 ? 'positive' : 'neutral'}
+            />
+          </Link>
           <KPICard
-            title="คิววันนี้"
-            value={`${isMetricsLoading ? '...' : todaySessionsCount} คิว`}
+            title="คิวนัดหมายวันนี้"
+            value={isMetricsLoading ? '...' : `${todaySessionsCount} คิว`}
             icon={Calendar}
-            change="คิวงานสักที่มีในวันนี้"
+            change={isMetricsLoading ? 'กำลังโหลด...' : 'รอบนัดหมายวันนี้'}
             changeType="neutral"
           />
           <KPICard
-            title="คิวที่จะมาถึง"
-            value={`${isMetricsLoading ? '...' : upcomingSessionsCount} คิว`}
-            icon={Clock}
-            change="คิวงานในอนาคตที่รอดำเนินการ"
-            changeType="neutral"
+            title="ช่างสักปฏิบัติงาน"
+            value={isMetricsLoading ? '...' : `${workingArtistsCount}/${totalArtistsCount} คน`}
+            icon={User}
+            change={isMetricsLoading ? 'กำลังโหลด...' : 'ช่างที่มีคิววันนี้ / ช่างทั้งหมด'}
+            changeType={workingArtistsCount > 0 ? 'positive' : 'neutral'}
           />
           <KPICard
-            title="รอช่างประเมิน"
-            value={`${isMetricsLoading ? '...' : awaitingEvaluationCount} รายการ`}
-            icon={ClipboardCheck}
-            change="คำขอที่รอช่างกำหนดราคา/รายละเอียด"
-            changeType={awaitingEvaluationCount > 0 ? 'positive' : 'neutral'}
-          />
-          <KPICard
-            title="สลิปรอตรวจ"
-            value={`${isMetricsLoading ? '...' : pendingSubmissionsCount} รายการ`}
-            icon={ShieldCheck}
-            change="หลักฐานการชำระที่รอตรวจสอบ"
-            changeType={pendingSubmissionsCount > 0 ? 'positive' : 'neutral'}
+            title="รายรับเดือนนี้"
+            value={isMetricsLoading ? '...' : formatCurrency(monthRevenue)}
+            icon={DollarSign}
+            change={isMetricsLoading ? 'กำลังโหลด...' : `${monthTransactionCount} รายการรับเงินจริง`}
+            changeType={monthRevenue > 0 ? 'positive' : 'neutral'}
           />
         </div>
 

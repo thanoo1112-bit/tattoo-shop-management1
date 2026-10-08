@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { CalendarSessionEvent as EventType } from './types';
-import { formatTimeBangkok, getSessionStatusConfig } from './calendarUtils';
+import { formatTimeBangkok, getEventStatusConfig } from './calendarUtils';
 import { AlertCircle, PlayCircle, CheckCircle2, User } from 'lucide-react';
 
 interface CalendarSessionEventProps {
@@ -16,9 +16,10 @@ export default function CalendarSessionEvent({
   onClick,
   compact = false,
 }: CalendarSessionEventProps) {
-  const statusCfg = getSessionStatusConfig(event.status);
+  const statusCfg = getEventStatusConfig(event);
   const isWaitingDeposit = event.booking?.status === 'WAITING_DEPOSIT';
-  const timeLabel = `${formatTimeBangkok(event.start_at)} - ${formatTimeBangkok(event.end_at)}`;
+  const startStr = formatTimeBangkok(event.start_at).replace(' น.', '');
+  const timeLabel = `เวลานัด ${startStr}`;
 
   if (compact) {
     return (
@@ -29,7 +30,7 @@ export default function CalendarSessionEvent({
       >
         <div className="flex items-center justify-between gap-1">
           <span className="font-semibold text-[#ECE4D3] truncate">
-            {formatTimeBangkok(event.start_at)}
+            เวลานัด {startStr}
           </span>
           <span className="text-[10px] text-[#A89F91] truncate font-medium">
             {event.artist?.nickname || event.artist?.name || 'ช่างสัก'}
@@ -38,7 +39,7 @@ export default function CalendarSessionEvent({
         <div className="text-[10px] text-[#A89F91] truncate flex items-center justify-between">
           <span>{event.customer?.display_name || 'ลูกค้า'}</span>
           {isWaitingDeposit && (
-            <span className="text-amber-400 text-[9px] font-bold">⚠</span>
+            <span className="text-purple-300 text-[9px] font-bold">⚠</span>
           )}
         </div>
       </button>
@@ -57,7 +58,7 @@ export default function CalendarSessionEvent({
           {timeLabel}
         </span>
         <span
-          className={`px-1.5 py-0.5 rounded text-[10px] font-semibold border ${statusCfg.badgeBg} ${statusCfg.badgeText} border-white/10 shrink-0`}
+          className={`px-1.5 py-0.5 rounded text-[10px] font-semibold border ${statusCfg.badgeBg} ${statusCfg.badgeText} ${statusCfg.badgeBorder} shrink-0`}
         >
           {event.status === 'IN_PROGRESS' && (
             <span className="inline-block w-1.5 h-1.5 rounded-full bg-white animate-pulse mr-1" />
@@ -84,7 +85,7 @@ export default function CalendarSessionEvent({
 
       {/* Bottom: Warning if Parent Booking is WAITING_DEPOSIT */}
       {isWaitingDeposit && (
-        <div className="bg-amber-950/60 border border-amber-800/60 rounded px-1.5 py-0.5 text-[10px] font-semibold text-amber-400 flex items-center gap-1 mt-0.5">
+        <div className="bg-purple-950/80 border border-purple-800/80 rounded px-1.5 py-0.5 text-[10px] font-semibold text-purple-300 flex items-center gap-1 mt-0.5">
           <AlertCircle size={10} className="shrink-0" />
           <span>รอมัดจำ</span>
         </div>

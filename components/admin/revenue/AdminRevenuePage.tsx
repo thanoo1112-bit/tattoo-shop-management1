@@ -6,12 +6,11 @@ import RevenueKpiCards from './RevenueKpiCards';
 import RevenueFilters from './RevenueFilters';
 import RevenueTrendChart from './RevenueTrendChart';
 import RevenueByArtist from './RevenueByArtist';
-import PaymentTypeBreakdown from './PaymentTypeBreakdown';
-import PaymentMethodBreakdown from './PaymentMethodBreakdown';
 import RecentRevenueTransactions from './RecentRevenueTransactions';
 import {
   RevenueRecord,
   RevenueKpiData,
+  CompletedBookingRecord,
   DateFilterPreset,
   ArtistRevenueItem,
   PaymentTypeSummary,
@@ -27,6 +26,7 @@ import { createClient } from '@/lib/supabase/client';
 export default function AdminRevenuePage() {
   const [allPayments, setAllPayments] = useState<RevenueRecord[]>([]);
   const [artists, setArtists] = useState<Array<{ id: string; name: string; nickname: string | null }>>([]);
+  const [customers, setCustomers] = useState<any[]>([]);
   const [summaryList, setSummaryList] = useState<any[]>([]);
   const [activeBookings, setActiveBookings] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -56,32 +56,33 @@ export default function AdminRevenuePage() {
       // 2. Fetch all bookings for artist assignment and status
       const { data: bookingsData, error: bookErr } = await supabase
         .from('bookings')
-        .select('id, customer_id, artist_id, status, customer_user_id');
+        .select('*');
 
-      if (bookErr) throw bookErr;
+      if (bookErr) console.warn('bookingsData fetch error:', bookErr);
 
       // 3. Fetch active artists
       const { data: artistsData, error: artErr } = await supabase
         .from('artists')
-        .select('id, name, nickname')
+        .select('*')
         .order('name');
 
-      if (artErr) throw artErr;
+      if (artErr) console.warn('artistsData fetch error:', artErr);
       setArtists(artistsData || []);
 
       // 4. Fetch customers for names
       const { data: customersData, error: custErr } = await supabase
         .from('customers')
-        .select('id, user_id, display_name, phone');
+        .select('*');
 
-      if (custErr) throw custErr;
+      if (custErr) console.warn('customersData fetch error:', custErr);
+      setCustomers(customersData || []);
 
       // 5. Fetch booking_payment_summary for outstanding balances
       const { data: summariesData, error: sumErr } = await supabase
         .from('booking_payment_summary')
         .select('*');
 
-      if (sumErr) throw sumErr;
+      if (sumErr) console.warn('summariesData fetch error:', sumErr);
       setSummaryList(summariesData || []);
       setActiveBookings(bookingsData || []);
 
@@ -98,7 +99,7 @@ export default function AdminRevenuePage() {
           amount: Number(p.amount || 0),
           payment_method: p.payment_method,
           status: p.status,
-          paid_at: p.paid_at,
+          paid_at: p.paid_at || p.created_at,
           reference_no: p.reference_no,
           note: p.note,
           created_at: p.created_at,
@@ -143,10 +144,10 @@ export default function AdminRevenuePage() {
     let todayCount = 0;
     let monthRevenue = 0;
     let monthCount = 0;
-    let monthDepositRevenue = 0;
 
     allPayments.forEach((p) => {
-      const bkkDate = toBangkokDate(p.paid_at);
+      const pDate = p.paid_at || p.created_at;
+      const bkkDate = toBangkokDate(pDate);
 
       // Today
       if (bkkDate === todayBangkok) {
@@ -158,33 +159,35 @@ export default function AdminRevenuePage() {
       if (bkkDate.startsWith(currentMonth)) {
         monthRevenue += p.amount;
         monthCount += 1;
-        if (p.payment_type === 'DEPOSIT') {
-          monthDepositRevenue += p.amount;
-        }
       }
     });
 
-    // Current Outstanding from booking_payment_summary (Section 7 Card 4)
-    // Only active bookings: APPROVED, WAITING_DEPOSIT, CONFIRMED, IN_PROGRESS, COMPLETED
-    const activeStatuses = ['APPROVED', 'WAITING_DEPOSIT', 'CONFIRMED', 'IN_PROGRESS', 'COMPLETED'];
-    let currentOutstanding = 0;
+    // 3. งานปิดแล้วเดือนนี้: count of COMPLETED bookings in the current month
+    const monthCompletedBookingsCount = activeBookings.filter((b) => {
+      const statusUpper = String(b.status || '').toUpperCase();
+      if (statusUpper !== 'COMPLETED') return false;
+      const completionRaw = b.completed_at || b.updated_at || b.created_at;
+      const bkkDate = toBangkokDate(completionRaw);
+      const hasMonthPayment = allPayments.some(
+        (p) => p.booking_id === b.id && toBangkokDate(p.paid_at || p.created_at).startsWith(currentMonth)
+      );
+      return (bkkDate && bkkDate.startsWith(currentMonth)) || hasMonthPayment;
+    }).length;
 
-    summaryList.forEach((sumRow) => {
-      const book = activeBookings.find((b) => b.id === sumRow.booking_id);
-      if (book && activeStatuses.includes(book.status)) {
-        currentOutstanding += Number(sumRow.remaining_balance || 0);
-      }
-    });
+    // 4. คิวรอปิดงาน: count of active bookings not COMPLETED, CANCELLED, or REJECTED
+    const unfinishedBookingsCount = activeBookings.filter(
+      (b) => !['COMPLETED', 'CANCELLED', 'REJECTED'].includes(String(b.status || '').toUpperCase())
+    ).length;
 
     return {
       todayRevenue,
       monthRevenue,
-      monthDepositRevenue,
-      currentOutstanding,
+      monthCompletedBookingsCount,
+      unfinishedBookingsCount,
       todayTransactionCount: todayCount,
       monthTransactionCount: monthCount,
     };
-  }, [allPayments, summaryList, activeBookings]);
+  }, [allPayments, activeBookings]);
 
   // ------------------------------------------------------------------
   // 2. Filtered Payments (Section 9 & 10)
@@ -193,13 +196,6 @@ export default function AdminRevenuePage() {
     const todayBangkok = getBangkokToday();
     const currentMonth = getBangkokCurrentMonth();
     const previousMonth = getBangkokPreviousMonth();
-
-    // Calculate 7 days ago and 30 days ago in Bangkok
-    const now = new Date();
-    const d7 = new Date(now.getTime() - 6 * 24 * 60 * 60 * 1000);
-    const d30 = new Date(now.getTime() - 29 * 24 * 60 * 60 * 1000);
-    const date7Ago = toBangkokDate(d7);
-    const date30Ago = toBangkokDate(d30);
 
     return allPayments.filter((p) => {
       // Artist filter
@@ -210,15 +206,6 @@ export default function AdminRevenuePage() {
       // Date preset filter
       const pDate = toBangkokDate(p.paid_at);
 
-      if (datePreset === 'today') {
-        return pDate === todayBangkok;
-      }
-      if (datePreset === '7days') {
-        return pDate >= date7Ago && pDate <= todayBangkok;
-      }
-      if (datePreset === '30days') {
-        return pDate >= date30Ago && pDate <= todayBangkok;
-      }
       if (datePreset === 'this_month') {
         return pDate.startsWith(currentMonth);
       }
@@ -345,6 +332,45 @@ export default function AdminRevenuePage() {
     });
   }, [filteredPayments, totalPeriodRevenue]);
 
+  // 7. Recent Completed Bookings (งานที่เสร็จล่าสุด max 10)
+  const completedBookingsList: CompletedBookingRecord[] = useMemo(() => {
+    const completed = activeBookings.filter((b) => String(b.status || '').toUpperCase() === 'COMPLETED');
+
+    const mapped = completed.map((b) => {
+      const summary = summaryList.find((s) => s.booking_id === b.id);
+      const agreedPrice = Number(summary?.quoted_price || summary?.agreed_price || b.tattoo_price || b.quoted_price || 0);
+
+      const recordedPayments = allPayments.filter((p) => p.booking_id === b.id);
+      const actualTotalReceived = recordedPayments.reduce((sum, p) => sum + Number(p.amount || 0), 0);
+
+      const lastPaymentDate = recordedPayments.length > 0
+        ? recordedPayments.reduce((latest, p) => {
+            const pDate = p.paid_at || p.created_at;
+            return pDate > latest ? pDate : latest;
+          }, recordedPayments[0].paid_at || recordedPayments[0].created_at)
+        : null;
+
+      const completedAt = b.completed_at || b.updated_at || lastPaymentDate || b.created_at || new Date().toISOString();
+
+      const customer = customers.find(
+        (c) => (b.customer_id && c.id === b.customer_id) || (b.customer_user_id && c.user_id === b.customer_user_id)
+      );
+      const artist = artists.find((a) => a.id === b.artist_id);
+
+      return {
+        id: b.id,
+        customer_name: customer?.display_name || 'ลูกค้า 157 Tattoo',
+        artist_name: artist?.nickname || artist?.name || 'ไม่ระบุช่าง',
+        completed_at: completedAt,
+        agreed_price: agreedPrice,
+        actual_total_received: actualTotalReceived,
+      };
+    });
+
+    mapped.sort((a, b) => new Date(b.completed_at).getTime() - new Date(a.completed_at).getTime());
+    return mapped.slice(0, 10);
+  }, [activeBookings, summaryList, allPayments, customers, artists]);
+
   const handleResetFilters = () => {
     setDatePreset('this_month');
     setSelectedArtistId('ALL');
@@ -430,26 +456,10 @@ export default function AdminRevenuePage() {
           />
         </div>
 
-        {/* Payment Type Breakdown (Section 13) */}
-        <div className="lg:col-span-1">
-          <PaymentTypeBreakdown
-            typesSummary={typesSummary}
-            totalRevenue={totalPeriodRevenue}
-          />
-        </div>
-
-        {/* Payment Method Breakdown (Section 14) */}
-        <div className="lg:col-span-1">
-          <PaymentMethodBreakdown
-            methodsSummary={methodsSummary}
-            totalRevenue={totalPeriodRevenue}
-          />
-        </div>
-
-        {/* Recent Recorded Transactions (Section 15 & 16) */}
+        {/* Recent Completed Bookings */}
         <div className="lg:col-span-1">
           <RecentRevenueTransactions
-            transactions={filteredPayments}
+            completedBookings={completedBookingsList}
           />
         </div>
       </div>

@@ -104,6 +104,8 @@ export default function CustomerReferenceImage({
       src={resolvedUrl || fallbackSrc}
       alt={alt}
       className={className}
+      loading="lazy"
+      decoding="async"
       onError={() => {
         setHasError(true);
       }}

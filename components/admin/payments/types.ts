@@ -42,6 +42,10 @@ export interface BookingSessionItem {
 export interface PaymentBookingDetail {
   id: string;
   estimate_request_id: string | null;
+  flash_reservation_id?: string | null;
+  flash_design_id?: string | null;
+  is_flash?: boolean;
+  is_custom?: boolean;
   customer_user_id: string;
   artist_id: string | null;
   requested_date: string | null;
@@ -57,6 +61,8 @@ export interface PaymentBookingDetail {
   customer_email: string;
   artist_name: string;
   artist_nickname: string | null;
+  artwork_title?: string;
+  tattoo_style?: string;
   placement?: string;
   
   // Financial Summary from view
@@ -64,10 +70,13 @@ export interface PaymentBookingDetail {
   
   // Active Sessions
   sessions: BookingSessionItem[];
+
+  // Payment records
+  payments?: any[];
 }
 
-export type FinancialStatusFilter = 'ALL' | 'UNPAID' | 'PARTIAL' | 'PAID';
-export type BookingStatusFilter = 'ALL' | 'WAITING_DEPOSIT' | 'CONFIRMED' | 'IN_PROGRESS' | 'COMPLETED';
+export type FinancialStatusFilter = 'ALL' | 'UNFINISHED' | 'COMPLETED';
+export type BookingStatusFilter = 'ALL' | 'CONFIRMED' | 'UNFINISHED' | 'COMPLETED' | 'CANCELLED';
 
 export type SubmissionReviewStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
 
@@ -108,6 +117,8 @@ export interface PaymentSubmissionDetail {
   paid_total: number;
   outstanding_deposit: number;
   estimate_request_id?: string | null;
+  flash_reservation_id?: string | null;
+  flash_reservation_code?: string | null;
   estimate_reference_images?: string[] | null;
   sessions?: BookingSessionItem[];
 }

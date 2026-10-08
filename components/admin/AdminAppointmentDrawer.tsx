@@ -2,7 +2,9 @@
 
 import React from 'react';
 import { Booking } from '@/data/mockBookings';
+import { formatTattooSize } from '@/lib/utils/formatters';
 import { useApp } from '../AppContext';
+import { calculateDurationTextFromTimes } from './calendar/calendarUtils';
 import { checkAdminCompletionEligibility, mapServerCompletionError } from './requests/adminCompletionGuard';
 import {
   X,
@@ -243,7 +245,10 @@ export default function AdminAppointmentDrawer({
               <div>
                 <span className="text-[#7A7265] text-[10px] block">ช่วงเวลาสัก:</span>
                 <span className="text-[#ECE4D3] font-medium font-mono">
-                  {booking.startTime} – {booking.endTime} ({booking.duration} ชม.)
+                  {booking.startTime} – {booking.endTime}
+                  {calculateDurationTextFromTimes(booking.startTime, booking.endTime) && (
+                    ` (${calculateDurationTextFromTimes(booking.startTime, booking.endTime)})`
+                  )}
                 </span>
               </div>
             </div>
@@ -267,9 +272,7 @@ export default function AdminAppointmentDrawer({
               <div>
                 <span className="text-[#7A7265] text-[10px] block">ขนาดผลงาน:</span>
                 <span className="text-[#ECE4D3]">
-                  {booking.width && booking.height
-                    ? `${booking.width} × ${booking.height} cm`
-                    : 'ประเมินหน้างาน'}
+                  {formatTattooSize(booking.width, booking.height)}
                 </span>
               </div>
             </div>

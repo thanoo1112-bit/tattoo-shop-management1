@@ -7,6 +7,7 @@ import MobileBottomNav from '@/components/customer/MobileBottomNav';
 import HeroSection from '@/components/customer/HeroSection';
 import { Artist } from '@/data/mockArtists';
 import { useApp } from '@/components/AppContext';
+import { getThumbnailUrl, handleThumbnailError } from '@/lib/utils/thumbnailHelper';
 import Link from 'next/link';
 import { Sparkles, Compass, Award, MapPin, Clock, Phone, ShieldCheck, ArrowRight, ArrowUpRight, Users, UserRound, Droplet, Skull } from 'lucide-react';
 
@@ -103,15 +104,21 @@ export default function HomePage() {
             artists (
               id,
               name,
-              nickname
+              nickname,
+              is_active,
+              is_visible
             )
           `)
           .eq('is_visible', true)
           .order('sort_order', { ascending: true })
-          .limit(4);
+          .limit(10);
 
         if (flashData && isMounted) {
-          setLiveFlash(flashData.map((f: any) => ({
+          const activeFlash = flashData
+            .filter((f: any) => f.artists && f.artists.is_active !== false && f.artists.is_visible !== false)
+            .slice(0, 4);
+
+          setLiveFlash(activeFlash.map((f: any) => ({
             id: f.id,
             title: f.title,
             artistName: f.artists?.name || 'ช่างประจำร้าน',
@@ -151,7 +158,8 @@ export default function HomePage() {
             id: p.id,
             title: p.title,
             style: p.style || 'Fine Line',
-            image: p.image_url,
+            image: getThumbnailUrl(p.image_url),
+            originalImage: p.image_url,
             artistName: p.artists?.name || 'ช่างประจำร้าน',
             artistId: p.artist_id,
             size: p.size_label,
@@ -327,7 +335,7 @@ export default function HomePage() {
                       href={`/portfolio?select=${item.id}`}
                       className="bg-studio-card border border-studio-border hover:border-studio-red/60 rounded-md overflow-hidden relative block aspect-[4/3] group"
                     >
-                      <img src={item.image} alt={item.title} className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-500" />
+                      <img src={item.image} onError={(e) => handleThumbnailError(e, item.originalImage || item.image)} alt={item.title} className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-500" loading="lazy" decoding="async" />
                       <div className="absolute inset-0 bg-gradient-to-t from-studio-main/90 via-studio-main/30 to-transparent flex flex-col justify-end p-2">
                         <span className="text-[9px] uppercase tracking-wider text-studio-red font-bold">{item.style}</span>
                         <h4 className="text-xs font-heading font-normal tracking-wide text-studio-paper truncate">{item.title}</h4>
@@ -346,7 +354,7 @@ export default function HomePage() {
                         href={`/portfolio?select=${item.id}`}
                         className="bg-studio-card border border-studio-border hover:border-studio-red/60 rounded-md overflow-hidden relative block aspect-square group"
                       >
-                        <img src={item.image} alt={item.title} className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-500" />
+                        <img src={item.image} onError={(e) => handleThumbnailError(e, item.originalImage || item.image)} alt={item.title} className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-500" loading="lazy" decoding="async" />
                         <div className="absolute inset-0 bg-gradient-to-t from-studio-main/90 via-studio-main/20 to-transparent flex flex-col justify-end p-1.5">
                           <span className="text-[8px] uppercase tracking-wider text-studio-red font-bold truncate">{item.style}</span>
                           <h4 className="text-[10px] font-heading font-normal text-studio-paper truncate">{item.title}</h4>
@@ -366,7 +374,7 @@ export default function HomePage() {
                         href={`/portfolio?select=${livePortfolio[5].id}`}
                         className="bg-studio-card border border-studio-border hover:border-studio-red/60 rounded-md overflow-hidden relative block h-full min-h-[220px] group"
                       >
-                        <img src={livePortfolio[5].image} alt={livePortfolio[5].title} className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-500" />
+                        <img src={livePortfolio[5].image} onError={(e) => handleThumbnailError(e, livePortfolio[5].originalImage || livePortfolio[5].image)} alt={livePortfolio[5].title} className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-500" loading="lazy" decoding="async" />
                         <div className="absolute inset-0 bg-gradient-to-t from-studio-main/90 via-studio-main/30 to-transparent flex flex-col justify-end p-2">
                           <span className="text-[9px] uppercase tracking-wider text-studio-red font-bold">{livePortfolio[5].style}</span>
                           <h4 className="text-xs font-heading font-normal tracking-wide text-studio-paper truncate">{livePortfolio[5].title}</h4>
@@ -383,7 +391,7 @@ export default function HomePage() {
                           href={`/portfolio?select=${item.id}`}
                           className="bg-studio-card border border-studio-border hover:border-studio-red/60 rounded-md overflow-hidden relative block aspect-[4/3] flex-1 group"
                         >
-                          <img src={item.image} alt={item.title} className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-500" />
+                          <img src={item.image} onError={(e) => handleThumbnailError(e, item.originalImage || item.image)} alt={item.title} className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-500" loading="lazy" decoding="async" />
                           <div className="absolute inset-0 bg-gradient-to-t from-studio-main/90 via-studio-main/30 to-transparent flex flex-col justify-end p-2">
                             <span className="text-[9px] uppercase tracking-wider text-studio-red font-bold">{item.style}</span>
                             <h4 className="text-xs font-heading font-normal tracking-wide text-studio-paper truncate">{item.title}</h4>
@@ -401,7 +409,7 @@ export default function HomePage() {
                     href={`/portfolio?select=${livePortfolio[8].id}`}
                     className="bg-studio-card border border-studio-border hover:border-studio-red/60 rounded-md overflow-hidden relative block aspect-[21/9] group"
                   >
-                    <img src={livePortfolio[8].image} alt={livePortfolio[8].title} className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-500" />
+                    <img src={livePortfolio[8].image} onError={(e) => handleThumbnailError(e, livePortfolio[8].originalImage || livePortfolio[8].image)} alt={livePortfolio[8].title} className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-500" loading="lazy" decoding="async" />
                     <div className="absolute inset-0 bg-gradient-to-t from-studio-main/90 via-studio-main/30 to-transparent flex flex-col justify-end p-2">
                       <span className="text-[9px] uppercase tracking-wider text-studio-red font-bold">{livePortfolio[8].style}</span>
                       <h4 className="text-xs font-heading font-normal tracking-wide text-studio-paper truncate">{livePortfolio[8].title}</h4>
@@ -423,8 +431,11 @@ export default function HomePage() {
                   >
                     <img
                       src={item.image}
+                      onError={(e) => handleThumbnailError(e, item.originalImage || item.image)}
                       alt={item.title}
                       className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-500"
+                      loading="lazy"
+                      decoding="async"
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-studio-main/90 via-studio-main/30 to-transparent flex flex-col justify-end p-2.5 sm:p-4">
                       <span className="text-[9px] uppercase tracking-wider text-studio-red font-bold">

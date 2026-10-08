@@ -30,20 +30,7 @@ export function checkAdminCompletionEligibility(
     };
   }
 
-  // 2. Actual Price Guard: quoted_price must be set and > 0
-  // System estimated min/max price snapshots strictly DO NOT COUNT as actual price.
-  const quotedPrice = booking.financial?.quoted_price ?? (booking as any)?.quoted_price;
-  const hasActualPrice =
-    quotedPrice !== null && quotedPrice !== undefined && Number(quotedPrice) > 0;
-
-  if (!hasActualPrice) {
-    return {
-      allowed: false,
-      title: 'ยังไม่ได้กำหนดราคางาน',
-      reason: 'ไม่สามารถจบงานได้จนกว่าช่างผู้รับผิดชอบจะกำหนดราคางานสัก',
-    };
-  }
-
+  // 2. Price Input Note: If quoted_price is not yet set, CompleteBookingDialog will prompt artist to enter it.
   const sessions = booking.sessions || [];
 
   // 3. Zero Session Guard: Must have at least 1 session

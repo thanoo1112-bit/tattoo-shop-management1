@@ -10,6 +10,7 @@ import {
   Bell,
   User,
   Calendar,
+  CalendarCheck,
   FileText,
   LayoutDashboard,
   Users,
@@ -20,11 +21,12 @@ import {
 
 export default function AdminHeader() {
   const pathname = usePathname();
-  const { staffRole, logoutStaff, bookingPayments, estimateRequests } = useApp();
+  const { staffRole, logoutStaff, bookingPayments, estimateRequests, flashReservations } = useApp();
 
   const pendingDepositsCount =
     bookingPayments.filter((d) => d.paymentType === 'DEPOSIT' && d.status === 'SUBMITTED').length +
-    estimateRequests.filter((e) => e.status === 'PENDING' && e.request_type !== 'DIRECT_BOOKING').length;
+    estimateRequests.filter((e) => e.status === 'PENDING' && e.request_type !== 'DIRECT_BOOKING').length +
+    (flashReservations || []).filter((r: any) => r.status === 'PENDING').length;
 
   const navItems = [
     { name: 'ภาพรวม', href: '/admin/dashboard', icon: LayoutDashboard },

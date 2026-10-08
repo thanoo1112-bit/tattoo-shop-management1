@@ -1,15 +1,17 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Calendar, Clock, DollarSign, FileText, CheckCircle2, X, AlertCircle, Loader2 } from 'lucide-react';
-import { EstimateRequestItem } from './types';
 import { createClient } from '@/lib/supabase/client';
 import { parseNoteWithPreferredTime, getInitialStartTime, extractHHMM } from '@/lib/noteUtils';
+import { calculateBlockingEndTime, STUDIO_OPERATING_HOURS } from '@/lib/utils/tattooDuration';
 import { BlockedDateRecord, checkDateAvailability } from '@/lib/availabilityUtils';
 
 interface EstimateQuoteFormProps {
-  estimate: EstimateRequestItem;
+  estimate: any;
   blockedDates?: BlockedDateRecord[];
+  mode?: 'admin' | 'artist';
+  currentArtistId?: string | null;
   onSuccess: (status?: string) => void;
   onCancel: () => void;
 }
@@ -17,77 +19,92 @@ interface EstimateQuoteFormProps {
 export default function EstimateQuoteForm({
   estimate,
   blockedDates = [],
+  mode = 'admin',
+  currentArtistId = null,
   onSuccess,
   onCancel,
 }: EstimateQuoteFormProps) {
-  // 1. Initial State: Default date to customer preferred date or today
   const defaultDate = estimate.preferred_date || new Date().toISOString().split('T')[0];
-  const initialDurationHours = estimate.estimated_duration_minutes
-    ? String(Math.max(1, Math.round(estimate.estimated_duration_minutes / 60)))
-    : '5';
+  const initialStartTime = getInitialStartTime(estimate, '10:00');
+  const initialEndTime = calculateBlockingEndTime(
+    initialStartTime,
+    (estimate as any)?.estimated_size_tier,
+    estimate.width_cm,
+    estimate.height_cm,
+    estimate.description
+  );
 
   const [appointmentDate, setAppointmentDate] = useState<string>(defaultDate);
-  const [durationHours, setDurationHours] = useState<string>(initialDurationHours);
+  const [startTime, setStartTime] = useState<string>(initialStartTime);
+  const [endTime, setEndTime] = useState<string>(initialEndTime);
   const [quotedPrice, setQuotedPrice] = useState<string>(
     estimate.quoted_price !== null && estimate.quoted_price !== undefined ? String(estimate.quoted_price) : '0'
   );
   const [depositRequired, setDepositRequired] = useState<string>(
-    estimate.deposit_required !== null && estimate.deposit_required !== undefined ? String(estimate.deposit_required) : '0'
+    estimate.deposit_required !== null && estimate.deposit_required !== undefined ? String(estimate.deposit_required) : '500'
   );
   const [adminNote, setAdminNote] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   // Sync form state when estimate prop changes or modal opens
-  React.useEffect(() => {
+  useEffect(() => {
     const dDate = estimate.preferred_date || new Date().toISOString().split('T')[0];
-    const dDuration = estimate.estimated_duration_minutes
-      ? String(Math.max(1, Math.round(estimate.estimated_duration_minutes / 60)))
-      : '5';
+    const sTime = getInitialStartTime(estimate, '10:00');
+    const eTime = calculateBlockingEndTime(
+      sTime,
+      (estimate as any)?.estimated_size_tier,
+      estimate.width_cm,
+      estimate.height_cm,
+      estimate.description
+    );
+
     setAppointmentDate(dDate);
-    setDurationHours(dDuration);
+    setStartTime(sTime);
+    setEndTime(eTime);
     setQuotedPrice(
       estimate.quoted_price !== null && estimate.quoted_price !== undefined ? String(estimate.quoted_price) : '0'
     );
     setDepositRequired(
-      estimate.deposit_required !== null && estimate.deposit_required !== undefined ? String(estimate.deposit_required) : '0'
+      estimate.deposit_required !== null && estimate.deposit_required !== undefined ? String(estimate.deposit_required) : '500'
     );
     setAdminNote('');
     setErrorMessage(null);
     setIsSubmitting(false);
-  }, [estimate.id, estimate.preferred_date, estimate.estimated_duration_minutes, estimate.quoted_price, estimate.deposit_required]);
+  }, [estimate.id, estimate.preferred_date, estimate.quoted_price, estimate.deposit_required]);
 
-  // Helper function to calculate internal end_at from internal start_at + duration_hours
-  const calculateEndTime = (startHHMM: string, durationInHours: number): string => {
-    const [hStr, mStr] = startHHMM.split(':');
-    const startH = parseInt(hStr || '13', 10);
-    const startM = parseInt(mStr || '0', 10);
-
-    const startTotalMinutes = startH * 60 + startM;
-    const durationMinutes = Math.round(durationInHours * 60);
-    let totalMinutes = startTotalMinutes + durationMinutes;
-
-    // Cap at 23:59 so that end_time > start_time remains valid for single-day range
-    if (totalMinutes >= 24 * 60) {
-      totalMinutes = 23 * 60 + 59;
+  // When startTime changes, update default calculated endTime
+  const handleStartTimeChange = (newStartTime: string) => {
+    setStartTime(newStartTime);
+    if (newStartTime) {
+      const calcEnd = calculateBlockingEndTime(
+        newStartTime,
+        (estimate as any)?.estimated_size_tier,
+        estimate.width_cm,
+        estimate.height_cm,
+        estimate.description
+      );
+      setEndTime(calcEnd);
     }
-
-    const endH = Math.floor(totalMinutes / 60);
-    const endM = totalMinutes % 60;
-
-    return `${String(endH).padStart(2, '0')}:${String(endM).padStart(2, '0')}`;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage(null);
 
-    // 2. Validation
+    // 1. Ownership & Permission check for Artist mode
+    if (mode === 'artist' && estimate.artist_id && currentArtistId && estimate.artist_id !== currentArtistId) {
+      setErrorMessage('คุณไม่มีสิทธิ์ยืนยันคำขอของช่างคนอื่น');
+      return;
+    }
+
+    // 2. Date Validation
     if (!appointmentDate) {
       setErrorMessage('กรุณาระบุวันนัดจริง');
       return;
     }
 
+    // 3. Blocked Dates Check
     const availCheck = checkDateAvailability(
       appointmentDate,
       estimate.artist_id,
@@ -100,16 +117,39 @@ export default function EstimateQuoteForm({
       return;
     }
 
-    const durationVal = parseFloat(durationHours);
-    if (!durationHours.trim() || isNaN(durationVal) || durationVal < 1) {
-      setErrorMessage('กรุณาระบุระยะเวลาสักโดยประมาณ');
+    // 4. Time Validation (Operating Hours 10:00 - 23:00)
+    if (!startTime || !endTime) {
+      setErrorMessage('กรุณาระบุเวลาเริ่มและเวลาสิ้นสุด');
       return;
     }
 
-    const priceVal = parseFloat(quotedPrice);
-    if (isNaN(priceVal) || priceVal < 0) {
-      setErrorMessage('ราคางานสักต้องเป็นตัวเลขและไม่ติดลบ (ระบุ 0 หากไม่ระบุราคา)');
+    const parseMinutes = (tStr: string) => {
+      const [h, m] = tStr.split(':').map((v) => parseInt(v, 10) || 0);
+      return h * 60 + m;
+    };
+
+    const startTotalMin = parseMinutes(startTime);
+    const endTotalMin = parseMinutes(endTime);
+    const openMin = STUDIO_OPERATING_HOURS.OPEN_MINUTES; // 600 (10:00)
+    const closeMin = STUDIO_OPERATING_HOURS.CLOSE_MINUTES; // 1380 (23:00)
+
+    if (startTotalMin < openMin || endTotalMin > closeMin) {
+      setErrorMessage('เวลาที่เลือกอยู่นอกเวลาทำการของร้าน (10:00 - 23:00 น.)');
       return;
+    }
+
+    if (endTotalMin <= startTotalMin) {
+      setErrorMessage('เวลาสิ้นสุดต้องมากกว่าเวลาเริ่ม');
+      return;
+    }
+
+    // 5. Price & Deposit Validation
+    const priceVal = parseFloat(quotedPrice);
+    if (mode === 'admin') {
+      if (isNaN(priceVal) || priceVal < 0) {
+        setErrorMessage('ราคางานสักต้องเป็นตัวเลขและไม่ติดลบ (ระบุ 0 หากไม่ระบุราคา)');
+        return;
+      }
     }
 
     const depositVal = parseFloat(depositRequired);
@@ -118,55 +158,118 @@ export default function EstimateQuoteForm({
       return;
     }
 
+    if (mode === 'admin' && priceVal > 0 && depositVal > priceVal) {
+      setErrorMessage('เงินมัดจำต้องไม่เกินราคางานสัก');
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       const supabase = createClient();
-      const internalStartTime = getInitialStartTime(estimate, '13:00');
-      const internalEndTime = calculateEndTime(internalStartTime, durationVal);
+      const formattedStartTime = startTime.length === 5 ? `${startTime}:00` : startTime;
+      const formattedEndTime = endTime.length === 5 ? `${endTime}:00` : endTime;
 
-      const formattedStartTime = internalStartTime.length === 5 ? `${internalStartTime}:00` : internalStartTime;
-      const formattedEndTime = internalEndTime.length === 5 ? `${internalEndTime}:00` : internalEndTime;
-
-      // Update quoted_price on estimate_requests if provided
-      if (!isNaN(priceVal)) {
-        await supabase
-          .from('estimate_requests')
-          .update({ quoted_price: priceVal })
-          .eq('id', estimate.id);
+      const apptDateTime = new Date(`${appointmentDate}T${formattedStartTime}`);
+      if (apptDateTime.getTime() < Date.now()) {
+        setErrorMessage('เวลานัดหมายผ่านไปแล้ว ไม่สามารถยืนยันคิวสำหรับวันนัดเก่าได้ กรุณาเลือกวันและเวลานัดใหม่');
+        setIsSubmitting(false);
+        return;
       }
 
-      const { data, error } = await supabase.rpc('admin_confirm_booking_request', {
-        p_estimate_request_id: estimate.id,
-        p_appointment_date: appointmentDate,
-        p_start_time: formattedStartTime,
-        p_end_time: formattedEndTime,
-        p_deposit_required: depositVal,
-        p_admin_note: adminNote.trim() || null,
-      });
+      if (mode === 'artist') {
+        // Execute Artist Confirmation RPC (Artist does not estimate price)
+        const { data, error } = await supabase.rpc('artist_confirm_booking_request', {
+          p_estimate_request_id: estimate.id,
+          p_appointment_date: appointmentDate,
+          p_start_time: formattedStartTime,
+          p_end_time: formattedEndTime,
+          p_quoted_price: null,
+          p_deposit_required: depositVal,
+          p_artist_note: adminNote.trim() || null,
+        });
 
-      if (error) {
-        console.error('RPC admin_confirm_booking_request error:', error);
-        if (
-          error.code === '23P01' ||
-          error.message?.includes('no_artist_double_booking') ||
-          error.message?.includes('conflicts with existing key')
-        ) {
-          setErrorMessage('ช่วงเวลานี้มีคิวของช่างอยู่แล้ว กรุณาเลือกเวลาอื่น');
-        } else if (error.code === '42501' || error.message?.includes('Unauthorized')) {
-          setErrorMessage('คุณไม่มีสิทธิ์ยืนยันคำขอนี้');
-        } else if (error.code === 'P0002') {
-          setErrorMessage('ไม่พบคำขอจองนี้ในระบบ');
-        } else if (
-          error.code === '23505' ||
-          error.message?.includes('already exists') ||
-          error.message?.includes('must be PENDING') ||
-          error.message?.includes('is in status ACCEPTED')
-        ) {
-          setErrorMessage('คำขอนี้ได้รับการยืนยันไปแล้ว');
-        } else {
-          setErrorMessage(error.message || 'เกิดข้อผิดพลาดในการยืนยันคิวสัก');
+        if (error) {
+          console.error('RPC artist_confirm_booking_request error:', {
+            code: error.code,
+            message: error.message,
+            details: error.details,
+            hint: error.hint,
+          });
+          const isStatusMismatch =
+            error.message?.includes('must be PENDING') ||
+            error.message?.includes('is in status ACCEPTED') ||
+            error.message?.includes('A booking already exists for estimate request');
+
+          if (isStatusMismatch) {
+            setErrorMessage('คำขอนี้ได้รับการยืนยันไปแล้ว');
+          } else if (error.message?.includes('PAST_APPOINTMENT_TIME')) {
+            setErrorMessage('เวลานัดหมายผ่านไปแล้ว ไม่สามารถยืนยันคิวสำหรับวันนัดเก่าได้ กรุณาเลือกวันและเวลานัดใหม่');
+          } else if (
+            error.code === '23P01' ||
+            error.message?.includes('no_artist_double_booking') ||
+            error.message?.includes('conflicts with existing key')
+          ) {
+            setErrorMessage('ช่วงเวลานี้มีคิวของช่างอยู่แล้ว กรุณาเลือกเวลาอื่น');
+          } else if (error.code === '42501' || error.message?.includes('Unauthorized')) {
+            setErrorMessage('คุณไม่มีสิทธิ์ยืนยันคำขอนี้');
+          } else if (error.code === 'P0002') {
+            setErrorMessage('ไม่พบคำขอจองนี้ในระบบ');
+          } else if (error.code === '23505' || error.message?.includes('already exists')) {
+            setErrorMessage('บันทึกการยืนยันไม่สำเร็จ กรุณาตรวจสอบข้อมูลที่เกี่ยวข้อง');
+          } else {
+            setErrorMessage(error.message || 'เกิดข้อผิดพลาดในการยืนยันคิวสัก');
+          }
+          return;
         }
-        return;
+      } else {
+        // Execute Admin Confirmation RPC
+        if (!isNaN(priceVal)) {
+          await supabase
+            .from('estimate_requests')
+            .update({ quoted_price: priceVal })
+            .eq('id', estimate.id);
+        }
+
+        const { data, error } = await supabase.rpc('admin_confirm_booking_request', {
+          p_estimate_request_id: estimate.id,
+          p_appointment_date: appointmentDate,
+          p_start_time: formattedStartTime,
+          p_end_time: formattedEndTime,
+          p_deposit_required: depositVal,
+          p_admin_note: adminNote.trim() || null,
+        });
+
+        if (error) {
+          console.error('RPC admin_confirm_booking_request error:', {
+            code: error.code,
+            message: error.message,
+            details: error.details,
+            hint: error.hint,
+          });
+          const isStatusMismatch =
+            error.message?.includes('must be PENDING') ||
+            error.message?.includes('is in status ACCEPTED') ||
+            error.message?.includes('A booking already exists for estimate request');
+
+          if (isStatusMismatch) {
+            setErrorMessage('คำขอนี้ได้รับการยืนยันไปแล้ว');
+          } else if (
+            error.code === '23P01' ||
+            error.message?.includes('no_artist_double_booking') ||
+            error.message?.includes('conflicts with existing key')
+          ) {
+            setErrorMessage('ช่วงเวลานี้มีคิวของช่างอยู่แล้ว กรุณาเลือกเวลาอื่น');
+          } else if (error.code === '42501' || error.message?.includes('Unauthorized')) {
+            setErrorMessage('คุณไม่มีสิทธิ์ยืนยันคำขอนี้');
+          } else if (error.code === 'P0002') {
+            setErrorMessage('ไม่พบคำขอจองนี้ในระบบ');
+          } else if (error.code === '23505' || error.message?.includes('already exists')) {
+            setErrorMessage('บันทึกการยืนยันไม่สำเร็จ กรุณาตรวจสอบข้อมูลที่เกี่ยวข้อง');
+          } else {
+            setErrorMessage(error.message || 'เกิดข้อผิดพลาดในการยืนยันคิวสัก');
+          }
+          return;
+        }
       }
 
       onSuccess(depositVal > 0 ? 'WAITING_DEPOSIT' : 'CONFIRMED');
@@ -182,7 +285,9 @@ export default function EstimateQuoteForm({
     <div className="bg-studio-card border border-studio-border rounded-2xl w-full max-w-md p-5 space-y-4 shadow-2xl animate-in zoom-in-95 duration-150 font-prompt">
       {/* Form Header */}
       <div className="flex items-center justify-between border-b border-studio-border pb-3">
-        <h3 className="font-semibold text-sm text-studio-primary">จัดการคำขอจองคิวสัก</h3>
+        <h3 className="font-semibold text-sm text-studio-primary">
+          {mode === 'artist' ? 'ยืนยันรับงานและลงคิวสัก' : 'จัดการคำขอจองคิวสัก'}
+        </h3>
         <button
           type="button"
           onClick={onCancel}
@@ -206,7 +311,7 @@ export default function EstimateQuoteForm({
         {/* 1. Appointment Date */}
         <div>
           <label className="block text-studio-secondary mb-1">
-            วันนัดหมาย *
+            วันนัดหมาย <span className="text-red-400">*</span>
           </label>
           <input
             id="input-appointment-date"
@@ -241,49 +346,76 @@ export default function EstimateQuoteForm({
           })()}
         </div>
 
-        {/* 2. Estimated Duration */}
-        <div>
-          <label htmlFor="input-duration-hours" className="block text-studio-secondary mb-1">
-            ระยะเวลาสักโดยประมาณ *
-          </label>
-          <div className="relative flex items-center">
-            <input
-              id="input-duration-hours"
-              type="number"
-              min="1"
-              step="any"
-              required
-              disabled={isSubmitting}
-              value={durationHours}
-              onChange={(e) => setDurationHours(e.target.value)}
-              placeholder="5"
-              className="w-full bg-studio-sec border border-studio-border rounded-xl px-3 py-2 text-studio-primary font-mono focus:outline-none focus:border-studio-red pr-14"
-            />
-            <span className="absolute right-3 text-studio-secondary text-xs pointer-events-none">
-              ชั่วโมง
-            </span>
-          </div>
-        </div>
-
-        {/* 3. Tattoo Price & Deposit */}
+        {/* 2. Start Time & End Time */}
         <div className="grid grid-cols-2 gap-2">
           <div>
             <label className="block text-studio-secondary mb-1">
-              ราคางานสัก (฿)
+              เวลาเริ่ม <span className="text-red-400">*</span>
             </label>
             <input
-              id="input-quoted-price"
-              type="number"
-              min="0"
-              step="any"
+              id="input-start-time"
+              type="time"
+              required
               disabled={isSubmitting}
-              value={quotedPrice}
-              onChange={(e) => setQuotedPrice(e.target.value)}
-              placeholder="0"
+              value={startTime}
+              onChange={(e) => handleStartTimeChange(e.target.value)}
               className="w-full bg-studio-sec border border-studio-border rounded-xl px-3 py-2 text-studio-primary font-mono focus:outline-none focus:border-studio-red"
             />
           </div>
+          <div>
+            <label className="block text-studio-secondary mb-1">
+              เวลาสิ้นสุด <span className="text-red-400">*</span>
+            </label>
+            <input
+              id="input-end-time"
+              type="time"
+              required
+              disabled={isSubmitting}
+              value={endTime}
+              onChange={(e) => setEndTime(e.target.value)}
+              className="w-full bg-studio-sec border border-studio-border rounded-xl px-3 py-2 text-studio-primary font-mono focus:outline-none focus:border-studio-red"
+            />
+          </div>
+        </div>
 
+        {/* 3. Deposit (and Price for Admin) */}
+        {mode === 'admin' ? (
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="block text-studio-secondary mb-1">
+                ราคางานสัก (฿)
+              </label>
+              <input
+                id="input-quoted-price"
+                type="number"
+                min="0"
+                step="any"
+                disabled={isSubmitting}
+                value={quotedPrice}
+                onChange={(e) => setQuotedPrice(e.target.value)}
+                placeholder="0"
+                className="w-full bg-studio-sec border border-studio-border rounded-xl px-3 py-2 text-studio-primary font-mono focus:outline-none focus:border-studio-red"
+              />
+            </div>
+
+            <div>
+              <label className="block text-studio-secondary mb-1">
+                เงินมัดจำ (฿)
+              </label>
+              <input
+                id="input-deposit-required"
+                type="number"
+                min="0"
+                step="any"
+                disabled={isSubmitting}
+                value={depositRequired}
+                onChange={(e) => setDepositRequired(e.target.value)}
+                placeholder="500"
+                className="w-full bg-studio-sec border border-studio-border rounded-xl px-3 py-2 text-studio-primary font-mono focus:outline-none focus:border-studio-red"
+              />
+            </div>
+          </div>
+        ) : (
           <div>
             <label className="block text-studio-secondary mb-1">
               เงินมัดจำ (฿)
@@ -296,16 +428,16 @@ export default function EstimateQuoteForm({
               disabled={isSubmitting}
               value={depositRequired}
               onChange={(e) => setDepositRequired(e.target.value)}
-              placeholder="0"
+              placeholder="500"
               className="w-full bg-studio-sec border border-studio-border rounded-xl px-3 py-2 text-studio-primary font-mono focus:outline-none focus:border-studio-red"
             />
           </div>
-        </div>
+        )}
 
-        {/* 4. Admin / Shop Note */}
+        {/* 4. Note to Customer */}
         <div>
           <label className="block text-studio-secondary mb-1">
-            หมายเหตุของร้าน/ช่าง
+            {mode === 'artist' ? 'หมายเหตุถึงลูกค้า' : 'หมายเหตุของร้าน/ช่าง'}
           </label>
           <textarea
             id="input-admin-note"
@@ -342,7 +474,7 @@ export default function EstimateQuoteForm({
             ) : (
               <>
                 <CheckCircle2 size={14} />
-                <span>ยืนยันและลงคิวสัก</span>
+                <span>{mode === 'artist' ? 'ยืนยันรับงาน' : 'ยืนยันและลงคิวสัก'}</span>
               </>
             )}
           </button>

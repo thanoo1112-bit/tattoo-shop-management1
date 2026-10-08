@@ -24,42 +24,94 @@ export default function ResetPasswordPage() {
 
   useEffect(() => {
     let isMounted = true;
+    let resolved = false;
     const supabase = createClient();
+
+    const markValidSession = () => {
+      if (isMounted && !resolved) {
+        resolved = true;
+        setHasValidSession(true);
+        setIsVerifying(false);
+      }
+    };
+
+    const markInvalidSession = () => {
+      if (isMounted && !resolved) {
+        resolved = true;
+        setHasValidSession(false);
+        setIsVerifying(false);
+      }
+    };
 
     const verifySession = async () => {
       try {
-        // 1. Check current active session
+        if (typeof window !== 'undefined') {
+          const searchParams = new URLSearchParams(window.location.search);
+          const hashStr = window.location.hash.startsWith('#') ? window.location.hash.substring(1) : window.location.hash;
+          const hashParams = new URLSearchParams(hashStr);
+
+          // 1. Check PKCE code in query or hash
+          const code = searchParams.get('code') || hashParams.get('code');
+          if (code) {
+            const { data: codeData, error: codeErr } = await supabase.auth.exchangeCodeForSession(code);
+            if (!codeErr && codeData.session) {
+              markValidSession();
+              return;
+            }
+          }
+
+          // 2. Check token_hash in query or hash (OTP recovery)
+          const tokenHash = searchParams.get('token_hash') || hashParams.get('token_hash');
+          const type = searchParams.get('type') || hashParams.get('type');
+          if (tokenHash && (type === 'recovery' || !type)) {
+            const { data: otpData, error: otpErr } = await supabase.auth.verifyOtp({
+              token_hash: tokenHash,
+              type: 'recovery',
+            });
+            if (!otpErr && otpData.session) {
+              markValidSession();
+              return;
+            }
+          }
+
+          // 3. Check access_token & refresh_token in hash (Implicit Flow)
+          const accessToken = hashParams.get('access_token');
+          const refreshToken = hashParams.get('refresh_token');
+          if (accessToken && refreshToken) {
+            const { data: setSesData, error: setSesErr } = await supabase.auth.setSession({
+              access_token: accessToken,
+              refresh_token: refreshToken,
+            });
+            if (!setSesErr && setSesData.session) {
+              markValidSession();
+              return;
+            }
+          }
+        }
+
+        // 4. Check active session in Supabase Auth client
         const { data: { session } } = await supabase.auth.getSession();
-        if (session && isMounted) {
-          setHasValidSession(true);
-          setIsVerifying(false);
+        if (session) {
+          markValidSession();
           return;
         }
 
-        // 2. Also listen for PASSWORD_RECOVERY or SIGNED_IN event from URL hash token exchange
+        // 5. Subscribe to Auth state change
         const { data: { subscription } } = supabase.auth.onAuthStateChange((event, eventSession) => {
-          if ((event === 'PASSWORD_RECOVERY' || event === 'SIGNED_IN') && eventSession) {
-            if (isMounted) {
-              setHasValidSession(true);
-              setIsVerifying(false);
-            }
+          if ((event === 'PASSWORD_RECOVERY' || event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') && eventSession) {
+            markValidSession();
           }
         });
 
-        // Give a short timeout for URL hash token exchange if needed
+        // 6. Final fallback timeout if no session is obtained within 2 seconds
         setTimeout(() => {
-          if (isMounted && isVerifying) {
-            setIsVerifying(false);
+          if (isMounted && !resolved) {
+            subscription.unsubscribe();
+            markInvalidSession();
           }
-        }, 1500);
-
-        return () => {
-          subscription.unsubscribe();
-        };
+        }, 2000);
       } catch (_) {
-        if (isMounted) {
-          setIsVerifying(false);
-        }
+        markInvalidSession();
       }
     };
 

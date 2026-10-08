@@ -4,14 +4,8 @@ import React from 'react';
 import {
   Clock,
   Ban,
-  FileText,
   AlertCircle,
   Hash,
-  CreditCard,
-  QrCode,
-  Building2,
-  Banknote,
-  Calendar,
 } from 'lucide-react';
 import { BookingPaymentRecord } from './types';
 
@@ -19,20 +13,14 @@ interface PaymentHistoryProps {
   payments: BookingPaymentRecord[];
   onOpenVoidModal: (payment: BookingPaymentRecord) => void;
   isLoading?: boolean;
+  readOnly?: boolean;
 }
 
 const PAYMENT_TYPE_MAP: Record<string, { label: string; class: string }> = {
   DEPOSIT: { label: 'เงินมัดจำ', class: 'bg-amber-950/40 text-amber-400 border-amber-800/40' },
-  BALANCE: { label: 'ยอดคงเหลือ', class: 'bg-blue-950/40 text-blue-400 border-blue-800/40' },
-  FULL_PAYMENT: { label: 'ชำระเต็ม', class: 'bg-emerald-950/40 text-emerald-400 border-emerald-800/40' },
+  BALANCE: { label: 'ชำระปิดงาน', class: 'bg-blue-950/40 text-blue-400 border-blue-800/40' },
+  FULL_PAYMENT: { label: 'ชำระปิดงาน', class: 'bg-emerald-950/40 text-emerald-400 border-emerald-800/40' },
   OTHER: { label: 'อื่น ๆ', class: 'bg-[#1F1D1A] text-[#A89F91] border-[#4A443A]' },
-};
-
-const PAYMENT_METHOD_MAP: Record<string, { label: string; icon: any }> = {
-  CASH: { label: 'เงินสด', icon: Banknote },
-  BANK_TRANSFER: { label: 'โอนธนาคาร', icon: Building2 },
-  QR: { label: 'QR Code', icon: QrCode },
-  OTHER: { label: 'อื่น ๆ', icon: CreditCard },
 };
 
 function formatBangkokDateTime(isoString: string) {
@@ -55,6 +43,7 @@ export default function PaymentHistory({
   payments,
   onOpenVoidModal,
   isLoading,
+  readOnly = false,
 }: PaymentHistoryProps) {
   if (isLoading) {
     return (
@@ -79,8 +68,6 @@ export default function PaymentHistory({
     <div className="space-y-2.5 font-prompt">
       {payments.map((p) => {
         const typeInfo = PAYMENT_TYPE_MAP[p.payment_type] || PAYMENT_TYPE_MAP.OTHER;
-        const methodInfo = PAYMENT_METHOD_MAP[p.payment_method] || PAYMENT_METHOD_MAP.OTHER;
-        const MethodIcon = methodInfo.icon;
         const isVoided = p.status === 'VOIDED';
 
         return (
@@ -92,7 +79,7 @@ export default function PaymentHistory({
                 : 'bg-[#0E0D0C] border-[#4A443A] hover:border-[#7A7265]'
             }`}
           >
-            {/* Row 1: Amount & Type & Status */}
+            {/* Row 1: Amount & Type & Void Action */}
             <div className="flex items-start justify-between gap-2">
               <div className="flex items-center gap-2 flex-wrap">
                 <span className={`text-base sm:text-lg font-heading font-semibold ${
@@ -104,11 +91,6 @@ export default function PaymentHistory({
                 <span className={`text-[10px] px-2 py-0.5 rounded border font-medium ${typeInfo.class}`}>
                   {typeInfo.label}
                 </span>
-
-                <span className="text-[11px] text-[#A89F91] flex items-center gap-1 bg-[#171512] px-2 py-0.5 rounded border border-[#4A443A]/60">
-                  <MethodIcon size={12} className="text-[#7A7265]" />
-                  <span>{methodInfo.label}</span>
-                </span>
               </div>
 
               {/* Status or Void Action */}
@@ -118,7 +100,7 @@ export default function PaymentHistory({
                     <Ban size={10} />
                     ยกเลิกรายการแล้ว
                   </span>
-                ) : (
+                ) : !readOnly ? (
                   <button
                     type="button"
                     data-action="void-payment"
@@ -129,7 +111,7 @@ export default function PaymentHistory({
                     <Ban size={11} />
                     <span>ยกเลิกรายการ</span>
                   </button>
-                )}
+                ) : null}
               </div>
             </div>
 

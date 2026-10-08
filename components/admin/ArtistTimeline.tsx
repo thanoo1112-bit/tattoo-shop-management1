@@ -2,8 +2,8 @@
 
 import React, { useState, useMemo } from 'react';
 import { useApp } from '../AppContext';
-import { Booking } from '@/data/mockBookings';
-import { Artist } from '@/data/mockArtists';
+import { formatTattooSize } from '@/lib/utils/formatters';
+import { getBookingStatusConfig } from './calendar/calendarUtils';
 import { Calendar, User, Clock, CheckCircle, Clock3, AlertCircle, ChevronLeft, ChevronRight, Sparkles } from 'lucide-react';
 
 interface ArtistTimelineProps {
@@ -78,6 +78,7 @@ export default function ArtistTimeline({ singleArtistId = null }: ArtistTimeline
     endTime: string;
     duration: number;
     status: string;
+    bookingStatus: string;
     style?: string;
     width?: number;
     height?: number;
@@ -92,13 +93,13 @@ export default function ArtistTimeline({ singleArtistId = null }: ArtistTimeline
     const hasSize = Boolean(event.width && event.height);
 
     if (styleName && hasSize) {
-      return `${styleName} • ${event.width}×${event.height} ซม.`;
+      return `${styleName} • ${formatTattooSize(event.width, event.height)}`;
     }
     if (styleName) {
       return styleName;
     }
     if (hasSize) {
-      return `งานสัก • ${event.width}×${event.height} ซม.`;
+      return `งานสัก • ${formatTattooSize(event.width, event.height)}`;
     }
     return 'งานสัก';
   };
@@ -147,6 +148,7 @@ export default function ArtistTimeline({ singleArtistId = null }: ArtistTimeline
               endTime,
               duration,
               status: s.status === 'IN_PROGRESS' ? 'IN_PROGRESS' : s.status === 'COMPLETED' ? 'COMPLETED' : b.status,
+              bookingStatus: b.status,
               style: b.style,
               width: b.width,
               height: b.height,
@@ -180,6 +182,7 @@ export default function ArtistTimeline({ singleArtistId = null }: ArtistTimeline
             endTime: formattedEndTime,
             duration,
             status: b.status,
+            bookingStatus: b.status,
             style: b.style,
             width: b.width,
             height: b.height,
@@ -278,51 +281,57 @@ export default function ArtistTimeline({ singleArtistId = null }: ArtistTimeline
                     ไม่มีคิวนัดหมายในวันที่เลือก
                   </p>
                 ) : (
-                  artistBookingsToday.map((booking) => (
-                    <div
-                      key={booking.id}
-                      className="bg-studio-card border border-studio-border p-3 rounded-[4px] space-y-1 text-xs"
-                    >
-                      <div className="flex justify-between items-center gap-1">
-                        <span className="font-bold text-studio-primary text-xs truncate">
-                          {getEventTitle(booking)}
-                        </span>
-                        <span className={`text-[10px] px-2 py-0.5 rounded font-bold border shrink-0 ${
-                          booking.status === 'COMPLETED'
-                            ? 'bg-[#171512] border-[#4A443A] text-[#A89F91]'
-                            : booking.status === 'IN_PROGRESS'
-                            ? 'bg-[#9C2F2F]/20 border-[#9C2F2F] text-[#9C2F2F] animate-pulse'
-                            : ['CONFIRMED', 'SCHEDULED', 'APPROVED'].includes(booking.status)
-                            ? 'bg-emerald-950/60 border-emerald-800 text-emerald-400'
-                            : 'bg-amber-950/60 border-amber-800/80 text-amber-300'
-                        }`}>
-                          {booking.status === 'COMPLETED'
-                            ? 'เสร็จแล้ว'
-                            : booking.status === 'IN_PROGRESS'
-                            ? 'กำลังสัก'
-                            : ['CONFIRMED', 'SCHEDULED', 'APPROVED'].includes(booking.status)
-                            ? 'ยืนยัน'
-                            : 'รอมัดจำ'}
-                        </span>
-                      </div>
+                  artistBookingsToday.map((booking) => {
+                    const statusKey = (booking.bookingStatus || booking.status) as any;
+                    const statusConfig = getBookingStatusConfig(statusKey);
+                    
+                    let badgeLabel = statusConfig.label;
+                    let badgeClass = `${statusConfig.bg} ${statusConfig.border} ${statusConfig.text}`;
 
-                      {booking.placement && (
-                        <div className="text-[11px] text-studio-muted truncate">
-                          ตำแหน่ง: {booking.placement}
+                    if (booking.status === 'IN_PROGRESS') {
+                      badgeLabel = 'กำลังสัก';
+                      badgeClass = 'bg-[#9C2F2F]/20 border-[#9C2F2F] text-[#9C2F2F] animate-pulse';
+                    } else if (booking.status === 'COMPLETED') {
+                      badgeLabel = 'เสร็จแล้ว';
+                      badgeClass = 'bg-[#171512] border-[#4A443A] text-[#A89F91]';
+                    }
+
+                    const startTimeDisplay = booking.startTime.endsWith('น.') || booking.startTime.endsWith('น')
+                      ? booking.startTime
+                      : `${booking.startTime} น.`;
+
+                    return (
+                      <div
+                        key={booking.id}
+                        className="bg-studio-card border border-studio-border p-3 rounded-[4px] space-y-1 text-xs"
+                      >
+                        <div className="flex justify-between items-center gap-1">
+                          <span className="font-bold text-studio-primary text-xs truncate">
+                            {getEventTitle(booking)}
+                          </span>
+                          <span className={`text-[10px] px-2 py-0.5 rounded font-bold border shrink-0 ${badgeClass}`}>
+                            {badgeLabel}
+                          </span>
                         </div>
-                      )}
 
-                      <div className="flex items-center justify-between text-[11px] text-studio-secondary pt-0.5">
-                        <span className="flex items-center gap-1">
-                          <Clock size={12} className="text-studio-red" />
-                          <span>{booking.startTime}–{booking.endTime} ({booking.duration} ชม.)</span>
-                        </span>
-                        <span className="text-studio-muted font-medium truncate max-w-[120px]">
-                          • {booking.customerName || booking.customerEmail}
-                        </span>
+                        {booking.placement && (
+                          <div className="text-[11px] text-studio-muted truncate">
+                            ตำแหน่ง: {booking.placement}
+                          </div>
+                        )}
+
+                        <div className="flex items-center justify-between text-[11px] text-studio-secondary pt-0.5">
+                          <span className="flex items-center gap-1">
+                            <Clock size={12} className="text-studio-red" />
+                            <span>เวลานัด {startTimeDisplay}</span>
+                          </span>
+                          <span className="text-studio-muted font-medium truncate max-w-[120px]">
+                            • {booking.customerName || booking.customerEmail}
+                          </span>
+                        </div>
                       </div>
-                    </div>
-                  ))
+                    );
+                  })
                 )}
               </div>
             </div>
@@ -412,30 +421,29 @@ export default function ArtistTimeline({ singleArtistId = null }: ArtistTimeline
                     {/* Timeline Booking Bars */}
                     {artistBookings.map((booking) => {
                       const posStyle = getEventStyle(booking);
-                      const isCompleted = booking.status === 'COMPLETED';
-                      const isInProgress = booking.status === 'IN_PROGRESS';
-                      const isConfirmed = ['CONFIRMED', 'SCHEDULED', 'APPROVED'].includes(booking.status);
 
-                      let cardStyle = 'bg-[#d9a441]/12 border-[#d9a441]/70 text-studio-primary';
-                      let badgeStyle = 'bg-amber-950 text-amber-300 border border-amber-800/50';
-                      let badgeText = 'รอมัดจำ';
+                      const statusKey = (booking.bookingStatus || booking.status) as any;
+                      const statusConfig = getBookingStatusConfig(statusKey);
 
-                      if (isCompleted) {
-                        cardStyle = 'bg-[#171512] border-[#4A443A] text-[#A89F91] opacity-75';
-                        badgeStyle = 'bg-zinc-900 text-[#A89F91] border border-[#4A443A]';
-                        badgeText = 'เสร็จแล้ว';
-                      } else if (isInProgress) {
+                      let badgeLabel = statusConfig.label;
+                      let badgeStyle = `${statusConfig.bg} ${statusConfig.border} ${statusConfig.text}`;
+                      let cardStyle = `${statusConfig.bg} ${statusConfig.border} text-studio-primary`;
+
+                      if (booking.status === 'IN_PROGRESS') {
+                        badgeLabel = 'กำลังสัก';
+                        badgeStyle = 'bg-[#9C2F2F]/20 border-[#9C2F2F] text-[#9C2F2F] animate-pulse';
                         cardStyle = 'bg-[#9c2f2f]/20 border-[#9c2f2f] text-rose-200 ring-1 ring-[#9c2f2f]/40';
-                        badgeStyle = 'bg-[#9c2f2f] text-white border border-[#9c2f2f] animate-pulse';
-                        badgeText = 'กำลังสัก';
-                      } else if (isConfirmed) {
-                        cardStyle = 'bg-emerald-950/20 border-emerald-600/80 text-studio-primary';
-                        badgeStyle = 'bg-emerald-950 text-emerald-400 border border-emerald-800/50';
-                        badgeText = 'ยืนยัน';
+                      } else if (booking.status === 'COMPLETED') {
+                        badgeLabel = 'เสร็จแล้ว';
+                        badgeStyle = 'bg-[#171512] border-[#4A443A] text-[#A89F91]';
+                        cardStyle = 'bg-[#171512] border-[#4A443A] text-[#A89F91] opacity-75';
                       }
 
                       const titleLabel = getEventTitle(booking);
                       const customerDisplayName = booking.customerName || booking.customerEmail;
+                      const startTimeDisplay = booking.startTime.endsWith('น.') || booking.startTime.endsWith('น')
+                        ? booking.startTime
+                        : `${booking.startTime} น.`;
 
                       return (
                         <div
@@ -448,8 +456,8 @@ export default function ArtistTimeline({ singleArtistId = null }: ArtistTimeline
                             <span className="text-[11px] font-bold truncate leading-tight tracking-wide">
                               {titleLabel}
                             </span>
-                            <span className={`text-[9px] px-1.5 py-0.2 rounded font-bold uppercase shrink-0 ${badgeStyle}`}>
-                              {badgeText}
+                            <span className={`text-[9px] px-1.5 py-0.2 rounded font-bold uppercase border shrink-0 ${badgeStyle}`}>
+                              {badgeLabel}
                             </span>
                           </div>
 
@@ -462,7 +470,7 @@ export default function ArtistTimeline({ singleArtistId = null }: ArtistTimeline
 
                           {/* Row 3: Time & Customer Name */}
                           <div className="flex justify-between items-center text-[10px] text-studio-secondary gap-1 truncate min-w-0">
-                            <span className="truncate shrink-0 font-mono">{booking.startTime}–{booking.endTime}</span>
+                            <span className="truncate shrink-0 font-mono font-medium text-[#ECE4D3]">เวลานัด {startTimeDisplay}</span>
                             <span className="truncate text-studio-muted font-medium">• {customerDisplayName}</span>
                           </div>
                         </div>

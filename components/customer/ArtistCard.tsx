@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { Artist } from '@/data/mockArtists';
+import { getThumbnailUrl, handleThumbnailError } from '@/lib/utils/thumbnailHelper';
 
 interface ArtistCardProps {
   artist: Artist;
@@ -54,7 +55,14 @@ export default function ArtistCard({ artist, onSelect }: ArtistCardProps) {
             <div className="grid grid-cols-3 gap-2 mt-4 pt-4 border-t border-studio-border/60">
               {artist.portfolio.map((img, idx) => (
                 <div key={idx} className="h-14 bg-studio-main rounded-[4px] overflow-hidden border border-studio-border/60">
-                  <img src={img} alt="" className="w-full h-full object-cover" />
+                  <img
+                    src={getThumbnailUrl(img)}
+                    onError={(e) => handleThumbnailError(e, img)}
+                    alt=""
+                    className="w-full h-full object-cover"
+                    loading="lazy"
+                    decoding="async"
+                  />
                 </div>
               ))}
             </div>

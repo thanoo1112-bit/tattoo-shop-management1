@@ -1,39 +1,27 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { createClient } from '@/lib/supabase/client';
 import { useApp } from '@/components/AppContext';
 import { uploadStudioImage } from '@/lib/utils/storageUploader';
+import { getThumbnailUrl, handleThumbnailError } from '@/lib/utils/thumbnailHelper';
 import {
   Sparkles,
   Plus,
+  Search,
+  X,
   Edit3,
   Trash2,
-  Calendar,
-  Clock,
-  DollarSign,
-  User,
-  Check,
-  X,
   AlertTriangle,
   CheckCircle2,
-  Clock3,
-  Ban,
-  ShieldCheck,
   RefreshCw,
-  Search,
   Eye,
   EyeOff,
-  Filter,
-  ArrowUpDown,
-  Layers,
-  FileText,
   Upload,
   Camera,
   Loader2,
   AlertCircle,
-  Link as LinkIcon,
 } from 'lucide-react';
 
 export interface AdminFlashDesign {
@@ -50,48 +38,20 @@ export interface AdminFlashDesign {
   image_url_2?: string | null;
   status: 'AVAILABLE' | 'HELD' | 'RESERVED' | 'SOLD';
   is_visible: boolean;
+  is_repeatable?: boolean;
   sort_order: number;
   created_at: string;
   artist?: {
     id: string;
     name: string;
     nickname?: string | null;
-  } | null;
-}
-
-export interface AdminFlashReservation {
-  id: string;
-  flash_design_id: string;
-  customer_user_id: string;
-  status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELLED' | 'COMPLETED';
-  requested_date?: string | null;
-  requested_start_time?: string | null;
-  customer_note?: string | null;
-  admin_note?: string | null;
-  approved_at?: string | null;
-  rejected_at?: string | null;
-  cancelled_at?: string | null;
-  completed_at?: string | null;
-  created_at: string;
-  flash_design?: {
-    id: string;
-    title: string;
-    style: string;
-    price: number;
-    deposit_amount: number;
-    image_url: string;
-    status: string;
-    artist?: {
-      id: string;
-      name: string;
-      nickname?: string | null;
-    } | null;
+    is_active?: boolean;
+    is_visible?: boolean;
   } | null;
 }
 
 export default function AdminFlashManagement() {
-  const { artists } = useApp();
-  const [activeTab, setActiveTab] = useState<'designs' | 'reservations'>('designs');
+  const { artists: appArtists } = useApp();
   const [isMounted, setIsMounted] = useState(false);
 
   useEffect(() => {
@@ -102,10 +62,81 @@ export default function AdminFlashManagement() {
   const [designs, setDesigns] = useState<AdminFlashDesign[]>([]);
   const [designsLoading, setDesignsLoading] = useState(true);
 
-  // Reservations State
-  const [reservations, setReservations] = useState<AdminFlashReservation[]>([]);
-  const [reservationsLoading, setReservationsLoading] = useState(true);
-  const [resFilter, setResFilter] = useState<'ALL' | 'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELLED' | 'COMPLETED'>('ALL');
+  // Search & Filter State
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterStyle, setFilterStyle] = useState('ALL');
+  const [filterVisibility, setFilterVisibility] = useState<'ALL' | 'VISIBLE' | 'HIDDEN'>('ALL');
+  const [filterArtist, setFilterArtist] = useState('ALL');
+
+  // Active Artists List
+  const [activeArtists, setActiveArtists] = useState<Array<{ id: string; name: string; nickname?: string | null; specialties?: string[] | null }>>([]);
+
+  const fetchActiveArtists = useCallback(async () => {
+    try {
+      const supabase = createClient();
+      const { data } = await supabase
+        .from('artists')
+        .select('id, name, nickname, is_active, specialties')
+        .eq('is_active', true)
+        .order('sort_order', { ascending: true })
+        .order('name', { ascending: true });
+
+      if (data) {
+        setActiveArtists(data);
+      }
+    } catch (err) {
+      console.error('Error fetching active artists:', err);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchActiveArtists();
+  }, [fetchActiveArtists]);
+
+  // Dynamic filter style options across artists & designs
+  const availableFilterStyles = useMemo(() => {
+    const defaultStyles = ['Blackwork', 'Chicano', 'Darkwork', 'Minimal', 'Portrait'];
+    const set = new Set<string>(defaultStyles);
+    activeArtists.forEach((artist) => {
+      if (Array.isArray(artist.specialties)) {
+        artist.specialties.forEach((s) => set.add(s.trim()));
+      }
+    });
+    designs.forEach((d) => {
+      if (d.style) set.add(d.style.trim());
+    });
+    return Array.from(set).filter(Boolean).sort();
+  }, [activeArtists, designs]);
+
+  // Combined AND Filtered List
+  const filteredDesigns = useMemo(() => {
+    return designs.filter((item) => {
+      // Style Filter
+      if (filterStyle !== 'ALL' && item.style.toLowerCase() !== filterStyle.toLowerCase()) {
+        return false;
+      }
+      // Visibility Filter
+      if (filterVisibility === 'VISIBLE' && !item.is_visible) return false;
+      if (filterVisibility === 'HIDDEN' && item.is_visible) return false;
+
+      // Artist Filter
+      if (filterArtist !== 'ALL' && item.artist_id !== filterArtist) return false;
+
+      // Search Query Filter
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase().trim();
+        const titleMatch = item.title?.toLowerCase().includes(q);
+        const descMatch = item.description?.toLowerCase().includes(q);
+        const styleMatch = item.style?.toLowerCase().includes(q);
+        const artistMatch = item.artist?.name?.toLowerCase().includes(q);
+        const nicknameMatch = item.artist?.nickname?.toLowerCase().includes(q);
+        if (!titleMatch && !descMatch && !styleMatch && !artistMatch && !nicknameMatch) {
+          return false;
+        }
+      }
+      return true;
+    });
+  }, [designs, filterStyle, filterVisibility, filterArtist, searchQuery]);
 
   // Modal / Form States
   const [isFormModalOpen, setIsFormModalOpen] = useState(false);
@@ -116,12 +147,9 @@ export default function AdminFlashManagement() {
   const [formTitle, setFormTitle] = useState('');
   const [formDescription, setFormDescription] = useState('');
   const [formStyle, setFormStyle] = useState('Fine Line');
-  const [formSizeLabel, setFormSizeLabel] = useState('');
-  const [formPrice, setFormPrice] = useState(3000);
-  const [formDeposit, setFormDeposit] = useState(1000);
-  const [formDuration, setFormDuration] = useState(2);
   const [formImageUrl, setFormImageUrl] = useState('');
   const [formIsVisible, setFormIsVisible] = useState(true);
+  const [formIsRepeatable, setFormIsRepeatable] = useState(false);
   const [formSortOrder, setFormSortOrder] = useState(0);
   const [formSubmitting, setFormSubmitting] = useState(false);
   const [formError, setFormError] = useState('');
@@ -134,8 +162,9 @@ export default function AdminFlashManagement() {
   // Image Upload State
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [imageUploadError, setImageUploadError] = useState('');
-  const [showManualUrlInput, setShowManualUrlInput] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const [actionNotice, setActionNotice] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
 
   // File Upload Handler for Flash Image (studio-assets/flash)
   const handleImageFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -160,10 +189,6 @@ export default function AdminFlashManagement() {
     }
   };
 
-  // Action Processing State
-  const [processingId, setProcessingId] = useState<string | null>(null);
-  const [actionNotice, setActionNotice] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
-
   // Fetch Designs
   const fetchDesigns = useCallback(async () => {
     setDesignsLoading(true);
@@ -185,12 +210,15 @@ export default function AdminFlashManagement() {
           image_url_2,
           status,
           is_visible,
+          is_repeatable,
           sort_order,
           created_at,
           artists (
             id,
             name,
-            nickname
+            nickname,
+            is_active,
+            is_visible
           )
         `)
         .order('sort_order', { ascending: true })
@@ -212,12 +240,15 @@ export default function AdminFlashManagement() {
         image_url_2: d.image_url_2 || null,
         status: d.status,
         is_visible: d.is_visible,
+        is_repeatable: Boolean(d.is_repeatable),
         sort_order: d.sort_order || 0,
         created_at: d.created_at,
         artist: d.artists ? {
           id: d.artists.id,
           name: d.artists.name,
           nickname: d.artists.nickname,
+          is_active: d.artists.is_active,
+          is_visible: d.artists.is_visible,
         } : null,
       }));
 
@@ -229,107 +260,24 @@ export default function AdminFlashManagement() {
     }
   }, []);
 
-  // Fetch Reservations
-  const fetchReservations = useCallback(async () => {
-    setReservationsLoading(true);
-    try {
-      const supabase = createClient();
-      const { data, error } = await supabase
-        .from('flash_reservations')
-        .select(`
-          id,
-          flash_design_id,
-          customer_user_id,
-          status,
-          requested_date,
-          requested_start_time,
-          customer_note,
-          admin_note,
-          approved_at,
-          rejected_at,
-          cancelled_at,
-          completed_at,
-          created_at,
-          flash_designs (
-            id,
-            title,
-            style,
-            price,
-            deposit_amount,
-            image_url,
-            status,
-            artists (
-              id,
-              name,
-              nickname
-            )
-          )
-        `)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-
-      const formatted: AdminFlashReservation[] = (data || []).map((r: any) => ({
-        id: r.id,
-        flash_design_id: r.flash_design_id,
-        customer_user_id: r.customer_user_id,
-        status: r.status,
-        requested_date: r.requested_date,
-        requested_start_time: r.requested_start_time,
-        customer_note: r.customer_note,
-        admin_note: r.admin_note,
-        approved_at: r.approved_at,
-        rejected_at: r.rejected_at,
-        cancelled_at: r.cancelled_at,
-        completed_at: r.completed_at,
-        created_at: r.created_at,
-        flash_design: r.flash_designs ? {
-          id: r.flash_designs.id,
-          title: r.flash_designs.title,
-          style: r.flash_designs.style,
-          price: Number(r.flash_designs.price) || 0,
-          deposit_amount: Number(r.flash_designs.deposit_amount) || 0,
-          image_url: r.flash_designs.image_url,
-          status: r.flash_designs.status,
-          artist: r.flash_designs.artists ? {
-            id: r.flash_designs.artists.id,
-            name: r.flash_designs.artists.name,
-            nickname: r.flash_designs.artists.nickname,
-          } : null,
-        } : null,
-      }));
-
-      setReservations(formatted);
-    } catch (err: any) {
-      console.error('Error fetching admin flash reservations:', err);
-    } finally {
-      setReservationsLoading(false);
-    }
-  }, []);
-
   useEffect(() => {
     fetchDesigns();
-    fetchReservations();
-  }, [fetchDesigns, fetchReservations]);
+  }, [fetchDesigns]);
 
   // Open Create Modal
   const handleOpenCreate = () => {
     setEditingDesign(null);
-    setFormArtistId(artists[0]?.id || '');
+    setFormArtistId(activeArtists[0]?.id || appArtists[0]?.id || '');
     setFormTitle('');
     setFormDescription('');
     setFormStyle('Fine Line');
-    setFormSizeLabel('8x8 ซม.');
-    setFormPrice(3000);
-    setFormDeposit(1000);
-    setFormDuration(2);
     setFormImageUrl('');
     setFormIsVisible(true);
+    setFormIsRepeatable(false);
     setFormSortOrder(designs.length + 1);
     setFormError('');
     setImageUploadError('');
     setIsUploadingImage(false);
-    setShowManualUrlInput(false);
     setIsFormModalOpen(true);
   };
 
@@ -340,17 +288,13 @@ export default function AdminFlashManagement() {
     setFormTitle(d.title);
     setFormDescription(d.description || '');
     setFormStyle(d.style);
-    setFormSizeLabel(d.size_label || '');
-    setFormPrice(d.price);
-    setFormDeposit(d.deposit_amount);
-    setFormDuration(d.estimated_duration_minutes ? Math.round((d.estimated_duration_minutes / 60) * 10) / 10 : 2);
     setFormImageUrl(d.image_url || '');
     setFormIsVisible(d.is_visible);
+    setFormIsRepeatable(Boolean(d.is_repeatable));
     setFormSortOrder(d.sort_order);
     setFormError('');
     setImageUploadError('');
     setIsUploadingImage(false);
-    setShowManualUrlInput(false);
     setIsFormModalOpen(true);
   };
 
@@ -379,18 +323,15 @@ export default function AdminFlashManagement() {
     setFormSubmitting(true);
     try {
       const supabase = createClient();
-      const payload = {
+      const payload: Record<string, any> = {
         artist_id: formArtistId,
         title: formTitle.trim(),
         description: formDescription.trim() || null,
         style: formStyle,
-        size_label: formSizeLabel.trim() || null,
-        price: Number(formPrice),
-        deposit_amount: Number(formDeposit),
-        estimated_duration_minutes: formDuration ? Math.round(Number(formDuration) * 60) : null,
         image_url: formImageUrl.trim(),
         image_url_2: null,
         is_visible: formIsVisible,
+        is_repeatable: formIsRepeatable,
         sort_order: Number(formSortOrder) || 0,
       };
 
@@ -493,7 +434,6 @@ export default function AdminFlashManagement() {
       setActionNotice({ text: 'ลบลาย Flash เรียบร้อยแล้ว', type: 'success' });
       const deletedId = deleteTarget.id;
       setDeleteTarget(null);
-      // Immediately filter local state and refetch
       setDesigns((prev) => prev.filter((d) => d.id !== deletedId));
       fetchDesigns();
     } catch (err: any) {
@@ -505,56 +445,11 @@ export default function AdminFlashManagement() {
     }
   };
 
-  // Process Reservation Action via RPC
-  const handleProcessReservation = async (
-    reservationId: string,
-    action: 'APPROVE' | 'REJECT' | 'CANCEL' | 'COMPLETE',
-    adminNote?: string
-  ) => {
-    const actionLabel = {
-      APPROVE: 'อนุมัติคำขอ (Design จะเปลี่ยนเป็น RESERVED)',
-      REJECT: 'ปฏิเสธคำขอ (Design จะกลับเป็น AVAILABLE)',
-      CANCEL: 'ยกเลิกคำขอ (Design จะกลับเป็น AVAILABLE)',
-      COMPLETE: 'ยืนยันสักเสร็จสิ้น (Design จะเป็น SOLD)',
-    }[action];
-
-    if (!window.confirm(`ต้องการ ${actionLabel} ใช่หรือไม่?`)) return;
-
-    setProcessingId(reservationId);
-    setActionNotice(null);
-    try {
-      const supabase = createClient();
-      const { data, error } = await supabase.rpc('admin_process_flash_reservation', {
-        p_reservation_id: reservationId,
-        p_action: action,
-        p_admin_note: adminNote || null,
-      });
-
-      if (error) throw error;
-
-      setActionNotice({ text: `ดำเนินการ ${action} สำเร็จแล้ว`, type: 'success' });
-      fetchReservations();
-      fetchDesigns();
-    } catch (err: any) {
-      console.error('Process reservation error:', err);
-      setActionNotice({ text: err.message || `ไม่สามารถดำเนินการ ${action} ได้`, type: 'error' });
-    } finally {
-      setProcessingId(null);
-    }
-  };
-
   // Stats
-  const totalCount = designs.length;
   const availableCount = designs.filter((d) => d.status === 'AVAILABLE').length;
   const heldCount = designs.filter((d) => d.status === 'HELD').length;
   const reservedCount = designs.filter((d) => d.status === 'RESERVED').length;
   const soldCount = designs.filter((d) => d.status === 'SOLD').length;
-  const pendingResCount = reservations.filter((r) => r.status === 'PENDING').length;
-
-  const filteredReservations = reservations.filter((r) => {
-    if (resFilter === 'ALL') return true;
-    return r.status === resFilter;
-  });
 
   return (
     <div className="space-y-6 font-prompt animate-fadeIn">
@@ -563,13 +458,13 @@ export default function AdminFlashManagement() {
         <div>
           <div className="inline-flex items-center space-x-2 bg-studio-sec border border-studio-border px-2.5 py-0.5 rounded text-studio-paper text-[10px] uppercase font-heading tracking-widest mb-1">
             <Sparkles size={12} className="text-studio-red" />
-            <span>Flash Management</span>
+            <span>Flash Catalog Management</span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-heading font-normal tracking-wide text-studio-primary">
-            157 TATTOO FLASH CATALOG & RESERVATIONS
+            157 TATTOO FLASH CATALOG
           </h1>
           <p className="text-xs text-studio-secondary mt-1 font-light">
-            จัดการแบบลายสักพร้อมจอง (Fixed Price) ควบคุมสถานะคลังลายสัก และอนุมัติคำขอจองของลูกค้า
+            จัดการแบบลายสักพร้อมจอง (Fixed Price) ควบคุมสถานะคลังลายสัก และข้อมูลแบบลาย Flash
           </p>
         </div>
 
@@ -577,7 +472,6 @@ export default function AdminFlashManagement() {
           <button
             onClick={() => {
               fetchDesigns();
-              fetchReservations();
             }}
             className="p-2 bg-studio-card border border-studio-border hover:border-studio-red text-studio-secondary hover:text-studio-primary rounded-[4px] text-xs transition-colors"
             title="รีเฟรชข้อมูล"
@@ -594,23 +488,87 @@ export default function AdminFlashManagement() {
         </div>
       </div>
 
-      {/* KPI Stats Bar (4 Status Cards Only) */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3">
-        <div className="bg-studio-card border border-emerald-900/40 p-3 rounded-[6px]">
-          <span className="text-[10px] text-emerald-400 uppercase tracking-wider block">ว่าง (AVAILABLE)</span>
-          <span className="text-lg font-bold text-emerald-400 mt-0.5 block">{availableCount}</span>
+      {/* Filter & Search Bar */}
+      <div className="bg-[#171512] border border-[#2D2820] p-4 rounded-[6px] flex flex-col md:flex-row gap-3 items-stretch md:items-center justify-between shadow-md">
+        <div className="flex flex-col sm:flex-row gap-2.5 flex-1 items-stretch sm:items-center">
+          {/* Search Input */}
+          <div className="relative flex-1">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#7A7162]" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="ค้นหาชื่อลาย Flash, คำอธิบาย, สไตล์, ช่าง..."
+              className="w-full bg-[#0E0D0C] border border-[#3E372C] rounded-[4px] pl-9 pr-8 py-2 text-xs text-[#ECE4D3] placeholder:text-[#7A7162] focus:outline-none focus:border-[#9C2F2F] transition-colors"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#7A7162] hover:text-[#ECE4D3]"
+              >
+                <X size={12} />
+              </button>
+            )}
+          </div>
+
+          {/* Style Filter */}
+          <select
+            value={filterStyle}
+            onChange={(e) => setFilterStyle(e.target.value)}
+            className="bg-[#0E0D0C] border border-[#3E372C] rounded-[4px] px-3 py-2 text-xs text-[#ECE4D3] focus:outline-none focus:border-[#9C2F2F] cursor-pointer"
+          >
+            <option value="ALL">สไตล์ทั้งหมด</option>
+            {availableFilterStyles.map((style) => (
+              <option key={style} value={style}>
+                {style}
+              </option>
+            ))}
+          </select>
+
+          {/* Visibility Filter */}
+          <select
+            value={filterVisibility}
+            onChange={(e: any) => setFilterVisibility(e.target.value)}
+            className="bg-[#0E0D0C] border border-[#3E372C] rounded-[4px] px-3 py-2 text-xs text-[#ECE4D3] focus:outline-none focus:border-[#9C2F2F] cursor-pointer"
+          >
+            <option value="ALL">สถานะทั้งหมด</option>
+            <option value="VISIBLE">แสดงบนเว็บ (Visible)</option>
+            <option value="HIDDEN">ซ่อนจากเว็บ (Hidden)</option>
+          </select>
+
+          {/* Artist Filter */}
+          <select
+            value={filterArtist}
+            onChange={(e) => setFilterArtist(e.target.value)}
+            className="bg-[#0E0D0C] border border-[#3E372C] rounded-[4px] px-3 py-2 text-xs text-[#ECE4D3] focus:outline-none focus:border-[#9C2F2F] cursor-pointer"
+          >
+            <option value="ALL">ช่างทุกคน</option>
+            {activeArtists.map((artist) => (
+              <option key={artist.id} value={artist.id}>
+                {artist.nickname ? `ช่าง${artist.nickname}` : artist.name}
+              </option>
+            ))}
+          </select>
         </div>
-        <div className="bg-studio-card border border-amber-900/40 p-3 rounded-[6px]">
-          <span className="text-[10px] text-amber-300 uppercase tracking-wider block">รออนุมัติ (HELD)</span>
-          <span className="text-lg font-bold text-amber-300 mt-0.5 block">{heldCount}</span>
-        </div>
-        <div className="bg-studio-card border border-indigo-900/40 p-3 rounded-[6px]">
-          <span className="text-[10px] text-indigo-300 uppercase tracking-wider block">จองแล้ว (RESERVED)</span>
-          <span className="text-lg font-bold text-indigo-300 mt-0.5 block">{reservedCount}</span>
-        </div>
-        <div className="bg-studio-card border border-[#4A443A] p-3 rounded-[6px]">
-          <span className="text-[10px] text-[#7A7265] uppercase tracking-wider block">สักแล้ว (SOLD)</span>
-          <span className="text-lg font-bold text-[#A89F91] mt-0.5 block">{soldCount}</span>
+
+        {/* Results Counter */}
+        <div className="flex items-center justify-between md:justify-end gap-3 text-xs text-[#A89F91] shrink-0 self-center">
+          <div>
+            ผลงาน <strong className="text-[#ECE4D3] font-bold">{filteredDesigns.length}</strong> / {designs.length} รายการ
+          </div>
+          {(filterStyle !== 'ALL' || filterVisibility !== 'ALL' || filterArtist !== 'ALL' || searchQuery) && (
+            <button
+              onClick={() => {
+                setFilterStyle('ALL');
+                setFilterVisibility('ALL');
+                setFilterArtist('ALL');
+                setSearchQuery('');
+              }}
+              className="text-[#9C2F2F] hover:underline text-[11px]"
+            >
+              ล้างตัวกรอง
+            </button>
+          )}
         </div>
       </div>
 
@@ -627,66 +585,51 @@ export default function AdminFlashManagement() {
         </div>
       )}
 
-      {/* Main Tabs */}
-      <div className="flex border-b border-studio-border space-x-6 text-xs uppercase tracking-wider font-semibold">
-        <button
-          type="button"
-          onClick={() => setActiveTab('designs')}
-          className={`pb-3 relative transition-colors ${
-            activeTab === 'designs' ? 'text-studio-primary font-bold' : 'text-studio-secondary hover:text-studio-primary'
-          }`}
-        >
-          <span>แบบลายสัก Flash ({designs.length})</span>
-          {activeTab === 'designs' && (
-            <span className="absolute bottom-0 left-0 right-0 h-[2px] bg-studio-red animate-fadeIn" />
-          )}
-        </button>
+      {/* DESIGNS CATALOG CRUD GRID */}
+      <div className="space-y-4">
+        {designsLoading ? (
+          <div className="py-16 text-center text-xs text-studio-secondary animate-pulse">
+            กำลังโหลดแบบลายสัก Flash...
+          </div>
+        ) : filteredDesigns.length === 0 ? (
+          <div className="bg-studio-card border border-studio-border p-12 rounded-[6px] text-center space-y-3">
+            <Sparkles size={32} className="text-studio-muted mx-auto" />
+            <h4 className="text-sm font-bold text-studio-primary">
+              {designs.length === 0 ? 'ยังไม่มีแบบลายสัก Flash ในระบบ' : 'ไม่พบรายการลาย Flash ที่ตรงกับตัวกรอง'}
+            </h4>
+            <p className="text-xs text-studio-secondary">
+              {designs.length === 0
+                ? 'กดปุ่ม "+ เพิ่มลาย Flash ใหม่" เพื่อสร้างแบบลายสักพร้อมจอง'
+                : 'ลองเปลี่ยนหรือล้างเงื่อนไขการค้นหาและตัวกรอง'}
+            </p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2.5 sm:gap-4">
+            {filteredDesigns.map((d) => {
+              const isArtistInactive = Boolean(
+                d.artist && (d.artist.is_active === false || d.artist.is_visible === false)
+              );
 
-        <button
-          type="button"
-          onClick={() => setActiveTab('reservations')}
-          className={`pb-3 relative transition-colors flex items-center gap-1.5 ${
-            activeTab === 'reservations' ? 'text-studio-primary font-bold' : 'text-studio-secondary hover:text-studio-primary'
-          }`}
-        >
-          <span>คำขอจองลาย ({reservations.length})</span>
-          {pendingResCount > 0 && (
-            <span className="bg-studio-red text-studio-primary text-[9px] px-1.5 py-0.2 rounded-full font-bold">
-              {pendingResCount}
-            </span>
-          )}
-          {activeTab === 'reservations' && (
-            <span className="absolute bottom-0 left-0 right-0 h-[2px] bg-studio-red animate-fadeIn" />
-          )}
-        </button>
-      </div>
-
-      {/* ========================================================================= */}
-      {/* TAB 1: DESIGNS CATALOG CRUD */}
-      {/* ========================================================================= */}
-      {activeTab === 'designs' && (
-        <div className="space-y-4">
-          {designsLoading ? (
-            <div className="py-16 text-center text-xs text-studio-secondary animate-pulse">
-              กำลังโหลดแบบลายสัก Flash...
-            </div>
-          ) : designs.length === 0 ? (
-            <div className="bg-studio-card border border-studio-border p-12 rounded-[6px] text-center space-y-3">
-              <Sparkles size={32} className="text-studio-muted mx-auto" />
-              <h4 className="text-sm font-bold text-studio-primary">ยังไม่มีแบบลายสัก Flash ในระบบ</h4>
-              <p className="text-xs text-studio-secondary">กดปุ่ม &quot;+ เพิ่มลาย Flash ใหม่&quot; เพื่อสร้างแบบลายสักพร้อมจอง</p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2.5 sm:gap-4">
-              {designs.map((d) => (
+              return (
                 <div
                   key={d.id}
                   className={`bg-studio-card border rounded-[6px] overflow-hidden flex flex-col justify-between transition-all min-w-0 ${
-                    d.is_visible ? 'border-studio-border hover:border-studio-border/80' : 'border-studio-border/40 opacity-70'
+                    isArtistInactive
+                      ? 'border-studio-border/40 opacity-75 bg-[#13110F] filter grayscale-[40%]'
+                      : d.is_visible
+                      ? 'border-studio-border hover:border-studio-border/80'
+                      : 'border-studio-border/40 opacity-70'
                   }`}
                 >
                   <div className="aspect-[4/3] bg-studio-main overflow-hidden relative">
-                    <img src={d.image_url} alt={d.title} className="w-full h-full object-cover" />
+                    <img
+                      src={getThumbnailUrl(d.image_url)}
+                      onError={(e) => handleThumbnailError(e, d.image_url)}
+                      alt={d.title}
+                      className={`w-full h-full object-cover ${isArtistInactive ? 'grayscale contrast-90 brightness-90' : ''}`}
+                      loading="lazy"
+                      decoding="async"
+                    />
                     <div className="absolute top-1.5 sm:top-2 left-1.5 sm:left-2 flex gap-1 max-w-[65%] min-w-0">
                       <span className="bg-studio-main/90 border border-studio-border text-studio-red text-[9px] font-bold px-1.5 py-0.5 rounded shrink-0">
                         #{d.sort_order}
@@ -696,7 +639,13 @@ export default function AdminFlashManagement() {
                       </span>
                     </div>
 
-                    <div className="absolute top-1.5 sm:top-2 right-1.5 sm:right-2">
+                    <div className="absolute top-1.5 sm:top-2 right-1.5 sm:right-2 flex flex-col items-end gap-1">
+                      {isArtistInactive && (
+                        <span className="bg-[#2D2820]/95 border border-[#4A443A] text-[#A89F91] text-[9px] font-bold px-1.5 py-0.5 rounded flex items-center gap-1 shadow">
+                          <EyeOff size={10} /> ซ่อนตามสถานะช่าง
+                        </span>
+                      )}
+
                       {d.status === 'AVAILABLE' && (
                         <span className="bg-emerald-950/80 border border-emerald-600/50 text-emerald-400 text-[9px] font-bold px-1.5 py-0.5 rounded">
                           ● AVAILABLE
@@ -717,6 +666,16 @@ export default function AdminFlashManagement() {
                           ✕ SOLD
                         </span>
                       )}
+
+                      {d.is_repeatable ? (
+                        <span className="bg-cyan-950/80 border border-cyan-600/50 text-cyan-300 text-[9px] font-bold px-1.5 py-0.5 rounded">
+                          สักซ้ำได้
+                        </span>
+                      ) : (
+                        <span className="bg-amber-950/80 border border-amber-600/50 text-amber-300 text-[9px] font-bold px-1.5 py-0.5 rounded">
+                          ลายเดียว
+                        </span>
+                      )}
                     </div>
                   </div>
 
@@ -726,17 +685,13 @@ export default function AdminFlashManagement() {
                         <h4 className="font-bold text-studio-primary truncate text-xs sm:text-sm flex-1 min-w-0" title={d.title}>
                           {d.title}
                         </h4>
-                        <span className="font-bold text-studio-red shrink-0 text-xs sm:text-sm">
-                          ฿{d.price.toLocaleString()}
-                        </span>
                       </div>
                       <div className="text-[10px] sm:text-[11px] text-studio-secondary flex flex-wrap items-center justify-between gap-0.5 sm:gap-1 min-w-0">
-                        <span className="truncate">ช่าง: {d.artist?.name || 'ช่างประจำร้าน'}</span>
-                        <span className="shrink-0">มัดจำ: ฿{d.deposit_amount.toLocaleString()}</span>
+                        <span className="truncate">
+                          ช่าง: {d.artist?.name || 'ช่างประจำร้าน'}
+                          {isArtistInactive && <span className="text-red-400/90 ml-1 font-medium">· ปิดใช้งาน</span>}
+                        </span>
                       </div>
-                      {d.size_label && (
-                        <span className="text-[10px] text-studio-muted block truncate">ขนาด: {d.size_label}</span>
-                      )}
                     </div>
 
                     <div className="pt-2 border-t border-studio-border/50 flex justify-between items-center gap-1 min-w-0">
@@ -775,202 +730,17 @@ export default function AdminFlashManagement() {
                     </div>
                   </div>
                 </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* ========================================================================= */}
-      {/* TAB 2: RESERVATIONS APPROVAL / REJECTION / COMPLETION */}
-      {/* ========================================================================= */}
-      {activeTab === 'reservations' && (
-        <div className="space-y-4">
-          {/* Reservation Status Filter Pills */}
-          <div className="flex flex-wrap gap-2 text-xs">
-            {(['ALL', 'PENDING', 'APPROVED', 'REJECTED', 'CANCELLED', 'COMPLETED'] as const).map((st) => (
-              <button
-                key={st}
-                onClick={() => setResFilter(st)}
-                className={`px-3 py-1.5 rounded-[4px] border font-medium transition-all ${
-                  resFilter === st
-                    ? 'bg-studio-red border-studio-red text-studio-primary'
-                    : 'bg-studio-card border-studio-border text-studio-secondary hover:text-studio-primary'
-                }`}
-              >
-                {st === 'ALL' && 'ทั้งหมด'}
-                {st === 'PENDING' && 'รอดำเนินการ (PENDING)'}
-                {st === 'APPROVED' && 'อนุมัติแล้ว (APPROVED)'}
-                {st === 'REJECTED' && 'ปฏิเสธ (REJECTED)'}
-                {st === 'CANCELLED' && 'ยกเลิก (CANCELLED)'}
-                {st === 'COMPLETED' && 'เสร็จสิ้น (COMPLETED)'}
-              </button>
-            ))}
+              );
+            })}
           </div>
-
-          {reservationsLoading ? (
-            <div className="py-16 text-center text-xs text-studio-secondary animate-pulse">
-              กำลังโหลดคำขอจอง Flash...
-            </div>
-          ) : filteredReservations.length === 0 ? (
-            <div className="bg-studio-card border border-studio-border p-12 rounded-[6px] text-center text-xs text-studio-secondary">
-              ไม่มีคำขอจองในสถานะที่เลือก
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {filteredReservations.map((r) => {
-                const isPending = r.status === 'PENDING';
-                const isApproved = r.status === 'APPROVED';
-                const isCompleted = r.status === 'COMPLETED';
-                const isCancelled = r.status === 'CANCELLED';
-                const isRejected = r.status === 'REJECTED';
-
-                const design = r.flash_design;
-
-                return (
-                  <div
-                    key={r.id}
-                    className="bg-studio-card border border-studio-border p-4 rounded-[6px] space-y-3 shadow-md"
-                  >
-                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 pb-2 border-b border-studio-border/50 text-xs">
-                      <div className="flex items-center gap-2">
-                        <span className="text-[10px] uppercase font-bold text-studio-red tracking-wider">
-                          RES #{r.id.slice(0, 8)}
-                        </span>
-                        <span className="text-[10px] text-studio-muted">
-                          ลูกค้า: <strong className="text-studio-primary">UUID {r.customer_user_id.slice(0, 8)}...</strong>
-                        </span>
-                        <span className="text-[10px] text-studio-muted">
-                          • {new Date(r.created_at).toLocaleDateString('th-TH')}
-                        </span>
-                      </div>
-
-                      {/* Status Badge */}
-                      <div>
-                        {isPending && (
-                          <span className="bg-amber-950/60 border border-amber-600/40 text-amber-300 text-[10px] font-bold px-2 py-0.5 rounded inline-flex items-center gap-1">
-                            <Clock3 size={11} /> PENDING (Design HELD)
-                          </span>
-                        )}
-                        {isApproved && (
-                          <span className="bg-indigo-950/60 border border-indigo-600/40 text-indigo-300 text-[10px] font-bold px-2 py-0.5 rounded inline-flex items-center gap-1">
-                            <CheckCircle2 size={11} /> APPROVED (Design RESERVED)
-                          </span>
-                        )}
-                        {isCompleted && (
-                          <span className="bg-emerald-950/60 border border-emerald-600/40 text-emerald-400 text-[10px] font-bold px-2 py-0.5 rounded inline-flex items-center gap-1">
-                            <CheckCircle2 size={11} /> COMPLETED (Design SOLD)
-                          </span>
-                        )}
-                        {isCancelled && (
-                          <span className="bg-[#171512] border border-[#4A443A] text-[#7A7265] text-[10px] font-bold px-2 py-0.5 rounded inline-flex items-center gap-1">
-                            <Ban size={11} /> CANCELLED
-                          </span>
-                        )}
-                        {isRejected && (
-                          <span className="bg-red-950/40 border border-red-900/60 text-red-400 text-[10px] font-bold px-2 py-0.5 rounded inline-flex items-center gap-1">
-                            <Ban size={11} /> REJECTED
-                          </span>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Body */}
-                    <div className="flex gap-3.5 items-start">
-                      {design?.image_url && (
-                        <div className="w-16 h-20 bg-studio-main rounded overflow-hidden shrink-0 border border-studio-border/60">
-                          <img src={design.image_url} alt={design.title} className="w-full h-full object-cover" />
-                        </div>
-                      )}
-
-                      <div className="flex-1 min-w-0 space-y-1 text-xs">
-                        <div className="flex justify-between items-start">
-                          <h4 className="font-bold text-studio-primary text-sm truncate">
-                            {design?.title || 'แบบลายสัก Flash'}
-                          </h4>
-                          <span className="font-bold text-studio-red pl-2 text-sm">
-                            ฿{design?.price?.toLocaleString()}
-                          </span>
-                        </div>
-
-                        <div className="text-[11px] text-studio-secondary flex items-center gap-2">
-                          <span>ช่าง: <strong className="text-studio-primary">{design?.artist?.name || 'ช่างประจำร้าน'}</strong></span>
-                          <span>มัดจำ: ฿{design?.deposit_amount?.toLocaleString()}</span>
-                        </div>
-
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-1 text-[11px] text-studio-muted pt-1">
-                          {r.requested_date && <span>วันที่ลูกค้าสะดวก: <strong className="text-studio-primary">{r.requested_date}</strong></span>}
-                          {r.requested_start_time && <span>เวลา: <strong className="text-studio-primary">{r.requested_start_time.slice(0, 5)} น.</strong></span>}
-                        </div>
-
-                        {r.customer_note && (
-                          <div className="text-[11px] text-studio-secondary bg-studio-main/60 p-2 rounded border border-studio-border/30 mt-1">
-                            <span className="text-studio-muted">ข้อความจากลูกค้า: </span>
-                            {r.customer_note}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Admin Action Buttons */}
-                    {(isPending || isApproved) && (
-                      <div className="pt-2 border-t border-studio-border/40 flex flex-wrap justify-end gap-2 text-xs">
-                        {isPending && (
-                          <>
-                            <button
-                              type="button"
-                              disabled={processingId === r.id}
-                              onClick={() => handleProcessReservation(r.id, 'REJECT')}
-                              className="bg-transparent border border-red-900/60 text-red-400 hover:bg-red-950/40 px-3 py-1.5 rounded-[4px] font-semibold transition-all disabled:opacity-50"
-                            >
-                              ✕ ปฏิเสธ (Reject)
-                            </button>
-                            <button
-                              type="button"
-                              disabled={processingId === r.id}
-                              onClick={() => handleProcessReservation(r.id, 'APPROVE')}
-                              className="bg-studio-red border border-studio-red text-studio-primary hover:bg-studio-red/80 px-3 py-1.5 rounded-[4px] font-bold uppercase tracking-wider transition-all disabled:opacity-50 shadow-md"
-                            >
-                              ✓ อนุมัติการจอง (Approve)
-                            </button>
-                          </>
-                        )}
-
-                        {isApproved && (
-                          <>
-                            <button
-                              type="button"
-                              disabled={processingId === r.id}
-                              onClick={() => handleProcessReservation(r.id, 'CANCEL')}
-                              className="bg-transparent border border-[#4A443A] text-studio-secondary hover:text-studio-primary px-3 py-1.5 rounded-[4px] font-semibold transition-all disabled:opacity-50"
-                            >
-                              ยกเลิกการจอง (Cancel)
-                            </button>
-                            <button
-                              type="button"
-                              disabled={processingId === r.id}
-                              onClick={() => handleProcessReservation(r.id, 'COMPLETE')}
-                              className="bg-emerald-700 border border-emerald-600 text-studio-primary hover:bg-emerald-600 px-3 py-1.5 rounded-[4px] font-bold uppercase tracking-wider transition-all disabled:opacity-50"
-                            >
-                              ✓ สักเสร็จสิ้น (Mark SOLD)
-                            </button>
-                          </>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      )}
+        )}
+      </div>
 
       {/* Design Create / Edit Modal */}
       {isFormModalOpen && isMounted && createPortal(
         <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/95 backdrop-blur-md animate-fadeIn">
           <div className="w-full sm:w-[calc(100%-2rem)] sm:max-w-[580px] lg:max-w-[1040px] h-[100dvh] sm:h-auto sm:max-h-[90vh] flex flex-col bg-[#171512] border-0 sm:border sm:border-[#2D2820] rounded-none sm:rounded-[8px] shadow-2xl relative text-[#ECE4D3] text-xs overflow-hidden">
-            {/* Modal Header (Fixed / Sticky at Top) */}
+            {/* Modal Header */}
             <div className="flex justify-between items-center border-b border-[#2D2820] p-4 shrink-0 bg-[#171512] z-10">
               <h3 className="text-base font-bold text-[#ECE4D3] flex items-center gap-2">
                 <Sparkles size={16} className="text-[#9C2F2F]" />
@@ -981,7 +751,7 @@ export default function AdminFlashManagement() {
                 onClick={() => setIsFormModalOpen(false)}
                 className="text-[#7A7162] hover:text-[#ECE4D3] transition-colors p-1"
               >
-                <X size={18} />
+                ✕
               </button>
             </div>
 
@@ -994,10 +764,7 @@ export default function AdminFlashManagement() {
 
             {/* Modal Form Container */}
             <form onSubmit={handleSaveDesign} className="flex-1 flex flex-col overflow-hidden min-h-0">
-              {/* Scrollable Form Content */}
               <div className="flex-1 overflow-y-auto overscroll-contain p-4 sm:p-5 custom-scrollbar space-y-4">
-                
-                {/* Single File Input Element */}
                 <input
                   ref={fileInputRef}
                   type="file"
@@ -1007,11 +774,8 @@ export default function AdminFlashManagement() {
                   className="hidden"
                 />
 
-                {/* ========================================================================= */}
-                {/* MOBILE LAYOUT (< lg): CONCEPT 2 ASSET STRIP                               */}
-                {/* ========================================================================= */}
+                {/* MOBILE LAYOUT */}
                 <div className="block lg:hidden space-y-4">
-                  {/* TOP SECTION: ASSET STRIP CARD */}
                   <div className="bg-[#171512] border border-[#2D2820] rounded-lg p-3 sm:p-4 space-y-3">
                     <div className="flex items-center justify-between border-b border-[#2D2820] pb-2">
                       <span className="text-xs font-bold text-[#ECE4D3] flex items-center gap-1.5">
@@ -1026,9 +790,7 @@ export default function AdminFlashManagement() {
                       )}
                     </div>
 
-                    {/* Asset Area (Horizontal Strip Card) */}
                     <div className="flex flex-row gap-3 items-center">
-                      {/* Left: Preview Square Stage (~120px to 140px) */}
                       <div
                         onClick={() => {
                           if (!formImageUrl && !isUploadingImage && !formSubmitting) {
@@ -1059,7 +821,6 @@ export default function AdminFlashManagement() {
                         )}
                       </div>
 
-                      {/* Right: File Status & Action Buttons */}
                       <div className="flex-1 min-w-0 space-y-2.5">
                         <div className="text-[11px] text-[#7A7162] space-y-0.5">
                           <p className="text-[#ECE4D3] font-medium truncate">
@@ -1068,7 +829,6 @@ export default function AdminFlashManagement() {
                           <p className="text-[10px]">รองรับ JPG, PNG, WEBP สูงสุด 5MB</p>
                         </div>
 
-                        {/* Action Buttons Row */}
                         <div className="flex flex-wrap items-center gap-1.5">
                           <button
                             type="button"
@@ -1078,15 +838,6 @@ export default function AdminFlashManagement() {
                           >
                             <Camera size={13} className="text-[#9C2F2F]" />
                             <span>{formImageUrl ? 'เปลี่ยนรูป' : 'เลือกรูปใหม่'}</span>
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() => setShowManualUrlInput(!showManualUrlInput)}
-                            className="px-2.5 py-1.5 bg-[#25201A] hover:bg-[#322A22] border border-[#2D2820] text-xs text-[#A89F91] hover:text-[#ECE4D3] rounded transition-colors font-medium flex items-center gap-1"
-                          >
-                            <LinkIcon size={12} />
-                            <span>วาง URL รูปภาพ</span>
                           </button>
 
                           {formImageUrl && (
@@ -1107,23 +858,6 @@ export default function AdminFlashManagement() {
                       </div>
                     </div>
 
-                    {/* Fallback URL Input */}
-                    {showManualUrlInput && (
-                      <div className="pt-2 border-t border-[#2D2820] space-y-1 animate-fadeIn">
-                        <label className="text-[10px] text-[#A89F91] block">วาง URL รูปภาพภายนอก (HTTPS):</label>
-                        <input
-                          type="url"
-                          value={formImageUrl}
-                          onChange={(e) => {
-                            setFormImageUrl(e.target.value);
-                            setImageUploadError('');
-                          }}
-                          placeholder="https://images.unsplash.com/..."
-                          className="w-full bg-[#0E0D0C] border border-[#2D2820] rounded px-3 py-1.5 text-xs text-[#ECE4D3] placeholder:text-[#7A7162] focus:outline-none focus:border-[#9C2F2F] font-mono"
-                        />
-                      </div>
-                    )}
-
                     {imageUploadError && (
                       <p className="text-xs text-red-400 flex items-center gap-1 pt-1 justify-center">
                         <AlertCircle size={13} className="shrink-0" />
@@ -1132,13 +866,11 @@ export default function AdminFlashManagement() {
                     )}
                   </div>
 
-                  {/* SECTION 1: ข้อมูลผลงาน */}
                   <div className="bg-[#171512] border border-[#2D2820] rounded-lg p-3 sm:p-4 space-y-3">
                     <div className="border-b border-[#2D2820] pb-1.5">
                       <h4 className="text-xs font-bold text-[#A89F91] uppercase tracking-wider">ข้อมูลผลงาน</h4>
                     </div>
 
-                    {/* ชื่อลายสัก */}
                     <div className="space-y-1">
                       <label className="text-xs font-semibold text-[#ECE4D3] block">
                         ชื่อลายสัก (Title) <span className="text-red-400">*</span>
@@ -1153,7 +885,6 @@ export default function AdminFlashManagement() {
                       />
                     </div>
 
-                    {/* ช่างสักเจ้าของลาย */}
                     <div className="space-y-1">
                       <label className="text-xs font-semibold text-[#ECE4D3] block">
                         ช่างสักเจ้าของลาย <span className="text-red-400">*</span>
@@ -1165,7 +896,7 @@ export default function AdminFlashManagement() {
                         className="w-full bg-[#0E0D0C] border border-[#3E372C] rounded-[4px] px-3 py-2 text-xs text-[#ECE4D3] focus:outline-none focus:border-[#9C2F2F] cursor-pointer"
                       >
                         <option value="">-- เลือกช่างสัก --</option>
-                        {artists.map((a) => (
+                        {(activeArtists.length > 0 ? activeArtists : appArtists).map((a: any) => (
                           <option key={a.id} value={a.id}>
                             {a.name} {a.nickname ? `(${a.nickname})` : ''}
                           </option>
@@ -1173,86 +904,72 @@ export default function AdminFlashManagement() {
                       </select>
                     </div>
 
-                    {/* สไตล์ + ขนาดแนะนำ (2 คอลัมน์) */}
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="space-y-1 min-w-0">
-                        <label className="text-xs font-semibold text-[#ECE4D3] block">
-                          สไตล์ (Style) <span className="text-red-400">*</span>
-                        </label>
-                        <input
-                          type="text"
-                          value={formStyle}
-                          onChange={(e) => setFormStyle(e.target.value)}
-                          placeholder="Fine Line, Blackwork..."
-                          required
-                          className="w-full bg-[#0E0D0C] border border-[#3E372C] rounded-[4px] px-3 py-2 text-xs text-[#ECE4D3] placeholder:text-[#7A7162] focus:outline-none focus:border-[#9C2F2F]"
-                        />
-                      </div>
-                      <div className="space-y-1 min-w-0">
-                        <label className="text-xs font-semibold text-[#ECE4D3] block">ขนาดแนะนำ (Size)</label>
-                        <input
-                          type="text"
-                          value={formSizeLabel}
-                          onChange={(e) => setFormSizeLabel(e.target.value)}
-                          placeholder="เช่น 8x8 ซม."
-                          className="w-full bg-[#0E0D0C] border border-[#3E372C] rounded-[4px] px-3 py-2 text-xs text-[#ECE4D3] placeholder:text-[#7A7162] focus:outline-none focus:border-[#9C2F2F]"
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* SECTION 2: ราคาและเวลา */}
-                  <div className="bg-[#171512] border border-[#2D2820] rounded-lg p-3 sm:p-4 space-y-3">
-                    <div className="border-b border-[#2D2820] pb-1.5">
-                      <h4 className="text-xs font-bold text-[#A89F91] uppercase tracking-wider">ราคาและเวลา</h4>
-                    </div>
-
-                    {/* ราคาค่าสัก + เงินมัดจำ (2 คอลัมน์) */}
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="space-y-1 min-w-0">
-                        <label className="text-xs font-semibold text-[#ECE4D3] block">
-                          ราคาค่าสัก (฿) <span className="text-red-400">*</span>
-                        </label>
-                        <input
-                          type="number"
-                          value={formPrice}
-                          onChange={(e) => setFormPrice(Number(e.target.value))}
-                          min={0}
-                          required
-                          className="w-full bg-[#0E0D0C] border border-[#3E372C] rounded-[4px] px-2.5 py-2 text-xs text-[#ECE4D3] focus:outline-none focus:border-[#9C2F2F]"
-                        />
-                      </div>
-                      <div className="space-y-1 min-w-0">
-                        <label className="text-xs font-semibold text-[#ECE4D3] block">
-                          เงินมัดจำ (฿) <span className="text-red-400">*</span>
-                        </label>
-                        <input
-                          type="number"
-                          value={formDeposit}
-                          onChange={(e) => setFormDeposit(Number(e.target.value))}
-                          min={0}
-                          required
-                          className="w-full bg-[#0E0D0C] border border-[#3E372C] rounded-[4px] px-2.5 py-2 text-xs text-[#ECE4D3] focus:outline-none focus:border-[#9C2F2F]"
-                        />
-                      </div>
-                    </div>
-
-                    {/* เวลาสัก (เต็มแถว) */}
-                    <div className="space-y-1 min-w-0">
-                      <label className="text-xs font-semibold text-[#ECE4D3] block">เวลาสัก (ชั่วโมง)</label>
+                    <div className="space-y-1">
+                      <label className="text-xs font-semibold text-[#ECE4D3] block">
+                        สไตล์ (Style) <span className="text-red-400">*</span>
+                      </label>
                       <input
-                        type="number"
-                        value={formDuration}
-                        onChange={(e) => setFormDuration(parseFloat(e.target.value) || 0)}
-                        min={0.5}
-                        step={0.5}
-                        placeholder="เช่น 1, 1.5"
+                        type="text"
+                        value={formStyle}
+                        onChange={(e) => setFormStyle(e.target.value)}
+                        placeholder="Fine Line, Blackwork..."
+                        required
                         className="w-full bg-[#0E0D0C] border border-[#3E372C] rounded-[4px] px-3 py-2 text-xs text-[#ECE4D3] placeholder:text-[#7A7162] focus:outline-none focus:border-[#9C2F2F]"
                       />
                     </div>
+
+                    <div className="space-y-1.5 pt-1">
+                      <label className="text-xs font-semibold text-[#ECE4D3] block">
+                        ประเภทลาย Flash <span className="text-red-400">*</span>
+                      </label>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <label
+                          className={`flex items-start gap-2.5 p-2.5 rounded border cursor-pointer transition-all ${
+                            !formIsRepeatable
+                              ? 'bg-[#1C1814] border-[#9C2F2F] text-[#ECE4D3]'
+                              : 'bg-[#0E0D0C] border-[#2D2820] text-[#7A7162] hover:border-[#3E372C]'
+                          }`}
+                        >
+                          <input
+                            type="radio"
+                            name="flashRepeatableMobile"
+                            checked={!formIsRepeatable}
+                            onChange={() => setFormIsRepeatable(false)}
+                            className="mt-0.5 w-3.5 h-3.5 text-[#9C2F2F] focus:ring-0 cursor-pointer"
+                          />
+                          <div>
+                            <span className="text-xs font-bold block text-[#ECE4D3]">ลายเดียว</span>
+                            <span className="text-[10px] text-[#A89F91] leading-tight block mt-0.5">
+                              สักได้เพียง 1 คน เมื่อมีผู้จอง/อนุมัติแล้วจะปิดรับการจอง
+                            </span>
+                          </div>
+                        </label>
+
+                        <label
+                          className={`flex items-start gap-2.5 p-2.5 rounded border cursor-pointer transition-all ${
+                            formIsRepeatable
+                              ? 'bg-[#1C1814] border-cyan-600/70 text-[#ECE4D3]'
+                              : 'bg-[#0E0D0C] border-[#2D2820] text-[#7A7162] hover:border-[#3E372C]'
+                          }`}
+                        >
+                          <input
+                            type="radio"
+                            name="flashRepeatableMobile"
+                            checked={formIsRepeatable}
+                            onChange={() => setFormIsRepeatable(true)}
+                            className="mt-0.5 w-3.5 h-3.5 text-cyan-500 focus:ring-0 cursor-pointer"
+                          />
+                          <div>
+                            <span className="text-xs font-bold block text-[#ECE4D3]">สักซ้ำได้</span>
+                            <span className="text-[10px] text-[#A89F91] leading-tight block mt-0.5">
+                              ลูกค้าหลายคนจองลายนี้ได้ ลายยังคงสถานะว่างตลอด
+                            </span>
+                          </div>
+                        </label>
+                      </div>
+                    </div>
                   </div>
 
-                  {/* SECTION 3: รายละเอียด */}
                   <div className="bg-[#171512] border border-[#2D2820] rounded-lg p-3 sm:p-4 space-y-3">
                     <div className="border-b border-[#2D2820] pb-1.5">
                       <h4 className="text-xs font-bold text-[#A89F91] uppercase tracking-wider">รายละเอียด</h4>
@@ -1270,7 +987,6 @@ export default function AdminFlashManagement() {
                     </div>
                   </div>
 
-                  {/* SECTION 4: การแสดงผล */}
                   <div className="bg-[#171512] border border-[#2D2820] rounded-lg p-3 sm:p-4 space-y-3">
                     <div className="border-b border-[#2D2820] pb-1.5">
                       <h4 className="text-xs font-bold text-[#A89F91] uppercase tracking-wider">การแสดงผล</h4>
@@ -1302,11 +1018,8 @@ export default function AdminFlashManagement() {
                   </div>
                 </div>
 
-                {/* ========================================================================= */}
-                {/* DESKTOP LAYOUT (>= lg): CONCEPT 1 STUDIO CANVAS                           */}
-                {/* ========================================================================= */}
+                {/* DESKTOP LAYOUT */}
                 <div className="hidden lg:grid lg:grid-cols-12 lg:gap-6 lg:items-start">
-                  {/* LEFT COLUMN: Image / Upload Stage (col-span-5) */}
                   <div className="col-span-5 space-y-3">
                     <div className="flex items-center justify-between">
                       <span className="text-xs font-bold text-[#ECE4D3] flex items-center gap-1.5">
@@ -1321,7 +1034,6 @@ export default function AdminFlashManagement() {
                       )}
                     </div>
 
-                    {/* Image Stage Box */}
                     <div className="w-full min-h-[360px] max-h-[460px] bg-[#0E0D0C] border border-[#2D2820] rounded-lg p-2 flex items-center justify-center relative overflow-hidden">
                       {isUploadingImage ? (
                         <div className="flex flex-col items-center justify-center space-y-2 text-center animate-pulse p-6">
@@ -1363,7 +1075,6 @@ export default function AdminFlashManagement() {
                       )}
                     </div>
 
-                    {/* Action Buttons Below Stage */}
                     <div className="flex items-center justify-center gap-2 w-full pt-1">
                       <button
                         type="button"
@@ -1373,15 +1084,6 @@ export default function AdminFlashManagement() {
                       >
                         <Camera size={13} className="text-[#9C2F2F]" />
                         <span>{formImageUrl ? 'เปลี่ยนรูป' : 'เลือกรูปใหม่'}</span>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => setShowManualUrlInput(!showManualUrlInput)}
-                        className="px-2.5 py-1.5 bg-[#25201A] hover:bg-[#322A22] border border-[#2D2820] text-xs text-[#A89F91] hover:text-[#ECE4D3] rounded transition-colors font-medium flex items-center gap-1"
-                      >
-                        <LinkIcon size={12} />
-                        <span>วาง URL รูปภาพ</span>
                       </button>
 
                       {formImageUrl && (
@@ -1400,23 +1102,6 @@ export default function AdminFlashManagement() {
                       )}
                     </div>
 
-                    {/* Fallback Manual URL Input on Desktop */}
-                    {showManualUrlInput && (
-                      <div className="w-full bg-[#0E0D0C] border border-[#2D2820] rounded-lg p-3 space-y-1 animate-fadeIn">
-                        <label className="text-[10px] text-[#A89F91] block">วาง URL รูปภาพภายนอก (HTTPS):</label>
-                        <input
-                          type="url"
-                          value={formImageUrl}
-                          onChange={(e) => {
-                            setFormImageUrl(e.target.value);
-                            setImageUploadError('');
-                          }}
-                          placeholder="https://images.unsplash.com/..."
-                          className="w-full bg-[#171512] border border-[#3E372C] rounded px-3 py-1.5 text-xs text-[#ECE4D3] placeholder:text-[#7A7162] focus:outline-none focus:border-[#9C2F2F] font-mono"
-                        />
-                      </div>
-                    )}
-
                     {imageUploadError && (
                       <p className="text-xs text-red-400 flex items-center gap-1 mt-1 justify-center">
                         <AlertCircle size={13} className="shrink-0" />
@@ -1425,9 +1110,7 @@ export default function AdminFlashManagement() {
                     )}
                   </div>
 
-                  {/* RIGHT COLUMN: Form Rail (col-span-7) */}
                   <div className="col-span-7 space-y-3.5">
-                    {/* ช่างสักเจ้าของลาย */}
                     <div className="space-y-1">
                       <label className="text-xs font-semibold text-[#ECE4D3] block">
                         ช่างสักเจ้าของลาย <span className="text-red-400">*</span>
@@ -1439,7 +1122,7 @@ export default function AdminFlashManagement() {
                         className="w-full bg-[#0E0D0C] border border-[#3E372C] rounded-[4px] px-3 py-2 text-xs text-[#ECE4D3] focus:outline-none focus:border-[#9C2F2F] cursor-pointer"
                       >
                         <option value="">-- เลือกช่างสัก --</option>
-                        {artists.map((a) => (
+                        {(activeArtists.length > 0 ? activeArtists : appArtists).map((a: any) => (
                           <option key={a.id} value={a.id}>
                             {a.name} {a.nickname ? `(${a.nickname})` : ''}
                           </option>
@@ -1447,7 +1130,6 @@ export default function AdminFlashManagement() {
                       </select>
                     </div>
 
-                    {/* ชื่อลายสัก */}
                     <div className="space-y-1">
                       <label className="text-xs font-semibold text-[#ECE4D3] block">
                         ชื่อลายสัก (Title) <span className="text-red-400">*</span>
@@ -1462,76 +1144,71 @@ export default function AdminFlashManagement() {
                       />
                     </div>
 
-                    {/* สไตล์ + ขนาดแนะนำ (2 คอลัมน์) */}
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="space-y-1 min-w-0">
-                        <label className="text-xs font-semibold text-[#ECE4D3] block">
-                          สไตล์ (Style) <span className="text-red-400">*</span>
+                    <div className="space-y-1">
+                      <label className="text-xs font-semibold text-[#ECE4D3] block">
+                        สไตล์ (Style) <span className="text-red-400">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={formStyle}
+                        onChange={(e) => setFormStyle(e.target.value)}
+                        placeholder="Fine Line, Blackwork..."
+                        required
+                        className="w-full bg-[#0E0D0C] border border-[#3E372C] rounded-[4px] px-3 py-2 text-xs text-[#ECE4D3] placeholder:text-[#7A7162] focus:outline-none focus:border-[#9C2F2F]"
+                      />
+                    </div>
+
+                    <div className="space-y-1.5 pt-1">
+                      <label className="text-xs font-semibold text-[#ECE4D3] block">
+                        ประเภทลาย Flash <span className="text-red-400">*</span>
+                      </label>
+                      <div className="grid grid-cols-2 gap-3">
+                        <label
+                          className={`flex items-start gap-2.5 p-3 rounded-lg border cursor-pointer transition-all ${
+                            !formIsRepeatable
+                              ? 'bg-[#1C1814] border-[#9C2F2F] text-[#ECE4D3]'
+                              : 'bg-[#0E0D0C] border-[#2D2820] text-[#7A7162] hover:border-[#3E372C]'
+                          }`}
+                        >
+                          <input
+                            type="radio"
+                            name="flashRepeatableDesktop"
+                            checked={!formIsRepeatable}
+                            onChange={() => setFormIsRepeatable(false)}
+                            className="mt-0.5 w-3.5 h-3.5 text-[#9C2F2F] focus:ring-0 cursor-pointer"
+                          />
+                          <div>
+                            <span className="text-xs font-bold block text-[#ECE4D3]">ลายเดียว</span>
+                            <span className="text-[10px] text-[#A89F91] leading-tight block mt-0.5">
+                              สักได้เพียง 1 คน เมื่อมีผู้จอง/อนุมัติแล้วจะปิดรับการจอง
+                            </span>
+                          </div>
                         </label>
-                        <input
-                          type="text"
-                          value={formStyle}
-                          onChange={(e) => setFormStyle(e.target.value)}
-                          placeholder="Fine Line, Blackwork..."
-                          required
-                          className="w-full bg-[#0E0D0C] border border-[#3E372C] rounded-[4px] px-3 py-2 text-xs text-[#ECE4D3] placeholder:text-[#7A7162] focus:outline-none focus:border-[#9C2F2F]"
-                        />
-                      </div>
-                      <div className="space-y-1 min-w-0">
-                        <label className="text-xs font-semibold text-[#ECE4D3] block">ขนาดแนะนำ (Size)</label>
-                        <input
-                          type="text"
-                          value={formSizeLabel}
-                          onChange={(e) => setFormSizeLabel(e.target.value)}
-                          placeholder="เช่น 8x8 ซม."
-                          className="w-full bg-[#0E0D0C] border border-[#3E372C] rounded-[4px] px-3 py-2 text-xs text-[#ECE4D3] placeholder:text-[#7A7162] focus:outline-none focus:border-[#9C2F2F]"
-                        />
+
+                        <label
+                          className={`flex items-start gap-2.5 p-3 rounded-lg border cursor-pointer transition-all ${
+                            formIsRepeatable
+                              ? 'bg-[#1C1814] border-cyan-600/70 text-[#ECE4D3]'
+                              : 'bg-[#0E0D0C] border-[#2D2820] text-[#7A7162] hover:border-[#3E372C]'
+                          }`}
+                        >
+                          <input
+                            type="radio"
+                            name="flashRepeatableDesktop"
+                            checked={formIsRepeatable}
+                            onChange={() => setFormIsRepeatable(true)}
+                            className="mt-0.5 w-3.5 h-3.5 text-cyan-500 focus:ring-0 cursor-pointer"
+                          />
+                          <div>
+                            <span className="text-xs font-bold block text-[#ECE4D3]">สักซ้ำได้</span>
+                            <span className="text-[10px] text-[#A89F91] leading-tight block mt-0.5">
+                              ลูกค้าหลายคนจองลายนี้ได้ ลายยังคงสถานะว่างตลอด
+                            </span>
+                          </div>
+                        </label>
                       </div>
                     </div>
 
-                    {/* ราคาค่าสัก + เงินมัดจำ + เวลาสัก (3 คอลัมน์) */}
-                    <div className="grid grid-cols-3 gap-2.5">
-                      <div className="space-y-1 min-w-0">
-                        <label className="text-xs font-semibold text-[#ECE4D3] block truncate">
-                          ราคาค่าสัก (฿) <span className="text-red-400">*</span>
-                        </label>
-                        <input
-                          type="number"
-                          value={formPrice}
-                          onChange={(e) => setFormPrice(Number(e.target.value))}
-                          min={0}
-                          required
-                          className="w-full bg-[#0E0D0C] border border-[#3E372C] rounded-[4px] px-2.5 py-2 text-xs text-[#ECE4D3] focus:outline-none focus:border-[#9C2F2F]"
-                        />
-                      </div>
-                      <div className="space-y-1 min-w-0">
-                        <label className="text-xs font-semibold text-[#ECE4D3] block truncate">
-                          เงินมัดจำ (฿) <span className="text-red-400">*</span>
-                        </label>
-                        <input
-                          type="number"
-                          value={formDeposit}
-                          onChange={(e) => setFormDeposit(Number(e.target.value))}
-                          min={0}
-                          required
-                          className="w-full bg-[#0E0D0C] border border-[#3E372C] rounded-[4px] px-2.5 py-2 text-xs text-[#ECE4D3] focus:outline-none focus:border-[#9C2F2F]"
-                        />
-                      </div>
-                      <div className="space-y-1 min-w-0">
-                        <label className="text-xs font-semibold text-[#ECE4D3] block truncate">เวลาสัก (ชม.)</label>
-                        <input
-                          type="number"
-                          value={formDuration}
-                          onChange={(e) => setFormDuration(parseFloat(e.target.value) || 0)}
-                          min={0.5}
-                          step={0.5}
-                          placeholder="1.5"
-                          className="w-full bg-[#0E0D0C] border border-[#3E372C] rounded-[4px] px-2.5 py-2 text-xs text-[#ECE4D3] placeholder:text-[#7A7162] focus:outline-none focus:border-[#9C2F2F]"
-                        />
-                      </div>
-                    </div>
-
-                    {/* คำอธิบายรายละเอียด */}
                     <div className="space-y-1">
                       <label className="text-xs font-semibold text-[#ECE4D3] block">คำอธิบายรายละเอียด</label>
                       <textarea
@@ -1543,10 +1220,9 @@ export default function AdminFlashManagement() {
                       />
                     </div>
 
-                    {/* แสดงผลบนเว็บไซต์ + ลำดับการแสดงผล */}
-                    <div className="grid grid-cols-2 gap-3 items-end pt-1">
-                      <div className="pb-2">
-                        <label className="inline-flex items-center gap-2 cursor-pointer">
+                    <div className="grid grid-cols-2 gap-3 pt-1">
+                      <div className="space-y-1 flex flex-col justify-end">
+                        <label className="inline-flex items-center gap-2 cursor-pointer pb-2">
                           <input
                             type="checkbox"
                             checked={formIsVisible}
@@ -1569,28 +1245,30 @@ export default function AdminFlashManagement() {
                     </div>
                   </div>
                 </div>
-
               </div>
 
-              {/* Sticky Footer */}
-              <div className="flex items-center justify-end p-4 border-t border-[#2D2820] shrink-0 bg-[#171512] z-10">
+              {/* Modal Footer */}
+              <div className="border-t border-[#2D2820] p-4 flex justify-end gap-2 shrink-0 bg-[#171512] z-10">
+                <button
+                  type="button"
+                  onClick={() => setIsFormModalOpen(false)}
+                  disabled={formSubmitting || isUploadingImage}
+                  className="bg-transparent border border-[#4A443A] text-[#A89F91] hover:text-[#ECE4D3] px-4 py-2 rounded-[4px] text-xs font-semibold transition-colors disabled:opacity-50"
+                >
+                  ยกเลิก
+                </button>
                 <button
                   type="submit"
-                  disabled={formSubmitting || isUploadingImage || !formImageUrl}
-                  className="px-5 py-2 bg-[#9C2F2F] hover:bg-[#802222] text-[#ECE4D3] rounded text-xs font-bold uppercase tracking-wider transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5 shadow-lg shadow-[#9C2F2F]/20"
+                  disabled={formSubmitting || isUploadingImage}
+                  className="bg-[#9C2F2F] hover:bg-[#802222] text-[#ECE4D3] px-5 py-2 rounded-[4px] text-xs font-bold uppercase tracking-wider transition-all disabled:opacity-50 flex items-center gap-1.5 shadow-lg shadow-[#9C2F2F]/20"
                 >
-                  {isUploadingImage ? (
-                    <>
-                      <Loader2 size={14} className="animate-spin" />
-                      <span>กำลังอัปโหลดรูป...</span>
-                    </>
-                  ) : formSubmitting ? (
+                  {formSubmitting ? (
                     <>
                       <Loader2 size={14} className="animate-spin" />
                       <span>กำลังบันทึก...</span>
                     </>
                   ) : (
-                    'บันทึกแบบลายสัก'
+                    <span>{editingDesign ? 'บันทึกการแก้ไข' : 'สร้างแบบลาย Flash'}</span>
                   )}
                 </button>
               </div>
@@ -1600,101 +1278,44 @@ export default function AdminFlashManagement() {
         document.body
       )}
 
-      {/* ========================================================================= */}
-      {/* MODAL 3: DELETE CONFIRMATION MODAL */}
-      {/* ========================================================================= */}
+      {/* Delete Confirmation Modal */}
       {deleteTarget && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-studio-card border border-studio-border rounded-[8px] max-w-md w-full p-6 space-y-5 shadow-2xl animate-in fade-in zoom-in-95 duration-200">
-            {/* Header */}
-            <div className="flex items-start gap-3">
-              <div className="w-10 h-10 rounded-full bg-red-950/50 border border-red-900/50 flex items-center justify-center text-red-400 shrink-0">
-                <Trash2 size={20} />
-              </div>
-              <div className="space-y-1">
-                <h3 className="text-base font-bold text-studio-primary">
-                  ลบลาย Flash นี้?
-                </h3>
-                <p className="text-xs text-studio-secondary leading-relaxed">
-                  ลาย Flash และไฟล์รูปภาพจะถูกลบออกจากระบบอย่างถาวร และไม่สามารถกู้คืนได้
-                </p>
-              </div>
+        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fadeIn">
+          <div className="bg-[#171512] border border-red-900/60 rounded-xl p-5 max-w-md w-full space-y-4 shadow-2xl text-xs text-[#ECE4D3]">
+            <div className="flex items-center gap-2 text-red-400 border-b border-[#2D2820] pb-3">
+              <AlertTriangle size={18} className="shrink-0" />
+              <h3 className="font-bold text-sm">ยืนยันการลบลาย Flash</h3>
             </div>
 
-            {/* Target Info */}
-            <div className="bg-studio-main border border-studio-border p-3.5 rounded-[6px] space-y-2 text-xs">
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded overflow-hidden border border-studio-border bg-black shrink-0">
-                  <img
-                    src={deleteTarget.image_url}
-                    alt={deleteTarget.title}
-                    className="w-full h-full object-cover"
-                  />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="font-bold text-studio-primary text-sm truncate">
-                    {deleteTarget.title}
-                  </div>
-                  <div className="text-[11px] text-studio-secondary flex items-center gap-2 mt-0.5">
-                    <span>สไตล์: {deleteTarget.style}</span>
-                    <span>•</span>
-                    <span className="text-studio-red font-semibold">฿{deleteTarget.price.toLocaleString()}</span>
-                  </div>
-                </div>
-              </div>
+            <p className="text-[#A89F91] leading-relaxed">
+              คุณต้องการลบลาย Flash <strong className="text-[#ECE4D3]">&quot;{deleteTarget.title}&quot;</strong> ใช่หรือไม่?
+              การดำเนินการนี้ไม่สามารถย้อนกลับได้
+            </p>
 
-              {/* Status Notice if not AVAILABLE */}
-              {deleteTarget.status !== 'AVAILABLE' && (
-                <div className="pt-2 border-t border-studio-border/60">
-                  <div className="bg-amber-950/30 border border-amber-900/50 text-amber-300 p-2.5 rounded text-[11px] flex items-center gap-2">
-                    <AlertCircle size={14} className="shrink-0 text-amber-400" />
-                    <span>
-                      {deleteTarget.status === 'HELD' && 'ไม่สามารถลบได้ เนื่องจากลายนี้กำลังถูกพักสิทธิ์'}
-                      {deleteTarget.status === 'RESERVED' && 'ไม่สามารถลบได้ เนื่องจากลายนี้มีการจองอยู่'}
-                      {deleteTarget.status === 'SOLD' && 'ไม่สามารถลบลายที่ขายแล้วได้ เนื่องจากต้องเก็บประวัติการขาย'}
-                      {deleteTarget.status !== 'HELD' && deleteTarget.status !== 'RESERVED' && deleteTarget.status !== 'SOLD' && `ไม่สามารถลบลาย Flash ในสถานะ ${deleteTarget.status} ได้`}
-                    </span>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Error Message if any */}
             {deleteErrorMessage && (
-              <div className="bg-red-950/40 border border-red-900/60 text-red-300 p-3 rounded text-xs flex items-center gap-2">
-                <AlertCircle size={14} className="shrink-0 text-red-400" />
+              <div className="p-3 bg-red-950/40 border border-red-800/80 rounded text-red-300 flex items-center gap-2">
+                <AlertCircle size={14} className="shrink-0" />
                 <span>{deleteErrorMessage}</span>
               </div>
             )}
 
-            {/* Action Buttons */}
-            <div className="flex justify-end items-center gap-3 pt-2">
+            <div className="flex justify-end gap-2 pt-2 border-t border-[#2D2820]">
               <button
                 type="button"
                 disabled={isDeletingFlash}
                 onClick={handleCloseDeleteModal}
-                className="px-4 py-2 bg-studio-main hover:bg-studio-sec border border-studio-border text-xs text-studio-primary rounded-[4px] transition-colors disabled:opacity-50"
+                className="px-4 py-2 bg-transparent border border-[#4A443A] text-[#A89F91] hover:text-[#ECE4D3] rounded font-medium transition-colors"
               >
                 ยกเลิก
               </button>
-
               <button
                 type="button"
-                disabled={isDeletingFlash || deleteTarget.status !== 'AVAILABLE'}
+                disabled={isDeletingFlash}
                 onClick={handleConfirmDelete}
-                className="px-4 py-2 bg-red-600 hover:bg-red-700 disabled:bg-red-950/40 disabled:text-red-400/40 disabled:border-red-900/30 text-white text-xs font-bold rounded-[4px] transition-colors flex items-center gap-1.5 shadow-md"
+                className="px-4 py-2 bg-red-700 hover:bg-red-600 text-white rounded font-bold transition-all flex items-center gap-1.5"
               >
-                {isDeletingFlash ? (
-                  <>
-                    <Loader2 size={13} className="animate-spin" />
-                    <span>กำลังลบ...</span>
-                  </>
-                ) : (
-                  <>
-                    <Trash2 size={13} />
-                    <span>ลบถาวร</span>
-                  </>
-                )}
+                {isDeletingFlash ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
+                <span>ยืนยันลบ</span>
               </button>
             </div>
           </div>

@@ -3,6 +3,8 @@
 import React, { useState } from 'react';
 import { useApp } from '../AppContext';
 import { EstimateRequest } from '@/data/mockEstimateRequests';
+import { formatTattooSize } from '@/lib/utils/formatters';
+import { calculateBlockingEndTime } from '@/lib/utils/tattooDuration';
 import BookingStatusBadge from '../portal/BookingStatusBadge';
 import { Mail, Check, X, Calendar, MapPin, Ruler, Loader2, AlertCircle, CheckCircle2 } from 'lucide-react';
 import CustomerReferenceImage from '@/components/common/CustomerReferenceImage';
@@ -81,8 +83,15 @@ export default function EstimateRequestQueue({ singleArtistId = null }: Estimate
     setLoading(true);
     try {
       const supabase = createClient();
+      const targetEstimate = estimateRequests.find(e => e.id === id);
       const internalStartTime = '13:00';
-      const internalEndTime = calculateEndTime(internalStartTime, durationVal);
+      const internalEndTime = calculateBlockingEndTime(
+        internalStartTime,
+        (targetEstimate as any)?.estimated_size_tier,
+        targetEstimate?.width,
+        targetEstimate?.height,
+        targetEstimate?.description
+      );
       const formattedStartTime = `${internalStartTime}:00`;
       const formattedEndTime = `${internalEndTime}:00`;
 
@@ -103,17 +112,25 @@ export default function EstimateRequestQueue({ singleArtistId = null }: Estimate
       });
 
       if (rpcErr) {
-        if (rpcErr.code === '23P01' || rpcErr.message?.includes('no_artist_double_booking')) {
+        console.error('RPC admin_confirm_booking_request error:', {
+          code: rpcErr.code,
+          message: rpcErr.message,
+          details: rpcErr.details,
+          hint: rpcErr.hint,
+        });
+        const isStatusMismatch =
+          rpcErr.message?.includes('must be PENDING') ||
+          rpcErr.message?.includes('is in status ACCEPTED') ||
+          rpcErr.message?.includes('A booking already exists for estimate request');
+
+        if (isStatusMismatch) {
+          setError('คำขอนี้ได้รับการยืนยันไปแล้ว');
+        } else if (rpcErr.code === '23P01' || rpcErr.message?.includes('no_artist_double_booking')) {
           setError('ช่วงเวลานี้มีคิวของช่างอยู่แล้ว กรุณาเลือกเวลาอื่น');
         } else if (rpcErr.code === '42501') {
           setError('คุณไม่มีสิทธิ์ยืนยันคำขอนี้');
-        } else if (
-          rpcErr.code === '23505' ||
-          rpcErr.message?.includes('already exists') ||
-          rpcErr.message?.includes('must be PENDING') ||
-          rpcErr.message?.includes('is in status ACCEPTED')
-        ) {
-          setError('คำขอนี้ได้รับการยืนยันไปแล้ว');
+        } else if (rpcErr.code === '23505' || rpcErr.message?.includes('already exists')) {
+          setError('บันทึกการยืนยันไม่สำเร็จ กรุณาตรวจสอบข้อมูลที่เกี่ยวข้อง');
         } else {
           setError(rpcErr.message || 'เกิดข้อผิดพลาดในการยืนยันคิวสัก');
         }
@@ -187,7 +204,7 @@ export default function EstimateRequestQueue({ singleArtistId = null }: Estimate
                 <td className="p-4 space-y-1">
                   <div className="flex items-center space-x-1">
                     <Ruler size={11} className="text-studio-red" />
-                    <span>ขนาด: <span className="font-bold">{req.width}x{req.height} ซม.</span></span>
+                    <span>ขนาด: <span className="font-bold">{formatTattooSize(req.width, req.height)}</span></span>
                   </div>
                   <div className="flex items-center space-x-1">
                     <MapPin size={11} className="text-studio-red" />

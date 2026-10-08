@@ -31,10 +31,10 @@ export default function ForgotPasswordPage() {
 
     try {
       const supabase = createClient();
-      const origin = typeof window !== 'undefined' ? window.location.origin : '';
+      const origin = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000';
       
       const { error: resetErr } = await supabase.auth.resetPasswordForEmail(cleanEmail, {
-        redirectTo: `${origin}/reset-password`,
+        redirectTo: `${origin}/auth/callback?next=${encodeURIComponent('/reset-password')}`,
       });
 
       setLoading(false);

@@ -27,6 +27,7 @@ import {
   Send,
 } from 'lucide-react';
 import Image from 'next/image';
+import PaymentSlipLightbox from '@/components/common/PaymentSlipLightbox';
 
 interface CustomerDepositPaymentSectionProps {
   booking: CustomerPortalBooking;
@@ -47,7 +48,6 @@ export default function CustomerDepositPaymentSection({
   const [loading, setLoading] = useState(true);
 
   // Form State
-  const [customerNote, setCustomerNote] = useState('');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [filePreview, setFilePreview] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -231,7 +231,7 @@ export default function CustomerDepositPaymentSection({
         p_claimed_amount: amountNum,
         p_slip_path: storagePath,
         p_reference_no: null,
-        p_customer_note: customerNote.trim() ? customerNote.trim() : null,
+        p_customer_note: null,
       });
 
       if (rpcErr) {
@@ -256,14 +256,13 @@ export default function CustomerDepositPaymentSection({
           throw new Error('หลักฐานของคุณกำลังรอตรวจสอบ');
         }
         if (rpcErr.message?.includes('WAITING_DEPOSIT')) {
-          throw new Error('คิวนี้ไม่ได้อยู่ในสถานะรอมัดจำ');
+          throw new Error('คิวนี้ไม่ได้อยู่ในสถานะรอชำระมัดจำ');
         }
         throw new Error(rpcErr.message || 'ส่งหลักฐานไม่สำเร็จ กรุณาลองใหม่อีกครั้ง');
       }
 
       setFormSuccess('ส่งหลักฐานการชำระเงินเรียบร้อยแล้ว');
       handleRemoveFile();
-      setCustomerNote('');
       setShowReUploadForm(false);
 
       // Refresh data
@@ -294,7 +293,7 @@ export default function CustomerDepositPaymentSection({
   const isBookingConfirmed = booking.status === 'CONFIRMED';
 
   // Deposit Deadline calculation (only when WAITING_DEPOSIT and no pending submission)
-  const deadlineInfo = isBookingWaitingDeposit && !pendingSubmission ? getDepositDeadlineInfo(booking.approved_at, booking.created_at) : null;
+  const deadlineInfo = isBookingWaitingDeposit && !pendingSubmission ? getDepositDeadlineInfo(booking.approved_at, booking.created_at, booking.requested_date, booking.requested_start_time) : null;
   const isDeadlineExpired = Boolean(deadlineInfo?.isExpired);
 
   // Check if active bank/QR settings exist
@@ -306,46 +305,91 @@ export default function CustomerDepositPaymentSection({
       paymentSettings.promptpay_id ||
       paymentSettings.payment_qr_path);
 
+  // Derived COMPLETED financial values
+  const isBookingCompleted = booking.status === 'COMPLETED';
+  const quotedPrice = Number(booking.financial?.quoted_price ?? 0);
+  const depositPaid = Number(booking.financial?.deposit_required ?? depositRequired);
+  const dayOfWorkPaid = Math.max(0, paidTotal - depositPaid);
+  const totalPaid = paidTotal;
+  const remainingBalance = Math.max(0, quotedPrice - totalPaid);
+
   return (
     <div className="space-y-4 font-prompt text-studio-primary">
-      {/* 1. Deposit Payment Summary Card */}
+      {/* 1. Deposit / Payment Summary Card */}
       <div className="bg-studio-main border border-studio-border p-4 rounded-[6px] space-y-3">
-        <div className="flex items-center justify-between border-b border-studio-border/40 pb-2">
-          <span className="text-[11px] uppercase tracking-wider font-bold text-studio-secondary flex items-center gap-1.5">
-            <Wallet size={13} className="text-studio-red" /> สรุปยอดเงินมัดจำ
-          </span>
-          {isBookingConfirmed && (
-            <span className="text-[10px] font-semibold text-emerald-400 bg-emerald-950/40 border border-emerald-800/40 px-2 py-0.5 rounded">
-              ชำระมัดจำครบแล้ว
-            </span>
-          )}
-        </div>
+        {isBookingCompleted ? (
+          <>
+            <div className="border-b border-studio-border/40 pb-2">
+              <span className="text-[11px] uppercase tracking-wider font-bold text-studio-secondary flex items-center gap-1.5">
+                <Wallet size={13} className="text-studio-red" /> สรุปการชำระเงิน
+              </span>
+            </div>
 
-        <div className="grid grid-cols-3 gap-2 text-[11px]">
-          <div className="bg-studio-card p-2 rounded border border-studio-border/40">
-            <span className="text-[9px] text-studio-secondary block">มัดจำที่กำหนด</span>
-            <span className="font-bold text-studio-primary text-xs mt-0.5 block">
-              ฿{formatCurrency(depositRequired)}
-            </span>
-          </div>
-          <div className="bg-studio-card p-2 rounded border border-studio-border/40">
-            <span className="text-[9px] text-studio-secondary block">รับแล้ว</span>
-            <span className="font-bold text-emerald-400 text-xs mt-0.5 block">
-              ฿{formatCurrency(paidTotal)}
-            </span>
-          </div>
-          <div className="bg-studio-card p-2 rounded border border-studio-border/40">
-            <span className="text-[9px] text-studio-secondary block">ยังขาดมัดจำ</span>
-            <span
-              className={
-                'font-bold text-xs mt-0.5 block ' +
-                (depositOutstanding > 0 ? 'text-studio-red' : 'text-studio-muted')
-              }
-            >
-              ฿{formatCurrency(depositOutstanding)}
-            </span>
-          </div>
-        </div>
+            <div className="space-y-2 text-xs pt-1">
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-studio-secondary">ค่าบริการเนื้องานรอบนี้</span>
+                <span className="font-semibold text-studio-primary">
+                  ฿{formatCurrency(quotedPrice)}
+                </span>
+              </div>
+
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-studio-secondary">หักเงินมัดจำ (โอนล็อกคิวไว้แล้ว)</span>
+                <span className="font-semibold text-studio-secondary font-mono">
+                  −฿{formatCurrency(depositPaid)}
+                </span>
+              </div>
+
+              <div className="border-t border-studio-border/40 pt-2.5 flex items-center justify-between text-xs">
+                <span className="font-bold text-studio-primary">
+                  ยอดที่ชำระหน้าร้านแล้ว
+                </span>
+                <span className="font-bold text-emerald-400 text-sm sm:text-base font-mono">
+                  ฿{formatCurrency(dayOfWorkPaid)}
+                </span>
+              </div>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="flex items-center justify-between border-b border-studio-border/40 pb-2">
+              <span className="text-[11px] uppercase tracking-wider font-bold text-studio-secondary flex items-center gap-1.5">
+                <Wallet size={13} className="text-studio-red" /> สรุปยอดเงินมัดจำ
+              </span>
+              {isBookingConfirmed && (
+                <span className="text-[10px] font-semibold text-emerald-400 bg-emerald-950/40 border border-emerald-800/40 px-2 py-0.5 rounded">
+                  ชำระมัดจำครบแล้ว
+                </span>
+              )}
+            </div>
+
+            <div className="grid grid-cols-3 gap-2 text-[11px]">
+              <div className="bg-studio-card p-2 rounded border border-studio-border/40">
+                <span className="text-[9px] text-studio-secondary block">มัดจำที่กำหนด</span>
+                <span className="font-bold text-studio-primary text-xs mt-0.5 block">
+                  ฿{formatCurrency(depositRequired)}
+                </span>
+              </div>
+              <div className="bg-studio-card p-2 rounded border border-studio-border/40">
+                <span className="text-[9px] text-studio-secondary block">รับแล้ว</span>
+                <span className="font-bold text-emerald-400 text-xs mt-0.5 block">
+                  ฿{formatCurrency(paidTotal)}
+                </span>
+              </div>
+              <div className="bg-studio-card p-2 rounded border border-studio-border/40">
+                <span className="text-[9px] text-studio-secondary block">ยังขาดมัดจำ</span>
+                <span
+                  className={
+                    'font-bold text-xs mt-0.5 block ' +
+                    (depositOutstanding > 0 ? 'text-studio-red' : 'text-studio-muted')
+                  }
+                >
+                  ฿{formatCurrency(depositOutstanding)}
+                </span>
+              </div>
+            </div>
+          </>
+        )}
       </div>
 
       {/* 2. Status Banner Contexts */}
@@ -717,20 +761,6 @@ export default function CustomerDepositPaymentSection({
               />
             </div>
 
-            {/* Customer Note */}
-            <div className="space-y-1">
-              <label className="text-[11px] font-semibold text-studio-secondary block">
-                หมายเหตุเพิ่มเติม <span className="text-[10px] text-studio-muted font-normal">(ถ้ามี)</span>
-              </label>
-              <textarea
-                rows={2}
-                value={customerNote}
-                onChange={(e) => setCustomerNote(e.target.value)}
-                placeholder="ระบุข้อมูลเพิ่มเติมถึงทางร้าน..."
-                className="w-full bg-studio-card border border-studio-border focus:border-studio-red focus:outline-none px-3 py-2 rounded-[4px] text-xs text-studio-primary resize-none font-light"
-              />
-            </div>
-
             {/* Submit Button */}
             <button
               type="submit"
@@ -753,12 +783,13 @@ export default function CustomerDepositPaymentSection({
         </div>
       )}
 
-      {/* 5. Payment Submission History List */}
-      {submissions.length > 0 && (
+      {/* 5. Payment Submission History List (Only when NOT COMPLETED) */}
+      {!isBookingCompleted && submissions.length > 0 && (
         <div className="bg-studio-main border border-studio-border p-4 rounded-[6px] space-y-3">
           <div className="border-b border-studio-border/40 pb-2 flex items-center justify-between">
             <span className="text-[11px] uppercase tracking-wider font-bold text-studio-secondary flex items-center gap-1.5">
-              <FileText size={13} className="text-studio-red" /> ประวัติการแจ้งชำระเงิน ({submissions.length})
+              <FileText size={13} className="text-studio-red" />{' '}
+              {isBookingCompleted ? 'หลักฐานการชำระมัดจำ' : 'ประวัติการแจ้งชำระเงิน'} ({submissions.length})
             </span>
           </div>
 
@@ -837,34 +868,11 @@ export default function CustomerDepositPaymentSection({
       )}
 
       {/* 6. High-Res Slip Lightbox Modal */}
-      {previewModalUrl && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm animate-fadeIn">
-          <div className="relative max-w-lg w-full bg-studio-card border border-studio-border rounded-[8px] overflow-hidden flex flex-col max-h-[90vh]">
-            <div className="p-3 border-b border-studio-border flex justify-between items-center bg-studio-main">
-              <span className="text-xs font-bold text-studio-primary flex items-center gap-1.5">
-                <ImageIcon size={14} className="text-studio-red" /> หลักฐานสลิปการโอนเงิน
-              </span>
-              <button
-                type="button"
-                onClick={() => setPreviewModalUrl(null)}
-                className="p-1 hover:bg-studio-card rounded text-studio-secondary hover:text-studio-primary transition-colors"
-              >
-                <X size={16} />
-              </button>
-            </div>
-            <div className="p-4 overflow-y-auto flex items-center justify-center bg-black/50 min-h-[300px]">
-              <Image
-                src={previewModalUrl}
-                alt="Payment Slip Full View"
-                width={500}
-                height={600}
-                className="max-h-[75vh] w-auto object-contain rounded"
-                unoptimized
-              />
-            </div>
-          </div>
-        </div>
-      )}
+      <PaymentSlipLightbox
+        src={previewModalUrl}
+        isOpen={Boolean(previewModalUrl)}
+        onClose={() => setPreviewModalUrl(null)}
+      />
     </div>
   );
 }

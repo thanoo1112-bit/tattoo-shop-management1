@@ -18,6 +18,8 @@ interface BookingCalendarProps {
   busyRanges?: BusyRange[];
   loading?: boolean;
   onMonthChange?: (year: number, month: number) => void; // month is 0-indexed (0 = Jan, 11 = Dec)
+  minDate?: string; // YYYY-MM-DD
+  disabledDates?: string[]; // YYYY-MM-DD
 }
 
 const THAI_MONTHS_FULL = [
@@ -48,10 +50,14 @@ export default function BookingCalendar({
   busyRanges: busyRangesProp = [],
   loading = false,
   onMonthChange,
+  minDate,
+  disabledDates = [],
 }: BookingCalendarProps) {
-  // Earliest bookable date is TODAY in Asia/Bangkok time
-  const minBookableDateStr = useMemo(() => getThailandTodayStr(), []);
+  // Earliest bookable date (defaults to TODAY in Asia/Bangkok time)
+  const minBookableDateStr = useMemo(() => minDate || getThailandTodayStr(), [minDate]);
   const todayStr = useMemo(() => getThailandTodayStr(), []);
+
+  const disabledDatesSet = useMemo(() => new Set(disabledDates), [disabledDates]);
 
   // Initialize display month from selectedDate or today
   const [viewDate, setViewDate] = useState(() => {
@@ -74,11 +80,6 @@ export default function BookingCalendar({
   const [fetchingBusy, setFetchingBusy] = useState(false);
 
   useEffect(() => {
-    if (!artistId) {
-      setFetchedBusyRanges([]);
-      return;
-    }
-
     let isMounted = true;
     setFetchingBusy(true);
 
@@ -91,7 +92,7 @@ export default function BookingCalendar({
 
         const supabase = createClient();
         const { data, error } = await supabase.rpc('get_artist_busy_ranges', {
-          p_artist_id: artistId,
+          p_artist_id: artistId || null,
           p_start_date: startDate,
           p_end_date: endDate,
         });
@@ -100,11 +101,14 @@ export default function BookingCalendar({
           if (!error && Array.isArray(data)) {
             setFetchedBusyRanges(data);
           } else {
-            const { data: sessData } = await supabase
+            let sessQuery = supabase
               .from('booking_sessions')
               .select('start_at, end_at')
-              .eq('artist_id', artistId)
               .in('status', ['SCHEDULED', 'IN_PROGRESS']);
+            if (artistId) {
+              sessQuery = sessQuery.eq('artist_id', artistId);
+            }
+            const { data: sessData } = await sessQuery;
             setFetchedBusyRanges((sessData || []) as BusyRange[]);
           }
         }
@@ -218,7 +222,7 @@ export default function BookingCalendar({
       const jsDay = new Date(year, month, d).getDay();
       const monFirstIdx = (jsDay + 6) % 7;
       const isPast = dateStr < minBookableDateStr;
-      const hasBusySession = busyDatesSet.has(dateStr);
+      const hasBusySession = busyDatesSet.has(dateStr) || disabledDatesSet.has(dateStr);
       const isSelected = selectedDate === dateStr;
 
       // Customer date picker rule: Future & Not Busy => Selectable
@@ -257,7 +261,7 @@ export default function BookingCalendar({
     }
 
     return slots;
-  }, [year, month, minBookableDateStr, busyDatesSet, selectedDate]);
+  }, [year, month, minBookableDateStr, busyDatesSet, disabledDatesSet, selectedDate]);
 
   const isGridLoading = loading || fetchingBusy;
 

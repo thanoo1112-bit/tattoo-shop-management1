@@ -1,3 +1,14 @@
+import { validateCustomerAge } from '@/lib/customerUtils';
+export {
+  formatTattooSize,
+  getEstimatedTattooDuration,
+  getTattooDurationInfo,
+  getTattooSizeCategory,
+  calculateBlockingEndTime,
+  isStartTimeAllowedForSize,
+  STUDIO_OPERATING_HOURS,
+} from '@/lib/utils/formatters';
+
 export const TIMEZONE = 'Asia/Bangkok';
 
 export const THAI_MONTHS_SHORT = [
@@ -90,6 +101,55 @@ export function formatThaiDate(dateStr?: string | null, fullMonth = false): stri
 }
 
 /**
+ * Formats a Date of Birth string (YYYY-MM-DD) into:
+ * "1 พฤษภาคม 2549 (อายุ 20 ปี)"
+ * Or if missing/invalid:
+ * "ยังไม่ได้ระบุ (อายุ —)"
+ *
+ * Uses direct string parsing to avoid UTC/Local timezone offset shifts,
+ * and calculates exact age in Asia/Bangkok time zone.
+ */
+export function formatCustomerDateOfBirthAndAge(
+  dateOfBirthStr?: string | null,
+  referenceDate: Date = new Date()
+): string {
+  if (!dateOfBirthStr || typeof dateOfBirthStr !== 'string' || !dateOfBirthStr.trim()) {
+    return 'ยังไม่ได้ระบุ (อายุ —)';
+  }
+
+  const cleanStr = dateOfBirthStr.trim();
+  const parts = cleanStr.split('-');
+  if (parts.length !== 3) {
+    return 'ยังไม่ได้ระบุ (อายุ —)';
+  }
+
+  const adYear = parseInt(parts[0], 10);
+  const monthNum = parseInt(parts[1], 10);
+  const dayNum = parseInt(parts[2], 10);
+
+  if (
+    isNaN(adYear) ||
+    isNaN(monthNum) ||
+    isNaN(dayNum) ||
+    monthNum < 1 ||
+    monthNum > 12 ||
+    dayNum < 1 ||
+    dayNum > 31
+  ) {
+    return 'ยังไม่ได้ระบุ (อายุ —)';
+  }
+
+  const yearBE = adYear + 543;
+  const monthName = THAI_MONTHS_FULL[monthNum - 1];
+  const dateFormatted = `${dayNum} ${monthName} ${yearBE}`;
+
+  const ageVal = validateCustomerAge(cleanStr, referenceDate);
+  const ageDisplay = ageVal.age >= 0 ? `${ageVal.age}` : '—';
+
+  return `${dateFormatted} (อายุ ${ageDisplay} ปี)`;
+}
+
+/**
  * Formats ISO timestamp to "10:00 น."
  */
 export function formatTimeBangkok(isoString?: string | null): string {
@@ -143,14 +203,15 @@ export function resolveCustomerDisplayStatus(
   status: string,
   hasPendingSlip?: boolean
 ): string {
-  if (status === 'CONFIRMED' || status === 'APPROVED') return 'CONFIRMED';
+  if (status === 'CONFIRMED') return 'CONFIRMED';
+  if (status === 'APPROVED') return 'APPROVED';
   if (status === 'COMPLETED') return 'COMPLETED';
   if (status === 'IN_PROGRESS') return 'IN_PROGRESS';
   if (status === 'CANCELLED') return 'CANCELLED';
   if (status === 'REJECTED') return 'REJECTED';
 
   if (hasPendingSlip) {
-    return 'PENDING';
+    return 'SLIP_REVIEW';
   }
 
   if (status === 'WAITING_DEPOSIT' || status === 'QUOTED') {
@@ -166,6 +227,24 @@ export function resolveCustomerDisplayStatus(
   }
 
   return status;
+}
+
+export function formatWorkTypeLabel(workType?: string | null): string {
+  if (!workType) return 'งานสักใหม่';
+  switch (workType) {
+    case 'NEW_TATTOO':
+      return 'งานสักใหม่';
+    case 'CUSTOM_DESIGN':
+      return 'งานออกแบบลาย';
+    case 'REWORK':
+      return 'แก้ไขงานสักเดิม';
+    case 'COVER_UP':
+      return 'แก้/ทับรอยสักเดิม';
+    case 'SCAR_COVER':
+      return 'สักทับรอยแผลเป็น';
+    default:
+      return 'งานสักใหม่';
+  }
 }
 
 /**
@@ -206,7 +285,9 @@ export interface DepositDeadlineInfo {
  */
 export function getDepositDeadlineInfo(
   approvedAt?: string | null,
-  createdAt?: string | null
+  createdAt?: string | null,
+  requestedDate?: string | null,
+  requestedStartTime?: string | null
 ): DepositDeadlineInfo | null {
   const startTimeStr = approvedAt || createdAt;
   if (!startTimeStr) return null;
@@ -216,7 +297,20 @@ export function getDepositDeadlineInfo(
 
     // Legacy booking (approvedAt present): 24 hours. New deposit-first booking (approvedAt null): 1 hour.
     const durationMs = approvedAt ? 24 * 60 * 60 * 1000 : 1 * 60 * 60 * 1000;
-    const deadlineMs = startTime + durationMs;
+    let deadlineMs = startTime + durationMs;
+
+    // Cap deposit deadline by requested appointment time if present (cannot pay deposit AFTER appointment time)
+    if (requestedDate) {
+      const timePart = (requestedStartTime && requestedStartTime.trim())
+        ? (requestedStartTime.length === 5 ? `${requestedStartTime}:00` : requestedStartTime)
+        : '10:00:00';
+      const appointmentDateObj = new Date(`${requestedDate}T${timePart}`);
+      const appointmentMs = appointmentDateObj.getTime();
+      if (!isNaN(appointmentMs) && appointmentMs > 0) {
+        deadlineMs = Math.min(deadlineMs, appointmentMs);
+      }
+    }
+
     const now = Date.now();
     const remainingMs = deadlineMs - now;
     const isExpired = remainingMs <= 0;
@@ -267,4 +361,67 @@ export function getDepositDeadlineInfo(
     return null;
   }
 }
+
+/**
+ * Parses bracketed/tagged metadata from flash_reservations.customer_note
+ * e.g. [ตำแหน่ง: หน้าอก], [ขนาด: Size L], [เวลาสะดวก: 14:00]
+ */
+export function parseFlashCustomerNote(noteText?: string | null): {
+  parsedPlacement: string | null;
+  parsedSizeRaw: string | null;
+  cleanNote: string;
+} {
+  if (!noteText || !noteText.trim()) {
+    return { parsedPlacement: null, parsedSizeRaw: null, cleanNote: '' };
+  }
+
+  let text = noteText.trim();
+  let parsedPlacement: string | null = null;
+  let parsedSizeRaw: string | null = null;
+
+  // 1. Bracketed placement: [ตำแหน่ง: ...] or [ตำแหน่งที่สัก: ...]
+  const bracketPlacementMatch = text.match(/\[(?:ตำแหน่ง|ตำแหน่งที่สัก):\s*([^\]]+)\]/i);
+  if (bracketPlacementMatch) {
+    parsedPlacement = bracketPlacementMatch[1].trim();
+    text = text.replace(/\[(?:ตำแหน่ง|ตำแหน่งที่สัก):\s*([^\]]+)\]/gi, '');
+  } else {
+    const linePlacementMatch = text.match(/(?:^|\n)(?:ตำแหน่ง|ตำแหน่งที่สัก):\s*([^\n]+)/i);
+    if (linePlacementMatch) {
+      parsedPlacement = linePlacementMatch[1].trim();
+      text = text.replace(/(?:^|\n)(?:ตำแหน่ง|ตำแหน่งที่สัก):\s*([^\n]+)/gi, '');
+    }
+  }
+
+  // 2. Bracketed size: [ขนาด: ...] or [ขนาดงานสัก: ...]
+  const bracketSizeMatch = text.match(/\[(?:ขนาด|ขนาดงานสัก):\s*([^\]]+)\]/i);
+  if (bracketSizeMatch) {
+    parsedSizeRaw = bracketSizeMatch[1].trim();
+    text = text.replace(/\[(?:ขนาด|ขนาดงานสัก):\s*([^\]]+)\]/gi, '');
+  } else {
+    const lineSizeMatch = text.match(/(?:^|\n)(?:ขนาด|ขนาดงานสัก):\s*([^\n]+)/i);
+    if (lineSizeMatch) {
+      parsedSizeRaw = lineSizeMatch[1].trim();
+      text = text.replace(/(?:^|\n)(?:ขนาด|ขนาดงานสัก):\s*([^\n]+)/gi, '');
+    }
+  }
+
+  // 3. Remove time/date legacy tags e.g. [เวลาสะดวก: ...], [วันสะดวก: ...]
+  text = text
+    .replace(/\[(?:เวลาสะดวก|เวลาที่สะดวก|เวลาเริ่ม|วันสะดวก|วันที่สะดวก|วันนัด):\s*([^\]]+)\]/gi, '')
+    .replace(/(?:^|\n)(?:เวลาสะดวก|เวลาที่สะดวก|เวลาเริ่ม|วันสะดวก|วันที่สะดวก|วันนัด):\s*([^\n]+)/gi, '');
+
+  const cleanNote = text
+    .split('\n')
+    .map((l) => l.trim())
+    .filter(Boolean)
+    .join('\n')
+    .trim();
+
+  return {
+    parsedPlacement,
+    parsedSizeRaw,
+    cleanNote,
+  };
+}
+
 

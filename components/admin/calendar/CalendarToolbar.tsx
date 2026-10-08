@@ -15,6 +15,7 @@ interface CalendarToolbarProps {
   onRefresh: () => void;
   isLoading: boolean;
   onOpenBlockModal?: () => void;
+  onOpenCreateBookingModal?: () => void;
 }
 
 export default function CalendarToolbar({
@@ -94,45 +95,7 @@ export default function CalendarToolbar({
           </button>
         )}
 
-        {/* View Mode Buttons */}
-        <div className="inline-flex bg-[#0E0D0C] border border-[#4A443A] rounded-lg p-0.5">
-          <button
-            id="btn-view-month"
-            type="button"
-            onClick={() => onViewModeChange('MONTH')}
-            className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
-              viewMode === 'MONTH'
-                ? 'bg-[#171512] text-[#ECE4D3] shadow-sm font-semibold border border-[#4A443A]/60'
-                : 'text-[#A89F91] hover:text-[#ECE4D3]'
-            }`}
-          >
-            เดือน
-          </button>
-          <button
-            id="btn-view-week"
-            type="button"
-            onClick={() => onViewModeChange('WEEK')}
-            className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
-              viewMode === 'WEEK'
-                ? 'bg-[#171512] text-[#ECE4D3] shadow-sm font-semibold border border-[#4A443A]/60'
-                : 'text-[#A89F91] hover:text-[#ECE4D3]'
-            }`}
-          >
-            สัปดาห์
-          </button>
-          <button
-            id="btn-view-day"
-            type="button"
-            onClick={() => onViewModeChange('DAY')}
-            className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
-              viewMode === 'DAY'
-                ? 'bg-[#171512] text-[#ECE4D3] shadow-sm font-semibold border border-[#4A443A]/60'
-                : 'text-[#A89F91] hover:text-[#ECE4D3]'
-            }`}
-          >
-            วัน / Agenda
-          </button>
-        </div>
+
 
         {/* Refresh Button */}
         <button

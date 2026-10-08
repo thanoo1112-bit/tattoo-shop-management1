@@ -5,7 +5,16 @@ import { CustomerPortalEstimate } from './types';
 import { createClient } from '@/lib/supabase/client';
 import BookingCalendar, { BusyRange } from '../booking/BookingCalendar';
 import { X, Calendar, Clock, AlertTriangle, CheckCircle2, Ban, Info, RefreshCw } from 'lucide-react';
-import { formatThaiDate, formatCurrency, formatTimeBangkok, getThailandTodayStr, getThailandTomorrowStr } from './portalUtils';
+import {
+  formatThaiDate,
+  formatCurrency,
+  formatTimeBangkok,
+  getThailandTodayStr,
+  getThailandTomorrowStr,
+  getTattooDurationInfo,
+  isStartTimeAllowedForSize,
+  calculateBlockingEndTime,
+} from './portalUtils';
 
 interface CustomerBookingCreateModalProps {
   estimate: CustomerPortalEstimate;
@@ -28,6 +37,15 @@ export default function CustomerBookingCreateModal({
   onClose,
   onSuccess,
 }: CustomerBookingCreateModalProps) {
+  const durationInfo = useMemo(() => {
+    return getTattooDurationInfo(
+      estimate.estimated_size_tier,
+      estimate.width_cm,
+      estimate.height_cm,
+      estimate.description
+    );
+  }, [estimate]);
+
   const [requestedDate, setRequestedDate] = useState(() => {
     const minBookable = getThailandTodayStr();
     if (estimate.preferred_date && estimate.preferred_date >= minBookable) {
@@ -35,7 +53,21 @@ export default function CustomerBookingCreateModal({
     }
     return minBookable;
   });
-  const [requestedTime, setRequestedTime] = useState('11:00');
+  const [requestedTime, setRequestedTime] = useState(() => {
+    if (
+      estimate.preferred_time &&
+      isStartTimeAllowedForSize(
+        estimate.preferred_time,
+        estimate.estimated_size_tier,
+        estimate.width_cm,
+        estimate.height_cm,
+        estimate.description
+      )
+    ) {
+      return estimate.preferred_time;
+    }
+    return '10:00';
+  });
   const [customerNote, setCustomerNote] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -60,7 +92,7 @@ export default function CustomerBookingCreateModal({
 
   const artistId = estimate.artist?.id || estimate.artist_id;
   const artistWorkingDays = estimate.artist?.working_days || [];
-  const durationMinutes = estimate.estimated_duration_minutes || 0;
+  const durationMinutes = durationInfo.blockingMinutes;
 
   const artistName = estimate.artist?.name
     ? `${estimate.artist.name}${estimate.artist.nickname ? ` (${estimate.artist.nickname})` : ''}`
@@ -388,19 +420,27 @@ export default function CustomerBookingCreateModal({
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 pt-1">
               {PRESET_START_TIMES.map((t) => {
                 const isConflicted = checkTimeSlotConflict(t.value);
+                const isAllowedForSize = isStartTimeAllowedForSize(
+                  t.value,
+                  estimate.estimated_size_tier,
+                  estimate.width_cm,
+                  estimate.height_cm,
+                  estimate.description
+                );
+                const isDisabled = isConflicted || !isAllowedForSize;
                 const isSelected = requestedTime === t.value;
 
                 return (
                   <button
                     key={t.value}
                     type="button"
-                    disabled={isConflicted}
+                    disabled={isDisabled}
                     onClick={() => {
                       setRequestedTime(t.value);
                       setError('');
                     }}
                     className={`py-2 px-2.5 rounded-[4px] border text-xs font-semibold transition-all flex flex-col items-center justify-center gap-0.5 ${
-                      isConflicted
+                      isDisabled
                         ? 'bg-studio-main/40 border-studio-border/40 text-studio-muted/40 opacity-40 cursor-not-allowed'
                         : isSelected
                         ? 'bg-studio-red border-studio-red text-studio-paper shadow-sm'
@@ -408,9 +448,13 @@ export default function CustomerBookingCreateModal({
                     }`}
                   >
                     <span>{t.value} น.</span>
-                    {isConflicted && (
+                    {isConflicted ? (
                       <span className="text-[9px] text-red-400 font-normal">ติดคิว</span>
-                    )}
+                    ) : !isAllowedForSize ? (
+                      <span className="text-[9px] text-amber-500/80 font-normal">
+                        นอกเวลาทำการ
+                      </span>
+                    ) : null}
                   </button>
                 );
               })}

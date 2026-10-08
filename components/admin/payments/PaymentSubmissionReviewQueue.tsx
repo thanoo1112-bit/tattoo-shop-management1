@@ -57,7 +57,7 @@ export default function PaymentSubmissionReviewQueue({
       // 1. Fetch raw submissions
       const { data: rawSubs, error: subsErr } = await supabase
         .from('booking_payment_submissions')
-        .select('*')
+        .select('id, booking_id, customer_user_id, status, claimed_amount, payment_type, slip_path, reference_no, submitted_at, reviewer_id, reviewer_note, reviewed_at, created_at')
         .order('submitted_at', { ascending: false });
 
       if (subsErr) throw subsErr;
@@ -78,7 +78,7 @@ export default function PaymentSubmissionReviewQueue({
       const bookingIds = Array.from(new Set(subsList.map((s: any) => s.booking_id)));
       const { data: rawBookings } = await supabase
         .from('bookings')
-        .select('*, artists(id, name, nickname), booking_sessions(id, session_number, start_at, end_at, status)')
+        .select('*, artists(id, name, nickname), booking_sessions(id, session_number, start_at, end_at, status), flash_reservations(*, flash_designs(*))')
         .in('id', bookingIds);
 
       const estIds = Array.from(new Set((rawBookings || []).map((b: any) => b.estimate_request_id).filter(Boolean)));
@@ -107,6 +107,8 @@ export default function PaymentSubmissionReviewQueue({
       const combined: PaymentSubmissionDetail[] = subsList.map((sub: any) => {
         const b = (rawBookings || []).find((x: any) => x.id === sub.booking_id);
         const est = b?.estimate_request_id ? (rawEstimates || []).find((e: any) => e.id === b.estimate_request_id) : null;
+        const fr = Array.isArray(b?.flash_reservations) ? b.flash_reservations[0] : b?.flash_reservations;
+        const fd = fr?.flash_designs;
         const c = (rawCustomers || []).find((x: any) => x.user_id === sub.customer_user_id);
         const p = (rawProfiles || []).find((x: any) => x.user_id === sub.customer_user_id);
         const f = (rawFinancials || []).find((x: any) => x.booking_id === sub.booking_id);
@@ -124,9 +126,13 @@ export default function PaymentSubmissionReviewQueue({
 
         const phoneCandidate = p?.phone || c?.phone || '';
 
-        const depReq = Number(f?.deposit_required ?? est?.deposit_required ?? 0);
+        const depReq = Number(f?.deposit_required ?? 500);
         const paid = Number(f?.paid_total ?? 0);
         const outstanding = Math.max(0, depReq - paid);
+
+        const isFlash = Boolean(b?.flash_reservation_id || fr);
+        const flashResId = fr?.id || b?.flash_reservation_id || null;
+        const flashCode = flashResId ? (flashResId.toUpperCase().startsWith('FLASH-') ? flashResId : `FLASH-${flashResId.slice(0, 8).toUpperCase()}`) : null;
 
         return {
           id: sub.id,
@@ -149,21 +155,23 @@ export default function PaymentSubmissionReviewQueue({
           customer_email: c?.email || p?.email || '',
           artist_name: artist?.name ? `${artist.name}${artist.nickname ? ` (${artist.nickname})` : ''}` : 'ช่างสักประจำร้าน',
           artist_nickname: artist?.nickname || null,
-          artwork_title: b?.artwork_title || est?.style || 'งานสัก Custom',
-          artwork_image_url: b?.artwork_image_url || null,
-          reference_images: b?.reference_images || null,
-          placement: b?.placement || est?.placement || null,
-          width_cm: b?.width_cm || est?.width_cm || null,
-          height_cm: b?.height_cm || est?.height_cm || null,
-          style: est?.style || null,
-          description: est?.description || b?.description || null,
-          quoted_price: Number(f?.quoted_price ?? est?.quoted_price ?? 0),
+          artwork_title: fd?.title || b?.artwork_title || est?.style || (isFlash ? 'งานสัก Flash' : 'งานสัก Custom'),
+          artwork_image_url: fd?.image_url || b?.artwork_image_url || null,
+          reference_images: fd?.image_url ? [fd.image_url] : (b?.reference_images || null),
+          placement: fr?.placement || b?.placement || est?.placement || null,
+          width_cm: fr?.width_cm || b?.width_cm || est?.width_cm || null,
+          height_cm: fr?.height_cm || b?.height_cm || est?.height_cm || null,
+          style: fd?.style || est?.style || (isFlash ? 'Flash' : 'Custom'),
+          description: fr?.customer_note || est?.description || b?.description || null,
+          quoted_price: Number(f?.quoted_price ?? est?.quoted_price ?? fd?.price ?? 0),
           requested_date: b?.requested_date || null,
           booking_status: b?.status || 'WAITING_DEPOSIT',
           deposit_required: depReq,
           paid_total: paid,
           outstanding_deposit: outstanding,
           estimate_request_id: b?.estimate_request_id || null,
+          flash_reservation_id: flashResId,
+          flash_reservation_code: flashCode,
           estimate_reference_images: est?.reference_images || null,
           sessions: (b?.booking_sessions || []).map((ses: any) => ({
             id: ses.id,

@@ -41,6 +41,7 @@ export default function BookingFlow({
   const router = useRouter();
   const {
     isLoggedIn,
+    user,
     isCustomerProfileComplete,
     artists,
     addBookingRequest,
@@ -142,16 +143,36 @@ export default function BookingFlow({
   };
 
   const handleFinalSubmit = async () => {
-    if (!isLoggedIn) {
+    if (!isLoggedIn || !user) {
       saveDraft();
       setShowLogin(true);
       return;
     }
 
-    if (!isCustomerProfileComplete) {
-      saveDraft();
-      router.push('/complete-profile?next=' + encodeURIComponent(window.location.pathname + window.location.search));
-      return;
+    console.log('[BOOKING_FLOW_SUBMIT_TRACE]', {
+      currentUserId: user.id,
+      profileFound: Boolean(user),
+      isCustomerProfileComplete,
+      timestamp: new Date().toISOString(),
+    });
+
+    // Validation Case 1: Owner Artist Lock
+    if (isArtistLocked && preselectedArtist) {
+      if (selectedArtist?.id !== preselectedArtist.id) {
+        setError(`ไม่สามารถเปลี่ยนช่างสักได้ เนื่องจากผลงานนี้จองกับ ${preselectedArtist.name} เท่านั้น`);
+        return;
+      }
+    }
+
+    // Validation Case 2: Style Support Check
+    if (selectedArtist && selectedArtwork?.style) {
+      const specs = selectedArtist.specialties && selectedArtist.specialties.length > 0
+        ? selectedArtist.specialties
+        : (selectedArtist.specialty ? [selectedArtist.specialty] : []);
+      if (specs.length > 0 && !specs.includes(selectedArtwork.style)) {
+        setError(`ช่าง${selectedArtist.name} ไม่รับงานสักสไตล์ "${selectedArtwork.style}"`);
+        return;
+      }
     }
 
     setLoading(true);
@@ -204,59 +225,63 @@ export default function BookingFlow({
               เลือกช่างสักสำหรับบริการ
             </span>
 
-            {isArtistLocked ? (
-              <div className="p-3 bg-studio-card border border-studio-red/40 rounded-[4px] flex justify-between items-center">
-                <div>
-                  <h4 className="text-xs font-bold text-studio-primary">{selectedArtist?.name}</h4>
-                  <span className="text-[9px] text-studio-red uppercase tracking-wider font-semibold">
-                    {selectedArtist?.specialties && selectedArtist.specialties.length > 0
-                      ? selectedArtist.specialties.join(' / ')
-                      : selectedArtist?.specialty}
-                  </span>
-                </div>
-                <span className="text-[9px] text-studio-muted italic">(ช่างสักถูกล็อคตามรายการงาน)</span>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 gap-2">
-                {activeArtists.map((artist) => {
-                  const isSelected = selectedArtist?.id === artist.id;
-                  const specLabel = artist.specialties && artist.specialties.length > 0
-                    ? artist.specialties.join(' / ')
-                    : artist.specialty;
-                  return (
-                    <button
-                      key={artist.id}
-                      type="button"
-                      onClick={() => setSelectedArtist(artist)}
-                      className={`p-3 rounded-[4px] border text-left flex items-center justify-between transition-all duration-200 ${
-                        isSelected
-                          ? 'bg-studio-red/10 border-studio-red text-studio-red shadow-sm'
-                          : 'bg-studio-card border-studio-border text-studio-secondary hover:border-studio-red/50'
-                      }`}
-                    >
-                      <div className="flex items-center space-x-3">
-                        <img
-                          src={artist.avatar}
-                          alt={artist.name}
-                          className="w-9 h-9 rounded-full object-cover border border-studio-border"
-                        />
-                        <div>
-                          <div className={`text-xs font-bold ${isSelected ? 'text-studio-primary' : 'text-studio-secondary'}`}>
-                            {artist.name}
-                          </div>
-                          <div className="text-[9px] uppercase tracking-wider opacity-80">
-                            {specLabel}
-                          </div>
+            <div className="grid grid-cols-1 gap-2">
+              {activeArtists.map((artist) => {
+                const isSelected = selectedArtist?.id === artist.id;
+                const specs = artist.specialties && artist.specialties.length > 0
+                  ? artist.specialties
+                  : (artist.specialty ? [artist.specialty] : []);
+                const specLabel = specs.length > 0 ? specs.join(' / ') : 'ช่างประจำร้าน';
+
+                const isOtherArtistInLockedMode = isArtistLocked && preselectedArtist && artist.id !== preselectedArtist.id;
+                const isStyleUnsupported = !isArtistLocked && selectedArtwork?.style && specs.length > 0 && !specs.includes(selectedArtwork.style);
+                const isDisabled = Boolean(isOtherArtistInLockedMode || isStyleUnsupported);
+
+                return (
+                  <button
+                    key={artist.id}
+                    type="button"
+                    disabled={isDisabled}
+                    onClick={() => {
+                      if (!isDisabled) {
+                        setSelectedArtist(artist);
+                      }
+                    }}
+                    className={`p-3 rounded-[4px] border text-left flex items-center justify-between transition-all duration-200 ${
+                      isDisabled
+                        ? 'opacity-40 filter grayscale cursor-not-allowed pointer-events-none bg-studio-main/30 border-studio-border/40'
+                        : isSelected
+                        ? 'bg-studio-red/10 border-studio-red text-studio-red shadow-sm cursor-pointer'
+                        : 'bg-studio-card border-studio-border text-studio-secondary hover:border-studio-red/50 cursor-pointer'
+                    }`}
+                  >
+                    <div className="flex items-center space-x-3 min-w-0 flex-1">
+                      <img
+                        src={artist.avatar}
+                        alt={artist.name}
+                        className="w-9 h-9 rounded-full object-cover border border-studio-border shrink-0"
+                      />
+                      <div className="min-w-0 flex-1">
+                        <div className={`text-xs font-bold ${isSelected && !isDisabled ? 'text-studio-primary' : 'text-studio-secondary'}`}>
+                          {artist.name}
                         </div>
+                        <div className="text-[9px] uppercase tracking-wider opacity-80 truncate">
+                          {specLabel}
+                        </div>
+                        {isStyleUnsupported && (
+                          <div className="text-[9px] text-red-400 font-medium truncate mt-0.5">
+                            ช่างท่านนี้ไม่รับงานสไตล์นี้
+                          </div>
+                        )}
                       </div>
-                      {isSelected && (
-                        <div className="w-2 h-2 rounded-full bg-studio-red mr-2" />
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-            )}
+                    </div>
+                    {isSelected && !isDisabled && (
+                      <div className="w-2 h-2 rounded-full bg-studio-red mr-2 shrink-0" />
+                    )}
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
           {selectedArtwork && (

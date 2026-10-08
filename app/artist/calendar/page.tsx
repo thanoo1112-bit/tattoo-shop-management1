@@ -13,27 +13,24 @@ import {
   Clock, 
   User, 
   Layers, 
-  CheckCircle2, 
   RefreshCw,
-  Filter,
   Lock,
   Unlock,
-  Ban
+  Ban,
+  Eye
 } from 'lucide-react';
 import { 
   getTodayBangkokStr, 
   getDateStrBangkok, 
   formatDateBangkok, 
   formatTimeBangkok, 
-  calculateDurationText, 
-  getSessionStatusConfig, 
   THAI_MONTHS_FULL, 
   THAI_DAYS_SHORT 
 } from '@/components/admin/calendar/calendarUtils';
 import { parseNoteWithPreferredTime } from '@/lib/noteUtils';
 
 export default function ArtistCalendarPage() {
-  const { isStaffLoggedIn, staffRole, staffArtistId, staffArtistRecord, profile, authLoading } = useApp();
+  const { isStaffLoggedIn, staffRole, staffArtistId, authLoading } = useApp();
   const supabase = createClient();
 
   const [loading, setLoading] = useState(true);
@@ -42,12 +39,13 @@ export default function ArtistCalendarPage() {
   const [customersMap, setCustomersMap] = useState<Map<string, any>>(new Map());
   const [profilesMap, setProfilesMap] = useState<Map<string, any>>(new Map());
   const [estimatesMap, setEstimatesMap] = useState<Map<string, any>>(new Map());
+  const [flashReservationsMap, setFlashReservationsMap] = useState<Map<string, any>>(new Map());
   const [paymentSummaryMap, setPaymentSummaryMap] = useState<Map<string, any>>(new Map());
   const [pendingSubmissions, setPendingSubmissions] = useState<any[]>([]);
   const [blockedDates, setBlockedDates] = useState<string[]>([]);
   const [blockLoading, setBlockLoading] = useState<boolean>(false);
 
-  // Calendar View State
+  // Month Calendar View State
   const [currentYear, setCurrentYear] = useState<number>(() => new Date().getFullYear());
   const [currentMonth, setCurrentMonth] = useState<number>(() => new Date().getMonth()); // 0-indexed
   const [selectedDateStr, setSelectedDateStr] = useState<string>(() => getTodayBangkokStr());
@@ -76,11 +74,12 @@ export default function ArtistCalendarPage() {
     setLoading(true);
 
     try {
-      // 1. Query booking_sessions (explicitly scoped to staffArtistId)
+      // 1. Query booking_sessions (scoped to staffArtistId, excluding CANCELLED)
       const { data: dbSessions, error: sessErr } = await supabase
         .from('booking_sessions')
-        .select('*')
+        .select('id, booking_id, artist_id, session_number, start_at, end_at, status, note, created_at, updated_at')
         .eq('artist_id', staffArtistId)
+        .neq('status', 'CANCELLED')
         .order('start_at', { ascending: true });
 
       if (sessErr) {
@@ -92,11 +91,12 @@ export default function ArtistCalendarPage() {
       const sessionList = dbSessions || [];
       setSessions(sessionList);
 
-      // 2. Query bookings explicitly scoped to staffArtistId
+      // 2. Query bookings explicitly scoped to staffArtistId (excluding CANCELLED)
       const { data: bData, error: bErr } = await supabase
         .from('bookings')
-        .select('*')
-        .eq('artist_id', staffArtistId);
+        .select('id, customer_id, customer_user_id, artist_id, estimate_request_id, flash_reservation_id, booking_number, status, appointment_date, appointment_time, end_time, work_type, custom_work_title, style, placement, width_cm, height_cm, requested_start_time, requested_date, artwork_title, artwork_image_url, description, customer_note, staff_note, rejection_reason, quoted_price, deposit_required, deposit_status, created_at, updated_at, request_type, booking_source, is_walkin, admin_notes, payment_status, cancellation_reason, next_session_number, total_sessions')
+        .eq('artist_id', staffArtistId)
+        .neq('status', 'CANCELLED');
 
       if (bErr) {
         console.error('Error fetching artist bookings:', bErr);
@@ -113,13 +113,27 @@ export default function ArtistCalendarPage() {
       if (estimateIds.length > 0) {
         const { data: estData } = await supabase
           .from('estimate_requests')
-          .select('id, customer_user_id, artist_id, reference_images, width_cm, height_cm, placement, style, description, preferred_date, status, quoted_price, estimated_duration_minutes, deposit_required, quote_note, quoted_at, accepted_at, rejected_at, created_at, updated_at, work_type, estimated_min_price, estimated_max_price, price_estimated_at, request_type')
+          .select('id, customer_user_id, artist_id, reference_images, width_cm, height_cm, placement, style, description, preferred_date, preferred_time, status, quoted_price, estimated_duration_minutes, deposit_required, quote_note, quoted_at, accepted_at, rejected_at, created_at, updated_at, work_type, estimated_min_price, estimated_max_price, price_estimated_at, request_type')
           .in('id', estimateIds);
         dbEstimates = estData || [];
       }
       const estMap = new Map<string, any>();
       dbEstimates.forEach((e: any) => estMap.set(e.id, e));
       setEstimatesMap(estMap);
+
+      // 3.5 Query linked flash reservations
+      const flashResIds = Array.from(new Set(dbBookings.map((b: any) => b.flash_reservation_id).filter(Boolean)));
+      let dbFlashReservations: any[] = [];
+      if (flashResIds.length > 0) {
+        const { data: flashData } = await supabase
+          .from('flash_reservations')
+          .select('*, flash_designs(*)')
+          .in('id', flashResIds);
+        dbFlashReservations = flashData || [];
+      }
+      const flashMap = new Map<string, any>();
+      dbFlashReservations.forEach((f: any) => flashMap.set(f.id, f));
+      setFlashReservationsMap(flashMap);
 
       // 4. Query linked customers & profiles
       const customerUserIds = Array.from(
@@ -133,7 +147,7 @@ export default function ArtistCalendarPage() {
         const cMap = new Map<string, any>();
         const pMap = new Map<string, any>();
 
-        // 4a. Query via secure Artist RPC (bypasses RLS restrictions for assigned artist customers)
+        // 4a. Query via secure Artist RPC
         const { data: contactsData, error: contactsErr } = await supabase
           .rpc('artist_get_customer_contacts', {
             p_customer_user_ids: customerUserIds
@@ -231,6 +245,20 @@ export default function ArtistCalendarPage() {
     return map;
   }, [sessions]);
 
+  // Calculate maximum session_number per booking_id across all sessions
+  const maxSessionNumberMap = useMemo(() => {
+    const map = new Map<string, number>();
+    sessions.forEach((s) => {
+      const bId = s.booking_id;
+      const num = s.session_number || 0;
+      const currentMax = map.get(bId) || 0;
+      if (num > currentMax) {
+        map.set(bId, num);
+      }
+    });
+    return map;
+  }, [sessions]);
+
   // Set of blocked dates
   const blockedDatesSet = useMemo(() => new Set(blockedDates), [blockedDates]);
 
@@ -274,11 +302,18 @@ export default function ArtistCalendarPage() {
     }
   };
 
-  // Calendar Grid Days Calculation
+  // Mon-Sun short Thai day names
+  const THAI_DAYS_MON_FIRST = ['จ.', 'อ.', 'พ.', 'พฤ.', 'ศ.', 'ส.', 'อา.'];
+
+  // Calendar Grid Days Calculation (Month View: 7 Columns Mon-Sun)
   const calendarDays = useMemo(() => {
-    const firstDayOfMonth = new Date(currentYear, currentMonth, 1).getDay(); // 0 = Sunday
-    const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
-    const daysInPrevMonth = new Date(currentYear, currentMonth, 0).getDate();
+    const firstDayOfMonth = new Date(currentYear, currentMonth, 1);
+    const lastDayOfMonth = new Date(currentYear, currentMonth + 1, 0);
+    const daysInMonth = lastDayOfMonth.getDate();
+
+    // Convert getDay() (0=Sun, 1=Mon...6=Sat) to Mon-first offset (0=Mon...6=Sun)
+    const startDayOffset = (firstDayOfMonth.getDay() + 6) % 7;
+    const totalCells = Math.ceil((startDayOffset + daysInMonth) / 7) * 7;
 
     const days: Array<{
       dateStr: string;
@@ -286,71 +321,29 @@ export default function ArtistCalendarPage() {
       isCurrentMonth: boolean;
       isToday: boolean;
       isSelected: boolean;
-      sessionCount: number;
-      hasActive: boolean;
+      sessions: any[];
       isBlocked: boolean;
     }> = [];
 
-    // Previous month padding
-    for (let i = firstDayOfMonth - 1; i >= 0; i--) {
-      const dayNum = daysInPrevMonth - i;
-      const prevDate = new Date(currentYear, currentMonth - 1, dayNum);
-      const dateStr = prevDate.toISOString().split('T')[0];
+    for (let i = 0; i < totalCells; i++) {
+      const d = new Date(currentYear, currentMonth, 1 - startDayOffset + i);
+      const cYear = d.getFullYear();
+      const cMonth = d.getMonth();
+      const cDay = d.getDate();
+
+      const mStr = String(cMonth + 1).padStart(2, '0');
+      const dStr = String(cDay).padStart(2, '0');
+      const dateStr = `${cYear}-${mStr}-${dStr}`;
       const daySessions = sessionsByDate.get(dateStr) || [];
-      const count = daySessions.length;
-      const isBlocked = count === 0 && blockedDatesSet.has(dateStr);
 
       days.push({
         dateStr,
-        dayNum,
-        isCurrentMonth: false,
+        dayNum: cDay,
+        isCurrentMonth: cMonth === currentMonth && cYear === currentYear,
         isToday: dateStr === todayStr,
         isSelected: dateStr === selectedDateStr,
-        sessionCount: count,
-        hasActive: daySessions.some((s) => s.status === 'SCHEDULED' || s.status === 'IN_PROGRESS'),
-        isBlocked,
-      });
-    }
-
-    // Current month days
-    for (let day = 1; day <= daysInMonth; day++) {
-      const mStr = String(currentMonth + 1).padStart(2, '0');
-      const dStr = String(day).padStart(2, '0');
-      const dateStr = `${currentYear}-${mStr}-${dStr}`;
-      const daySessions = sessionsByDate.get(dateStr) || [];
-      const count = daySessions.length;
-      const isBlocked = count === 0 && blockedDatesSet.has(dateStr);
-
-      days.push({
-        dateStr,
-        dayNum: day,
-        isCurrentMonth: true,
-        isToday: dateStr === todayStr,
-        isSelected: dateStr === selectedDateStr,
-        sessionCount: count,
-        hasActive: daySessions.some((s) => s.status === 'SCHEDULED' || s.status === 'IN_PROGRESS'),
-        isBlocked,
-      });
-    }
-
-    // Next month padding to fill 35 or 42 grid cells
-    const remaining = (7 - (days.length % 7)) % 7;
-    for (let day = 1; day <= remaining; day++) {
-      const nextDate = new Date(currentYear, currentMonth + 1, day);
-      const dateStr = nextDate.toISOString().split('T')[0];
-      const daySessions = sessionsByDate.get(dateStr) || [];
-      const count = daySessions.length;
-      const isBlocked = count === 0 && blockedDatesSet.has(dateStr);
-
-      days.push({
-        dateStr,
-        dayNum: day,
-        isCurrentMonth: false,
-        isToday: dateStr === todayStr,
-        isSelected: dateStr === selectedDateStr,
-        sessionCount: count,
-        hasActive: daySessions.some((s) => s.status === 'SCHEDULED' || s.status === 'IN_PROGRESS'),
-        isBlocked,
+        sessions: daySessions,
+        isBlocked: daySessions.length === 0 && blockedDatesSet.has(dateStr),
       });
     }
 
@@ -369,7 +362,7 @@ export default function ArtistCalendarPage() {
     return list;
   }, [sessionsByDate, selectedDateStr, statusFilter]);
 
-  // Navigation handlers
+  // Month navigation handlers
   const handlePrevMonth = () => {
     if (currentMonth === 0) {
       setCurrentMonth(11);
@@ -418,6 +411,76 @@ export default function ArtistCalendarPage() {
     if (!uid) return false;
     const c = customersMap.get(uid);
     return Boolean(c?.eligibility_confirmed_at || c?.profile_completed_at);
+  };
+
+  // Helper to resolve main booking status badge config
+  const getBookingStatusBadge = (bookingStatus?: string) => {
+    switch (bookingStatus) {
+      case 'IN_PROGRESS':
+        return {
+          label: 'กำลังสัก',
+          className: 'bg-amber-950/60 text-amber-400 border-amber-800/60',
+        };
+      case 'COMPLETED':
+        return {
+          label: 'งานเสร็จสิ้น',
+          className: 'bg-emerald-950/60 text-emerald-400 border-emerald-800/60',
+        };
+      case 'WAITING_DEPOSIT':
+      case 'PENDING_SLIP':
+        return {
+          label: 'รอมัดจำ',
+          className: 'bg-purple-950/60 text-purple-400 border-purple-800/60',
+        };
+      case 'CANCELLED':
+      case 'REJECTED':
+        return {
+          label: 'ยกเลิก',
+          className: 'bg-red-950/60 text-red-400 border-red-800/60',
+        };
+      case 'CONFIRMED':
+      default:
+        return {
+          label: 'นัดหมายแล้ว',
+          className: 'bg-blue-950/60 text-blue-400 border-blue-800/60',
+        };
+    }
+  };
+
+  // Clean Start Time Only string ("เวลานัด HH:mm น.")
+  const formatStartOnlyTime = (startAt: string) => {
+    const raw = formatTimeBangkok(startAt);
+    const clean = raw.replace(/\s*น\.?$/gi, '').trim();
+    return `เวลานัด ${clean} น.`;
+  };
+
+  // Helper to format artwork display title & style
+  const getArtworkDisplayTitle = (sess: any) => {
+    const booking = bookingsMap.get(sess.booking_id);
+    const estimate = booking?.estimate_request_id ? estimatesMap.get(booking.estimate_request_id) : null;
+    const flashRes = booking?.flash_reservation_id ? flashReservationsMap.get(booking.flash_reservation_id) : null;
+    const flashDesignObj = flashRes?.flash_designs || flashRes?.flash_design;
+    const flashTitle = flashDesignObj?.title || flashRes?.flash_design_title;
+    const flashStyle = flashDesignObj?.style || flashRes?.flash_design_style;
+
+    const rawWorkTitle = (booking?.artwork_title && booking.artwork_title !== 'ลาย Flash' && booking.artwork_title !== 'งานสัก')
+      ? booking.artwork_title
+      : (flashTitle ? `ลาย Flash: ${flashTitle}` : (estimate?.request_type === 'FLASH' || booking?.flash_reservation_id ? 'ลาย Flash' : 'งานสัก'));
+    const workTitle = rawWorkTitle.replace(/\s*custom\s*/gi, '').trim() || 'งานสัก';
+    const rawStyle = flashStyle || estimate?.style || estimate?.style_preference || booking?.style_preference || '';
+    const styleName = rawStyle.toLowerCase() === 'custom' ? '' : rawStyle;
+
+    return (styleName && !workTitle.toLowerCase().includes(styleName.toLowerCase()))
+      ? `${workTitle} (${styleName})`
+      : workTitle;
+  };
+
+  // Helper to get placement text
+  const getPlacementDisplay = (sess: any) => {
+    const booking = bookingsMap.get(sess.booking_id);
+    const estimate = booking?.estimate_request_id ? estimatesMap.get(booking.estimate_request_id) : null;
+    const flashRes = booking?.flash_reservation_id ? flashReservationsMap.get(booking.flash_reservation_id) : null;
+    return booking?.placement || flashRes?.placement || estimate?.placement || 'ไม่ระบุตำแหน่ง';
   };
 
   // Open detail drawer
@@ -470,9 +533,9 @@ export default function ArtistCalendarPage() {
       booking_id: sess.booking_id,
       booking_status: booking?.status || 'CONFIRMED',
       booking_source: null,
-      artwork_title: estimate?.style || null,
+      artwork_title: getArtworkDisplayTitle(sess),
       artwork_image_url: booking?.artwork_image_url,
-      placement: estimate?.placement || booking?.placement || null,
+      placement: getPlacementDisplay(sess),
       width_cm: estimate?.width_cm ?? booking?.width_cm ?? null,
       height_cm: estimate?.height_cm ?? booking?.height_cm ?? null,
       description: parseNoteWithPreferredTime(estimate?.description || booking?.description).cleanNote || null,
@@ -510,143 +573,227 @@ export default function ArtistCalendarPage() {
 
   if (authLoading || !isAuthorized) {
     return (
-      <div className="min-h-screen bg-studio-main flex items-center justify-center font-prompt">
-        <span className="text-xs text-studio-secondary animate-pulse">กำลังตรวจสอบสิทธิ์การเข้าใช้งาน...</span>
+      <div className="min-h-screen bg-[#0E0D0C] flex items-center justify-center font-prompt">
+        <span className="text-xs text-[#A89F91] animate-pulse">กำลังตรวจสอบสิทธิ์การเข้าใช้งาน...</span>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-studio-main text-studio-primary font-prompt flex flex-col pb-20 md:pb-10">
+    <div className="min-h-screen bg-[#0E0D0C] text-[#ECE4D3] font-prompt flex flex-col pb-20 md:pb-10 overflow-x-hidden">
       {/* Header */}
       <ArtistHeader />
 
-      {/* Main Content */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-6">
-        {/* Page Title & Controls */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      {/* Main Content Container */}
+      <main className="flex-1 max-w-[1600px] w-full mx-auto px-4 sm:px-6 md:px-10 xl:px-12 py-6 md:py-8 space-y-6 md:space-y-8">
+        {/* Top Controls: Title, Today Button, Month Nav, Month Year Title */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-[#12100E] border border-[#4A443A]/40 p-4 rounded-xl shadow-lg">
           <div>
-            <h1 className="text-xl sm:text-2xl font-heading font-semibold text-studio-primary">
-              ปฏิทินงานสักของฉัน
+            <h1 className="text-lg sm:text-xl font-bold text-[#ECE4D3] flex items-center gap-2">
+              <CalendarIcon size={20} className="text-red-500" />
+              <span>ปฏิทินของฉัน</span>
             </h1>
-            <p className="text-xs text-studio-secondary mt-0.5">
-              แสดงเฉพาะคิวนัดหมายที่ได้รับมอบหมายตามตารางงานของคุณ
+            <p className="text-xs text-[#A89F91] mt-0.5">
+              ตารางรอบนัดหมายฝั่งช่าง (แสดงตามวันเวลาจริง)
             </p>
           </div>
 
-          <div className="flex items-center space-x-2">
+          {/* Month Navigation & Today Button */}
+          <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+            <div className="text-sm sm:text-base font-bold text-[#ECE4D3] bg-[#171512] border border-[#4A443A]/40 px-3.5 py-1.5 rounded-lg shadow-inner">
+              {THAI_MONTHS_FULL[currentMonth]} {currentYear + 543}
+            </div>
+
+            <div className="flex items-center space-x-1 bg-[#171512] border border-[#4A443A]/40 p-1 rounded-lg">
+              <button
+                type="button"
+                onClick={handlePrevMonth}
+                className="p-1.5 rounded-md hover:bg-[#1A1815] text-[#A89F91] hover:text-[#ECE4D3] transition-colors cursor-pointer"
+                title="เดือนก่อนหน้า"
+              >
+                <ChevronLeft size={18} />
+              </button>
+              <button
+                type="button"
+                onClick={handleNextMonth}
+                className="p-1.5 rounded-md hover:bg-[#1A1815] text-[#A89F91] hover:text-[#ECE4D3] transition-colors cursor-pointer"
+                title="เดือนถัดไป"
+              >
+                <ChevronRight size={18} />
+              </button>
+              <button
+                type="button"
+                onClick={handleGoToday}
+                className="px-3 py-1 bg-red-950/80 hover:bg-red-900 border border-red-800/80 text-xs text-red-200 font-bold rounded-md transition-colors cursor-pointer ml-1"
+              >
+                วันนี้
+              </button>
+            </div>
+
+            {/* Refresh Button */}
             <button
-              onClick={handleGoToday}
-              className="px-3 py-1.5 bg-studio-card border border-studio-border hover:border-studio-red/50 text-xs text-studio-primary rounded-lg transition-colors cursor-pointer"
-            >
-              วันนี้
-            </button>
-            <button
+              type="button"
               onClick={() => fetchArtistData()}
               disabled={loading}
-              className="p-1.5 bg-studio-card border border-studio-border hover:border-studio-red/50 text-studio-secondary hover:text-studio-primary rounded-lg transition-colors cursor-pointer disabled:opacity-50"
+              className="p-2 bg-[#171512] border border-[#4A443A]/40 hover:border-red-600/50 text-[#A89F91] hover:text-[#ECE4D3] rounded-lg transition-colors cursor-pointer disabled:opacity-50"
               title="รีเฟรชข้อมูล"
             >
-              <RefreshCw size={15} className={loading ? 'animate-spin text-studio-red' : ''} />
+              <RefreshCw size={16} className={loading ? 'animate-spin text-red-500' : ''} />
             </button>
           </div>
         </div>
 
-        {/* Layout: Calendar Grid (Left/Top) + Day Agenda (Right/Bottom) */}
+        {/* Layout Grid: Left Month Calendar (Desktop ~70% lg:col-span-8) + Right Panel (Desktop ~30% lg:col-span-4) */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-          {/* Calendar Month View (7 Cols on LG) */}
-          <div className="lg:col-span-7 bg-studio-card border border-studio-border rounded-xl p-4 sm:p-5 shadow-xl space-y-4">
-            {/* Month Header Navigation */}
-            <div className="flex items-center justify-between border-b border-studio-border/60 pb-3">
-              <div className="text-sm sm:text-base font-semibold text-studio-primary">
-                {THAI_MONTHS_FULL[currentMonth]} {currentYear + 543}
-              </div>
-              <div className="flex items-center space-x-1">
-                <button
-                  onClick={handlePrevMonth}
-                  className="p-1.5 rounded-md hover:bg-studio-sec text-studio-secondary hover:text-studio-primary border border-studio-border transition-colors cursor-pointer"
+          {/* Left: Monthly Calendar Grid (7 Columns Mon-Sun) */}
+          <div className="lg:col-span-8 bg-[#12100E] border border-[#4A443A]/40 rounded-xl p-3.5 sm:p-5 shadow-xl space-y-3">
+            {/* Weekday Header Row (Mon - Sun) */}
+            <div className="grid grid-cols-7 border-b border-[#4A443A]/40 bg-[#171512] text-center rounded-t-lg">
+              {THAI_DAYS_MON_FIRST.map((dName) => (
+                <div
+                  key={dName}
+                  className="py-2 text-xs font-bold text-[#A89F91] uppercase tracking-wider border-r border-[#4A443A]/20 last:border-r-0"
                 >
-                  <ChevronLeft size={16} />
-                </button>
-                <button
-                  onClick={handleNextMonth}
-                  className="p-1.5 rounded-md hover:bg-studio-sec text-studio-secondary hover:text-studio-primary border border-studio-border transition-colors cursor-pointer"
-                >
-                  <ChevronRight size={16} />
-                </button>
-              </div>
-            </div>
-
-            {/* Days of Week Header */}
-            <div className="grid grid-cols-7 gap-1 text-center text-xs font-medium text-studio-muted py-1">
-              {THAI_DAYS_SHORT.map((d, i) => (
-                <div key={i} className={i === 0 ? 'text-studio-red/80' : ''}>
-                  {d}
+                  {dName}
                 </div>
               ))}
             </div>
 
-            {/* Month Grid Cells */}
-            <div className="grid grid-cols-7 gap-1.5">
+            {/* Days Grid Cells */}
+            <div className="grid grid-cols-7 gap-1.5 sm:gap-2">
               {calendarDays.map((day, idx) => {
                 const isSelected = day.isSelected;
                 const isToday = day.isToday;
-                const hasSessions = day.sessionCount > 0;
+                const activeSessions = day.sessions;
+                const totalCount = activeSessions.length;
 
                 return (
                   <button
                     key={idx}
+                    type="button"
                     onClick={() => setSelectedDateStr(day.dateStr)}
-                    className={`min-h-[58px] sm:min-h-[70px] p-1.5 rounded-lg border text-left flex flex-col justify-between transition-all cursor-pointer ${
+                    className={`min-h-[75px] sm:min-h-[95px] p-1.5 sm:p-2 rounded-xl border text-left flex flex-col justify-between transition-all cursor-pointer group relative overflow-hidden ${
                       isSelected
-                        ? 'bg-studio-red/15 border-studio-red ring-1 ring-studio-red/40'
+                        ? 'bg-red-950/30 border-red-600 ring-2 ring-red-500/50 shadow-lg z-10'
                         : isToday
-                        ? 'bg-studio-sec border-studio-border ring-1 ring-studio-border'
+                        ? 'bg-[#171512] border-[#4A443A] ring-1 ring-[#ECE4D3]/30'
                         : day.isCurrentMonth
-                        ? 'bg-studio-card/80 border-studio-border/50 hover:bg-studio-sec/50'
-                        : 'bg-studio-main/30 border-studio-border/20 opacity-40 hover:opacity-70'
+                        ? 'bg-[#12100E] border-[#4A443A]/40 hover:bg-[#171512]'
+                        : 'bg-[#0E0D0C]/60 border-[#4A443A]/20 opacity-40 hover:opacity-70'
                     }`}
                   >
+                    {/* Date Cell Header */}
                     <div className="flex items-center justify-between">
                       <span
-                        className={`text-xs font-mono font-medium ${
+                        className={`text-xs font-mono font-bold w-5 h-5 flex items-center justify-center rounded-full ${
                           isToday
-                            ? 'text-studio-red font-bold'
+                            ? 'bg-red-600 text-white'
                             : isSelected
-                            ? 'text-studio-primary font-bold'
+                            ? 'text-red-400 font-extrabold'
                             : day.isCurrentMonth
-                            ? 'text-studio-primary'
-                            : 'text-studio-muted'
+                            ? 'text-[#ECE4D3]'
+                            : 'text-[#7A7265]'
                         }`}
                       >
                         {day.dayNum}
                       </span>
-
                       {isToday && (
-                        <span className="w-1.5 h-1.5 rounded-full bg-studio-red" />
+                        <span className="text-[9px] font-semibold text-red-400 bg-red-950/80 px-1 rounded border border-red-800/60 hidden sm:inline">
+                          วันนี้
+                        </span>
                       )}
                     </div>
 
-                    {/* Session / Block indicators */}
-                    <div className="pt-1">
-                      {hasSessions ? (
-                        <div className="flex items-center space-x-1">
-                          <span className={`text-[10px] font-mono px-1.5 py-0.2 rounded font-semibold ${
-                            day.hasActive
-                              ? 'bg-studio-red text-white'
-                              : 'bg-emerald-950 text-emerald-400 border border-emerald-800/40'
-                          }`}>
-                            {day.sessionCount} คิว
-                          </span>
+                    {/* Session Pills in Month Cell */}
+                    <div className="mt-1 space-y-1 min-w-0">
+                      {totalCount > 0 ? (
+                        <div className="space-y-1 min-w-0">
+                          {/* Desktop View: Session Pills */}
+                          <div className="hidden sm:block space-y-1 min-w-0">
+                            {activeSessions.slice(0, 2).map((s: any) => {
+                              const sessNum = s.session_number || 1;
+                              const maxNum = maxSessionNumberMap.get(s.booking_id) || 1;
+                              const isLatest = sessNum >= maxNum;
+                              const timeStr = formatTimeBangkok(s.start_at).replace(/\s*น\.?$/gi, '').trim();
+                              const booking = bookingsMap.get(s.booking_id);
+                              const bBadge = getBookingStatusBadge(booking?.status);
+
+                              return (
+                                <div
+                                  key={s.id}
+                                  className={`px-1.5 py-0.5 rounded text-[10px] font-medium border truncate flex items-center justify-between gap-1 ${
+                                    isLatest
+                                      ? `${bBadge.className}`
+                                      : 'bg-[#171512] text-[#A89F91] border-[#4A443A]/40'
+                                  }`}
+                                  title={`รอบที่ ${sessNum} • ${timeStr} น.`}
+                                >
+                                  <span className="truncate font-mono font-bold">รอบ {sessNum}</span>
+                                  <span className="truncate text-[9.5px] opacity-90">{timeStr}</span>
+                                </div>
+                              );
+                            })}
+                            {totalCount > 2 && (
+                              <span className="text-[9.5px] text-[#A89F91] font-semibold block px-1 truncate">
+                                +{totalCount - 2} คิว
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Mobile View: Compact Status-Aware Badge */}
+                          {(() => {
+                            const sessionStatusInfos = activeSessions.map((s: any) => {
+                              const booking = bookingsMap.get(s.booking_id);
+                              const statusKey = booking?.status || s.status || 'CONFIRMED';
+                              let colorClass = 'text-blue-400';
+                              if (statusKey === 'WAITING_DEPOSIT' || statusKey === 'PENDING_SLIP') {
+                                colorClass = 'text-purple-400';
+                              } else if (statusKey === 'COMPLETED') {
+                                colorClass = 'text-emerald-400';
+                              } else if (statusKey === 'IN_PROGRESS') {
+                                colorClass = 'text-amber-400';
+                              } else if (statusKey === 'CANCELLED' || statusKey === 'REJECTED') {
+                                colorClass = 'text-red-400';
+                              }
+                              return { key: statusKey, colorClass };
+                            });
+
+                            const uniqueInfos = Array.from(
+                              new Map(sessionStatusInfos.map((info) => [info.key, info])).values()
+                            );
+
+                            if (uniqueInfos.length === 1) {
+                              const singleInfo = uniqueInfos[0];
+                              return (
+                                <div className="flex sm:hidden items-center gap-1">
+                                  <span className={`text-[9px] font-bold truncate flex items-center gap-1 ${singleInfo.colorClass}`}>
+                                    <span>●</span>
+                                    <span>{totalCount} คิว</span>
+                                  </span>
+                                </div>
+                              );
+                            }
+
+                            return (
+                              <div className="flex sm:hidden items-center gap-1">
+                                <div className="flex items-center gap-0.5 shrink-0 text-[9px]">
+                                  {uniqueInfos.map((info) => (
+                                    <span key={info.key} className={info.colorClass}>●</span>
+                                  ))}
+                                </div>
+                                <span className="text-[9px] font-bold text-[#ECE4D3] truncate">
+                                  {totalCount} คิว
+                                </span>
+                              </div>
+                            );
+                          })()}
                         </div>
                       ) : day.isBlocked ? (
-                        <div className="flex items-center space-x-1">
-                          <span className="text-[10px] font-mono px-1.5 py-0.2 rounded font-semibold bg-zinc-800 text-zinc-400 border border-zinc-700/60">
-                            ปิดรับ
-                          </span>
+                        <div className="text-[9.5px] text-zinc-400 bg-zinc-900 border border-zinc-700/60 px-1 py-0.5 rounded truncate">
+                          🔒 ปิดรับคิว
                         </div>
                       ) : (
-                        <div className="h-3" />
+                        <div className="h-2" />
                       )}
                     </div>
                   </button>
@@ -655,129 +802,36 @@ export default function ArtistCalendarPage() {
             </div>
           </div>
 
-          {/* Day Agenda View (5 Cols on LG) */}
-          <div className="lg:col-span-5 bg-studio-card border border-studio-border rounded-xl p-4 sm:p-5 shadow-xl space-y-4">
-            {/* Date Availability Status & Action Card */}
-            <div className="bg-studio-sec/60 border border-studio-border p-3.5 sm:p-4 rounded-xl space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-studio-secondary font-medium">สถานะการรับคิวประจำวัน:</span>
-                {selectedDateStatus === 'BOOKED' && (
-                  <span className="text-xs font-semibold text-studio-red bg-studio-red/10 border border-studio-red/30 px-2.5 py-0.5 rounded-full inline-flex items-center space-x-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-studio-red" />
-                    <span>มีคิวยืนยันแล้ว</span>
-                  </span>
-                )}
-                {selectedDateStatus === 'BLOCKED' && (
-                  <span className="text-xs font-semibold text-zinc-400 bg-zinc-900 border border-zinc-700 px-2.5 py-0.5 rounded-full inline-flex items-center space-x-1">
-                    <Ban size={12} className="text-zinc-400" />
-                    <span>ปิดรับคิว</span>
-                  </span>
-                )}
-                {selectedDateStatus === 'AVAILABLE' && (
-                  <span className="text-xs font-semibold text-emerald-400 bg-emerald-950/40 border border-emerald-800/40 px-2.5 py-0.5 rounded-full inline-flex items-center space-x-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                    <span>เปิดรับคิว</span>
-                  </span>
-                )}
-              </div>
-
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2 border-t border-studio-border/50">
-                <div className="text-xs text-studio-muted">
-                  {selectedDateStatus === 'BOOKED' && (
-                    <span className="text-studio-secondary">ระบบปิดรับคิวอัตโนมัติ (1 ช่าง = 1 ลูกค้า / วัน)</span>
-                  )}
-                  {selectedDateStatus === 'BLOCKED' && (
-                    <span className="text-zinc-300">วันนี้คุณปิดรับการจอง</span>
-                  )}
-                  {selectedDateStatus === 'AVAILABLE' && (
-                    <span className="text-studio-muted">ยังไม่มีนัดหมาย</span>
-                  )}
-                </div>
-
-                {/* Block/Unblock Action Buttons (Current & Future dates only) */}
-                {selectedDateStr >= todayStr && selectedDateStatus !== 'BOOKED' && (
-                  <div>
-                    {selectedDateStatus === 'BLOCKED' ? (
-                      <button
-                        onClick={() => handleToggleDayBlock(selectedDateStr, false)}
-                        disabled={blockLoading}
-                        className="w-full sm:w-auto flex items-center justify-center space-x-1.5 px-3 py-1.5 bg-studio-card hover:bg-studio-sec border border-zinc-700 text-xs font-medium text-studio-primary hover:text-emerald-400 rounded-lg transition-colors cursor-pointer disabled:opacity-50"
-                      >
-                        <Unlock size={14} className="text-emerald-400" />
-                        <span>{blockLoading ? 'กำลังบันทึก...' : 'เปิดรับคิวอีกครั้ง'}</span>
-                      </button>
-                    ) : (
-                      <button
-                        onClick={() => handleToggleDayBlock(selectedDateStr, true)}
-                        disabled={blockLoading}
-                        className="w-full sm:w-auto flex items-center justify-center space-x-1.5 px-3 py-1.5 bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-xs font-medium text-zinc-300 hover:text-studio-red rounded-lg transition-colors cursor-pointer disabled:opacity-50"
-                      >
-                        <Lock size={14} className="text-zinc-400" />
-                        <span>{blockLoading ? 'กำลังบันทึก...' : 'ปิดรับคิววันนี้'}</span>
-                      </button>
-                    )}
-                  </div>
-                )}
-              </div>
-            </div>
-            {/* Agenda Header */}
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between border-b border-studio-border/60 pb-3 gap-2">
+          {/* Right: Selected Date Appointment List (Desktop ~30% lg:col-span-4) */}
+          <div className="lg:col-span-4 bg-[#12100E] border border-[#4A443A]/40 rounded-xl p-4 sm:p-5 shadow-xl space-y-4">
+            {/* Right Panel Header */}
+            <div className="flex items-center justify-between border-b border-[#4A443A]/40 pb-3">
               <div>
-                <span className="text-[11px] text-studio-secondary uppercase tracking-wider block font-semibold">
-                  รายการนัดหมาย
+                <span className="text-[10px] text-[#A89F91] uppercase tracking-wider block font-semibold">
+                  รายการนัดของวันที่เลือก
                 </span>
-                <span className="text-sm sm:text-base font-semibold text-studio-primary">
-                  {formatDateBangkok(selectedDateStr, true)}
-                </span>
+                <h3 className="text-sm sm:text-base font-bold text-[#ECE4D3] flex items-center gap-1.5 mt-0.5">
+                  <CalendarIcon size={15} className="text-red-500" />
+                  <span>{formatDateBangkok(selectedDateStr, true)}</span>
+                </h3>
               </div>
-
-              {/* Status Filter */}
-              <div className="flex items-center space-x-1 bg-studio-sec p-1 rounded-lg border border-studio-border text-[11px]">
-                <button
-                  onClick={() => setStatusFilter('ALL')}
-                  className={`px-2 py-0.5 rounded transition-colors ${
-                    statusFilter === 'ALL'
-                      ? 'bg-studio-card text-studio-primary font-semibold border border-studio-border'
-                      : 'text-studio-secondary hover:text-studio-primary'
-                  }`}
-                >
-                  ทั้งหมด
-                </button>
-                <button
-                  onClick={() => setStatusFilter('ACTIVE')}
-                  className={`px-2 py-0.5 rounded transition-colors ${
-                    statusFilter === 'ACTIVE'
-                      ? 'bg-studio-card text-studio-red font-semibold border border-studio-border'
-                      : 'text-studio-secondary hover:text-studio-primary'
-                  }`}
-                >
-                  รอดำเนินการ
-                </button>
-                <button
-                  onClick={() => setStatusFilter('COMPLETED')}
-                  className={`px-2 py-0.5 rounded transition-colors ${
-                    statusFilter === 'COMPLETED'
-                      ? 'bg-studio-card text-emerald-400 font-semibold border border-studio-border'
-                      : 'text-studio-secondary hover:text-studio-primary'
-                  }`}
-                >
-                  เสร็จสิ้น
-                </button>
-              </div>
+              <span className="text-xs font-bold text-red-400 bg-red-950/60 border border-red-800/60 px-2.5 py-1 rounded-full">
+                {selectedDateSessions.length} รายการ
+              </span>
             </div>
 
-            {/* Sessions List for Selected Date */}
-            <div className="space-y-3 max-h-[500px] overflow-y-auto pr-1">
+            {/* List of Appointment Cards */}
+            <div className="space-y-3 max-h-[calc(100vh-250px)] overflow-y-auto pr-1">
               {loading ? (
-                <div className="p-8 text-center text-studio-secondary animate-pulse text-xs">
+                <div className="p-8 text-center text-[#A89F91] animate-pulse text-xs">
                   กำลังโหลดข้อมูล...
                 </div>
               ) : selectedDateSessions.length === 0 ? (
-                <div className="p-8 text-center bg-studio-sec/30 border border-dashed border-studio-border/60 rounded-xl space-y-2">
-                  <CalendarIcon size={24} className="mx-auto text-studio-muted" />
-                  <p className="text-xs text-studio-primary font-medium">ไม่มีคิวนัดหมายในวันนี้</p>
-                  <p className="text-[11px] text-studio-muted">
-                    คุณสามารถเลือกวันอื่นบนปฏิทินเพื่อดูรายการนัดหมาย
+                <div className="p-6 text-center bg-[#171512] border border-dashed border-[#4A443A]/40 rounded-xl space-y-2">
+                  <CalendarIcon size={24} className="mx-auto text-[#7A7265]" />
+                  <p className="text-xs text-[#ECE4D3] font-medium">ไม่มีคิวนัดหมายในวันนี้</p>
+                  <p className="text-[11px] text-[#7A7265]">
+                    เลือกวันอื่นบนปฏิทินเพื่อดูรายการนัด
                   </p>
                 </div>
               ) : (
@@ -786,45 +840,66 @@ export default function ArtistCalendarPage() {
                   const estimate = booking?.estimate_request_id ? estimatesMap.get(booking.estimate_request_id) : null;
                   const customerUserId = booking?.customer_user_id || estimate?.customer_user_id;
                   const customerName = getCleanCustomerName(customerUserId);
-                  const sConf = getSessionStatusConfig(sess.status as any);
-                  const styleDisplay = estimate?.style || 'งานสัก';
-                  const placementDisplay = estimate?.placement || booking?.placement || 'ไม่ระบุตำแหน่ง';
+                  const artworkTitle = getArtworkDisplayTitle(sess);
+                  const placementDisplay = getPlacementDisplay(sess);
+
+                  const sessNum = sess.session_number || 1;
+                  const maxNum = maxSessionNumberMap.get(sess.booking_id) || 1;
+                  const isLatestSession = sessNum >= maxNum;
+                  const bBadge = getBookingStatusBadge(booking?.status);
 
                   return (
                     <div
                       key={sess.id}
                       onClick={() => handleOpenDetail(sess)}
-                      className="group bg-studio-sec/70 border border-studio-border hover:border-studio-red/60 p-3.5 sm:p-4 rounded-xl transition-all cursor-pointer space-y-2 shadow-sm"
+                      className="group bg-[#171512] border border-[#4A443A]/40 hover:border-red-600/60 p-3.5 sm:p-4 rounded-xl transition-all cursor-pointer space-y-2.5 shadow-md"
                     >
+                      {/* Round Badge & Booking Status (Status Badge ONLY on Latest Session) */}
                       <div className="flex items-center justify-between">
-                        <span className="text-xs font-mono font-bold text-studio-secondary bg-studio-card px-2 py-0.5 rounded border border-studio-border">
-                          รอบที่ {sess.session_number || 1}
-                        </span>
-                        <span className={`text-[10px] px-2 py-0.5 rounded-full border ${sConf.badgeBg} ${sConf.badgeText} ${sConf.border}`}>
-                          {sConf.label}
-                        </span>
-                      </div>
-
-                      <div className="space-y-0.5">
-                        <h4 className="text-xs sm:text-sm font-semibold text-studio-primary group-hover:text-studio-red transition-colors">
-                          {styleDisplay}
-                        </h4>
-                        <div className="flex items-center space-x-1.5 text-xs text-studio-secondary font-mono">
-                          <Clock size={12} className="text-studio-muted" />
-                          <span>{formatTimeBangkok(sess.start_at)} - {formatTimeBangkok(sess.end_at)}</span>
-                          <span className="text-studio-muted text-[10px]">
-                            ({calculateDurationText(sess.start_at, sess.end_at)})
+                        <div className="flex items-center space-x-2">
+                          <span className="text-xs font-mono font-bold text-[#ECE4D3] bg-[#12100E] px-2.5 py-0.5 rounded border border-[#4A443A]/40">
+                            รอบที่ {sessNum}
                           </span>
+                          {isLatestSession && (
+                            <span className={`text-[10px] px-2 py-0.5 rounded-full border font-medium ${bBadge.className}`}>
+                              {bBadge.label}
+                            </span>
+                          )}
+                        </div>
+
+                        {/* View Details Action */}
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleOpenDetail(sess);
+                          }}
+                          className="px-2.5 py-1 bg-[#12100E] hover:bg-[#1A1815] text-[#A89F91] group-hover:text-[#ECE4D3] text-[11px] font-semibold rounded-lg border border-[#4A443A]/40 transition-colors flex items-center space-x-1 cursor-pointer"
+                        >
+                          <Eye size={12} />
+                          <span>ดูรายละเอียด</span>
+                        </button>
+                      </div>
+
+                      {/* Artwork Title & Time (Start time only "เวลานัด HH:mm น.") */}
+                      <div className="space-y-1">
+                        <h4 className="text-xs sm:text-sm font-semibold text-[#ECE4D3] group-hover:text-red-400 transition-colors">
+                          {artworkTitle}
+                        </h4>
+                        <div className="flex items-center space-x-1.5 text-xs font-mono text-red-400 font-semibold">
+                          <Clock size={12} className="shrink-0" />
+                          <span>{formatStartOnlyTime(sess.start_at)}</span>
                         </div>
                       </div>
 
-                      <div className="pt-2 border-t border-studio-border/50 flex items-center justify-between text-[11px] text-studio-muted">
-                        <div className="flex items-center space-x-1 truncate max-w-[150px]">
-                          <User size={12} className="text-studio-secondary shrink-0" />
-                          <span className="truncate">{customerName}</span>
+                      {/* Customer Name & Placement */}
+                      <div className="pt-2 border-t border-[#4A443A]/30 flex items-center justify-between text-[11px] text-[#A89F91]">
+                        <div className="flex items-center space-x-1.5 truncate max-w-[160px]">
+                          <User size={12} className="shrink-0 text-[#7A7265]" />
+                          <span className="text-[#ECE4D3] truncate font-medium">{customerName}</span>
                         </div>
-                        <div className="flex items-center space-x-1 truncate max-w-[120px]">
-                          <Layers size={12} className="text-studio-secondary shrink-0" />
+                        <div className="flex items-center space-x-1.5 truncate max-w-[140px]">
+                          <Layers size={12} className="shrink-0 text-[#7A7265]" />
                           <span className="truncate">{placementDisplay}</span>
                         </div>
                       </div>

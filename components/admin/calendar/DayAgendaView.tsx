@@ -5,9 +5,7 @@ import { CalendarSessionEvent } from './types';
 import {
   formatDateBangkok,
   formatTimeBangkok,
-  calculateDurationText,
-  getSessionStatusConfig,
-  getBookingStatusConfig,
+  getEventStatusConfig,
 } from './calendarUtils';
 import {
   Clock,
@@ -113,33 +111,25 @@ export default function DayAgendaView({
         ) : (
           <div className="space-y-3">
             {sortedEvents.map((ev) => {
-              const sessionStatusCfg = getSessionStatusConfig(ev.status);
-              const bookingStatusCfg = ev.booking
-                ? getBookingStatusConfig(ev.booking.status)
-                : null;
-              const durationText = calculateDurationText(ev.start_at, ev.end_at);
-              const isWaitingDeposit = ev.booking?.status === 'WAITING_DEPOSIT';
+              const statusCfg = getEventStatusConfig(ev);
 
               return (
                 <div
                   key={ev.id}
                   onClick={() => onSelectEvent(ev)}
-                  className={`p-3.5 sm:p-4 rounded-xl border transition-all cursor-pointer flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${sessionStatusCfg.bg} ${sessionStatusCfg.border} hover:scale-[1.005] hover:shadow-lg`}
+                  className={`p-3.5 sm:p-4 rounded-xl border transition-all cursor-pointer flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${statusCfg.bg} ${statusCfg.border} hover:scale-[1.005] hover:shadow-lg`}
                 >
                   {/* Left: Time & Session Main Info */}
                   <div className="flex items-start gap-3.5">
                     {/* Time Box */}
                     <div className="bg-[#0E0D0C] border border-[#4A443A]/60 rounded-xl p-2 text-center min-w-[75px] shrink-0">
+                      <span className="text-[10px] text-[#7A7265] block font-medium">เวลานัด</span>
                       <span className="text-xs font-bold text-[#ECE4D3] block">
                         {formatTimeBangkok(ev.start_at)}
                       </span>
-                      <span className="text-[10px] text-[#7A7265] block">ถึง</span>
-                      <span className="text-xs font-bold text-[#A89F91] block">
-                        {formatTimeBangkok(ev.end_at)}
-                      </span>
                     </div>
 
-                    {/* Customer & Artist & Duration */}
+                    {/* Customer & Artist */}
                     <div className="space-y-1">
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="text-sm font-bold text-[#ECE4D3]">
@@ -147,9 +137,6 @@ export default function DayAgendaView({
                         </span>
                         <span className="text-xs text-[#7A7265] font-light">
                           (รอบ #{ev.session_number})
-                        </span>
-                        <span className="text-[10px] text-[#A89F91] bg-[#0E0D0C] px-2 py-0.5 rounded border border-[#4A443A]/40">
-                          {durationText}
                         </span>
                       </div>
 
@@ -172,32 +159,14 @@ export default function DayAgendaView({
                   {/* Right: Badges & Indicator */}
                   <div className="flex items-center justify-between sm:justify-end gap-2 shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-[#4A443A]/30">
                     <div className="flex items-center gap-1.5 flex-wrap">
-                      {/* Session Status */}
                       <span
-                        className={`px-2 py-0.5 rounded text-[11px] font-semibold border ${sessionStatusCfg.badgeBg} ${sessionStatusCfg.badgeText} border-white/10`}
+                        className={`px-2 py-0.5 rounded text-[11px] font-semibold border ${statusCfg.badgeBg} ${statusCfg.badgeText} ${statusCfg.badgeBorder}`}
                       >
-                        {ev.status === 'IN_PROGRESS' && (
+                        {statusCfg.key === 'IN_PROGRESS' && (
                           <span className="inline-block w-1.5 h-1.5 rounded-full bg-white animate-pulse mr-1" />
                         )}
-                        {sessionStatusCfg.label}
+                        {statusCfg.label}
                       </span>
-
-                      {/* Parent Booking Status */}
-                      {bookingStatusCfg && (
-                        <span
-                          className={`px-2 py-0.5 rounded text-[10px] font-medium border ${bookingStatusCfg.bg} ${bookingStatusCfg.text} ${bookingStatusCfg.border}`}
-                        >
-                          {bookingStatusCfg.label}
-                        </span>
-                      )}
-
-                      {/* WAITING_DEPOSIT Warning */}
-                      {isWaitingDeposit && (
-                        <span className="bg-amber-950/60 text-amber-400 border border-amber-800/60 px-2 py-0.5 rounded text-[10px] font-bold flex items-center gap-1">
-                          <AlertCircle size={11} />
-                          <span>รอมัดจำ</span>
-                        </span>
-                      )}
                     </div>
 
                     <ChevronRight size={16} className="text-[#7A7265] hidden sm:block" />

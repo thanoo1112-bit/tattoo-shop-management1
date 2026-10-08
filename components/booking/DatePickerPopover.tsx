@@ -15,6 +15,8 @@ interface DatePickerPopoverProps {
   label?: string;
   required?: boolean;
   disabled?: boolean;
+  minDate?: string;
+  disabledDates?: string[];
 }
 
 export default function DatePickerPopover({
@@ -27,6 +29,8 @@ export default function DatePickerPopover({
   label,
   required = false,
   disabled = false,
+  minDate,
+  disabledDates = [],
 }: DatePickerPopoverProps) {
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -132,6 +136,8 @@ export default function DatePickerPopover({
               artistId={artistId}
               artistWorkingDays={artistWorkingDays}
               busyRanges={busyRanges}
+              minDate={minDate}
+              disabledDates={disabledDates}
             />
           </div>
         )}

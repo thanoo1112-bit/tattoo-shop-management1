@@ -139,3 +139,98 @@ export async function compressImageWithMetrics(
     img.src = previewUrl;
   });
 }
+
+/**
+ * Generates a small thumbnail File constrained to maxDimension (default 480px) 
+ * for fast list/grid rendering.
+ */
+export async function generateThumbnail(
+  file: File,
+  maxDimension: number = 480,
+  options: CompressionOptions = {}
+): Promise<File> {
+  const quality = options.quality ?? 0.78;
+
+  const validTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/jpg'];
+  if (!validTypes.includes(file.type.toLowerCase())) {
+    throw new Error('รองรับเฉพาะไฟล์ JPG, PNG หรือ WEBP');
+  }
+
+  return new Promise<File>((resolve, reject) => {
+    const reader = new FileReader();
+
+    reader.onerror = () => {
+      reject(new Error('ไม่สามารถประมวลผลรูปภาพ Thumbnail ได้'));
+    };
+
+    reader.onload = () => {
+      const img = new Image();
+
+      img.onerror = () => {
+        reject(new Error('ไม่สามารถประมวลผลรูปภาพ Thumbnail ได้'));
+      };
+
+      img.onload = () => {
+        try {
+          const originalWidth = img.naturalWidth || img.width;
+          const originalHeight = img.naturalHeight || img.height;
+
+          if (!originalWidth || !originalHeight) {
+            throw new Error('ไม่สามารถอ่านขนาดรูปภาพได้');
+          }
+
+          let targetWidth = originalWidth;
+          let targetHeight = originalHeight;
+
+          if (originalWidth > maxDimension || originalHeight > maxDimension) {
+            const ratio = Math.min(maxDimension / originalWidth, maxDimension / originalHeight);
+            targetWidth = Math.round(originalWidth * ratio);
+            targetHeight = Math.round(originalHeight * ratio);
+          }
+
+          const canvas = document.createElement('canvas');
+          canvas.width = targetWidth;
+          canvas.height = targetHeight;
+
+          const ctx = canvas.getContext('2d');
+          if (!ctx) {
+            throw new Error('Canvas 2D context unavailable');
+          }
+
+          ctx.drawImage(img, 0, 0, targetWidth, targetHeight);
+
+          const targetMime = options.outputFormat || 'image/webp';
+          const ext = targetMime === 'image/webp' ? '.webp' : targetMime === 'image/jpeg' ? '.jpg' : '.png';
+          const cleanBaseName = file.name.substring(0, file.name.lastIndexOf('.')) || file.name;
+          const outputFileName = `thumb_${cleanBaseName}${ext}`;
+
+          canvas.toBlob(
+            (blob) => {
+              if (!blob) {
+                reject(new Error('ไม่สามารถประมวลผลรูปภาพ Thumbnail ได้'));
+                return;
+              }
+
+              const thumbFile = new File([blob], outputFileName, {
+                type: targetMime,
+                lastModified: Date.now(),
+              });
+
+              resolve(thumbFile);
+            },
+            targetMime,
+            quality
+          );
+        } catch (err) {
+          console.error('Thumbnail generation failure:', err);
+          reject(new Error('ไม่สามารถประมวลผลรูปภาพ Thumbnail ได้'));
+        }
+      };
+
+      img.src = reader.result as string;
+    };
+
+    reader.readAsDataURL(file);
+  });
+}
+

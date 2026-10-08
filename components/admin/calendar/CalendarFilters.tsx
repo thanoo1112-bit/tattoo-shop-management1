@@ -26,6 +26,7 @@ export default function CalendarFilters({
   const statusOptions: Array<{ value: string; label: string }> = [
     { value: 'ALL', label: 'สถานะทั้งหมด' },
     { value: 'SCHEDULED', label: 'นัดหมายแล้ว' },
+    { value: 'WAITING_DEPOSIT', label: 'รอมัดจำ' },
     { value: 'IN_PROGRESS', label: 'กำลังสัก' },
     { value: 'COMPLETED', label: 'เสร็จสิ้น' },
     { value: 'CANCELLED', label: 'ยกเลิก' },

@@ -1,14 +1,17 @@
 import { createClient } from '@/lib/supabase/client';
-import { compressImage } from './imageCompressor';
+import { compressImage, generateThumbnail } from './imageCompressor';
 
 export type StudioAssetFolder = 'artists' | 'flash' | 'portfolio';
 
 export interface StudioImageUploadResult {
   path: string;
   publicUrl: string;
+  thumbnailPath?: string;
+  thumbnailUrl?: string;
   mimeType: string;
   originalSize: number;
   compressedSize: number;
+  thumbnailSize?: number;
 }
 
 export interface CustomerReferenceUploadResult {
@@ -101,14 +104,51 @@ export async function uploadStudioImage(
     .from('studio-assets')
     .getPublicUrl(storagePath);
 
+  let thumbnailPath: string | undefined = undefined;
+  let thumbnailUrl: string | undefined = undefined;
+  let thumbnailSize: number | undefined = undefined;
+
+  // 6. Generate & upload Thumbnail for 'flash' and 'portfolio' assets
+  if (folder === 'flash' || folder === 'portfolio') {
+    try {
+      const thumbFile = await generateThumbnail(file, 480, options);
+      thumbnailSize = thumbFile.size;
+      const baseName = filename.substring(0, filename.lastIndexOf('.')) || filename;
+      const thumbFilename = `thumb_${baseName}.webp`;
+      thumbnailPath = `${folder}/${thumbFilename}`;
+
+      const { error: thumbUploadErr } = await supabase.storage
+        .from('studio-assets')
+        .upload(thumbnailPath, thumbFile, {
+          cacheControl: '31536000',
+          upsert: false,
+        });
+
+      if (!thumbUploadErr) {
+        const { data: thumbUrlData } = supabase.storage
+          .from('studio-assets')
+          .getPublicUrl(thumbnailPath);
+        thumbnailUrl = thumbUrlData.publicUrl;
+      } else {
+        console.warn('[storageUploader] Thumbnail upload warning:', thumbUploadErr.message);
+      }
+    } catch (err) {
+      console.warn('[storageUploader] Could not generate thumbnail during upload:', err);
+    }
+  }
+
   return {
     path: storagePath,
     publicUrl: publicUrlData.publicUrl,
+    thumbnailPath,
+    thumbnailUrl,
     mimeType: compressedFile.type,
     originalSize,
     compressedSize,
+    thumbnailSize,
   };
 }
+
 
 /**
  * Uploads a customer tattoo reference image to the private 'customer-references' bucket.

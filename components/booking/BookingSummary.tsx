@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { Calendar, Clock, User, ShieldAlert, DollarSign, Send } from 'lucide-react';
+import { calculateDurationTextFromTimes } from '../admin/calendar/calendarUtils';
 
 interface BookingSummaryProps {
   artworkImage?: string;
@@ -86,7 +87,9 @@ export default function BookingSummary({
             <span>เวลาปฏิบัติงาน</span>
           </div>
           <span className="font-semibold">
-            {startTime && endTime ? `${startTime} — ${endTime} (${duration} ชม.)` : 'ยังไม่ได้เลือก'}
+            {startTime && endTime
+              ? `${startTime} — ${endTime} (${calculateDurationTextFromTimes(startTime, endTime) || `${duration} ชม.`})`
+              : 'ยังไม่ได้เลือก'}
           </span>
         </div>
 

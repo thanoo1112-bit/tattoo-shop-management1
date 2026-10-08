@@ -38,6 +38,10 @@ export async function middleware(request: NextRequest) {
             isValidArtist = Boolean(artistRecord && artistRecord.is_active !== false);
           }
         }
+      } else {
+        // Default role to 'customer' if authenticated user exists but no profile row yet
+        supabaseRole = supabaseUser.user_metadata?.role || 'customer';
+        isActive = true;
       }
     }
   } catch (err) {

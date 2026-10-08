@@ -3,7 +3,7 @@
 import React from 'react';
 
 type StatusType = 
-  | 'PENDING' | 'APPROVED' | 'WAITING_DEPOSIT' | 'CONFIRMED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED'
+  | 'PENDING' | 'SLIP_REVIEW' | 'APPROVED' | 'WAITING_DEPOSIT' | 'CONFIRMED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED'
   | 'QUOTED' | 'ACCEPTED' | 'REJECTED' | 'EXPIRED';
 
 interface BookingStatusBadgeProps {
@@ -20,6 +20,12 @@ export default function BookingStatusBadge({ status, type = 'booking' }: Booking
       container: 'bg-[#171512] border-[#4A443A]',
       text: 'text-[#ECE4D3]',
     },
+    SLIP_REVIEW: {
+      label: 'รอตรวจสลิป',
+      dot: 'bg-[#C9A86A] animate-pulse',
+      container: 'bg-[#171512] border-[#C9A86A]/45',
+      text: 'text-[#C9A86A]',
+    },
     QUOTED: {
       label: 'เสนอราคาแล้ว',
       dot: 'bg-[#C9A86A]',
@@ -27,31 +33,31 @@ export default function BookingStatusBadge({ status, type = 'booking' }: Booking
       text: 'text-[#ECE4D3]',
     },
     ACCEPTED: {
-      label: 'ยืนยันคำขอแล้ว',
-      dot: 'bg-[#4E9F6E]',
-      container: 'bg-[#171512] border-emerald-800/40',
-      text: 'text-[#ECE4D3]',
+      label: 'รอชำระมัดจำ',
+      dot: 'bg-[#D9A441]',
+      container: 'bg-[#171512] border-[#D9A441]/45',
+      text: 'text-[#D9A441]',
     },
     REJECTED: {
-      label: 'ปฏิเสธคำขอ',
-      dot: 'bg-[#7F2424]',
-      container: 'bg-[#171512] border-red-900/30',
-      text: 'text-[#A89F91]',
+      label: 'ปฏิเสธ',
+      dot: 'bg-zinc-500',
+      container: 'bg-zinc-900/90 border-zinc-700/80',
+      text: 'text-zinc-400',
     },
     APPROVED: {
-      label: 'ยืนยันคิวแล้ว',
+      label: 'อนุมัติแล้ว',
       dot: 'bg-[#4E9F6E]',
       container: 'bg-[#171512] border-emerald-800/40',
       text: 'text-[#ECE4D3]',
     },
     WAITING_DEPOSIT: {
-      label: 'รอมัดจำ',
+      label: 'รอชำระมัดจำ',
       dot: 'bg-[#D9A441]',
       container: 'bg-[#171512] border-[#D9A441]/45',
       text: 'text-[#D9A441]',
     },
     CONFIRMED: {
-      label: 'ยืนยันคิวแล้ว',
+      label: 'ยืนยันคิว',
       dot: 'bg-[#4E9F6E]',
       container: 'bg-[#171512] border-emerald-800/40',
       text: 'text-[#ECE4D3]',
@@ -69,16 +75,16 @@ export default function BookingStatusBadge({ status, type = 'booking' }: Booking
       text: 'text-[#A89F91]',
     },
     CANCELLED: {
-      label: 'ยกเลิกคิวแล้ว',
-      dot: 'bg-[#7F2424]',
-      container: 'bg-[#171512] border-red-900/30',
-      text: 'text-[#A89F91]',
+      label: 'ยกเลิก',
+      dot: 'bg-zinc-500',
+      container: 'bg-zinc-900/90 border-zinc-700/80',
+      text: 'text-zinc-400',
     },
     EXPIRED: {
       label: 'หมดเวลาชำระมัดจำ',
-      dot: 'bg-[#7F2424]',
-      container: 'bg-[#171512] border-red-900/50',
-      text: 'text-[#E57373]',
+      dot: 'bg-zinc-500',
+      container: 'bg-zinc-900/90 border-zinc-700/80',
+      text: 'text-zinc-400',
     },
   };
 

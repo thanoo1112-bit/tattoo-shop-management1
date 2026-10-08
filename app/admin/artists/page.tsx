@@ -30,7 +30,7 @@ export default function AdminArtistsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0E0D0C] text-[#ECE4D3] font-prompt animate-fadeIn">
+    <div className="min-h-screen bg-[#0E0D0C] text-[#ECE4D3] font-prompt">
       {/* Top Admin Header Navigation */}
       <AdminHeader />
 

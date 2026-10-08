@@ -14,7 +14,7 @@ function BookingContent() {
 
   const artistParam = searchParams.get('artist');
   const artworkParam = searchParams.get('artwork');
-  const flashParam = searchParams.get('flash');
+  const flashParam = searchParams.get('flash') || searchParams.get('flash_id') || searchParams.get('flash_design_id');
 
   const [preselectedArtworkImage, setPreselectedArtworkImage] = useState<string | undefined>(undefined);
   const [preselectedStyle, setPreselectedStyle] = useState<string | undefined>(undefined);

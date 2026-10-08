@@ -36,11 +36,14 @@ import { useApp } from '@/components/AppContext';
 import CustomerReferenceImage from '@/components/common/CustomerReferenceImage';
 import PaymentSlipImage from '@/components/common/PaymentSlipImage';
 import { BlockedDateRecord, checkDateAvailability, checkExistingDateWarning } from '@/lib/availabilityUtils';
+import { calculateCustomerAgeYears } from '@/lib/customerUtils';
+import { formatTattooSize } from '@/lib/utils/formatters';
 
 interface BookingDetailPanelProps {
   booking: BookingItem | null;
   artists: Array<{ id: string; name: string; nickname: string | null }>;
   blockedDates?: BlockedDateRecord[];
+  isArtistView?: boolean;
   onClose: () => void;
   onRefresh: () => void;
   onCheckSlip?: (bookingId: string) => void;
@@ -50,6 +53,7 @@ export default function BookingDetailPanel({
   booking,
   artists,
   blockedDates = [],
+  isArtistView = false,
   onClose,
   onRefresh,
   onCheckSlip,
@@ -188,6 +192,11 @@ export default function BookingDetailPanel({
 
   // Resilient Customer Confirmation Resolution State
   const [confirmationState, setConfirmationState] = useState<'loading' | 'confirmed' | 'not_confirmed' | 'error'>('loading');
+  const [customerDob, setCustomerDob] = useState<string | null>(booking?.date_of_birth || booking?.customer_dob || null);
+
+  React.useEffect(() => {
+    setCustomerDob(booking?.date_of_birth || booking?.customer_dob || null);
+  }, [booking?.date_of_birth, booking?.customer_dob]);
 
   React.useEffect(() => {
     if (!booking) {
@@ -195,14 +204,10 @@ export default function BookingDetailPanel({
       return;
     }
 
-    if (booking.is_age_confirmed === true) {
-      setConfirmationState('confirmed');
-      return;
-    }
-
     const customerUserId = booking.customer_user_id;
-    if (!customerUserId) {
-      setConfirmationState('not_confirmed');
+    const customerId = (booking as any)?.customer_id;
+    if (!customerUserId && !customerId) {
+      setConfirmationState(booking.is_age_confirmed === true ? 'confirmed' : 'not_confirmed');
       return;
     }
 
@@ -212,11 +217,13 @@ export default function BookingDetailPanel({
 
     async function fetchStatus() {
       try {
-        const { data, error } = await supabase
+        let query = supabase
           .from('customers')
-          .select('eligibility_confirmed_at, profile_completed_at')
-          .eq('user_id', customerUserId)
-          .maybeSingle();
+          .select('eligibility_confirmed_at, profile_completed_at, date_of_birth');
+        if (customerUserId) query = query.eq('user_id', customerUserId);
+        else if (customerId) query = query.eq('id', customerId);
+
+        const { data, error } = await query.maybeSingle();
 
         if (!isMounted) return;
 
@@ -227,10 +234,13 @@ export default function BookingDetailPanel({
         }
 
         if (data) {
-          const isConfirmed = Boolean(data.eligibility_confirmed_at || data.profile_completed_at);
+          if (data.date_of_birth) {
+            setCustomerDob(data.date_of_birth);
+          }
+          const isConfirmed = Boolean(data.eligibility_confirmed_at || data.profile_completed_at || booking?.is_age_confirmed);
           setConfirmationState(isConfirmed ? 'confirmed' : 'not_confirmed');
         } else {
-          setConfirmationState('not_confirmed');
+          setConfirmationState(booking?.is_age_confirmed === true ? 'confirmed' : 'not_confirmed');
         }
       } catch (err) {
         console.error('Exception fetching admin booking customer confirmation:', err);
@@ -243,7 +253,7 @@ export default function BookingDetailPanel({
     return () => {
       isMounted = false;
     };
-  }, [booking?.id, booking?.customer_user_id, booking?.is_age_confirmed]);
+  }, [booking?.id, booking?.customer_user_id, (booking as any)?.customer_id, booking?.is_age_confirmed]);
 
   // Health Data Hydration from estimate_requests linked to booking.estimate_request_id
   const [healthState, setHealthState] = useState<{
@@ -264,7 +274,10 @@ export default function BookingDetailPanel({
 
   React.useEffect(() => {
     const estimateRequestId = booking?.estimate_request_id;
-    if (!estimateRequestId) {
+    const customerUserId = booking?.customer_user_id;
+    const customerId = (booking as any)?.customer_id;
+
+    if (!customerUserId && !customerId && !estimateRequestId) {
       setHealthState({
         loading: false,
         has_medical_condition: null,
@@ -282,46 +295,73 @@ export default function BookingDetailPanel({
 
     async function fetchHealthData() {
       try {
-        const { data, error } = await supabase
-          .from('estimate_requests')
-          .select('has_medical_condition, medical_condition_note, has_allergy, allergy_note')
-          .eq('id', estimateRequestId)
-          .maybeSingle();
+        let hasCustData = false;
+        let healthObj = {
+          has_medical_condition: null as boolean | null,
+          medical_condition_note: null as string | null,
+          has_allergy: null as boolean | null,
+          allergy_note: null as string | null,
+        };
+
+        // 1. Check customers table by user_id or id first (works for Flash & Custom)
+        if (customerUserId || customerId) {
+          let query = supabase
+            .from('customers')
+            .select('has_medical_condition, medical_condition_note, medical_conditions, has_allergy, allergy_note, allergies, date_of_birth');
+          if (customerUserId) query = query.eq('user_id', customerUserId);
+          else if (customerId) query = query.eq('id', customerId);
+
+          const { data: cData, error: cErr } = await query.maybeSingle();
+
+          if (!cErr && cData) {
+            if (cData.date_of_birth) {
+              setCustomerDob((prev) => prev || cData.date_of_birth);
+            }
+            const hasMed = cData.has_medical_condition ?? (cData.medical_conditions ? true : (cData.medical_condition_note ? true : null));
+            const hasAll = cData.has_allergy ?? (cData.allergies ? true : (cData.allergy_note ? true : null));
+            const medNote = cData.medical_condition_note || cData.medical_conditions || null;
+            const allNote = cData.allergy_note || cData.allergies || null;
+
+            if (cData.has_medical_condition !== undefined || cData.has_allergy !== undefined || medNote || allNote) {
+              hasCustData = true;
+              healthObj = {
+                has_medical_condition: hasMed,
+                medical_condition_note: medNote,
+                has_allergy: hasAll,
+                allergy_note: allNote,
+              };
+            }
+          }
+        }
+
+        // 2. Fallback to estimate_requests if health data still missing
+        if ((!hasCustData || healthObj.has_medical_condition === null) && estimateRequestId) {
+          const { data: eData, error: eErr } = await supabase
+            .from('estimate_requests')
+            .select('has_medical_condition, medical_condition_note, has_allergy, allergy_note, date_of_birth, customer_dob')
+            .eq('id', estimateRequestId)
+            .maybeSingle();
+
+          if (!eErr && eData) {
+            if (eData.date_of_birth || eData.customer_dob) {
+              setCustomerDob((prev) => prev || eData.date_of_birth || eData.customer_dob);
+            }
+            healthObj = {
+              has_medical_condition: eData.has_medical_condition ?? null,
+              medical_condition_note: eData.medical_condition_note ?? null,
+              has_allergy: eData.has_allergy ?? null,
+              allergy_note: eData.allergy_note ?? null,
+            };
+          }
+        }
 
         if (!isMounted) return;
 
-        if (error) {
-          console.error('Error fetching health data for admin booking detail:', error);
-          setHealthState({
-            loading: false,
-            has_medical_condition: null,
-            medical_condition_note: null,
-            has_allergy: null,
-            allergy_note: null,
-            error: true,
-          });
-          return;
-        }
-
-        if (data) {
-          setHealthState({
-            loading: false,
-            has_medical_condition: data.has_medical_condition ?? null,
-            medical_condition_note: data.medical_condition_note ?? null,
-            has_allergy: data.has_allergy ?? null,
-            allergy_note: data.allergy_note ?? null,
-            error: false,
-          });
-        } else {
-          setHealthState({
-            loading: false,
-            has_medical_condition: null,
-            medical_condition_note: null,
-            has_allergy: null,
-            allergy_note: null,
-            error: false,
-          });
-        }
+        setHealthState({
+          loading: false,
+          ...healthObj,
+          error: false,
+        });
       } catch (err) {
         console.error('Exception fetching health data for admin booking detail:', err);
         if (isMounted) {
@@ -342,7 +382,7 @@ export default function BookingDetailPanel({
     return () => {
       isMounted = false;
     };
-  }, [booking?.id, booking?.estimate_request_id]);
+  }, [booking?.id, booking?.customer_user_id, booking?.estimate_request_id]);
 
   const isHealthUnknown =
     healthState.loading ||
@@ -375,7 +415,7 @@ export default function BookingDetailPanel({
 
   const wCm = booking.width_cm;
   const hCm = booking.height_cm;
-  const sizeDisplay = wCm && hCm ? `${wCm} × ${hCm} ซม.` : 'ไม่ระบุขนาด';
+  const sizeDisplay = formatTattooSize(wCm, hCm, booking.estimated_size_tier || booking.size_label);
 
   const activeSession = booking.sessions?.find((s) => s.status !== 'CANCELLED') || booking.sessions?.[0];
   const appointmentDateDisplay = activeSession?.start_at
@@ -388,7 +428,7 @@ export default function BookingDetailPanel({
   const formattedRawTime = rawTimeStr ? (rawTimeStr.length >= 5 ? `${rawTimeStr.slice(0, 5)} น.` : rawTimeStr) : 'ไม่ระบุเวลา';
 
   const appointmentTimeDisplay = activeSession?.start_at
-    ? `${formatTimeBangkok(activeSession.start_at)} น.`
+    ? formatTimeBangkok(activeSession.start_at)
     : formattedRawTime;
 
   const durationText = activeSession?.start_at && activeSession?.end_at
@@ -435,7 +475,7 @@ export default function BookingDetailPanel({
       case 'COMPLETED':
         return (
           <span className="bg-emerald-950/60 text-emerald-400 border border-emerald-800/60 px-2.5 py-0.5 rounded text-xs font-semibold">
-            เสร็จสิ้นสมบูรณ์
+            งานเสร็จสิ้น
           </span>
         );
       case 'REJECTED':
@@ -678,11 +718,6 @@ export default function BookingDetailPanel({
               </span>
             ) : (
               getStatusBadge(booking.status)
-            )}
-            {booking.status === 'COMPLETED' && (
-              <span className="text-[10px] bg-emerald-950/60 text-emerald-400 border border-emerald-800/60 px-2 py-0.5 rounded-full font-medium">
-                งานเสร็จสิ้น
-              </span>
             )}
           </div>
           <button
@@ -961,11 +996,6 @@ export default function BookingDetailPanel({
                     <CheckCircle2 size={16} className="text-emerald-400 shrink-0" />
                     <span>งานสักนี้เสร็จสิ้นสมบูรณ์แล้ว</span>
                   </div>
-                  {booking.completed_at && (
-                    <span className="text-[11px] text-studio-secondary font-mono">
-                      ปิดงานเมื่อ: {formatDateTimeBangkok(booking.completed_at)}
-                    </span>
-                  )}
                 </div>
               </div>
             )}
@@ -1079,27 +1109,23 @@ export default function BookingDetailPanel({
                   <span className="text-studio-muted text-xs">ไม่ระบุเบอร์โทร</span>
                 </div>
               )}
-              <div className="flex justify-between items-center pt-2">
-                <span className="text-studio-muted">การยืนยันอายุและเงื่อนไข:</span>
-                {confirmationState === 'loading' ? (
-                  <span className="inline-flex items-center space-x-1 text-studio-muted bg-studio-card/80 border border-studio-border px-2.5 py-0.5 rounded text-[11px]">
-                    <span>กำลังตรวจสอบ...</span>
-                  </span>
-                ) : confirmationState === 'confirmed' ? (
-                  <span className="inline-flex items-center space-x-1 text-emerald-400 bg-emerald-950/50 border border-emerald-800/60 px-2.5 py-0.5 rounded text-[11px] font-medium">
-                    <CheckCircle2 size={12} />
-                    <span>ยืนยันแล้ว</span>
-                  </span>
-                ) : confirmationState === 'error' ? (
-                  <span className="inline-flex items-center space-x-1 text-amber-400/80 bg-amber-950/30 border border-amber-800/30 px-2.5 py-0.5 rounded text-[11px]">
-                    <span>! ไม่สามารถตรวจสอบได้</span>
-                  </span>
-                ) : (
-                  <span className="inline-flex items-center space-x-1 text-amber-400 bg-amber-950/50 border border-amber-800/60 px-2.5 py-0.5 rounded text-[11px] font-medium">
-                    <span>ยังไม่ยืนยัน</span>
-                  </span>
-                )}
-              </div>
+              {(() => {
+                const customerAge = calculateCustomerAgeYears(customerDob || booking?.date_of_birth || booking?.customer_dob);
+                return (
+                  <div className="flex justify-between items-center py-2 border-t border-studio-border/30">
+                    <span className="text-studio-muted">อายุลูกค้า:</span>
+                    {customerAge !== null ? (
+                      <span className="text-studio-primary font-mono text-xs font-semibold">
+                        {customerAge} ปี
+                      </span>
+                    ) : (
+                      <span className="text-studio-muted text-xs">
+                        ไม่พบข้อมูลวันเกิด
+                      </span>
+                    )}
+                  </div>
+                );
+              })()}
             </div>
           </div>
 
@@ -1128,7 +1154,7 @@ export default function BookingDetailPanel({
             ) : isHealthUnknown ? (
               <div className="flex items-center space-x-2 text-xs text-studio-muted bg-studio-sec/60 border border-studio-border/50 p-2.5 rounded-lg">
                 <AlertCircle size={15} className="shrink-0 text-studio-muted" />
-                <span>ไม่มีข้อมูลสุขภาพ</span>
+                <span>ยังไม่ให้ข้อมูล</span>
               </div>
             ) : isHealthy ? (
               <div className="flex items-center space-x-2 text-xs text-emerald-400 bg-emerald-950/30 border border-emerald-800/40 p-2.5 rounded-lg">
@@ -1214,14 +1240,10 @@ export default function BookingDetailPanel({
               <span>รายละเอียดงานสัก</span>
             </div>
             <div className="space-y-2 pt-1 divide-y divide-studio-border/50">
-              <div className="flex justify-between items-center pb-2">
-                <span className="text-studio-muted">ช่างสัก:</span>
-                <span className="text-studio-primary font-medium">{artistDisplay}</span>
-              </div>
-              {booking.work_type && (
-                <div className="flex justify-between items-center py-2">
-                  <span className="text-studio-muted">ประเภทงานสัก:</span>
-                  <span className="text-studio-primary font-medium">{getTattooWorkTypeLabel(booking.work_type)}</span>
+              {!isArtistView && (
+                <div className="flex justify-between items-center pb-2">
+                  <span className="text-studio-muted">ช่างสัก:</span>
+                  <span className="text-studio-primary font-medium">{artistDisplay}</span>
                 </div>
               )}
               {(booking as any).color_technique && (
