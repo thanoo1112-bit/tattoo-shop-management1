@@ -384,6 +384,57 @@ export default function BookingDetailPanel({
     };
   }, [booking?.id, booking?.customer_user_id, booking?.estimate_request_id]);
 
+  // Additional Resilient Fallback State for Tattoo Specs from linked estimate_requests
+  const [estSpecs, setEstSpecs] = useState<{
+    style: string | null;
+    placement: string | null;
+    width_cm: number | null;
+    height_cm: number | null;
+    estimated_size_tier: string | null;
+  }>({
+    style: null,
+    placement: null,
+    width_cm: null,
+    height_cm: null,
+    estimated_size_tier: null,
+  });
+
+  React.useEffect(() => {
+    const estId = booking?.estimate_request_id;
+    if (!estId) return;
+
+    let isMounted = true;
+    const supabase = createClient();
+
+    async function fetchEstSpecs() {
+      try {
+        const { data: eData } = await supabase
+          .from('estimate_requests')
+          .select('style, style_preference, placement, width_cm, height_cm, estimated_size_tier')
+          .eq('id', estId)
+          .maybeSingle();
+
+        if (eData && isMounted) {
+          setEstSpecs({
+            style: eData.style || eData.style_preference || null,
+            placement: eData.placement || null,
+            width_cm: eData.width_cm ?? null,
+            height_cm: eData.height_cm ?? null,
+            estimated_size_tier: eData.estimated_size_tier || null,
+          });
+        }
+      } catch (err) {
+        console.error('Error fetching estimate specs fallback in BookingDetailPanel:', err);
+      }
+    }
+
+    fetchEstSpecs();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [booking?.id, booking?.estimate_request_id]);
+
   const isHealthUnknown =
     healthState.loading ||
     healthState.error ||
@@ -408,14 +459,16 @@ export default function BookingDetailPanel({
   const rawArtistNickname = booking.artist_nickname;
   const artistDisplay = rawArtistNickname ? `${rawArtistName} (${rawArtistNickname})` : rawArtistName;
 
-  const styleDisplay = booking.style_preference || 'ไม่ระบุ';
-  const placementDisplay = (booking.placement && booking.placement !== 'CUSTOM')
-    ? booking.placement
-    : 'ไม่ระบุ';
+  const rawStyle = booking.style_preference && booking.style_preference !== 'ไม่ระบุ' ? booking.style_preference : estSpecs.style;
+  const styleDisplay = rawStyle || 'ไม่ระบุ';
 
-  const wCm = booking.width_cm;
-  const hCm = booking.height_cm;
-  const sizeDisplay = formatTattooSize(wCm, hCm, booking.estimated_size_tier || booking.size_label);
+  const rawPlacement = (booking.placement && booking.placement !== 'CUSTOM' && booking.placement !== 'ไม่ระบุ') ? booking.placement : estSpecs.placement;
+  const placementDisplay = rawPlacement || 'ไม่ระบุ';
+
+  const wCm = booking.width_cm ?? estSpecs.width_cm;
+  const hCm = booking.height_cm ?? estSpecs.height_cm;
+  const sizeTierVal = booking.estimated_size_tier || booking.size_label || estSpecs.estimated_size_tier;
+  const sizeDisplay = formatTattooSize(wCm, hCm, sizeTierVal);
 
   const activeSession = booking.sessions?.find((s) => s.status !== 'CANCELLED') || booking.sessions?.[0];
   const appointmentDateDisplay = activeSession?.start_at
