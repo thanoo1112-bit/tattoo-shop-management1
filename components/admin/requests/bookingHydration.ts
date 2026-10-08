@@ -158,12 +158,12 @@ export async function fetchWorkQueueBookings(supabase: SupabaseClient): Promise<
       admin_note: b.admin_note || flashRes?.admin_note,
       placement: (b.placement && b.placement !== 'ไม่ระบุ' && b.placement !== 'CUSTOM')
         ? b.placement
-        : (flashRes?.placement || est?.placement || 'ไม่ระบุ'),
+        : (flashRes?.placement || est?.placement || null),
       width_cm: b.width_cm ?? flashRes?.width_cm ?? flashDesignObj?.width_cm ?? est?.width_cm ?? null,
       height_cm: b.height_cm ?? flashRes?.height_cm ?? flashDesignObj?.height_cm ?? est?.height_cm ?? null,
       estimated_size_tier: b.estimated_size_tier || est?.estimated_size_tier || null,
       size_label: flashDesignObj?.size_label || flashRes?.flash_design_size_label || b.size_label || est?.estimated_size_tier || null,
-      style_preference: flashStyle || est?.style || est?.style_preference || b.style_preference || 'ไม่ระบุ',
+      style_preference: flashStyle || est?.style || est?.style_preference || b.style_preference || null,
       work_type: b.work_type || est?.work_type || (b.flash_reservation_id ? 'FLASH' : null),
       artwork_title: rawArtworkTitle,
       artwork_image_url: flashImgUrl || b.artwork_image_url || undefined,
