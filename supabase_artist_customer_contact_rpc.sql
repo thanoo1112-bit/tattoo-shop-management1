@@ -3,13 +3,17 @@
 -- Description: Minimal customer contact lookup (name + phone) for assigned Artists
 -- =============================================================================
 
+DROP FUNCTION IF EXISTS public.artist_get_customer_contacts(uuid[]);
+DROP FUNCTION IF EXISTS public.artist_get_customer_contacts(UUID[]);
+
 CREATE OR REPLACE FUNCTION public.artist_get_customer_contacts(
   p_customer_user_ids UUID[]
 )
 RETURNS TABLE (
   user_id UUID,
   display_name TEXT,
-  phone TEXT
+  phone TEXT,
+  email TEXT
 ) AS $$
 DECLARE
   v_artist_id UUID;
@@ -66,11 +70,11 @@ BEGIN
     WHERE v_is_admin = TRUE
        OR EXISTS (
             SELECT 1 FROM public.bookings b
-            WHERE b.artist_id = v_artist_id AND b.customer_user_id = target_id
+            WHERE b.artist_id = v_artist_id AND (b.customer_user_id = target_id OR b.customer_id = target_id)
           )
        OR EXISTS (
             SELECT 1 FROM public.estimate_requests e
-            WHERE e.artist_id = v_artist_id AND e.customer_user_id = target_id
+            WHERE e.artist_id = v_artist_id AND (e.customer_user_id = target_id OR e.customer_id = target_id)
           )
   )
   SELECT 
@@ -82,9 +86,10 @@ BEGIN
       NULLIF(SPLIT_PART(p.email, '@', 1), ''),
       'ลูกค้า (ไม่ระบุชื่อ)'
     )::TEXT AS display_name,
-    COALESCE(NULLIF(p.phone, ''), NULLIF(c.phone, ''), '')::TEXT AS phone
+    COALESCE(NULLIF(p.phone, ''), NULLIF(c.phone, ''), '')::TEXT AS phone,
+    COALESCE(NULLIF(p.email, ''), NULLIF(c.email, ''), '')::TEXT AS email
   FROM authorized_customers ac
-  LEFT JOIN public.customers c ON c.user_id = ac.target_id
+  LEFT JOIN public.customers c ON (c.user_id = ac.target_id OR c.id = ac.target_id)
   LEFT JOIN public.profiles p ON p.user_id = ac.target_id;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER STABLE SET search_path = '';

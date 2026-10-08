@@ -131,6 +131,9 @@ REVOKE ALL ON public.customers FROM authenticated;
 -- Authenticated users (Customers & Admins) can SELECT via RLS
 GRANT SELECT ON public.customers TO authenticated;
 
+-- Authenticated Admins can INSERT new customer records
+GRANT INSERT ON public.customers TO authenticated;
+
 -- Authenticated Admins can UPDATE safe contact fields (display_name, phone, avatar_url)
 -- user_id and email remain immutable via column grants and RLS
 GRANT UPDATE (display_name, phone, avatar_url) ON public.customers TO authenticated;
@@ -168,6 +171,16 @@ TO authenticated
 USING (
   private.is_admin()
 )
+WITH CHECK (
+  private.is_admin()
+);
+
+-- Policy D: Admin inserts customer records
+DROP POLICY IF EXISTS "Admin insert customer policy" ON public.customers;
+CREATE POLICY "Admin insert customer policy"
+ON public.customers
+FOR INSERT
+TO authenticated
 WITH CHECK (
   private.is_admin()
 );
