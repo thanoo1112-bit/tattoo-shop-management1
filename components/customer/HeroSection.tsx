@@ -35,7 +35,7 @@ export default function HeroSection() {
             </span>
             <h1 className="text-3xl sm:text-5xl lg:text-6xl xl:text-7xl font-heading font-normal tracking-[0.04em] text-studio-primary leading-[1.1] sm:leading-[1.05]">
               เปลี่ยนไอเดีย<br />
-              <span className="text-studio-red">ให้กลายเป็นงานบนผิว</span>
+              <span className="text-studio-red">ให้กลายเป็นศิลปะบนผิวหนัง</span>
             </h1>
             <p className="font-caveat text-xl sm:text-2xl text-studio-secondary pt-1 font-normal tracking-wide">
               {"\"Fine craftsmanship, timeless ink on aged flash paper\""}
@@ -44,7 +44,7 @@ export default function HeroSection() {
 
           <p className="text-xs sm:text-sm xl:text-base text-studio-secondary font-prompt font-light leading-relaxed max-w-lg">
             จิตวิญญาณแห่งศิลปะการสักชั้นสูง รังสรรค์งานศิลป์ระดับพรีเมียมเฉพาะบุคคล 
-            สัมผัสมาตรฐานความสะอาดและปลอดเชื้อระดับสากล ในบรรยากาศ Ink & Aged Paper
+            สัมผัสมาตรฐานความสะอาดและปลอดเชื้อระดับสากล ในบรรยากาศสตูดิโอเข้ม เท่ และมีเอกลักษณ์
           </p>
 
           {/* CTA Buttons: Full width stack on mobile, horizontal on sm+ */}

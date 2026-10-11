@@ -566,45 +566,63 @@ export default function HomePage() {
               </div>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
-              {featuredArtists.slice(0, 2).map((artist) => (
-                <div
-                  key={artist.id}
-                  className="bg-studio-card border border-studio-border rounded-[8px] overflow-hidden flex flex-col justify-between group hover:border-studio-red/50 transition-all shadow-md"
-                >
-                  <div className="p-4 sm:p-6 space-y-3.5">
-                    <div className="flex items-center space-x-3.5">
-                      <img
-                        src={artist.avatar_url || artist.avatar}
-                        alt={artist.name}
-                        className="w-14 h-14 sm:w-16 sm:h-16 rounded-full object-cover border-2 border-studio-border shrink-0"
-                      />
-                      <div className="min-w-0">
-                        <span className="text-[10px] uppercase tracking-wider text-studio-red-bright font-bold block truncate">
-                          {artist.specialties && artist.specialties.length > 0 ? artist.specialties.join(' / ') : artist.specialty}
-                        </span>
-                        <h3 className="text-base sm:text-lg font-heading tracking-wide text-studio-primary mt-0.5 truncate">
-                          {artist.name}
-                        </h3>
-                        <span className="text-[10px] text-studio-muted">ช่างประจำสตูดิโอ 157 TATTOO</span>
+            <div className="flex flex-wrap gap-6 justify-start">
+              {featuredArtists.slice(0, 2).map((artist) => {
+                const artistPortfolio = livePortfolio.filter((p) => p.artistId === artist.id);
+                const artistWorks = artistPortfolio.slice(0, 3);
+                return (
+                  <div
+                    key={artist.id}
+                    className="w-full md:w-[380px] shrink-0 bg-studio-card border border-studio-border rounded-[8px] overflow-hidden flex flex-col justify-between group hover:border-studio-red/50 transition-all shadow-md"
+                  >
+                    <div className="p-4 sm:p-6 space-y-3.5">
+                      <div className="flex items-center space-x-3.5">
+                        <img
+                          src={artist.avatar_url || artist.avatar}
+                          alt={artist.name}
+                          className="w-14 h-14 sm:w-16 sm:h-16 rounded-full object-cover border-2 border-studio-border shrink-0"
+                        />
+                        <div className="min-w-0">
+                          <span className="text-[10px] uppercase tracking-wider text-studio-red font-bold block truncate">
+                            {artist.specialties && artist.specialties.length > 0 ? artist.specialties.join(' / ') : artist.specialty}
+                          </span>
+                          <h3 className="text-base sm:text-lg font-heading tracking-wide text-studio-primary mt-0.5 truncate">
+                            {artist.name}
+                          </h3>
+                          <span className="text-[10px] text-studio-muted">ช่างประจำสตูดิโอ 157 TATTOO</span>
+                        </div>
                       </div>
+
+                      <p className="text-xs text-studio-secondary font-light leading-relaxed line-clamp-2">
+                        {artist.bio || 'ช่างสักมืออาชีพประจำ 157 TATTOO'}
+                      </p>
+
+                      {/* Mini portfolio preview strip (fits exactly 3 per row) */}
+                      {artistWorks.length > 0 && (
+                        <div className="pt-1">
+                          <span className="text-[9px] uppercase tracking-wider text-studio-muted block mb-1.5">ตัวอย่างผลงาน:</span>
+                          <div className="grid grid-cols-3 gap-2 w-full">
+                            {artistWorks.map((w) => (
+                              <div key={w.id} className="w-full aspect-square bg-studio-main rounded overflow-hidden border border-studio-border/60">
+                                <img src={w.image} alt="" className="w-full h-full object-cover" />
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
 
-                    <p className="text-xs text-studio-secondary font-light leading-relaxed line-clamp-2">
-                      {artist.bio || 'ช่างสักมืออาชีพประจำ 157 TATTOO'}
-                    </p>
+                    <div className="p-3.5 sm:p-4 bg-studio-main/40 border-t border-studio-border">
+                      <Link
+                        href={`/artists?id=${artist.id}`}
+                        className="min-h-[44px] w-full text-center bg-transparent border border-studio-border text-studio-primary hover:bg-studio-sec hover:border-studio-red/50 active:scale-[0.99] text-xs font-semibold tracking-wider uppercase py-2.5 px-4 rounded-[4px] flex items-center justify-center transition-colors"
+                      >
+                        ดูผลงาน & นัดหมาย
+                      </Link>
+                    </div>
                   </div>
-
-                  <div className="p-3.5 sm:p-4 bg-studio-main/40 border-t border-studio-border">
-                    <Link
-                      href={`/artists?id=${artist.id}`}
-                      className="min-h-[44px] w-full text-center bg-transparent border border-studio-border text-studio-primary hover:bg-studio-sec hover:border-studio-red/50 active:scale-[0.99] text-xs font-semibold tracking-wider uppercase py-2.5 px-4 rounded-[4px] flex items-center justify-center transition-colors"
-                    >
-                      ดูผลงาน & นัดหมาย
-                    </Link>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </section>
