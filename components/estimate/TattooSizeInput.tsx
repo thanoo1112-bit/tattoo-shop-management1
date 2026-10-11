@@ -67,7 +67,7 @@ export const TATTOO_SIZE_OPTIONS: TattooSizeOption[] = [
     name: 'Size XXL',
     dimensions: 'ใหญ่กว่า A4',
     priceDisplay: '6,000.-',
-    durationDisplay: '6 ชั่วโมงขึ้นไป / อาจแบ่งหลายรอบ',
+    durationDisplay: '6 ชั่วโมงขึ้นไป',
     referenceDisplay: 'เต็มแขน / เต็มหลัง',
     width: 21,
     height: 30,
