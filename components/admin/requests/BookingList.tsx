@@ -2,7 +2,8 @@
 
 import React, { useState, useMemo } from 'react';
 import { Search, ChevronRight, User, Calendar, DollarSign, Clock, ShieldCheck, CreditCard, TriangleAlert } from 'lucide-react';
-import { BookingItem, BookingStatus, formatDateTimeBangkok, formatCurrency, isMultiSessionIncompleteBooking, resolveBookingOperationalStatus } from './types';
+import { BookingItem, BookingStatus, formatDateTimeBangkok, formatDateBangkok, formatCurrency, isMultiSessionIncompleteBooking, resolveBookingOperationalStatus } from './types';
+import { getActiveQueueSessionDateTime } from './bookingHydration';
 
 interface BookingListProps {
   bookings: BookingItem[];
@@ -51,6 +52,7 @@ export default function BookingList({
   };
 
   const statusCounts = useMemo(() => {
+    let scheduled = 0;
     let sessionsCount = 0;
     let completed = 0;
     let cancelled = 0;
@@ -60,16 +62,12 @@ export default function BookingList({
       if (cat === 'COMPLETED') completed++;
       else if (cat === 'CANCELLED') cancelled++;
       else if (cat === 'SESSIONS') sessionsCount++;
+      else if (cat === 'SCHEDULED') scheduled++;
     });
-
-    const scheduledCount = bookings.filter(b => {
-      const cat = getCategory(b);
-      return cat === 'SCHEDULED' || cat === 'SESSIONS';
-    }).length;
 
     return {
       all: bookings.length,
-      scheduled: scheduledCount,
+      scheduled,
       sessions: sessionsCount,
       completed,
       cancelled,
@@ -79,6 +77,7 @@ export default function BookingList({
   const filterPills: Array<{ id: string; label: string }> = [
     { id: 'ALL', label: `ทั้งหมด (${statusCounts.all})` },
     { id: 'SCHEDULED', label: `นัดหมายแล้ว (${statusCounts.scheduled})` },
+    { id: 'SESSIONS', label: `รอบนัด (${statusCounts.sessions})` },
     { id: 'COMPLETED', label: `งานเสร็จสิ้น (${statusCounts.completed})` },
     { id: 'CANCELLED', label: `ยกเลิก (${statusCounts.cancelled})` },
   ];
@@ -88,7 +87,7 @@ export default function BookingList({
       const cat = getCategory(b);
 
       if (statusFilter !== 'ALL') {
-        if ((statusFilter === 'SCHEDULED' || statusFilter === 'CONFIRMED') && cat !== 'SCHEDULED' && cat !== 'SESSIONS') return false;
+        if ((statusFilter === 'SCHEDULED' || statusFilter === 'CONFIRMED') && cat !== 'SCHEDULED') return false;
         if ((statusFilter === 'SESSIONS' || statusFilter === 'MULTI_SESSION_INCOMPLETE') && cat !== 'SESSIONS') return false;
         if (statusFilter === 'COMPLETED' && cat !== 'COMPLETED') return false;
         if (statusFilter === 'CANCELLED' && cat !== 'CANCELLED') return false;
@@ -169,6 +168,19 @@ export default function BookingList({
     }
 
     if (book.operational_status) {
+      const isMultiSession = Boolean(
+        (book.sessions && book.sessions.length > 1) ||
+        (book.sessions && book.sessions.some(s => (s.session_number || 1) >= 2))
+      );
+      const isCompleted = book.status === 'COMPLETED' || book.operational_status.key === 'COMPLETED';
+      const isCancelled = book.status === 'CANCELLED' || book.status === 'REJECTED' || book.status === 'EXPIRED' || book.operational_status.key === 'CANCELLED';
+      const isMultiActive = isMultiSession && !isCompleted && !isCancelled;
+
+      const labelToDisplay = isMultiActive ? 'รอบนัด' : book.operational_status.label;
+      const badgeClass = isMultiActive
+        ? 'bg-teal-950/60 text-teal-400 border border-teal-800/60'
+        : book.operational_status.badgeClass;
+
       return (
         <div className="flex items-center gap-1">
           {isDirectBooking && (
@@ -176,8 +188,8 @@ export default function BookingList({
               สร้างโดยแอดมิน
             </span>
           )}
-          <span className={`${book.operational_status.badgeClass} px-2 py-0.5 rounded text-[10px] font-semibold`}>
-            {book.operational_status.label}
+          <span className={`${badgeClass} px-2 py-0.5 rounded text-[10px] font-semibold`}>
+            {labelToDisplay}
           </span>
         </div>
       );
@@ -197,6 +209,11 @@ export default function BookingList({
           </span>
         );
       case 'WAITING_DEPOSIT':
+        return (
+          <span className="bg-purple-950/60 text-purple-400 border border-purple-800/60 px-2 py-0.5 rounded text-[10px] font-semibold">
+            รอมัดจำ
+          </span>
+        );
       case 'CONFIRMED':
         return (
           <span className="bg-emerald-950/60 text-emerald-400 border border-emerald-800/60 px-2 py-0.5 rounded text-[10px] font-semibold">
@@ -205,21 +222,27 @@ export default function BookingList({
         );
       case 'IN_PROGRESS':
         return (
-          <span className="bg-purple-950/60 text-purple-400 border border-purple-800/60 px-2 py-0.5 rounded text-[10px] font-semibold flex items-center gap-1">
-            <span className="w-1.5 h-1.5 rounded-full bg-purple-400 animate-pulse" />
+          <span className="bg-[#9C2F2F]/20 text-[#D64545] border border-[#9C2F2F]/60 px-2 py-0.5 rounded text-[10px] font-semibold flex items-center gap-1 animate-pulse">
+            <span className="w-1.5 h-1.5 rounded-full bg-[#D64545] animate-pulse" />
             กำลังสัก
           </span>
         );
       case 'COMPLETED':
         return (
-          <span className="bg-emerald-950/60 text-emerald-400 border border-emerald-800/60 px-2 py-0.5 rounded text-[10px] font-semibold">
+          <span className="bg-emerald-950/80 text-emerald-300 border border-emerald-700/80 px-2 py-0.5 rounded text-[10px] font-semibold">
             เสร็จสิ้น
           </span>
         );
       case 'REJECTED':
         return (
-          <span className="bg-red-950/60 text-red-400 border border-red-800/60 px-2 py-0.5 rounded text-[10px] font-semibold">
+          <span className="bg-red-950/50 text-red-400 border border-red-900/60 px-2 py-0.5 rounded text-[10px] font-semibold">
             ปฏิเสธ
+          </span>
+        );
+      case 'EXPIRED':
+        return (
+          <span className="bg-zinc-900/90 text-zinc-400 border border-zinc-700/80 px-2 py-0.5 rounded text-[10px] font-semibold">
+            หมดอายุ
           </span>
         );
       case 'CANCELLED':
@@ -333,7 +356,7 @@ export default function BookingList({
             <table className="w-full text-left text-xs text-[#ECE4D3]">
               <thead className="bg-[#0E0D0C] text-[#7A7265] uppercase text-[10px] tracking-wider border-b border-[#4A443A]">
                 <tr>
-                  <th className="py-3 px-3">รหัสคิว / วันเวลานัด</th>
+                  <th className="py-3 px-3">รหัสคิว / วันที่ลูกค้าสะดวก</th>
                   <th className="py-3 px-3">ลูกค้า</th>
                   <th className="py-3 px-3">ช่างสัก</th>
                   <th className="py-3 px-3">สถานะ</th>
@@ -346,8 +369,8 @@ export default function BookingList({
               <tbody className="divide-y divide-[#4A443A]/50">
                 {filteredBookings.map((book) => {
                   const isSelected = selectedBooking?.id === book.id;
-                  const reqTime = book.requested_start_time || book.requested_time;
-                  const timeFormatted = reqTime ? (reqTime.length >= 5 ? reqTime.slice(0, 5) : reqTime) : null;
+                  const { displayDate, displayTime } = getActiveQueueSessionDateTime(book);
+                  const timeFormatted = displayTime ? (displayTime.length >= 5 ? displayTime.slice(0, 5) : displayTime) : null;
 
                   return (
                     <tr
@@ -362,11 +385,15 @@ export default function BookingList({
                           #{book.id.slice(0, 8)}
                         </span>
                         <div className="font-medium text-[#ECE4D3] text-xs mt-0.5">
-                          {book.requested_date || '-'}
+                          {displayDate ? formatDateBangkok(displayDate) : 'ไม่ได้ระบุ'}
                         </div>
-                        {timeFormatted && (
+                        {timeFormatted ? (
                           <div className="text-[10px] text-amber-400/90 font-mono">
                             {timeFormatted} น.
+                          </div>
+                        ) : (
+                          <div className="text-[10px] text-[#7A7265] font-mono">
+                            ไม่ได้ระบุเวลา
                           </div>
                         )}
                       </td>
@@ -404,8 +431,8 @@ export default function BookingList({
           <div className="md:hidden space-y-2.5">
             {filteredBookings.map((book) => {
               const isSelected = selectedBooking?.id === book.id;
-              const reqTime = book.requested_start_time || book.requested_time;
-              const timeFormatted = reqTime ? (reqTime.length >= 5 ? reqTime.slice(0, 5) : reqTime) : null;
+              const { displayDate, displayTime } = getActiveQueueSessionDateTime(book);
+              const timeFormatted = displayTime ? (displayTime.length >= 5 ? displayTime.slice(0, 5) : displayTime) : null;
 
               return (
                 <div
@@ -425,10 +452,12 @@ export default function BookingList({
                       <span className="font-semibold text-xs text-[#ECE4D3]">{book.customer_name}</span>
                       <p className="text-[11px] text-[#7A7265] mt-0.5">
                         ช่าง: <span className="text-[#A89F91]">{book.artist_name}</span>
-                        {book.requested_date && (
+                        {displayDate ? (
                           <span>
-                            {' • '}วันที่: {book.requested_date} {timeFormatted ? `(${timeFormatted} น.)` : ''}
+                            {' • '}วันที่สะดวก: {formatDateBangkok(displayDate)} {timeFormatted ? `(${timeFormatted} น.)` : ''}
                           </span>
+                        ) : (
+                          <span> • วันที่สะดวก: ไม่ได้ระบุ</span>
                         )}
                       </p>
                     </div>

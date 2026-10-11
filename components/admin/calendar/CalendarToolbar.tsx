@@ -15,7 +15,6 @@ interface CalendarToolbarProps {
   onRefresh: () => void;
   isLoading: boolean;
   onOpenBlockModal?: () => void;
-  onOpenCreateBookingModal?: () => void;
 }
 
 export default function CalendarToolbar({
@@ -88,15 +87,39 @@ export default function CalendarToolbar({
             id="btn-open-block-modal"
             type="button"
             onClick={onOpenBlockModal}
-            className="px-3 py-1.5 bg-red-950/80 hover:bg-red-900/90 text-red-300 border border-red-800/80 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1.5 shadow-sm"
+            className="px-3 py-1.5 bg-red-950/80 hover:bg-red-900/90 text-red-300 border border-red-800/80 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1.5 shadow-sm cursor-pointer"
           >
             <span>🔒</span>
             <span>ปิดรับคิว</span>
           </button>
         )}
-
-
-
+        {/* View Mode Buttons */}
+        <div className="inline-flex bg-[#0E0D0C] border border-[#4A443A] rounded-lg p-0.5">
+          <button
+            id="btn-view-month"
+            type="button"
+            onClick={() => onViewModeChange('MONTH')}
+            className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
+              viewMode === 'MONTH'
+                ? 'bg-[#171512] text-[#ECE4D3] shadow-sm font-semibold border border-[#4A443A]/60'
+                : 'text-[#A89F91] hover:text-[#ECE4D3]'
+            }`}
+          >
+            เดือน
+          </button>
+          <button
+            id="btn-view-queue"
+            type="button"
+            onClick={() => onViewModeChange('QUEUE')}
+            className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
+              viewMode === 'QUEUE'
+                ? 'bg-[#171512] text-[#ECE4D3] shadow-sm font-semibold border border-[#4A443A]/60'
+                : 'text-[#A89F91] hover:text-[#ECE4D3]'
+            }`}
+          >
+            ตารางคิวงาน
+          </button>
+        </div>
         {/* Refresh Button */}
         <button
           id="btn-refresh-calendar"

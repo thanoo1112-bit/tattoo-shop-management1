@@ -88,7 +88,7 @@ export default function AdminPaymentPage() {
       // 1. Fetch live booking_payment_summary
       const { data: summaries, error: sumErr } = await supabase
         .from('booking_payment_summary')
-        .select('booking_id, estimate_request_id, customer_user_id, artist_id, quoted_price, deposit_required, deposit_paid, final_paid, total_paid, paid_total, balance_due, payment_status, is_fully_paid, is_deposit_paid, remaining_balance');
+        .select('booking_id, estimate_request_id, customer_user_id, artist_id, quoted_price, deposit_required, paid_total, remaining_balance, deposit_paid, is_fully_paid');
 
       if (sumErr) throw sumErr;
 
@@ -96,7 +96,7 @@ export default function AdminPaymentPage() {
       const { data: bList, error: bErr } = await supabase
         .from('bookings')
         .select(`
-          id, customer_id, customer_user_id, artist_id, estimate_request_id, flash_reservation_id, booking_number, status, appointment_date, appointment_time, work_type, custom_work_title, quoted_price, deposit_required, deposit_status, created_at, updated_at, request_type, booking_source, is_walkin, admin_notes, payment_status, cancellation_reason,
+          *,
           artists (id, name, nickname),
           estimate_requests (id, placement, description, customer_user_id),
           booking_sessions (id, session_number, start_at, end_at, status)
@@ -108,7 +108,7 @@ export default function AdminPaymentPage() {
       // 3. Fetch non-voided booking payments
       const { data: pList, error: pErr } = await supabase
         .from('booking_payments')
-        .select('id, booking_id, customer_id, customer_user_id, payment_type, amount, currency, payment_method, payment_reference, status, created_at, verified_at, notes, booking_session_id')
+        .select('*')
         .neq('status', 'VOIDED')
         .order('created_at', { ascending: false });
 

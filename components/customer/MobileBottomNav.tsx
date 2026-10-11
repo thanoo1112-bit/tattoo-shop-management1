@@ -39,14 +39,14 @@ export default function MobileBottomNav() {
           href="/"
           className={`flex flex-col items-center justify-center min-h-[48px] py-1 transition-all duration-200 relative ${
             isHomeActive 
-              ? 'text-studio-red font-bold' 
+              ? 'text-studio-red-bright font-bold' 
               : 'text-studio-secondary hover:text-studio-primary active:scale-95'
           }`}
         >
           <Home size={20} className={isHomeActive ? 'stroke-[2.5px]' : 'stroke-[1.75px]'} />
           <span className="text-[10px] mt-1 tracking-wide leading-none">หน้าแรก</span>
           {isHomeActive && (
-            <span className="absolute -top-1 w-1 h-1 rounded-full bg-studio-red" />
+            <span className="absolute -top-1 w-1 h-1 rounded-full bg-studio-red-bright" />
           )}
         </Link>
 
@@ -55,14 +55,14 @@ export default function MobileBottomNav() {
           href="/portfolio"
           className={`flex flex-col items-center justify-center min-h-[48px] py-1 transition-all duration-200 relative ${
             isPortfolioActive 
-              ? 'text-studio-red font-bold' 
+              ? 'text-studio-red-bright font-bold' 
               : 'text-studio-secondary hover:text-studio-primary active:scale-95'
           }`}
         >
           <ImageIcon size={20} className={isPortfolioActive ? 'stroke-[2.5px]' : 'stroke-[1.75px]'} />
           <span className="text-[10px] mt-1 tracking-wide leading-none">ผลงาน</span>
           {isPortfolioActive && (
-            <span className="absolute -top-1 w-1 h-1 rounded-full bg-studio-red" />
+            <span className="absolute -top-1 w-1 h-1 rounded-full bg-studio-red-bright" />
           )}
         </Link>
 
@@ -82,7 +82,7 @@ export default function MobileBottomNav() {
             <Calendar size={22} className="stroke-[2.2px]" />
           </div>
           <span className={`text-[10px] mt-1 font-semibold tracking-wide leading-none ${
-            isBookingActive ? 'text-studio-red font-bold' : 'text-studio-secondary'
+            isBookingActive ? 'text-studio-red-bright font-bold' : 'text-studio-secondary'
           }`}>
             จองคิว
           </span>
@@ -93,14 +93,14 @@ export default function MobileBottomNav() {
           href="/flash"
           className={`flex flex-col items-center justify-center min-h-[48px] py-1 transition-all duration-200 relative ${
             isFlashActive 
-              ? 'text-studio-red font-bold' 
+              ? 'text-studio-red-bright font-bold' 
               : 'text-studio-secondary hover:text-studio-primary active:scale-95'
           }`}
         >
           <Sparkles size={20} className={isFlashActive ? 'stroke-[2.5px]' : 'stroke-[1.75px]'} />
           <span className="text-[10px] mt-1 tracking-wide leading-none">Flash</span>
           {isFlashActive && (
-            <span className="absolute -top-1 w-1 h-1 rounded-full bg-studio-red" />
+            <span className="absolute -top-1 w-1 h-1 rounded-full bg-studio-red-bright" />
           )}
         </Link>
 
@@ -109,14 +109,14 @@ export default function MobileBottomNav() {
           href={isLoggedIn ? '/portal' : '/login'}
           className={`flex flex-col items-center justify-center min-h-[48px] py-1 transition-all duration-200 relative ${
             isProfileActive 
-              ? 'text-studio-red font-bold' 
+              ? 'text-studio-red-bright font-bold' 
               : 'text-studio-secondary hover:text-studio-primary active:scale-95'
           }`}
         >
           <User size={20} className={isProfileActive ? 'stroke-[2.5px]' : 'stroke-[1.75px]'} />
           <span className="text-[10px] mt-1 tracking-wide leading-none">โปรไฟล์</span>
           {isProfileActive && (
-            <span className="absolute -top-1 w-1 h-1 rounded-full bg-studio-red" />
+            <span className="absolute -top-1 w-1 h-1 rounded-full bg-studio-red-bright" />
           )}
         </Link>
 

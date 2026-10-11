@@ -292,7 +292,7 @@ export default function BookingFlow({
                 className="w-14 h-14 object-cover rounded-[4px] border border-studio-border"
               />
               <div className="flex-1">
-                <span className="text-[9px] uppercase tracking-wider text-studio-red font-bold block">
+                <span className="text-[9px] uppercase tracking-wider text-studio-red-bright font-bold block">
                   {selectedArtwork.type === 'flash' ? 'Flash Design พร้อมสัก' : 'งาน Custom จากการประเมิน'}
                 </span>
                 <h4 className="text-xs font-bold text-studio-primary mt-0.5">{selectedArtwork.title}</h4>

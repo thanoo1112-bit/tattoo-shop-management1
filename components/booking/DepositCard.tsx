@@ -85,7 +85,7 @@ export default function DepositCard({
           <Check size={24} />
         </div>
         <h3 className="text-sm font-bold text-studio-primary mb-1">ยอดเงินมัดจำได้รับการยืนยันแล้ว</h3>
-        <p className="text-[9px] text-studio-red mb-3 uppercase tracking-widest font-bold">
+        <p className="text-[9px] text-studio-red-bright mb-3 uppercase tracking-widest font-bold">
           Deposit Verified • คิวจองได้รับการยืนยัน
         </p>
         <p className="text-xs text-studio-secondary leading-relaxed">
@@ -111,7 +111,7 @@ export default function DepositCard({
           </div>
           <div className="flex justify-between">
             <span className="text-studio-muted">ยอดมัดจำ:</span>
-            <span className="text-studio-red font-bold">฿{depositAmount.toLocaleString()}</span>
+            <span className="text-studio-red-bright font-bold">฿{depositAmount.toLocaleString()}</span>
           </div>
         </div>
         <p className="text-[10px] text-amber-300/90 leading-relaxed">
@@ -125,7 +125,7 @@ export default function DepositCard({
     <div className="bg-studio-card border border-studio-border p-5 rounded-[8px] w-full max-w-sm mx-auto flex flex-col space-y-4 animate-fadeIn">
       {/* Header */}
       <div className="border-b border-studio-border pb-3 text-center">
-        <span className="text-[9px] uppercase tracking-wider text-studio-red bg-studio-red/10 px-2 py-0.5 border border-studio-red/20 rounded-[2px] font-semibold">
+        <span className="text-[9px] uppercase tracking-wider text-studio-red-bright bg-studio-red/10 px-2 py-0.5 border border-studio-red/20 rounded-[2px] font-semibold">
           แจ้งชำระเงินมัดจำ
         </span>
         <h3 className="text-sm font-bold text-studio-primary mt-2">
@@ -170,7 +170,7 @@ export default function DepositCard({
 
       {/* Payment Details info */}
       <div className="bg-studio-main/60 border border-studio-border p-3 rounded-[4px] space-y-2 text-xs">
-        <div className="flex items-center space-x-1.5 text-studio-red font-semibold text-[10px]">
+        <div className="flex items-center space-x-1.5 text-studio-red-bright font-semibold text-[10px]">
           <QrCode size={13} />
           <span>ช่องทางการโอนชำระเงิน</span>
         </div>

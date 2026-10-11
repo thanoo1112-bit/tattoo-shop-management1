@@ -447,7 +447,7 @@ export default function CustomerBookingDetail({
         ))
   );
 
-  const canDeleteRequest = item.status === 'CANCELLED' || item.status === 'REJECTED';
+  const canDeleteRequest = item.status === 'CANCELLED';
   const showInFlightNotice = (hasSubmittedDepositSlip || displayStatus === 'SLIP_REVIEW' || displayStatus === 'CONFIRMED' || displayStatus === 'IN_PROGRESS') && displayStatus !== 'CANCELLED' && displayStatus !== 'REJECTED' && displayStatus !== 'COMPLETED';
 
   // ESC keypress listener for Lightbox

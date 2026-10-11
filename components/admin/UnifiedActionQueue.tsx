@@ -28,11 +28,11 @@ import BookingDetailPanel from '@/components/admin/requests/BookingDetailPanel';
 import { formatDateBangkok, formatTimeBangkok } from '@/components/admin/calendar/calendarUtils';
 import { resolveEstimateOperationalStatus } from '@/components/admin/requests/types';
 
-export type UnifiedQueueTab = 'all' | 'custom' | 'payments' | 'flash';
+export type UnifiedQueueTab = 'all' | 'custom' | 'payments' | 'today_queue';
 
 export interface UnifiedQueueItem {
   id: string;
-  type: 'custom' | 'payment' | 'flash';
+  type: 'custom' | 'payment' | 'flash' | 'today_queue';
   created_at: string;
 
   // Common metadata
@@ -51,6 +51,9 @@ export interface UnifiedQueueItem {
 
   // Flash specific
   flashData?: any;
+
+  // Today queue specific
+  sessionData?: any;
 }
 
 function getFirstReferenceImage(est: any): string | null {
@@ -82,6 +85,7 @@ export default function UnifiedActionQueue() {
 
   // Data lists
   const [items, setItems] = useState<UnifiedQueueItem[]>([]);
+  const [artistsList, setArtistsList] = useState<Array<{ id: string; name: string; nickname: string | null }>>([]);
 
   // Drawers / Modals State
   const [selectedPaymentSub, setSelectedPaymentSub] = useState<any | null>(null);
@@ -96,6 +100,9 @@ export default function UnifiedActionQueue() {
     try {
       // 1. Fetch Artists
       const { data: artData } = await supabase.from('artists').select('id, name, nickname');
+      if (artData) {
+        setArtistsList(artData.map((a: any) => ({ id: a.id, name: a.name, nickname: a.nickname })));
+      }
       const artMap = new Map<string, string>();
       (artData || []).forEach((a) => artMap.set(a.id, a.nickname ? `${a.name} (${a.nickname})` : a.name));
 
@@ -278,7 +285,7 @@ export default function UnifiedActionQueue() {
 
         const { data: rawFinancials } = await supabase
           .from('booking_payment_summary')
-          .select('booking_id, quoted_price, deposit_required, deposit_paid, final_paid, total_paid, paid_total, balance_due, payment_status')
+          .select('booking_id, estimate_request_id, customer_user_id, artist_id, quoted_price, deposit_required, paid_total, remaining_balance, deposit_paid, is_fully_paid')
           .in('booking_id', bookingIds);
 
         pendingSubs.forEach((sub: any) => {
@@ -556,6 +563,96 @@ export default function UnifiedActionQueue() {
         });
       }
 
+      // D. Today's Work Queue (booking_sessions)
+      const todayBangkok = new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'Asia/Bangkok',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+      }).format(new Date());
+
+      const { data: todaySessionsData } = await supabase
+        .from('booking_sessions')
+        .select(`
+          id,
+          booking_id,
+          session_number,
+          start_at,
+          end_at,
+          status,
+          note,
+          bookings (
+            id,
+            customer_id,
+            customer_user_id,
+            artist_id,
+            status,
+            artwork_title,
+            style_preference,
+            width_cm,
+            height_cm,
+            placement,
+            description,
+            has_medical_condition,
+            medical_condition_note,
+            has_allergy,
+            allergy_note,
+            booking_source,
+            estimate_request_id,
+            flash_reservation_id,
+            artists (id, name, nickname),
+            estimate_requests (id, request_type, reference_images, style, width_cm, height_cm, placement),
+            flash_reservations (id, flash_designs(id, title, image_url, style, price))
+          )
+        `)
+        .neq('status', 'CANCELLED')
+        .order('start_at', { ascending: true });
+
+      if (todaySessionsData && todaySessionsData.length > 0) {
+        todaySessionsData.forEach((s: any) => {
+          if (!s.start_at) return;
+          const sDateStr = new Intl.DateTimeFormat('en-CA', {
+            timeZone: 'Asia/Bangkok',
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+          }).format(new Date(s.start_at));
+
+          if (sDateStr !== todayBangkok) return;
+
+          const b = s.bookings;
+          const bStatus = String(b?.status || '').toUpperCase();
+          if (bStatus === 'CANCELLED' || bStatus === 'REJECTED' || bStatus === 'EXPIRED') return;
+
+          const custInfo = getCustomerInfo(b?.customer_user_id);
+          const artistObj = b?.artists || (b?.artist_id ? { name: artMap.get(b.artist_id) } : null);
+          const artistFormatted = artistObj
+            ? (artistObj.nickname ? `${artistObj.name} (${artistObj.nickname})` : artistObj.name)
+            : 'ช่างสักประจำร้าน';
+
+          const hydratedBooking = {
+            ...b,
+            customer_name: custInfo.name,
+            customer_phone: custInfo.phone,
+            customer_email: custInfo.email,
+            artist_name: artistObj?.name || 'ช่างสักประจำร้าน',
+            artist_nickname: artistObj?.nickname || null,
+            sessions: [s],
+          };
+
+          unifiedList.push({
+            id: `session_${s.id}`,
+            type: 'today_queue',
+            created_at: s.start_at,
+            customerName: custInfo.name,
+            customerPhone: custInfo.phone,
+            artistName: artistFormatted,
+            bookingData: hydratedBooking,
+            sessionData: s,
+          });
+        });
+      }
+
       // Sort unified items newest first
       unifiedList.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
       setItems(unifiedList);
@@ -579,18 +676,18 @@ export default function UnifiedActionQueue() {
     }
   }, [fetchUnifiedQueue]);
 
-  // Counts per category
-  const customCount = useMemo(() => items.filter((i) => i.type === 'custom').length, [items]);
+  // Counts per category (คำขอจอง = Custom + Flash)
+  const requestsCount = useMemo(() => items.filter((i) => i.type === 'custom' || i.type === 'flash').length, [items]);
   const paymentCount = useMemo(() => items.filter((i) => i.type === 'payment').length, [items]);
-  const flashCount = useMemo(() => items.filter((i) => i.type === 'flash').length, [items]);
+  const todayQueueCount = useMemo(() => items.filter((i) => i.type === 'today_queue').length, [items]);
   const totalCount = items.length;
 
   // Filtered items for selected tab
   const displayedItems = useMemo(() => {
     if (activeFilter === 'all') return items;
-    if (activeFilter === 'custom') return items.filter((i) => i.type === 'custom');
+    if (activeFilter === 'custom') return items.filter((i) => i.type === 'custom' || i.type === 'flash');
     if (activeFilter === 'payments') return items.filter((i) => i.type === 'payment');
-    if (activeFilter === 'flash') return items.filter((i) => i.type === 'flash');
+    if (activeFilter === 'today_queue') return items.filter((i) => i.type === 'today_queue');
     return items;
   }, [items, activeFilter]);
 
@@ -619,9 +716,9 @@ export default function UnifiedActionQueue() {
           <div className="flex bg-studio-main border border-studio-border rounded-[4px] p-0.5 text-xs overflow-x-auto max-w-full whitespace-nowrap scrollbar-none min-w-0 flex-1 sm:flex-initial">
             {[
               { key: 'all', label: `ทั้งหมด (${totalCount})` },
-              { key: 'custom', label: `คำขอจอง (${customCount})` },
+              { key: 'custom', label: `คำขอจอง (${requestsCount})` },
               { key: 'payments', label: `สลิปรอตรวจ (${paymentCount})` },
-              { key: 'flash', label: `Flash (${flashCount})` },
+              { key: 'today_queue', label: `คิวงานวันนี้ (${todayQueueCount})` },
             ].map((t) => (
               <button
                 key={t.key}
@@ -688,7 +785,7 @@ export default function UnifiedActionQueue() {
 
                       <div className="space-y-1 flex-1 min-w-0">
                         <div className="flex items-center space-x-2 flex-wrap gap-y-1">
-                          <span className="text-[10px] bg-studio-red/15 text-studio-red border border-studio-red/30 px-2 py-0.5 rounded font-bold uppercase tracking-wider">
+                          <span className="text-[10px] bg-studio-red/15 text-studio-red-bright border border-studio-red/30 px-2 py-0.5 rounded font-bold uppercase tracking-wider">
                             คำขอจอง
                           </span>
                           <span className="text-[10px] text-studio-muted font-mono">#{item.id.slice(0, 8)}</span>
@@ -697,7 +794,7 @@ export default function UnifiedActionQueue() {
                           </span>
                         </div>
 
-                        <h4 className="text-sm font-semibold text-studio-primary group-hover:text-studio-red transition-colors">
+                        <h4 className="text-sm font-semibold text-studio-primary group-hover:text-studio-red-bright transition-colors">
                           งานสักสไตล์ {est.style || 'Custom'} ({formatTattooSize(est.width_cm, est.height_cm)})
                         </h4>
 
@@ -857,6 +954,68 @@ export default function UnifiedActionQueue() {
                 );
               }
 
+              // 4. TODAY WORK QUEUE ITEM
+              if (item.type === 'today_queue') {
+                const b = item.bookingData;
+                const s = item.sessionData;
+                const firstRefImage = getFirstReferenceImage(b?.estimate_requests) || b?.flash_reservations?.flash_designs?.image_url;
+
+                const startTime = formatTimeBangkok(s?.start_at);
+                const endTime = formatTimeBangkok(s?.end_at);
+                const timeDisplay = startTime && endTime ? `${startTime} - ${endTime} น.` : (startTime ? `${startTime} น.` : 'วันนี้');
+
+                return (
+                  <div
+                    key={item.id}
+                    className="bg-studio-main border border-blue-900/40 hover:border-blue-700/60 p-4 rounded-[6px] transition-all flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 group cursor-pointer"
+                    onClick={() => setSelectedBookingReq(b)}
+                  >
+                    <div className="flex items-start space-x-3.5 flex-1 min-w-0">
+                      <div className="w-12 h-12 bg-studio-card border border-blue-900/50 rounded overflow-hidden shrink-0">
+                        <CustomerReferenceImage
+                          src={firstRefImage}
+                          alt={b?.artwork_title || 'คิวงานวันนี้'}
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+
+                      <div className="space-y-1 flex-1 min-w-0">
+                        <div className="flex items-center space-x-2 flex-wrap gap-y-1">
+                          <span className="text-[10px] bg-blue-950/80 text-blue-300 border border-blue-800/80 px-2 py-0.5 rounded font-bold uppercase tracking-wider">
+                            คิวงานวันนี้
+                          </span>
+                          <span className="text-[10px] text-blue-400/90 font-mono font-semibold flex items-center gap-1">
+                            <Clock size={11} /> {timeDisplay}
+                          </span>
+                          <span className="text-[10px] text-studio-muted font-mono">#{b?.id?.slice(0, 8)}</span>
+                        </div>
+
+                        <h4 className="text-sm font-semibold text-studio-primary group-hover:text-blue-300 transition-colors">
+                          {b?.artwork_title || `งานสักสไตล์ ${b?.style_preference || 'Custom'}`}
+                        </h4>
+
+                        <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-studio-secondary">
+                          <span>ลูกค้า: <strong className="text-studio-primary">{item.customerName}</strong></span>
+                          <span>ช่างสัก: <strong className="text-studio-primary">{item.artistName}</strong></span>
+                          <span>รอบที่ {s?.session_number || 1}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="shrink-0 w-full sm:w-auto" onClick={(e) => e.stopPropagation()}>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedBookingReq(b)}
+                        className="w-full sm:w-auto px-4 py-2 bg-blue-950/80 hover:bg-blue-900 text-blue-200 border border-blue-800 text-xs font-semibold rounded transition-colors flex items-center justify-center space-x-1.5 cursor-pointer shadow"
+                      >
+                        <Eye size={14} />
+                        <span>ดูรายละเอียด</span>
+                      </button>
+                    </div>
+                  </div>
+                );
+              }
+
               return null;
             })}
           </div>
@@ -883,6 +1042,24 @@ export default function UnifiedActionQueue() {
           onClose={() => setSelectedEstimateReq(null)}
           onRefresh={() => {
             setSelectedEstimateReq(null);
+            fetchUnifiedQueue();
+          }}
+          onCheckSlip={(bookingId) => {
+            const sub = items.find((i) => i.type === 'payment' && i.submissionData?.booking_id === bookingId)?.submissionData;
+            if (sub) {
+              setSelectedPaymentSub(sub);
+            }
+          }}
+        />
+      )}
+
+      {selectedBookingReq && (
+        <BookingDetailPanel
+          booking={selectedBookingReq}
+          artists={artistsList}
+          onClose={() => setSelectedBookingReq(null)}
+          onRefresh={() => {
+            setSelectedBookingReq(null);
             fetchUnifiedQueue();
           }}
           onCheckSlip={(bookingId) => {

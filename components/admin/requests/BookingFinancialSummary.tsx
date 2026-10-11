@@ -27,6 +27,8 @@ export default function BookingFinancialSummary({
     is_fully_paid: false,
   };
 
+  const isCompleted = booking.status === 'COMPLETED';
+
   // Sort price adjustments by created_at ASC to get the original/initial price from the first entry
   const sortedAdjustmentsAsc = [...priceAdjustments].sort(
     (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
@@ -38,7 +40,6 @@ export default function BookingFinancialSummary({
     : fin.quoted_price;
 
   const currentPrice = fin.quoted_price;
-  const isCompleted = booking.status === 'COMPLETED';
   const isEditableStatus = ['WAITING_DEPOSIT', 'CONFIRMED', 'IN_PROGRESS'].includes(booking.status);
 
   // Adjustments sorted DESC for historical timeline display (newest first)
@@ -62,7 +63,7 @@ export default function BookingFinancialSummary({
         <div className="flex items-center gap-2">
           <CreditCard size={14} className="text-[#ECE4D3]" />
           <span className="text-xs font-semibold text-[#ECE4D3]">
-            ราคาและการชำระเงิน
+            สรุปการชำระเงิน
           </span>
           {isCompleted ? (
             fin.is_fully_paid || (currentPrice > 0 && fin.total_paid >= currentPrice) ? (
@@ -162,7 +163,7 @@ export default function BookingFinancialSummary({
           </div>
           <div className="text-right">
             <span className="text-[10px] text-[#7A7265] block font-medium">
-              {isCompleted ? 'ราคาสรุปสุดท้าย' : 'ราคาปัจจุบัน'}
+              ราคาปัจจุบัน
             </span>
             <span className="text-sm font-heading font-semibold text-amber-300 mt-0.5 block">
               {currentPrice && currentPrice > 0 ? `฿${formatCurrency(currentPrice)}` : 'ยังไม่กำหนดราคา'}
@@ -261,3 +262,4 @@ export default function BookingFinancialSummary({
     </div>
   );
 }
+

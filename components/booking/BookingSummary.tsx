@@ -99,8 +99,8 @@ export default function BookingSummary({
         </div>
 
         <div className="flex justify-between items-center">
-          <span className="text-studio-red font-medium">ค่ามัดจำสำหรับจอง (Deposit)</span>
-          <span className="font-bold text-studio-red text-base">฿{deposit.toLocaleString()}</span>
+          <span className="text-studio-red-bright font-medium">ค่ามัดจำสำหรับจอง (Deposit)</span>
+          <span className="font-bold text-studio-red-bright text-base">฿{deposit.toLocaleString()}</span>
         </div>
       </div>
 

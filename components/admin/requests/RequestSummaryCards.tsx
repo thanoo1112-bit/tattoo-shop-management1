@@ -15,7 +15,7 @@ export default function RequestSummaryCards({
 }: RequestSummaryCardsProps) {
   return (
     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 font-prompt">
-      {/* CARD 1: คำขอใหม่ */}
+      {/* CARD 1: รอตรวจสอบ */}
       <div
         onClick={() => onTabChange('estimates', 'PENDING')}
         className={`bg-[#171512] border rounded-xl p-3.5 sm:p-5 shadow-lg relative overflow-hidden cursor-pointer transition-all duration-200 ${
@@ -26,7 +26,7 @@ export default function RequestSummaryCards({
       >
         <div className="flex items-center justify-between">
           <span className="text-[11px] sm:text-xs text-blue-300/90 font-medium tracking-wide">
-            คำขอใหม่
+            รอตรวจสอบ
           </span>
           <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-blue-950/40 border border-blue-800/40 flex items-center justify-center text-blue-400">
             <ClipboardCheck size={15} />

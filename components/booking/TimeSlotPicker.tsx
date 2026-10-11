@@ -127,7 +127,7 @@ export default function TimeSlotPicker({
                     {slot.start} — {slot.end}
                   </span>
                   <span className="text-xs text-studio-secondary mt-0.5 block">
-                    ระยะเวลาปฏิบัติงาน: <strong className="text-studio-red">{slot.duration} ชั่วโมง</strong>
+                    ระยะเวลาปฏิบัติงาน: <strong className="text-studio-red-bright">{slot.duration} ชั่วโมง</strong>
                   </span>
                 </div>
                 {isSelected && (
@@ -141,7 +141,7 @@ export default function TimeSlotPicker({
               </div>
               
               {!isBusy && isRecommended && (
-                <span className="text-[9px] bg-studio-red/20 text-studio-red border border-studio-red/30 px-2 py-0.5 rounded font-semibold uppercase tracking-wider mt-3 self-start">
+                <span className="text-[9px] bg-studio-red/20 text-studio-red-bright border border-studio-red/30 px-2 py-0.5 rounded font-semibold uppercase tracking-wider mt-3 self-start">
                   แนะนำสำหรับขนาดนี้
                 </span>
               )}

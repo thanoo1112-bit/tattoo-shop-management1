@@ -8,7 +8,7 @@ export interface CompletionGuardResult {
 
 /**
  * Client-side UI guard for Admin Booking Completion.
- * Aligned with Server Integrity Trigger rules from Phase 7G3A.
+ * Aligned with Server Integrity Trigger rules from Phase 7G3A & Multi-session guard.
  */
 export function checkAdminCompletionEligibility(
   booking: Partial<BookingItem> | null | undefined
@@ -52,43 +52,62 @@ export function checkAdminCompletionEligibility(
     };
   }
 
+  // 5. Active Sessions Guard: All active non-cancelled sessions must be COMPLETED
+  const hasActiveSession = validSessions.some(
+    (s) => s.status === 'SCHEDULED' || s.status === 'IN_PROGRESS'
+  );
+  if (hasActiveSession) {
+    return {
+      allowed: false,
+      title: 'ยังมีรอบนัดที่ยังไม่เสร็จ',
+      reason: 'ยังมีรอบนัดที่ยังไม่เสร็จ กรุณาเสร็จสิ้นรอบนัดทั้งหมดก่อนปิดงาน',
+    };
+  }
+
   return { allowed: true };
 }
 
 /**
  * Maps raw database trigger and RPC error messages to user-friendly Thai text.
  */
-export function mapServerCompletionError(rawErrorMsg: string | null | undefined): string {
-  if (!rawErrorMsg) return 'เกิดข้อผิดพลาดในการปิดงาน';
+export function mapServerCompletionError(
+  rawErrorMsg?: string | null,
+  errorCode?: string | null
+): string {
+  if (!rawErrorMsg && !errorCode) return 'เกิดข้อผิดพลาดในการปิดงาน';
 
-  if (rawErrorMsg.includes('ACTUAL_PRICE_REQUIRED')) {
+  const msg = rawErrorMsg || '';
+  if (
+    errorCode === '22023' ||
+    msg.includes('กรุณาเสร็จสิ้นรอบสักให้ครบทุกรอบก่อนปิดงาน') ||
+    msg.includes('เสร็จสิ้นรอบสักให้ครบทุกรอบก่อนปิดงาน') ||
+    msg.includes('all scheduled or in-progress sessions must be completed or cancelled first')
+  ) {
+    return 'ยังมีรอบนัดที่ยังไม่เสร็จ กรุณาเสร็จสิ้นทุกรอบก่อนปิดงาน';
+  }
+
+  if (msg.includes('ACTUAL_PRICE_REQUIRED')) {
     return 'ยังไม่ได้กำหนดราคางาน กรุณาให้ช่างผู้รับผิดชอบกำหนดราคาก่อนจบงาน';
   }
-  if (rawErrorMsg.includes('no sessions found')) {
+  if (msg.includes('no sessions found')) {
     return 'ยังไม่มีข้อมูลรอบสักสำหรับงานนี้';
   }
   if (
-    rawErrorMsg.includes('at least one session must be COMPLETED') ||
-    rawErrorMsg.includes('no completed sessions found')
+    msg.includes('at least one session must be COMPLETED') ||
+    msg.includes('no completed sessions found')
   ) {
     return 'ยังไม่มีรอบสักที่เสร็จสิ้นสำหรับงานนี้';
   }
   if (
-    rawErrorMsg.includes(
-      'all scheduled or in-progress sessions must be completed or cancelled first'
-    )
-  ) {
-    return 'ยังมีรอบสักที่ยังไม่เสร็จ กรุณาจบรอบหรือยกเลิกรอบที่ไม่ใช้ก่อนจบงาน';
-  }
-  if (
-    rawErrorMsg.includes('Invalid status transition') ||
-    rawErrorMsg.includes('must be IN_PROGRESS')
+    msg.includes('Invalid status transition') ||
+    msg.includes('must be IN_PROGRESS')
   ) {
     return 'ไม่สามารถจบงานจากสถานะปัจจุบันได้';
   }
-  if (rawErrorMsg.includes('Only active Admin') || rawErrorMsg.includes('Unauthorized')) {
+  if (msg.includes('Only active Admin') || msg.includes('Unauthorized')) {
     return 'คุณไม่มีสิทธิ์ในการปิดงานสักนี้';
   }
 
   return 'เกิดข้อผิดพลาดในการปิดงาน กรุณาตรวจสอบข้อมูลและลองใหม่อีกครั้ง';
 }
+

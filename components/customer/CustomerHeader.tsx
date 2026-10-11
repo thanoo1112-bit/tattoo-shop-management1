@@ -65,7 +65,7 @@ export default function CustomerHeader() {
               <div className="flex items-center space-x-3 border-l border-studio-border pl-5">
                 <Link
                   href="/portal?tab=profile"
-                  className="text-xs xl:text-sm text-studio-primary font-medium flex items-center space-x-2 hover:text-studio-red transition-colors"
+                  className="text-xs xl:text-sm text-studio-primary font-medium flex items-center space-x-2 hover:text-studio-red-bright transition-colors"
                 >
                   <div className="w-7 h-7 rounded-full bg-studio-red/15 border border-studio-red/30 flex items-center justify-center text-studio-red">
                     <User size={13} />
@@ -74,7 +74,7 @@ export default function CustomerHeader() {
                 </Link>
                 <button
                   onClick={logoutCustomer}
-                  className="text-xs text-studio-muted hover:text-studio-red transition-colors flex items-center space-x-1"
+                  className="text-xs text-studio-muted hover:text-studio-red-bright transition-colors flex items-center space-x-1"
                   title="ออกจากระบบ"
                 >
                   <LogOut size={14} />
@@ -96,7 +96,7 @@ export default function CustomerHeader() {
         <div className="flex md:hidden items-center">
           <Link
             href={isLoggedIn ? "/portal?tab=profile" : "/login"}
-            className="w-11 h-11 flex items-center justify-center text-studio-secondary hover:text-studio-red active:scale-95 transition-colors"
+            className="w-11 h-11 flex items-center justify-center text-studio-secondary hover:text-studio-red-bright active:scale-95 transition-colors"
             title={isLoggedIn ? customerName : "เข้าสู่ระบบ"}
           >
             <div className="w-7 h-7 rounded-full bg-studio-card border border-studio-border flex items-center justify-center text-studio-red">

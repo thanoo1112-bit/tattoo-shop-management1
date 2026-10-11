@@ -1,4 +1,4 @@
-export type ViewMode = 'MONTH' | 'WEEK' | 'DAY';
+export type ViewMode = 'MONTH' | 'QUEUE' | 'WEEK' | 'DAY';
 
 export type SessionStatus = 'SCHEDULED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
 
@@ -46,6 +46,7 @@ export interface CalendarSessionEvent {
   booking_id: string;
   artist_id: string;
   session_number: number;
+  total_sessions_count?: number;
   start_at: string;
   end_at: string;
   status: SessionStatus;
@@ -63,7 +64,10 @@ export interface CalendarSessionEvent {
     admin_note: string | null;
     started_at: string | null;
     completed_at: string | null;
+    created_at?: string | null;
+    approved_at?: string | null;
     estimate_request_id?: string | null;
+    style_preference?: string | null;
   } | null;
   estimate?: {
     id: string;

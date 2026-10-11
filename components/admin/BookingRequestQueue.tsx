@@ -86,7 +86,7 @@ export default function BookingRequestQueue({ singleArtistId = null }: BookingRe
         <h3 className="text-xs font-bold uppercase tracking-wider text-studio-primary">
           คิวคำขอจองคิวสัก (Tattoo Bookings Requests Queue)
         </h3>
-        <span className="text-[9px] bg-studio-red/10 text-studio-red border border-studio-red/30 px-2 py-0.5 rounded font-mono font-bold uppercase">
+        <span className="text-[9px] bg-studio-red/10 text-studio-red-bright border border-studio-red/30 px-2 py-0.5 rounded font-mono font-bold uppercase">
           Database Active
         </span>
       </div>
@@ -132,18 +132,18 @@ export default function BookingRequestQueue({ singleArtistId = null }: BookingRe
                   </div>
                   <div className="truncate max-w-[120px]">
                     <span className="font-bold block truncate">{book.artworkTitle}</span>
-                    <span className="text-[9px] text-studio-red uppercase tracking-wider block mt-0.5">
+                    <span className="text-[9px] text-studio-red-bright uppercase tracking-wider block mt-0.5">
                       {book.bookingSource || book.bookingType}
                     </span>
                   </div>
                 </td>
                 <td className="p-4 space-y-1">
                   <div className="flex items-center space-x-1">
-                    <Calendar size={11} className="text-studio-red" />
+                    <Calendar size={11} className="text-studio-red-bright" />
                     <span>{formatThaiDate(book.date)}</span>
                   </div>
                   <div className="flex items-center space-x-1">
-                    <Clock size={11} className="text-studio-red" />
+                    <Clock size={11} className="text-studio-red-bright" />
                     <span className="text-studio-secondary font-mono">
                       {book.startTime} - {book.endTime}
                       {calculateDurationTextFromTimes(book.startTime, book.endTime) && (
@@ -154,7 +154,7 @@ export default function BookingRequestQueue({ singleArtistId = null }: BookingRe
                 </td>
                 <td className="p-4 space-y-0.5">
                   <div>ยอดรวม: <span className="font-bold">฿{book.price.toLocaleString()}</span></div>
-                  <div className="text-[10px] text-studio-red">มัดจำ: ฿{book.deposit.toLocaleString()}</div>
+                  <div className="text-[10px] text-studio-secondary">มัดจำ: ฿{book.deposit.toLocaleString()}</div>
                 </td>
                 <td className="p-4">
                   <div className="flex flex-col items-start gap-1">
@@ -195,10 +195,10 @@ export default function BookingRequestQueue({ singleArtistId = null }: BookingRe
                   )}
 
                   {book.status === 'APPROVED' && (
-                    <span className="text-[10px] text-studio-red font-semibold italic">อนุมัติแล้ว</span>
+                    <span className="text-[10px] text-studio-secondary font-semibold italic">อนุมัติแล้ว</span>
                   )}
                   {book.status === 'WAITING_DEPOSIT' && (
-                    <span className="text-[10px] text-studio-red font-semibold italic">อนุมัติแล้ว รอมัดจำ</span>
+                    <span className="text-[10px] text-studio-secondary font-semibold italic">อนุมัติแล้ว รอมัดจำ</span>
                   )}
                   {book.status === 'CONFIRMED' && (
                     <span className="text-[10px] text-green-500 font-bold uppercase tracking-wider">คอนเฟิร์มคิวแล้ว</span>

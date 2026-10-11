@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo, useRef, useEffect } from 'react';
+import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import { useApp } from '../AppContext';
 import { Booking } from '@/data/mockBookings';
 import { EstimateRequest } from '@/data/mockEstimateRequests';
@@ -86,7 +86,7 @@ function CustomerArchiveReferenceGallery({
     return (
       <div className="pt-2 border-t border-[#4A443A]/30">
         <span className="text-[10px] text-[#7A7265] italic bg-[#171512] border border-[#38332E] px-2.5 py-1 rounded-[4px] inline-flex items-center gap-1.5 font-prompt">
-          <Sparkles size={11} className="text-[#9C2F2F]/80" />
+          <Sparkles size={11} className="text-studio-red-bright/80" />
           <span>ไม่มีรูปอ้างอิง</span>
         </span>
       </div>
@@ -146,7 +146,7 @@ function CustomerAvatar({
 }
 
 export default function AdminCustomerArchive() {
-  const { bookings: appBookings, estimateRequests: appEstimates, artists: appArtists, supabase } = useApp();
+  const { bookings: appBookings, estimateRequests: appEstimates, artists: appArtists, supabase, isStaffLoggedIn, authLoading, user } = useApp();
 
   // Search & Filter State
   const [searchQuery, setSearchQuery] = useState('');
@@ -170,7 +170,7 @@ export default function AdminCustomerArchive() {
   // Direct Supabase Hydration State
   const [masterCustomers, setMasterCustomers] = useState<{
     id: string;
-    user_id: string;
+    user_id?: string | null;
     display_name: string;
     email: string;
     phone: string;
@@ -207,17 +207,17 @@ export default function AdminCustomerArchive() {
   }, []);
 
   // Hydrate Master Data from Supabase
-  useEffect(() => {
-    let isMounted = true;
-    async function loadMasterData() {
-      if (!supabase) return;
+  const isMountedRef = useRef(true);
+
+  const loadMasterData = useCallback(async () => {
+    if (!supabase) return;
       try {
         // 1. Customers, Profiles & Artists
-        const { data: custs } = await supabase
+        const { data: custs, error: errCusts } = await supabase
           .from('customers')
           .select('id, user_id, display_name, email, phone, avatar_url, date_of_birth, eligibility_confirmed_at');
 
-        const { data: profs } = await supabase
+        const { data: profs, error: errProfs } = await supabase
           .from('profiles')
           .select('user_id, display_name, email, phone, role, is_active');
 
@@ -273,15 +273,13 @@ export default function AdminCustomerArchive() {
             });
         }
 
-        if (isMounted) {
-          setMasterCustomers(joinedCusts);
-        }
+        setMasterCustomers(joinedCusts);
 
         // 2. Fetch Estimates for joining (including health disclosure fields)
         const { data: eData } = await supabase.from('estimate_requests').select('id, customer_id, customer_user_id, artist_id, reference_images, width_cm, height_cm, placement, style, description, preferred_date, preferred_time, status, quoted_price, estimated_duration_minutes, deposit_required, quote_note, quoted_at, accepted_at, rejected_at, created_at, updated_at, has_medical_condition, medical_condition_note, has_allergy, allergy_note');
 
         // Map estimates
-        if (eData && isMounted) {
+        if (eData && isMountedRef.current) {
           const mappedEstimates: EstimateRequest[] = eData.map((e: any) => {
             const matchedCust = joinedCusts.find((mc) => (e.customer_id && mc.id === e.customer_id) || (e.customer_user_id && mc.user_id === e.customer_user_id));
             return {
@@ -324,7 +322,7 @@ export default function AdminCustomerArchive() {
           .select('*, booking_sessions(*), flash_reservation_id');
 
 
-        if (bData && isMounted) {
+        if (bData && isMountedRef.current) {
           const mappedBookings: Booking[] = bData.map((b: any) => {
             const matchedCust = joinedCusts.find((mc) => (b.customer_id && mc.id === b.customer_id) || (b.customer_user_id && mc.user_id === b.customer_user_id));
             const est = eData?.find((e: any) => e.id === b.estimate_request_id);
@@ -383,7 +381,7 @@ export default function AdminCustomerArchive() {
           .select('id, booking_id, amount, status')
           .neq('status', 'VOIDED');
 
-        if (isMounted) {
+        if (isMountedRef.current) {
           if (appSubs) setApprovedSubmissions(appSubs);
           if (recPays) setRecordedPayments(recPays);
         }
@@ -397,15 +395,20 @@ export default function AdminCustomerArchive() {
           .from('flash_designs')
           .select('*');
 
-        if (isMounted) {
+        if (isMountedRef.current) {
           if (flashResData) setFlashReservations(flashResData);
           if (flashDesData) setFlashDesigns(flashDesData);
         }
       } catch (err) {
         console.error('Error hydrating customer archive:', err);
       }
+  }, [supabase]);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    if (!authLoading && isStaffLoggedIn) {
+      loadMasterData();
     }
-    loadMasterData();
 
     const handleRealtime = (e: Event) => {
       const detail = (e as CustomEvent).detail;
@@ -416,10 +419,10 @@ export default function AdminCustomerArchive() {
     window.addEventListener('admin:realtime', handleRealtime);
 
     return () => {
-      isMounted = false;
+      isMountedRef.current = false;
       window.removeEventListener('admin:realtime', handleRealtime);
     };
-  }, [supabase]);
+  }, [loadMasterData, authLoading, isStaffLoggedIn, user]);
 
   // Combine AppContext data and Direct Supabase fetched data
   const combinedBookings = useMemo(() => {
@@ -479,7 +482,7 @@ export default function AdminCustomerArchive() {
     masterCustomers.forEach((mc) => {
       holders.push({
         id: mc.id,
-        userId: mc.user_id,
+        userId: mc.user_id || undefined,
         name: mc.display_name,
         email: mc.email !== '-' ? mc.email : '',
         phone: mc.phone !== '-' ? mc.phone : '',
@@ -652,25 +655,17 @@ export default function AdminCustomerArchive() {
 
       const hBookingIds = new Set(h.bookings.map((b) => b.id));
 
-      // CANONICAL BUSINESS RULE: Customer Archive = Payment Deposit Slip Approved Clients ONLY
-      // Entry Milestone Requirement:
-      // Customer MUST have at least 1 approved deposit payment submission (booking_payment_submissions.status = 'APPROVED')
-      // linked via customer_user_id or booking_id.
-      // Booking status (CONFIRMED, IN_PROGRESS, COMPLETED) alone DOES NOT grant entry to the archive!
-      const approvedBookingIds = new Set<string>();
+      // BUSINESS RULE: Client Archive / ประวัติลูกค้า
+      // แสดงเฉพาะ Customer ที่เคยมี public.bookings อย่างน้อย 1 รายการจริง
+      // หากไม่มีประวัติ Booking ในระบบ ให้คัดออกจาก Customer Archive ทันที
+      if (h.bookings.length === 0) {
+        return;
+      }
 
+      const approvedBookingIds = new Set<string>();
       approvedSubmissions.forEach((sub: any) => {
         if (sub.booking_id) approvedBookingIds.add(sub.booking_id);
       });
-
-      const hasApprovedDepositSubmission = Boolean(
-        (h.userId && approvedSubmissions.some((sub: any) => sub.customer_user_id === h.userId)) ||
-        h.bookings.some((b: any) => approvedBookingIds.has(b.id))
-      );
-
-      if (!hasApprovedDepositSubmission) {
-        return; // Skip accounts that have NEVER had a deposit payment slip approved
-      }
 
       // Valid jobs associated with confirmed deposit slip / confirmed bookings for history display
       const isConfirmedWork = (b: any) => {
@@ -754,7 +749,7 @@ export default function AdminCustomerArchive() {
 
   // Filtered & Sorted Customer Records
   const filteredCustomers = useMemo(() => {
-    return customerRecords
+    const res = customerRecords
       .filter((c) => {
         const matchesSearch =
           searchQuery.trim() === '' ||
@@ -779,6 +774,7 @@ export default function AdminCustomerArchive() {
         }
         return b.lastDate.localeCompare(a.lastDate);
       });
+    return res;
   }, [customerRecords, searchQuery, selectedArtistFilter, selectedStatusFilter, sortOrder]);
 
   // Helper Thai Date Formatter
@@ -831,7 +827,7 @@ export default function AdminCustomerArchive() {
       <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4 border-b border-[#4A443A] pb-5">
         <div>
           <div className="inline-flex items-center space-x-2 bg-[#171512] border border-[#4A443A] px-2.5 py-0.5 rounded text-[#ECE4D3] text-[10px] uppercase font-heading tracking-widest mb-1.5">
-            <Users size={12} className="text-[#9C2F2F]" />
+            <Users size={12} className="text-studio-red-bright" />
             <span>CLIENT ARCHIVE • แฟ้มข้อมูลลูกค้า</span>
           </div>
           <h1 className="text-3xl md:text-4xl font-heading font-normal tracking-wide text-[#ECE4D3]">
@@ -843,13 +839,11 @@ export default function AdminCustomerArchive() {
         </div>
 
         {/* Right Total Count Badge */}
-        <div className="flex items-center space-x-3">
-          <div className="px-3.5 py-2 bg-[#171512] border border-[#4A443A] rounded-[6px] flex items-center space-x-2">
-            <User size={14} className="text-[#9C2F2F]" />
-            <span className="text-xs font-semibold text-[#ECE4D3] font-mono">
-              ลูกค้าทั้งหมด {customerRecords.length} คน
-            </span>
-          </div>
+        <div className="px-3.5 py-2 bg-[#171512] border border-[#4A443A] rounded-[6px] flex items-center space-x-2">
+          <User size={14} className="text-studio-red-bright" />
+          <span className="text-xs font-semibold text-[#ECE4D3] font-mono">
+            ลูกค้าทั้งหมด {customerRecords.length} คน
+          </span>
         </div>
       </div>
 
@@ -887,7 +881,7 @@ export default function AdminCustomerArchive() {
               onClick={() => setIsArtistDropdownOpen((prev) => !prev)}
               className="h-[38px] px-3 bg-[#0E0D0C] border border-[#4A443A] hover:border-[#7A7265] rounded-[6px] text-xs font-medium text-[#ECE4D3] flex items-center space-x-2 transition-colors outline-none focus:ring-1 focus:ring-[#9C2F2F]"
             >
-              <User size={13} className="text-[#9C2F2F]" />
+              <User size={13} className="text-studio-red-bright" />
               <span className="truncate max-w-[120px]">
                 {selectedArtistFilter === 'ALL'
                   ? 'ช่างที่เคยดูแลทั้งหมด'
@@ -912,7 +906,7 @@ export default function AdminCustomerArchive() {
                 >
                   <span>ช่างที่เคยดูแลทั้งหมด</span>
                   {selectedArtistFilter === 'ALL' && (
-                    <Check size={13} className="text-[#9C2F2F]" />
+                    <Check size={13} className="text-studio-red-bright" />
                   )}
                 </button>
                 {appArtists.map((artist) => (
@@ -931,7 +925,7 @@ export default function AdminCustomerArchive() {
                   >
                     <span className="truncate">{artist.name}</span>
                     {selectedArtistFilter === artist.id && (
-                      <Check size={13} className="text-[#9C2F2F]" />
+                      <Check size={13} className="text-studio-red-bright" />
                     )}
                   </button>
                 ))}
@@ -946,7 +940,7 @@ export default function AdminCustomerArchive() {
               onClick={() => setIsStatusDropdownOpen((prev) => !prev)}
               className="h-[38px] px-3 bg-[#0E0D0C] border border-[#4A443A] hover:border-[#7A7265] rounded-[6px] text-xs font-medium text-[#ECE4D3] flex items-center space-x-2 transition-colors outline-none focus:ring-1 focus:ring-[#9C2F2F]"
             >
-              <span className="w-1.5 h-1.5 rounded-full bg-[#9C2F2F]" />
+              <span className="w-1.5 h-1.5 rounded-full bg-studio-red-bright" />
               <span>
                 {selectedStatusFilter === 'ALL' && 'สถานะทั้งหมด'}
                 {selectedStatusFilter === 'HAS_NEXT' && 'มีคิวถัดไป'}
@@ -979,7 +973,7 @@ export default function AdminCustomerArchive() {
                   >
                     <span>{item.label}</span>
                     {selectedStatusFilter === item.id && (
-                      <Check size={13} className="text-[#9C2F2F]" />
+                      <Check size={13} className="text-studio-red-bright" />
                     )}
                   </button>
                 ))}
@@ -996,14 +990,24 @@ export default function AdminCustomerArchive() {
             className="h-[38px] px-3 bg-[#0E0D0C] border border-[#4A443A] hover:border-[#7A7265] rounded-[6px] text-xs font-medium text-[#ECE4D3] flex items-center space-x-1.5 transition-colors"
             title="เรียงตาม"
           >
-            <ArrowUpDown size={12} className="text-[#9C2F2F]" />
+            <ArrowUpDown size={12} className="text-studio-red-bright" />
             <span>{sortOrder === 'latest' ? 'ล่าสุด' : 'ชื่อ A–Z'}</span>
           </button>
         </div>
       </div>
 
-      {/* 3. DESKTOP CUSTOMER TABLE */}
-      <div className="hidden md:block bg-[#171512] border border-[#4A443A] rounded-[8px] overflow-hidden shadow-xl">
+      {customerRecords.length === 0 ? (
+        <div className="py-12 text-center border border-dashed border-[#4A443A]/60 rounded-lg bg-[#0E0D0C]/40 space-y-2">
+          <Users size={28} className="text-[#7A7265] mx-auto opacity-60" />
+          <h4 className="text-xs sm:text-sm font-semibold text-[#ECE4D3]">ยังไม่มีประวัติลูกค้า</h4>
+          <p className="text-[11px] text-[#7A7265] max-w-sm mx-auto">
+            ลูกค้าที่มีการยืนยันนัดหมายแล้วจะแสดงที่นี่
+          </p>
+        </div>
+      ) : (
+        <>
+          {/* 3. DESKTOP CUSTOMER TABLE */}
+          <div className="hidden md:block bg-[#171512] border border-[#4A443A] rounded-[8px] overflow-hidden shadow-xl">
         <table className="w-full text-left border-collapse text-xs">
           <thead>
             <tr className="border-b border-[#4A443A] bg-[#0E0D0C] text-[10px] uppercase font-semibold text-[#7A7265] tracking-wider">
@@ -1181,7 +1185,7 @@ export default function AdminCustomerArchive() {
               {cust.nextAppointment && (
                 <div className="p-2 bg-[#0E0D0C] border-l-2 border-[#9C2F2F] rounded text-xs flex items-center justify-between">
                   <div>
-                    <span className="text-[9px] text-[#9C2F2F] font-bold block uppercase">
+                    <span className="text-[9px] text-studio-red-bright font-bold block uppercase">
                       นัดหมายถัดไป:
                     </span>
                     <span className="font-mono text-[#ECE4D3] text-xs">
@@ -1211,6 +1215,8 @@ export default function AdminCustomerArchive() {
           ))
         )}
       </div>
+        </>
+      )}
 
       {/* 5. CUSTOMER DETAIL DRAWER */}
       {selectedCustomer && (
@@ -1222,14 +1228,14 @@ export default function AdminCustomerArchive() {
             <div className="space-y-4 border-b border-[#4A443A]/60 pb-5">
               <div className="flex justify-between items-center">
                 <div className="flex items-center space-x-2">
-                  <Sparkles size={16} className="text-[#9C2F2F]" />
+                  <Sparkles size={16} className="text-studio-red-bright" />
                   <span className="text-xs uppercase font-heading tracking-wider text-[#ECE4D3]">
                     CLIENT ARCHIVE • แฟ้มข้อมูลลูกค้า
                   </span>
                 </div>
                 <button
                   onClick={() => setSelectedCustomer(null)}
-                  className="text-[#7A7265] hover:text-[#9C2F2F] transition-colors p-1"
+                  className="text-[#7A7265] hover:text-studio-red-bright transition-colors p-1"
                 >
                   <X size={20} />
                 </button>
@@ -1359,7 +1365,7 @@ export default function AdminCustomerArchive() {
                     <div className="bg-[#171512] border-l-4 border-l-[#9C2F2F] border border-[#4A443A] p-4 rounded-[6px] space-y-3 shadow-lg">
                       <div className="flex justify-between items-center">
                         <div className="flex items-center space-x-1.5 text-xs text-[#ECE4D3] font-bold">
-                          <Clock3 size={14} className="text-[#9C2F2F]" />
+                          <Clock3 size={14} className="text-studio-red-bright" />
                           <span>นัดหมายถัดไป (NEXT APPOINTMENT)</span>
                         </div>
                         <span
@@ -1779,7 +1785,7 @@ export default function AdminCustomerArchive() {
           <button
             type="button"
             onClick={() => setLightboxGallery(null)}
-            className="absolute top-4 right-4 text-white hover:text-[#9C2F2F] bg-black/60 hover:bg-black/90 border border-white/20 p-2 rounded-full transition-colors z-20"
+            className="absolute top-4 right-4 text-white hover:text-studio-red-bright bg-black/60 hover:bg-black/90 border border-white/20 p-2 rounded-full transition-colors z-20"
             title="ปิด"
           >
             <X size={20} />
@@ -1845,6 +1851,7 @@ export default function AdminCustomerArchive() {
           )}
         </div>
       )}
+
     </div>
   );
 }

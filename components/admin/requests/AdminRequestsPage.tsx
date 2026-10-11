@@ -1,13 +1,12 @@
 'use client';
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { CheckCircle2, Layers, RefreshCw, FileText, Calendar } from 'lucide-react';
+import { CheckCircle2, Layers, RefreshCw } from 'lucide-react';
 import EstimateRequestList from './EstimateRequestList';
 import EstimateDetailPanel from './EstimateDetailPanel';
 import BookingDetailPanel from './BookingDetailPanel';
 import DeleteRejectedRequestDialog from './DeleteRejectedRequestDialog';
 import PaymentSubmissionReviewDrawer from '@/components/admin/payments/PaymentSubmissionReviewDrawer';
-import AdminWorkQueue from '@/components/admin/AdminWorkQueue';
 import { PaymentSubmissionDetail } from '@/components/admin/payments/types';
 import {
   EstimateRequestItem,
@@ -279,7 +278,7 @@ export default function AdminRequestsPage({ defaultTab = 'estimates' }: AdminReq
           status: b.status,
           customer_note: b.customer_note || flashRes?.customer_note,
           admin_note: b.admin_note || flashRes?.admin_note,
-          placement: (b.placement && b.placement !== 'ไม่ระบุ' && b.placement !== 'CUSTOM')
+          placement: (b.placement && b.placement.trim() !== '' && b.placement !== 'ไม่ระบุ' && b.placement !== 'CUSTOM')
             ? b.placement
             : (flashRes?.placement || est?.placement || null),
           width_cm: b.width_cm ?? flashRes?.width_cm ?? flashDesignObj?.width_cm ?? est?.width_cm ?? null,
@@ -291,7 +290,11 @@ export default function AdminRequestsPage({ defaultTab = 'estimates' }: AdminReq
           artwork_title: rawArtworkTitle,
           artwork_image_url: flashImgUrl || b.artwork_image_url || undefined,
           description: b.description || flashRes?.customer_note || est?.description || b.customer_note || null,
-          reference_images: flashImgUrl ? [flashImgUrl] : (b.reference_images || est?.reference_images || null),
+          reference_images: flashImgUrl
+            ? [flashImgUrl]
+            : (Array.isArray(b.reference_images) && b.reference_images.length > 0)
+            ? b.reference_images
+            : ((Array.isArray(est?.reference_images) && est.reference_images.length > 0) ? est.reference_images : null),
           created_at: b.created_at,
           updated_at: b.updated_at,
           customer_name: getCleanCustomerName(customer, profile),
@@ -916,13 +919,13 @@ export default function AdminRequestsPage({ defaultTab = 'estimates' }: AdminReq
         <div>
           <div className="inline-flex items-center space-x-2 bg-[#171512] border border-[#4A443A] px-2.5 py-0.5 rounded text-[#ECE4D3] text-[10px] uppercase font-heading tracking-widest mb-1.5">
             <Layers size={12} className="text-[#9C2F2F]" />
-            <span>Request & Work Queue Management</span>
+            <span>Request Management</span>
           </div>
           <h1 className="text-2xl sm:text-3xl md:text-4xl font-heading font-normal tracking-wide text-[#ECE4D3]">
-            จัดการคำขอและคิวงาน
+            จัดการคำขอ
           </h1>
           <p className="text-xs text-[#A89F91] mt-1 font-light">
-            ติดตามคำขอประเมินราคา ตรวจสอบสลิปมัดจำ และจัดการคิวนัดหมายที่ยืนยันแล้ว
+            ติดตามคำขอประเมินราคา ตรวจสอบสลิปมัดจำ และเสนอราคาให้กับลูกค้า
           </p>
         </div>
 
@@ -931,7 +934,7 @@ export default function AdminRequestsPage({ defaultTab = 'estimates' }: AdminReq
             onClick={() => setRefreshTrigger((prev) => prev + 1)}
             disabled={isLoading}
             className="px-3 py-1.5 bg-[#171512] border border-[#4A443A] hover:border-[#7A7265] text-xs text-[#ECE4D3] rounded-md transition-colors flex items-center gap-1.5 font-medium cursor-pointer"
-            title="รีเฟรชข้อมูลคำขอและคิวงาน"
+            title="รีเฟรชข้อมูลคำขอ"
           >
             <RefreshCw size={13} className={isLoading ? 'animate-spin' : ''} />
             <span>รีเฟรช</span>
@@ -939,55 +942,15 @@ export default function AdminRequestsPage({ defaultTab = 'estimates' }: AdminReq
         </div>
       </div>
 
-      {/* Main 2 Top Tabs Switcher (คำขอ / คิวงาน) */}
-      <div className="flex items-center border-b border-[#4A443A] gap-2">
-        <button
-          id="tab-btn-estimates"
-          type="button"
-          onClick={() => setActiveTab('estimates')}
-          className={`px-4 py-2.5 text-xs sm:text-sm font-heading font-semibold transition-all border-b-2 flex items-center gap-2 cursor-pointer ${
-            activeTab === 'estimates'
-              ? 'text-[#ECE4D3] border-[#9C2F2F]'
-              : 'text-[#7A7265] border-transparent hover:text-[#A89F91]'
-          }`}
-        >
-          <FileText size={15} className={activeTab === 'estimates' ? 'text-[#9C2F2F]' : ''} />
-          <span>คำขอ ({customerRequests.length})</span>
-          {pendingSubmissionsCount > 0 && (
-            <span className="bg-amber-600 text-[#ECE4D3] text-[10px] font-bold px-1.5 py-0.2 rounded-full">
-              {pendingSubmissionsCount}
-            </span>
-          )}
-        </button>
-
-        <button
-          id="tab-btn-bookings"
-          type="button"
-          onClick={() => setActiveTab('bookings')}
-          className={`px-4 py-2.5 text-xs sm:text-sm font-heading font-semibold transition-all border-b-2 flex items-center gap-2 cursor-pointer ${
-            activeTab === 'bookings'
-              ? 'text-[#ECE4D3] border-[#9C2F2F]'
-              : 'text-[#7A7265] border-transparent hover:text-[#A89F91]'
-          }`}
-        >
-          <Calendar size={15} className={activeTab === 'bookings' ? 'text-[#9C2F2F]' : ''} />
-          <span>คิวงาน ({workQueueBookings.length})</span>
-        </button>
-      </div>
-
-      {/* Active Tab Content */}
-      {activeTab === 'estimates' ? (
-        <EstimateRequestList
-          estimates={customerRequests}
-          selectedEstimate={selectedEstimate}
-          onSelectEstimate={setSelectedEstimate}
-          onCheckSlip={handleOpenCheckSlip}
-          onDeleteRequest={handleOpenDeleteModal}
-          initialFilter={estimateFilter}
-        />
-      ) : (
-        <AdminWorkQueue embedded={true} />
-      )}
+      {/* Estimates Request List Direct View */}
+      <EstimateRequestList
+        estimates={customerRequests}
+        selectedEstimate={selectedEstimate}
+        onSelectEstimate={setSelectedEstimate}
+        onCheckSlip={handleOpenCheckSlip}
+        onDeleteRequest={handleOpenDeleteModal}
+        initialFilter={estimateFilter}
+      />
 
       {/* Estimate Detail Panel */}
       {selectedEstimate && (

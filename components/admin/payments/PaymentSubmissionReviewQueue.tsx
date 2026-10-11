@@ -57,7 +57,7 @@ export default function PaymentSubmissionReviewQueue({
       // 1. Fetch raw submissions
       const { data: rawSubs, error: subsErr } = await supabase
         .from('booking_payment_submissions')
-        .select('id, booking_id, customer_user_id, status, claimed_amount, payment_type, slip_path, reference_no, submitted_at, reviewer_id, reviewer_note, reviewed_at, created_at')
+        .select('*')
         .order('submitted_at', { ascending: false });
 
       if (subsErr) throw subsErr;
@@ -90,7 +90,7 @@ export default function PaymentSubmissionReviewQueue({
       const userIds = Array.from(new Set(subsList.map((s: any) => s.customer_user_id)));
       const { data: rawCustomers } = await supabase
         .from('customers')
-        .select('user_id, display_name, first_name, last_name, phone, email')
+        .select('user_id, display_name, phone, email')
         .in('user_id', userIds);
       const { data: rawProfiles } = await supabase
         .from('profiles')
@@ -114,9 +114,7 @@ export default function PaymentSubmissionReviewQueue({
         const f = (rawFinancials || []).find((x: any) => x.booking_id === sub.booking_id);
         const artist: any = Array.isArray(b?.artists) ? b.artists[0] : b?.artists;
 
-        const nameCandidate = c?.first_name
-          ? `${c.first_name} ${c.last_name || ''}`.trim()
-          : c?.display_name && c.display_name !== 'ลูกค้าประจำ'
+        const nameCandidate = c?.display_name && c.display_name !== 'ลูกค้าประจำ'
           ? c.display_name
           : p?.display_name && p.display_name !== 'ลูกค้าประจำ'
           ? p.display_name

@@ -1,12 +1,12 @@
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { Artist } from '@/data/mockArtists';
-import { formatTattooSize } from '@/lib/utils/formatters';
 import { useApp } from '@/components/AppContext';
 import { FlashDesignData } from '@/components/flash/FlashReservationModal';
 import Link from 'next/link';
-import { Calendar, Clock, ArrowLeft, AlertCircle } from 'lucide-react';
+import { ArrowLeft, AlertCircle, ArrowRight, X } from 'lucide-react';
 import { getThumbnailUrl, handleThumbnailError } from '@/lib/utils/thumbnailHelper';
 
 export interface ArtistArtwork {
@@ -27,8 +27,8 @@ interface ArtistProfileProps {
 }
 
 function formatArtistTitle(name?: string | null): string {
-  if (!name) return 'ช่างประจำร้าน';
-  const trimmed = name.trim();
+  const trimmed = name ? name.trim() : '';
+  if (!trimmed) return 'ช่างประจำร้าน';
   if (trimmed.startsWith('ช่าง')) {
     return trimmed;
   }
@@ -38,12 +38,14 @@ function formatArtistTitle(name?: string | null): string {
 export default function ArtistProfile({
   artist,
   onBack,
+  onItemSelect,
 }: ArtistProfileProps) {
   const { supabase } = useApp();
   const [artistPortfolio, setArtistPortfolio] = useState<ArtistArtwork[]>([]);
   const [loadingPortfolio, setLoadingPortfolio] = useState(true);
   const [portfolioError, setPortfolioError] = useState<string | null>(null);
   const [selectedStyle, setSelectedStyle] = useState<string>('ALL');
+  const [previewArtwork, setPreviewArtwork] = useState<ArtistArtwork | FlashDesignData | null>(null);
 
   // Flash Designs State
   const [artistFlashDesigns, setArtistFlashDesigns] = useState<FlashDesignData[]>([]);
@@ -53,6 +55,26 @@ export default function ArtistProfile({
 
   // Tab State
   const [activeTab, setActiveTab] = useState<'portfolio' | 'flash'>('portfolio');
+
+  // Lock body scroll and listen for Escape key when previewArtwork is active
+  useEffect(() => {
+    if (!previewArtwork) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setPreviewArtwork(null);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      document.body.style.overflow = originalOverflow;
+    };
+  }, [previewArtwork]);
 
   useEffect(() => {
     let isMounted = true;
@@ -99,6 +121,7 @@ export default function ArtistProfile({
             image_url,
             image_url_2,
             status,
+            is_repeatable,
             is_visible,
             sort_order,
             created_at
@@ -125,6 +148,7 @@ export default function ArtistProfile({
             image_url: d.image_url,
             image_url_2: d.image_url_2 || null,
             status: d.status,
+            is_repeatable: Boolean(d.is_repeatable),
             is_visible: d.is_visible,
             artist: {
               id: artist.id,
@@ -177,28 +201,48 @@ export default function ArtistProfile({
     return artistFlashDesigns.filter((item) => item.style === selectedFlashStyle);
   }, [artistFlashDesigns, selectedFlashStyle]);
 
-  const getFlashStatusBadge = (status: FlashDesignData['status']) => {
+  const getStatusBadge = (status: FlashDesignData['status']) => {
     switch (status) {
       case 'AVAILABLE':
         return (
-          <span className="text-[10px] bg-emerald-950/70 border border-emerald-600/50 text-emerald-400 px-2 py-0.5 rounded font-bold">
-            ● พร้อมจอง
+          <span className="text-[10px] bg-emerald-950/60 border border-emerald-600/40 text-emerald-400 px-2 py-0.5 rounded font-bold">
+            ● ว่าง พร้อมจอง
           </span>
         );
       case 'HELD':
         return (
-          <span className="text-[10px] bg-amber-950/70 border border-amber-600/50 text-amber-300 px-2 py-0.5 rounded font-bold">
-            ● กำลังรอยืนยัน
+          <span className="text-[10px] bg-amber-950/60 border border-amber-600/40 text-amber-300 px-2 py-0.5 rounded font-bold">
+            ● กำลังรอการยืนยัน
           </span>
         );
       case 'RESERVED':
-      case 'SOLD':
         return (
-          <span className="text-[10px] bg-indigo-950/70 border border-indigo-600/50 text-indigo-300 px-2 py-0.5 rounded font-bold">
+          <span className="text-[10px] bg-indigo-950/60 border border-indigo-600/40 text-indigo-300 px-2 py-0.5 rounded font-bold">
             ● จองแล้ว
           </span>
         );
+      case 'SOLD':
+        return (
+          <span className="text-[10px] bg-[#171512] border border-[#4A443A] text-[#7A7265] px-2 py-0.5 rounded font-bold">
+            ✕ ปิดจอง
+          </span>
+        );
     }
+  };
+
+  const getTypeBadge = (isRepeatable?: boolean) => {
+    if (isRepeatable) {
+      return (
+        <span className="text-[10px] bg-cyan-950/80 border border-cyan-600/40 text-cyan-300 px-2 py-0.5 rounded font-bold">
+          สักซ้ำได้
+        </span>
+      );
+    }
+    return (
+      <span className="text-[10px] bg-amber-950/80 border border-amber-600/40 text-amber-300 px-2 py-0.5 rounded font-bold">
+        ลายเดียว
+      </span>
+    );
   };
 
   const artistTitleName = formatArtistTitle(artist.name);
@@ -224,101 +268,64 @@ export default function ArtistProfile({
   }
 
   return (
-    <div className="animate-fadeIn space-y-6 font-prompt">
+    <div className="animate-fadeIn space-y-5 font-prompt">
       {/* Top Back Navigation Bar */}
       <button
         onClick={onBack}
-        className="flex items-center space-x-2 text-xs text-studio-secondary hover:text-studio-red transition-colors uppercase tracking-wider font-semibold"
+        className="flex items-center space-x-2 text-xs text-studio-secondary hover:text-studio-red-bright transition-colors uppercase tracking-wider font-semibold"
       >
         <ArrowLeft size={16} />
         <span>ย้อนกลับไปรายชื่อช่างสักทั้งหมด</span>
       </button>
 
       {/* ========================================================================= */}
-      {/* 1. COMPACT HORIZONTAL ARTIST PROFILE HEADER CARD */}
+      {/* 1. CINEMATIC HERO ARTIST PROFILE HEADER */}
       {/* ========================================================================= */}
-      <div className="w-full bg-studio-card border border-studio-border p-5 md:p-6 rounded-[8px] shadow-xl">
-        <div className="flex flex-col lg:flex-row items-center gap-5 lg:gap-6">
+      <div className="w-full bg-studio-card border border-studio-border rounded-[8px] overflow-hidden shadow-xl relative">
+        <div className="flex flex-col lg:flex-row min-h-[290px] lg:h-[300px]">
           
-          {/* 1. LEFT PHOTO (~25% Desktop, Horizontal Aspect 4/3) */}
-          <div className="w-full lg:w-[25%] shrink-0">
-            <div className="aspect-[4/3] w-full max-h-[200px] lg:max-h-[220px] rounded-[6px] overflow-hidden border border-studio-border bg-studio-main">
-              <img
-                src={artist.avatar_url || artist.avatar}
-                alt={artist.name}
-                className="w-full h-full object-cover"
-              />
-            </div>
+          {/* 1. LEFT / CENTER HERO IMAGE (~50% Desktop) */}
+          <div className="relative w-full lg:w-[50%] h-[240px] sm:h-[270px] lg:h-full shrink-0 overflow-hidden bg-studio-main">
+            <img
+              src={artist.avatar_url || artist.avatar}
+              alt={artist.name}
+              className="w-full h-full object-cover object-[center_20%]"
+            />
+            {/* Desktop Gradient Overlay: Softer gradient fade from transparent to dark studio-card */}
+            <div className="hidden lg:block absolute inset-0 bg-gradient-to-r from-transparent via-studio-card/40 via-60% to-studio-card" />
+            {/* Mobile/Tablet Gradient Overlay: Top transparent -> Bottom dark studio-card */}
+            <div className="lg:hidden absolute inset-0 bg-gradient-to-t from-studio-card via-studio-card/40 to-transparent" />
           </div>
 
-          {/* 2. MIDDLE INFO (~50% Desktop, Natural Top-to-Bottom Flow) */}
-          <div className="w-full lg:w-[50%] flex-1 space-y-2.5">
-            {/* Row 1: Style Tags + Status */}
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="text-[10px] uppercase tracking-widest text-studio-red bg-studio-sec px-2.5 py-1 border border-studio-border rounded-[4px] font-bold">
+          {/* 2. CENTER INFO (~30% Desktop, Expanded presence) */}
+          <div className="w-full lg:w-[30%] shrink-0 flex flex-col justify-center p-5 lg:py-5 lg:px-4 space-y-2.5 z-10 -mt-10 sm:-mt-12 lg:mt-0 lg:-ml-10">
+            {/* Style Tag */}
+            <div>
+              <span className="text-[10px] uppercase tracking-widest text-studio-red-bright bg-studio-sec px-2.5 py-1 border border-studio-border rounded-[4px] font-bold inline-block shadow-sm">
                 {artist.specialties && artist.specialties.length > 0 ? artist.specialties.join(' / ') : (artist.specialty || 'CUSTOM TATTOO')}
-              </span>
-              <span className={`text-[10px] px-2 py-0.5 rounded border font-semibold ${
-                (artist.status === 'Available' || artist.status === 'AVAILABLE')
-                  ? 'bg-green-950/40 border-green-800/60 text-green-400'
-                  : 'bg-studio-sec border-studio-border text-studio-muted'
-              }`}>
-                {(artist.status === 'Available' || artist.status === 'AVAILABLE') ? '● พร้อมรับนัดหมาย' : '● กำลังปฏิบัติงาน'}
               </span>
             </div>
 
-            {/* Row 2: Name */}
+            {/* Name */}
             <div>
               <h1 className="text-xl md:text-2xl lg:text-3xl font-heading font-normal tracking-wide text-studio-primary">
                 {artist.name}
               </h1>
               {artist.nickname && (
-                <p className="text-xs text-studio-secondary mt-0.5">ชื่อเล่น: <span className="text-studio-primary font-medium">{artist.nickname}</span></p>
+                <p className="text-xs text-studio-secondary mt-0.5">
+                  ชื่อเล่น: <span className="text-studio-primary font-medium">{artist.nickname}</span>
+                </p>
               )}
             </div>
 
-            {/* Row 3: Bio */}
+            {/* Bio */}
             <p className="text-xs text-studio-secondary leading-relaxed font-light line-clamp-3">
               {artist.bio || 'ช่างสักมืออาชีพประจำสตูดิโอ 157 TATTOO พร้อมออกแบบและรังสรรค์ผลงานสักตรงตามโจทย์เฉพาะบุคคล'}
             </p>
 
-            {/* Row 4: Working Days & Hours (Directly below Bio) */}
-            <div className="flex flex-wrap items-center gap-y-1 gap-x-4 border-t border-studio-border/50 pt-2 text-xs text-studio-secondary">
-              <div className="flex items-center space-x-1.5">
-                <Calendar size={14} className="text-studio-red shrink-0" />
-                <span>
-                  วันปฏิบัติงาน: <strong className="text-studio-primary">{artist.working_days ? artist.working_days.join(', ') : (artist.availability ? artist.availability.join(', ') : 'ทุกวัน')}</strong>
-                </span>
-              </div>
-              <div className="flex items-center space-x-1.5">
-                <Clock size={14} className="text-studio-red shrink-0" />
-                <span>
-                  เวลา: <strong className="text-studio-primary">11:00 - 20:00 น.</strong>
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* 3. RIGHT ACTION PANEL (~25% Desktop, Vertically Centered) */}
-          <div className="w-full lg:w-[25%] shrink-0 flex flex-col justify-center items-center text-center space-y-2.5 pt-4 lg:pt-0 border-t lg:border-t-0 lg:border-l border-studio-border lg:pl-6 my-auto">
-            <div className="space-y-0.5">
-              <h3 className="text-xs md:text-sm font-bold text-studio-primary tracking-wide">
-                พร้อมจองคิวหรือยัง?
-              </h3>
-              <p className="text-[11px] text-studio-secondary leading-tight">
-                เลือกวันและเวลาที่สะดวกเพื่อเริ่มจองคิว
-              </p>
-            </div>
-
-            <Link
-              href={`/booking?artist=${artist.id}`}
-              className="w-full min-h-[44px] bg-studio-red text-studio-paper hover:bg-[#802222] py-3 px-4 rounded-[4px] text-xs font-bold uppercase tracking-wider transition-all border border-studio-red flex items-center justify-center text-center shadow-md active:scale-[0.99]"
-            >
-              จองคิวกับ{artistTitleName}
-            </Link>
-
+            {/* Portfolio / Flash Count */}
             {(artistPortfolio.length > 0 || artistFlashDesigns.length > 0) && (
-              <div className="flex items-center justify-center gap-2 pt-0.5 text-[10px] text-studio-muted">
+              <div className="flex items-center gap-2 text-[11px] text-studio-muted font-medium pt-0.5">
                 {artistPortfolio.length > 0 && (
                   <span>ผลงาน {artistPortfolio.length} ชิ้น</span>
                 )}
@@ -330,6 +337,35 @@ export default function ArtistProfile({
                 )}
               </div>
             )}
+
+            {/* Mobile Booking Button (directly following counts with mt-4) */}
+            <div className="lg:hidden mt-4">
+              <Link
+                href={`/booking?artist=${artist.id}`}
+                className="w-full min-h-[52px] bg-studio-red text-studio-paper hover:bg-[#802222] py-3.5 px-4 rounded-[4px] text-xs font-bold uppercase tracking-wider transition-all border border-studio-red flex items-center justify-center text-center shadow-md active:scale-[0.99]"
+              >
+                จองคิวกับ{artistTitleName}
+              </Link>
+            </div>
+          </div>
+
+          {/* 3. RIGHT BOOKING CTA (Desktop Only, ~20% Desktop) */}
+          <div className="hidden lg:flex w-[20%] shrink-0 flex-col justify-center items-center text-center p-4 sm:p-5 space-y-2.5 z-10 border-l border-studio-border bg-transparent ml-auto">
+            <div className="space-y-1">
+              <h3 className="text-xs md:text-sm font-bold text-studio-primary tracking-wide">
+                สนใจจองคิวกับช่างคนนี้?
+              </h3>
+              <p className="text-[11px] text-studio-secondary leading-tight max-w-[170px] mx-auto">
+                ส่งรายละเอียดงานและเลือกวันที่ต้องการ
+              </p>
+            </div>
+
+            <Link
+              href={`/booking?artist=${artist.id}`}
+              className="w-full min-h-[44px] bg-studio-red text-studio-paper hover:bg-[#802222] py-3 px-4 rounded-[4px] text-xs font-bold uppercase tracking-wider transition-all border border-studio-red flex items-center justify-center text-center shadow-md active:scale-[0.99]"
+            >
+              จองคิวกับ{artistTitleName}
+            </Link>
           </div>
 
         </div>
@@ -338,18 +374,18 @@ export default function ArtistProfile({
       {/* ========================================================================= */}
       {/* 2. FULL-WIDTH ARTIST GALLERY SECTION WITH 2 TABS */}
       {/* ========================================================================= */}
-      <div className="space-y-4 pt-2">
+      <div className="space-y-4 pt-1">
         {/* Gallery Header & Tabs */}
         <div className="border-b border-studio-border pb-3 flex flex-col sm:flex-row sm:items-end justify-between gap-4">
           <div className="space-y-2">
-            <span className="text-[10px] uppercase tracking-widest text-studio-red font-bold">ARTIST GALLERY</span>
+            <span className="text-[10px] uppercase tracking-widest text-studio-red-bright font-bold">ARTIST GALLERY</span>
             {/* 2 TABS */}
             <div className="flex items-center gap-6">
               <button
                 onClick={() => setActiveTab('portfolio')}
                 className={`text-lg md:text-xl font-heading tracking-wide transition-all pb-1 border-b-2 ${
                   activeTab === 'portfolio'
-                    ? 'text-studio-primary border-studio-red font-bold'
+                    ? 'text-studio-primary border-studio-red-base font-bold'
                     : 'text-studio-muted border-transparent hover:text-studio-secondary'
                 }`}
               >
@@ -447,10 +483,14 @@ export default function ArtistProfile({
           <>
             {/* Loading State */}
             {loadingPortfolio && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3.5 sm:gap-4 lg:gap-5">
-                {[1, 2, 3, 4, 5].map((idx) => (
-                  <div key={idx} className="aspect-square bg-studio-card border border-studio-border rounded-[6px] overflow-hidden animate-pulse">
-                    <div className="w-full h-full bg-studio-sec/60" />
+              <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4 lg:gap-5">
+                {[1, 2, 3, 4, 5, 6].map((idx) => (
+                  <div key={idx} className="bg-studio-card border border-studio-border rounded-[6px] overflow-hidden animate-pulse">
+                    <div className="aspect-[4/5] bg-studio-sec/60" />
+                    <div className="p-2.5 sm:p-3 space-y-2">
+                      <div className="h-3 bg-studio-sec/80 rounded w-3/4" />
+                      <div className="h-2 bg-studio-sec/50 rounded w-1/2" />
+                    </div>
                   </div>
                 ))}
               </div>
@@ -464,43 +504,57 @@ export default function ArtistProfile({
               </div>
             )}
 
-            {/* 5-Column Grid on Desktop matching /portfolio card style */}
+            {/* 2-Column Grid on Mobile, 5-Column Grid on Desktop matching /portfolio card style */}
             {!loadingPortfolio && !portfolioError && filteredPortfolio.length > 0 && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3.5 sm:gap-4 lg:gap-5 justify-start">
+              <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4 lg:gap-5 justify-start">
                 {filteredPortfolio.map((item) => (
-                  <Link
+                  <div
                     key={item.id}
-                    href={`/portfolio?select=${item.id}`}
-                    className="aspect-square bg-studio-main border border-studio-border hover:border-studio-red/60 hover:shadow-lg rounded-[6px] overflow-hidden group cursor-pointer transition-all duration-200 relative block"
+                    className="bg-studio-card border border-studio-border hover:border-studio-red/60 rounded-[6px] overflow-hidden group transition-all duration-300 relative flex flex-col justify-between"
                   >
-                    <img
-                      src={getThumbnailUrl(item.image_url)}
-                      onError={(e) => handleThumbnailError(e, item.image_url)}
-                      alt={item.title}
-                      className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-500"
-                      loading="lazy"
-                      decoding="async"
-                    />
+                    <div
+                      onClick={() => setPreviewArtwork(item)}
+                      className="cursor-pointer flex-1 min-w-0"
+                    >
+                      {/* Image Area */}
+                      <div className="aspect-[4/5] bg-studio-main overflow-hidden relative">
+                        <img
+                          src={getThumbnailUrl(item.image_url)}
+                          onError={(e) => handleThumbnailError(e, item.image_url)}
+                          alt={item.title}
+                          className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-500"
+                          loading="lazy"
+                          decoding="async"
+                        />
+                      </div>
 
-                    {/* Permanent Dark Gradient Overlay on Image Bottom */}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent flex flex-col justify-end p-3 sm:p-4 space-y-0.5 pointer-events-none">
-                      {/* Style name in Red */}
-                      <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-studio-red truncate">
-                        {item.style}
-                      </span>
-
-                      {/* Artwork Title in White */}
-                      <h3 className="text-xs sm:text-sm font-heading font-bold tracking-wide text-studio-primary truncate">
-                        {item.title}
-                      </h3>
-
-                      {item.size_label && (
-                        <span className="text-[10px] sm:text-xs text-studio-secondary truncate">
-                          ขนาด: {formatTattooSize(null, null, item.size_label) !== 'ไม่ระบุ' ? formatTattooSize(null, null, item.size_label) : item.size_label}
+                      {/* Info Area Below Image */}
+                      <div className="p-2.5 sm:p-3 bg-studio-card space-y-0.5 min-w-0">
+                        <span className="text-[9px] uppercase tracking-wider text-studio-red-bright font-bold block truncate">
+                          {item.style}
                         </span>
-                      )}
+                        <h4 className="text-xs font-bold text-studio-primary truncate group-hover:text-studio-red-bright transition-colors">
+                          {item.title}
+                        </h4>
+                        <p className="text-[10px] text-studio-secondary truncate">
+                          ช่าง: {artist.name}
+                        </p>
+                      </div>
                     </div>
-                  </Link>
+
+                    {/* Bottom Action Row (CTA Only, Aligned Right) */}
+                    <div className="p-2.5 pt-0 sm:p-3 sm:pt-0 bg-studio-card">
+                      <div className="pt-2 sm:pt-2.5 border-t border-studio-border/50 flex items-center justify-end min-w-0">
+                        <Link
+                          href={`/booking?artist=${artist.id}&artwork=${item.id}`}
+                          className="inline-flex items-center space-x-1 text-studio-red-bright hover:text-tattoo-red-dark font-semibold transition-all group/btn text-[10px] sm:text-xs"
+                        >
+                          <span className="truncate">จองคิวกับช่างคนนี้</span>
+                          <ArrowRight size={12} className="transform group-hover/btn:translate-x-0.5 transition-transform shrink-0" />
+                        </Link>
+                      </div>
+                    </div>
+                  </div>
                 ))}
               </div>
             )}
@@ -524,10 +578,14 @@ export default function ArtistProfile({
           <>
             {/* Loading State */}
             {loadingFlash && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3.5 sm:gap-4 lg:gap-5">
-                {[1, 2, 3, 4, 5].map((idx) => (
-                  <div key={idx} className="aspect-[4/5] bg-studio-card border border-studio-border rounded-[6px] overflow-hidden animate-pulse">
-                    <div className="w-full h-full bg-studio-sec/60" />
+              <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4 lg:gap-5">
+                {[1, 2, 3, 4, 5, 6].map((idx) => (
+                  <div key={idx} className="bg-studio-card border border-studio-border rounded-[6px] overflow-hidden animate-pulse">
+                    <div className="aspect-[4/5] bg-studio-sec/60" />
+                    <div className="p-2.5 sm:p-3 space-y-2">
+                      <div className="h-3 bg-studio-sec/80 rounded w-3/4" />
+                      <div className="h-2 bg-studio-sec/50 rounded w-1/2" />
+                    </div>
                   </div>
                 ))}
               </div>
@@ -543,55 +601,63 @@ export default function ArtistProfile({
 
             {/* Grid View for Flash Designs */}
             {!loadingFlash && !flashError && filteredFlashDesigns.length > 0 && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3.5 sm:gap-4 lg:gap-5 justify-start">
+              <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4 lg:gap-5 justify-start">
                 {filteredFlashDesigns.map((item) => (
                   <div
                     key={item.id}
-                    className="bg-studio-card border border-studio-border hover:border-studio-red/60 hover:shadow-lg rounded-[6px] overflow-hidden group transition-all duration-200 flex flex-col justify-between"
+                    className="bg-studio-card border border-studio-border hover:border-studio-red/60 rounded-[6px] overflow-hidden group transition-all duration-300 relative flex flex-col justify-between"
                   >
-                    <Link
-                      href={`/flash?select=${item.id}`}
-                      className="block aspect-[4/5] bg-studio-main overflow-hidden relative"
+                    <div
+                      onClick={() => setPreviewArtwork(item)}
+                      className="cursor-pointer flex-1 min-w-0"
                     >
-                      <img
-                        src={getThumbnailUrl(item.image_url)}
-                        onError={(e) => handleThumbnailError(e, item.image_url)}
-                        alt={item.title}
-                        className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-500"
-                        loading="lazy"
-                        decoding="async"
-                      />
-                      <div className="absolute top-2.5 left-2.5 bg-studio-main/90 backdrop-blur-sm border border-studio-border/60 text-studio-red text-[9px] font-bold px-2 py-0.5 rounded">
-                        Flash
+                      {/* Image Area */}
+                      <div className="aspect-[4/5] bg-studio-main overflow-hidden relative">
+                        <img
+                          src={getThumbnailUrl(item.image_url)}
+                          onError={(e) => handleThumbnailError(e, item.image_url)}
+                          alt={item.title}
+                          className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-500"
+                          loading="lazy"
+                          decoding="async"
+                        />
+                        <div className="absolute top-2.5 right-2.5 sm:top-3 sm:right-3 flex flex-col items-end gap-1.5 pointer-events-none">
+                          {getStatusBadge(item.status)}
+                          {getTypeBadge(item.is_repeatable)}
+                        </div>
                       </div>
-                      <div className="absolute top-2.5 right-2.5">
-                        {getFlashStatusBadge(item.status)}
-                      </div>
-                    </Link>
 
-                    <div className="p-3 bg-studio-card flex-1 flex flex-col justify-between space-y-2">
-                      <div>
-                        <span className="text-[9px] uppercase tracking-wider text-studio-red font-bold block mb-0.5">
-                          {item.style}
-                        </span>
-                        <h4 className="text-xs font-bold text-studio-primary truncate group-hover:text-studio-red transition-colors">
-                          <Link href={`/flash?select=${item.id}`}>
+                      {/* Info & Bottom Action Row */}
+                      <div className="p-2.5 sm:p-3 bg-studio-card flex flex-col justify-between flex-1 min-w-0 space-y-2">
+                        <div className="space-y-0.5 min-w-0">
+                          <span className="text-[9px] uppercase tracking-wider text-studio-red-bright font-bold block truncate">
+                            {item.style || 'FLASH'}
+                          </span>
+                          <h4 className="text-xs font-bold text-studio-primary truncate group-hover:text-studio-red-bright transition-colors">
                             {item.title}
-                          </Link>
-                        </h4>
+                          </h4>
+                          <p className="text-[10px] text-studio-secondary truncate">
+                            ช่าง: {artist.name || item.artist?.name || 'ช่างประจำร้าน'}
+                          </p>
+                        </div>
                       </div>
+                    </div>
 
-                      <div className="pt-2 border-t border-studio-border/50 flex justify-between items-center">
+                    {/* Bottom Action Row (CTA Only, Aligned Right) */}
+                    <div className="p-2.5 pt-0 sm:p-3 sm:pt-0 bg-studio-card">
+                      <div className="pt-2 sm:pt-2.5 mt-auto border-t border-studio-border/50 flex items-center justify-end min-w-0">
                         {item.status === 'AVAILABLE' ? (
                           <Link
                             href={`/booking?flash=${item.id}`}
-                            className="bg-studio-red text-studio-paper hover:bg-tattoo-red-dark px-2.5 py-1 rounded text-[10px] font-semibold tracking-wider uppercase transition-colors"
+                            onClick={(e) => e.stopPropagation()}
+                            className="inline-flex items-center space-x-1 text-studio-red-bright hover:text-tattoo-red-dark font-semibold transition-all group/btn text-[10px] sm:text-xs"
                           >
-                            จองลายนี้
+                            <span className="truncate">จองลายนี้</span>
+                            <ArrowRight size={12} className="transform group-hover/btn:translate-x-0.5 transition-transform shrink-0" />
                           </Link>
                         ) : (
                           <span className="text-[10px] text-studio-muted font-medium">
-                            {item.status === 'HELD' ? 'กำลังรอยืนยัน' : 'จองแล้ว'}
+                            {item.status === 'HELD' ? 'รอการยืนยัน' : item.status === 'RESERVED' ? 'จองแล้ว' : 'ปิดจอง'}
                           </span>
                         )}
                       </div>
@@ -617,6 +683,37 @@ export default function ArtistProfile({
           </>
         )}
       </div>
+
+      {/* Lightbox / Fullscreen Image Preview Modal (Clean Image Only via React Portal) */}
+      {previewArtwork &&
+        typeof document !== 'undefined' &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-[99999] bg-black/90 backdrop-blur-sm flex items-center justify-center p-4 sm:p-6 animate-fadeIn"
+            onClick={() => setPreviewArtwork(null)}
+          >
+            {/* Close Button */}
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setPreviewArtwork(null);
+              }}
+              className="fixed top-4 right-4 z-[100000] w-11 h-11 flex items-center justify-center text-white bg-black/70 hover:bg-black/95 rounded-full transition-all border border-white/30 shadow-2xl active:scale-95 cursor-pointer"
+              aria-label="Close Preview"
+            >
+              <X size={24} />
+            </button>
+
+            {/* Centered Image (Only Image, No Metadata/Caption) */}
+            <img
+              src={previewArtwork.image_url}
+              alt={previewArtwork.title}
+              onClick={(e) => e.stopPropagation()}
+              className="max-w-[92vw] max-h-[82vh] lg:max-w-[72vw] lg:max-h-[72vh] w-auto h-auto object-contain rounded-[4px] shadow-2xl select-none"
+            />
+          </div>,
+          document.body
+        )}
     </div>
   );
 }

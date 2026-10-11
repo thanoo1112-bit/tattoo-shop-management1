@@ -15,6 +15,7 @@ import {
   Info,
   Check,
   Copy,
+  UserPlus,
 } from 'lucide-react';
 import { CalendarArtist } from './types';
 import { BlockedDateItem } from './AvailabilityBlockModal';
@@ -22,13 +23,74 @@ import { createClient } from '@/lib/supabase/client';
 import { checkDateAvailability } from '@/lib/availabilityUtils';
 import { formatThaiPhoneForDisplay } from '@/lib/phoneUtils';
 import CustomDatePicker from './CustomDatePicker';
-import { calculateBlockingEndTime } from '@/lib/utils/tattooDuration';
 
 /**
- * Calculate default estimated end time based on tattoo size
+ * Normalize Thai phone number: strips non-digits, converts +66/66 to 0
  */
-function calculateDefaultEndTime(startTimeStr: string, sizeCategory?: string): string {
-  return calculateBlockingEndTime(startTimeStr, sizeCategory);
+function normalizeThaiPhone(raw: string): string {
+  const digits = raw.replace(/\D/g, '');
+  if (digits.startsWith('66') && digits.length === 11) {
+    return '0' + digits.slice(2);
+  }
+  return digits;
+}
+
+/**
+ * Maps atomic RPC error codes and messages to friendly Thai user messages
+ */
+function mapRpcError(errorMsg?: string, errorCode?: string): string {
+  const combined = `${errorCode || ''} ${errorMsg || ''}`.toUpperCase();
+
+  if (combined.includes('42501') || combined.includes('UNAUTHORIZED') || combined.includes('FORBIDDEN')) {
+    return 'คุณไม่มีสิทธิ์สร้างคิวงาน';
+  }
+  if (combined.includes('INVALID_CUSTOMER_MODE')) {
+    return 'รูปแบบลูกค้าไม่ถูกต้อง';
+  }
+  if (combined.includes('NAME_REQUIRED')) {
+    return 'กรุณาระบุชื่อลูกค้า';
+  }
+  if (combined.includes('PHONE_REQUIRED')) {
+    return 'กรุณาระบุเบอร์โทรศัพท์';
+  }
+  if (combined.includes('INVALID_PHONE')) {
+    return 'กรุณาระบุเบอร์โทรศัพท์ให้ถูกต้อง';
+  }
+  if (combined.includes('DUPLICATE_EMAIL')) {
+    return 'อีเมลนี้มีอยู่ในระบบแล้ว กรุณาตรวจสอบข้อมูล';
+  }
+  if (combined.includes('DUPLICATE_CONFLICT')) {
+    return 'เบอร์โทรและอีเมลตรงกับลูกค้าคนละราย กรุณาตรวจสอบข้อมูล';
+  }
+  if (combined.includes('CUSTOMER_NOT_FOUND')) {
+    return 'ไม่พบข้อมูลลูกค้าที่เลือก';
+  }
+  if (combined.includes('ARTIST_NOT_FOUND')) {
+    return 'ไม่พบข้อมูลช่าง';
+  }
+  if (combined.includes('INVALID_DATE') || combined.includes('STUDIO_DATE_BLOCKED') || combined.includes('ARTIST_DATE_BLOCKED')) {
+    return 'กรุณาตรวจสอบวันที่นัดหมาย';
+  }
+  if (combined.includes('INVALID_TIME')) {
+    return 'กรุณาตรวจสอบเวลานัดหมาย';
+  }
+  if (combined.includes('INVALID_PRICE')) {
+    return 'กรุณาตรวจสอบราคาและเงินมัดจำ';
+  }
+  if (combined.includes('SESSION_CREATION_FAILED')) {
+    return 'ไม่สามารถสร้างรอบนัดหมายได้';
+  }
+  if (combined.includes('23P01') || combined.includes('EXCLUSION') || combined.includes('NO_ARTIST_DOUBLE_BOOKING')) {
+    return 'ช่างมีคิวงานในช่วงเวลานี้แล้ว กรุณาเลือกเวลาใหม่';
+  }
+  if (combined.includes('23505') || combined.includes('UNIQUE_VIOLATION')) {
+    return 'มีข้อมูลซ้ำซ้อนในระบบ กรุณาตรวจสอบข้อมูลหรือเลือกเวลาใหม่';
+  }
+  if (combined.includes('23514') || combined.includes('CHECK_VIOLATION')) {
+    return 'ข้อมูลไม่ตรงตามเงื่อนไขของระบบ กรุณาตรวจสอบข้อมูล';
+  }
+
+  return errorMsg || 'เกิดข้อผิดพลาดในการสร้างคิวงานใหม่';
 }
 
 interface ExistingCustomerItem {
@@ -58,11 +120,27 @@ export default function CreateBookingModal({
   onSuccess,
   onError,
 }: CreateBookingModalProps) {
+  // Customer Mode: 'EXISTING' vs 'NEW'
+  const [customerMode, setCustomerMode] = useState<'EXISTING' | 'NEW'>('EXISTING');
+
   // Existing Customer Search & Selection
   const [customerSearchQuery, setCustomerSearchQuery] = useState<string>('');
   const [existingCustomers, setExistingCustomers] = useState<ExistingCustomerItem[]>([]);
   const [isSearchingCustomers, setIsSearchingCustomers] = useState<boolean>(false);
   const [selectedCustomer, setSelectedCustomer] = useState<ExistingCustomerItem | null>(null);
+
+  // New Customer Form State
+  const [newCustomerName, setNewCustomerName] = useState<string>('');
+  const [newCustomerPhone, setNewCustomerPhone] = useState<string>('');
+  const [newCustomerEmail, setNewCustomerEmail] = useState<string>('');
+  const [newCustomerDob, setNewCustomerDob] = useState<string>('');
+  const [newCustomerErrors, setNewCustomerErrors] = useState<{
+    name?: string;
+    phone?: string;
+    email?: string;
+  }>({});
+  const [customerError, setCustomerError] = useState<string | null>(null);
+  const [customerNotice, setCustomerNotice] = useState<string | null>(null);
 
   const [copiedLink, setCopiedLink] = useState<boolean>(false);
 
@@ -70,8 +148,6 @@ export default function CreateBookingModal({
   const [artistId, setArtistId] = useState<string>('');
   const [appointmentDate, setAppointmentDate] = useState<string>(selectedDateStr || '');
   const [startTime, setStartTime] = useState<string>('13:00');
-  const [endTime, setEndTime] = useState<string>('23:00');
-  const [workType] = useState<string>('NEW_TATTOO');
   const [placement, setPlacement] = useState<string>('ต้นแขน');
   const [style, setStyle] = useState<string>('ตามที่ช่างแนะนำ');
   const [quotedPrice, setQuotedPrice] = useState<string>('3000');
@@ -80,6 +156,40 @@ export default function CreateBookingModal({
 
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [formError, setFormError] = useState<string | null>(null);
+
+  // Switch Customer Mode with State Reset (Section 12)
+  const handleSwitchMode = (mode: 'EXISTING' | 'NEW') => {
+    setCustomerMode(mode);
+    setCustomerError(null);
+    setCustomerNotice(null);
+    setFormError(null);
+    if (mode === 'NEW') {
+      setSelectedCustomer(null);
+      setCustomerSearchQuery('');
+    } else {
+      setNewCustomerName('');
+      setNewCustomerPhone('');
+      setNewCustomerEmail('');
+      setNewCustomerDob('');
+      setNewCustomerErrors({});
+    }
+  };
+
+  // Close Modal with Complete State Reset (Section 12)
+  const handleClose = () => {
+    setCustomerMode('EXISTING');
+    setSelectedCustomer(null);
+    setCustomerSearchQuery('');
+    setNewCustomerName('');
+    setNewCustomerPhone('');
+    setNewCustomerEmail('');
+    setNewCustomerDob('');
+    setNewCustomerErrors({});
+    setCustomerError(null);
+    setCustomerNotice(null);
+    setFormError(null);
+    onClose();
+  };
 
   const selectedArtistObj = useMemo(() => {
     return artists.find((a) => a.id === artistId) || null;
@@ -118,12 +228,19 @@ export default function CreateBookingModal({
   // Initialize form state when modal opens
   useEffect(() => {
     if (isOpen) {
+      setCustomerMode('EXISTING');
       setSelectedCustomer(null);
       setCustomerSearchQuery('');
+      setNewCustomerName('');
+      setNewCustomerPhone('');
+      setNewCustomerEmail('');
+      setNewCustomerDob('');
+      setNewCustomerErrors({});
+      setCustomerError(null);
+      setCustomerNotice(null);
       setCopiedLink(false);
       setAppointmentDate(selectedDateStr || new Date().toISOString().split('T')[0]);
       setStartTime('13:00');
-      setEndTime('16:00');
       setPlacement('ต้นแขน');
       setQuotedPrice('3000');
       setDepositPaidAmount('500');
@@ -180,16 +297,48 @@ export default function CreateBookingModal({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError(null);
+    setCustomerError(null);
+    setCustomerNotice(null);
 
-    // 1. Validation Checks
-    if (!selectedCustomer) {
-      setFormError('กรุณาเลือกลูกค้าเดิมจากระบบ');
-      return;
-    }
+    // 1. Customer Validation
+    let cleanNewName = '';
+    let cleanNewPhone = '';
+    let cleanNewEmail: string | null = null;
+    let cleanNewDob: string | null = null;
 
-    if (!selectedCustomer.user_id) {
-      setFormError('ลูกค้ารายนี้ยังไม่ได้เชื่อมต่อบัญชีผู้ใช้ ( user_id = null ) ไม่สามารถสร้างคิวงานได้ กรุณาส่งลิงก์ให้ลูกค้าลงทะเบียนและเข้าสู่ระบบก่อน');
-      return;
+    if (customerMode === 'NEW') {
+      const errors: { name?: string; phone?: string; email?: string } = {};
+      cleanNewName = newCustomerName.trim();
+      cleanNewPhone = normalizeThaiPhone(newCustomerPhone);
+      cleanNewEmail = newCustomerEmail.trim() ? newCustomerEmail.trim().toLowerCase() : null;
+      cleanNewDob = newCustomerDob || null;
+
+      if (!cleanNewName) {
+        errors.name = 'กรุณาระบุชื่อลูกค้า';
+      }
+      if (!cleanNewPhone) {
+        errors.phone = 'กรุณาระบุเบอร์โทรศัพท์';
+      } else if (!/^0[0-9]{9}$/.test(cleanNewPhone)) {
+        errors.phone = 'เบอร์โทรศัพท์ต้องเป็นตัวเลข 10 หลัก (เช่น 0812345678)';
+      }
+      if (cleanNewEmail) {
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(cleanNewEmail)) {
+          errors.email = 'รูปแบบอีเมลไม่ถูกต้อง';
+        }
+      }
+
+      if (Object.keys(errors).length > 0) {
+        setNewCustomerErrors(errors);
+        setCustomerError('กรุณากรอกข้อมูลลูกค้าใหม่ให้ถูกต้อง');
+        return;
+      }
+    } else {
+      if (!selectedCustomer) {
+        setCustomerError('กรุณาเลือกลูกค้าเดิมจากระบบ');
+        setFormError('กรุณาเลือกลูกค้าเดิมจากระบบ');
+        return;
+      }
     }
 
     if (!artistId) {
@@ -207,13 +356,8 @@ export default function CreateBookingModal({
       return;
     }
 
-    if (!startTime || !endTime) {
-      setFormError('กรุณาระบุเวลานัดลูกค้าและเวลาเสร็จโดยประมาณ');
-      return;
-    }
-
-    if (startTime >= endTime) {
-      setFormError('เวลาเสร็จต้องอยู่หลังเวลานัดลูกค้า');
+    if (!startTime) {
+      setFormError('กรุณาระบุเวลานัดลูกค้า');
       return;
     }
 
@@ -228,6 +372,25 @@ export default function CreateBookingModal({
 
     if (availCheck.isBlocked) {
       setFormError(availCheck.errorMessage || 'ไม่สามารถเลือกวันที่นี้ได้ เนื่องจากร้านหรือช่างปิดรับคิว');
+      return;
+    }
+
+    // Validate Price & Deposit (Synchronous form check)
+    const priceNum = parseFloat(quotedPrice) || 0;
+    const depositPaidNum = parseFloat(depositPaidAmount) || 0;
+
+    if (priceNum < 0) {
+      setFormError('ราคากลางงานสักต้องไม่น้อยกว่า 0');
+      return;
+    }
+
+    if (depositPaidNum < 0) {
+      setFormError('มัดจำที่รับแล้วต้องไม่น้อยกว่า 0');
+      return;
+    }
+
+    if (depositPaidNum > priceNum) {
+      setFormError('มัดจำที่รับแล้วต้องไม่มากกว่าราคางานสัก');
       return;
     }
 
@@ -260,181 +423,74 @@ export default function CreateBookingModal({
       return;
     }
 
-    // Validate Price & Deposit
-    const priceNum = parseFloat(quotedPrice) || 0;
-    const depositPaidNum = parseFloat(depositPaidAmount) || 0;
-
-    if (priceNum < 0) {
-      setFormError('ราคากลางงานสักต้องไม่น้อยกว่า 0');
-      return;
-    }
-
-    if (depositPaidNum < 0) {
-      setFormError('มัดจำที่รับแล้วต้องไม่น้อยกว่า 0');
-      return;
-    }
-
-    if (depositPaidNum > priceNum) {
-      setFormError('มัดจำที่รับแล้วต้องไม่มากกว่าราคางานสัก');
-      return;
-    }
-
-    const targetCustomerId = selectedCustomer.id;
-    const targetUserId = selectedCustomer.user_id;
-    const targetCustomerName = selectedCustomer.display_name;
-
     setIsSubmitting(true);
     const supabase = createClient();
 
-    let createdEstimateId: string | null = null;
-    let createdBookingId: string | null = null;
-
     try {
-      // Direct Booking Statuses
-      const bookingStatus = 'CONFIRMED';
-      const estimateStatus = 'ACCEPTED';
-
-      const fullDescription = description.trim() || 'สร้างคิวงานใหม่สำหรับลูกค้าเดิมโดยผู้ดูแลระบบ (Master Calendar)';
-
-      // Step 1: Insert estimate_requests with both customer_id and customer_user_id
-      const estPayload = {
-        customer_id: targetCustomerId,
-        customer_user_id: targetUserId,
-        artist_id: artistId,
-        placement: placement.trim() || 'ไม่ระบุ',
-        width_cm: 10,
-        height_cm: 10,
-        style: style.trim() || 'ตามที่ช่างแนะนำ',
-        description: fullDescription,
-        preferred_date: appointmentDate,
-        preferred_time: startTime,
-        reference_images: [],
-        request_type: 'DIRECT_BOOKING',
-        work_type: workType,
-        quoted_price: priceNum,
-        deposit_required: depositPaidNum,
-        status: estimateStatus,
+      const payload = {
+        p_customer_mode: customerMode,
+        p_customer_id: customerMode === 'EXISTING' ? selectedCustomer?.id : null,
+        p_display_name: customerMode === 'NEW' ? cleanNewName : null,
+        p_phone: customerMode === 'NEW' ? cleanNewPhone : null,
+        p_email: customerMode === 'NEW' && cleanNewEmail ? cleanNewEmail : null,
+        p_date_of_birth: customerMode === 'NEW' ? cleanNewDob || null : null,
+        p_artist_id: artistId,
+        p_appointment_date: appointmentDate,
+        p_start_time: startTime,
+        p_end_time: null,
+        p_placement: placement.trim() || 'ไม่ระบุ',
+        p_style: style.trim(),
+        p_description: description.trim() || null,
+        p_quoted_price: priceNum,
+        p_deposit_amount: depositPaidNum,
+        p_payment_method: 'CASH',
       };
 
-      console.log('[CreateBookingModal] Step 1: Inserting estimate_requests...', estPayload);
+      console.log('[CreateBookingModal] Calling admin_create_direct_booking RPC...', payload);
 
-      const { data: estData, error: estErr } = await supabase
-        .from('estimate_requests')
-        .insert([estPayload])
-        .select('id')
-        .single();
+      const { data, error } = await supabase.rpc('admin_create_direct_booking', payload);
 
-      if (estErr) {
-        console.error('[CreateBookingModal] Step 1 failed (estimate_requests insert):', estErr);
-        throw new Error(`[estimate_requests insert failed]: ${estErr.message || JSON.stringify(estErr)} (code: ${estErr.code}, details: ${estErr.details || 'none'})`);
-      }
-
-      console.log('[CreateBookingModal] Step 1 success:', estData);
-      createdEstimateId = estData.id;
-
-      // Step 2: Update estimate_requests status = 'QUOTED'
-      const { data: estUpdateData, error: estUpdateErr } = await supabase
-        .from('estimate_requests')
-        .update({
-          status: 'QUOTED',
-          quoted_price: priceNum,
-          deposit_required: depositPaidNum,
-          quoted_at: new Date().toISOString(),
-        })
-        .eq('id', createdEstimateId)
-        .select('id, quoted_price, deposit_required, status')
-        .single();
-
-      console.log('[CreateBookingModal] Direct Booking price sync:', {
-        createdEstimateId,
-        priceNum,
-        depositNum: depositPaidNum,
-        priceSyncResult: estUpdateData || estUpdateErr || 'done',
-      });
-
-      if (estUpdateErr) {
-        console.error('[CreateBookingModal] Step 2 failed (estimate_requests price sync):', estUpdateErr);
-        throw new Error(`[estimate_requests price sync failed]: ${estUpdateErr.message || JSON.stringify(estUpdateErr)} (code: ${estUpdateErr.code})`);
-      }
-
-      // Step 3: Insert bookings with both customer_id and customer_user_id
-      const bPayload = {
-        estimate_request_id: createdEstimateId,
-        customer_id: targetCustomerId,
-        customer_user_id: targetUserId,
-        artist_id: artistId,
-        requested_date: appointmentDate,
-        requested_start_time: startTime,
-        customer_note: fullDescription,
-        status: bookingStatus,
-        approved_at: new Date().toISOString(),
-        confirmed_at: new Date().toISOString(),
-      };
-
-      console.log('[CreateBookingModal] Step 3: Inserting bookings...', bPayload);
-
-      const { data: bData, error: bErr } = await supabase
-        .from('bookings')
-        .insert([bPayload])
-        .select('id')
-        .single();
-
-      if (bErr) {
-        console.error('[CreateBookingModal] Step 3 failed (bookings insert):', bErr);
-        throw new Error(`[bookings insert failed]: ${bErr.message || JSON.stringify(bErr)} (code: ${bErr.code}, details: ${bErr.details || 'none'})`);
-      }
-
-      console.log('[CreateBookingModal] Step 3 success:', bData);
-      createdBookingId = bData.id;
-
-      // Step 5: Insert booking_payments if deposit was paid (> 0)
-      if (depositPaidNum > 0) {
-        const paymentPayload = {
-          booking_id: createdBookingId,
-          customer_id: targetCustomerId,
-          payment_type: 'DEPOSIT',
-          amount: depositPaidNum,
-          payment_method: 'CASH',
-          status: 'RECORDED',
-          paid_at: new Date().toISOString(),
-          note: 'มัดจำที่รับแล้ว (Direct Booking)',
-        };
-
-        console.log('[CreateBookingModal] Step 5: Inserting booking_payments...', paymentPayload);
-
-        const { error: payErr } = await supabase
-          .from('booking_payments')
-          .insert([paymentPayload]);
-
-        if (payErr) {
-          console.error('[CreateBookingModal] Step 5 failed (booking_payments insert):', payErr);
-          throw new Error(`[booking_payments insert failed]: ${payErr.message || JSON.stringify(payErr)} (code: ${payErr.code})`);
+      if (error) {
+        console.error('[CreateBookingModal] RPC Error:', error);
+        const mappedMsg = mapRpcError(error.message, error.code);
+        if (
+          customerMode === 'NEW' &&
+          (error.message?.includes('DUPLICATE') ||
+            error.message?.includes('PHONE') ||
+            error.message?.includes('NAME'))
+        ) {
+          setCustomerError(mappedMsg);
         }
-
-        console.log('[CreateBookingModal] Step 5 success (booking_payments inserted)');
+        setFormError(mappedMsg);
+        return;
       }
 
-      // Success
-      onSuccess(`สร้างคิวให้ ${targetCustomerName} (ยืนยันคิวเรียบร้อย) เรียบร้อยแล้ว`);
-      onClose();
+      if (!data || data.success === false) {
+        console.error('[CreateBookingModal] RPC returned unsuccessful:', data);
+        const mappedMsg = mapRpcError(data?.message || '', data?.error_code);
+        if (
+          customerMode === 'NEW' &&
+          (data?.error_code?.includes('DUPLICATE') ||
+            data?.error_code?.includes('PHONE') ||
+            data?.error_code?.includes('NAME'))
+        ) {
+          setCustomerError(mappedMsg);
+        }
+        setFormError(mappedMsg);
+        return;
+      }
+
+      // Success handling (Section 6)
+      if (data.is_duplicate_customer) {
+        onSuccess('พบลูกค้าเดิมในระบบ และสร้างคิวงานเรียบร้อยแล้ว');
+      } else {
+        onSuccess('สร้างคิวงานเรียบร้อยแล้ว');
+      }
+      handleClose();
     } catch (err: any) {
-      console.error('[CreateBookingModal] Error during submit flow:', err);
-
-      // Rollback cleanup on failure
-      try {
-        if (createdBookingId) {
-          console.log('[CreateBookingModal] Cleaning up created booking:', createdBookingId);
-          await supabase.from('bookings').delete().eq('id', createdBookingId);
-        }
-        if (createdEstimateId) {
-          console.log('[CreateBookingModal] Cleaning up created estimate_request:', createdEstimateId);
-          await supabase.from('estimate_requests').delete().eq('id', createdEstimateId);
-        }
-      } catch (cleanupErr) {
-        console.error('[CreateBookingModal] Rollback cleanup error:', cleanupErr);
-      }
-
-      setFormError(err.message || 'เกิดข้อผิดพลาดในการสร้างคิวงานใหม่');
+      console.error('[CreateBookingModal] Unexpected error during submit flow:', err);
+      const mappedMsg = mapRpcError(err.message, err.code);
+      setFormError(mappedMsg);
     } finally {
       setIsSubmitting(false);
     }
@@ -451,40 +507,19 @@ export default function CreateBookingModal({
             </div>
             <div>
               <h3 className="text-base font-heading font-semibold text-[#ECE4D3]">
-                สร้างคิวงานให้ลูกค้าเดิม (Master Calendar)
+                สร้างคิวงานใหม่ (Master Calendar)
               </h3>
               <p className="text-[11px] text-[#A89F91]">
-                สร้างนัดหมายงานสักสำหรับลูกค้าที่มีบัญชีในระบบเรียบร้อยแล้ว
+                สร้างนัดหมายงานสักสำหรับลูกค้าเดิมหรือลูกค้าใหม่ (Walk-in)
               </p>
             </div>
           </div>
           <button
-            onClick={onClose}
+            onClick={handleClose}
             disabled={isSubmitting}
             className="text-[#7A7265] hover:text-[#ECE4D3] transition-colors p-1"
           >
             <X size={18} />
-          </button>
-        </div>
-
-        {/* New Customer Booking Link Banner */}
-        <div className="p-3 bg-amber-950/40 border border-amber-800/50 rounded-lg flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5 text-xs text-amber-200">
-          <div className="flex items-start gap-2">
-            <Info size={16} className="text-amber-400 shrink-0 mt-0.5" />
-            <div>
-              <p className="font-semibold text-amber-300">สำหรับลูกค้าใหม่</p>
-              <p className="text-[11px] text-[#A89F91]">
-                กรุณาส่งลิงก์จองให้ลูกค้ากรอกข้อมูลและเข้าสู่ระบบก่อนส่งคำขอ
-              </p>
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={handleCopyBookingLink}
-            className="shrink-0 px-3 py-1.5 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 rounded-md font-medium text-xs transition-colors flex items-center gap-1.5 cursor-pointer"
-          >
-            {copiedLink ? <Check size={14} className="text-emerald-400" /> : <Copy size={14} />}
-            <span>{copiedLink ? 'คัดลอกแล้ว!' : 'คัดลอกลิงก์จอง'}</span>
           </button>
         </div>
 
@@ -497,95 +532,225 @@ export default function CreateBookingModal({
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Section 1: Customer Selection (Existing Customers Only) */}
-          <div className="space-y-2.5 bg-[#0E0D0C] p-3.5 rounded-lg border border-[#4A443A]/60">
-            <label className="text-xs font-semibold text-[#ECE4D3] flex items-center gap-1.5">
-              <User size={14} className="text-amber-400" />
-              <span>เลือกลูกค้าเดิมในระบบ <span className="text-red-400">*</span></span>
-            </label>
+          {/* Section 1: Customer Selection (Segmented Tabs: Existing vs New Customer) */}
+          <div className="space-y-3 bg-[#0E0D0C] p-3.5 rounded-lg border border-[#4A443A]/60">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+              <label className="text-xs font-semibold text-[#ECE4D3] flex items-center gap-1.5">
+                <User size={14} className="text-amber-400" />
+                <span>ลูกค้า <span className="text-red-400">*</span></span>
+              </label>
 
-            {selectedCustomer ? (
-              <div className="p-3 bg-[#171512] border border-amber-500/50 rounded-lg flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 text-xs">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-8 h-8 rounded-full bg-amber-950 border border-amber-700 flex items-center justify-center text-amber-300 font-bold text-xs shrink-0">
-                    {selectedCustomer.display_name.charAt(0)}
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <p className="font-semibold text-[#ECE4D3]">{selectedCustomer.display_name}</p>
-                      {selectedCustomer.user_id ? (
-                        <span className="px-1.5 py-0.5 rounded bg-emerald-950 text-emerald-400 border border-emerald-800 text-[10px] font-mono">
-                          ผูกบัญชีแล้ว
-                        </span>
-                      ) : (
-                        <span className="px-1.5 py-0.5 rounded bg-red-950 text-red-400 border border-red-800 text-[10px] font-mono">
-                          ยังไม่ผูกบัญชีผู้ใช้
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-[11px] text-[#A89F91]">
-                      เบอร์โทร: {formatThaiPhoneForDisplay(selectedCustomer.phone)}
-                      {selectedCustomer.email && ` | ${selectedCustomer.email}`}
-                    </p>
-                  </div>
-                </div>
+              {/* Segmented Control */}
+              <div className="inline-flex bg-[#171512] border border-[#4A443A] p-0.5 rounded-lg self-start sm:self-auto">
                 <button
                   type="button"
-                  onClick={() => setSelectedCustomer(null)}
-                  className="text-xs text-amber-400 hover:underline font-medium self-end sm:self-auto"
+                  onClick={() => handleSwitchMode('EXISTING')}
+                  className={`px-3 py-1 rounded-md text-xs font-medium transition-all cursor-pointer ${
+                    customerMode === 'EXISTING'
+                      ? 'bg-[#2A2620] text-[#ECE4D3] shadow-sm font-semibold border border-[#4A443A]'
+                      : 'text-[#A89F91] hover:text-[#ECE4D3]'
+                  }`}
                 >
-                  เปลี่ยนลูกค้า
+                  เลือกลูกค้าเดิม
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleSwitchMode('NEW')}
+                  className={`px-3 py-1 rounded-md text-xs font-medium transition-all cursor-pointer flex items-center gap-1 ${
+                    customerMode === 'NEW'
+                      ? 'bg-amber-500/20 text-amber-200 shadow-sm font-semibold border border-amber-500/40'
+                      : 'text-[#A89F91] hover:text-[#ECE4D3]'
+                  }`}
+                >
+                  <UserPlus size={12} />
+                  <span>+ ลูกค้าใหม่</span>
                 </button>
               </div>
-            ) : (
-              <div className="space-y-2">
-                <div className="relative">
-                  <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#7A7265]" />
-                  <input
-                    type="text"
-                    value={customerSearchQuery}
-                    onChange={(e) => setCustomerSearchQuery(e.target.value)}
-                    placeholder="พิมพ์ชื่อ, เบอร์โทรศัพท์ เพื่อค้นหาลูกค้าเดิม..."
-                    className="w-full pl-9 pr-3 py-2 bg-[#171512] border border-[#4A443A] focus:border-amber-400 rounded-lg text-xs text-[#ECE4D3] focus:outline-none"
-                  />
-                  {isSearchingCustomers && (
-                    <Loader2 size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-amber-400 animate-spin" />
+            </div>
+
+            {/* Customer Notice if duplicate phone resolved */}
+            {customerNotice && (
+              <div className="p-2.5 bg-amber-950/40 border border-amber-800/60 rounded-md text-[11px] text-amber-200 flex items-center gap-1.5 animate-fadeIn">
+                <Info size={13} className="text-amber-400 shrink-0" />
+                <span>{customerNotice}</span>
+              </div>
+            )}
+
+            {/* Customer Error (Duplicate Email, Conflict, etc.) */}
+            {customerError && (
+              <div className="p-2.5 bg-red-950/60 border border-red-800/80 rounded-md text-[11px] text-red-300 flex items-start gap-1.5 animate-fadeIn">
+                <AlertCircle size={14} className="text-red-400 shrink-0 mt-0.5" />
+                <span>{customerError}</span>
+              </div>
+            )}
+
+            {customerMode === 'EXISTING' ? (
+              /* โหมด A: เลือกลูกค้าเดิม (Live Search 100%) */
+              selectedCustomer ? (
+                <div className="p-3 bg-[#171512] border border-amber-500/50 rounded-lg flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 text-xs">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-full bg-amber-950 border border-amber-700 flex items-center justify-center text-amber-300 font-bold text-xs shrink-0">
+                      {selectedCustomer.display_name.charAt(0)}
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <p className="font-semibold text-[#ECE4D3]">{selectedCustomer.display_name}</p>
+                        {selectedCustomer.user_id ? (
+                          <span className="px-1.5 py-0.5 rounded bg-emerald-950 text-emerald-400 border border-emerald-800 text-[10px] font-mono">
+                            ผูกบัญชีแล้ว
+                          </span>
+                        ) : (
+                          <span className="px-1.5 py-0.5 rounded bg-red-950 text-red-400 border border-red-800 text-[10px] font-mono">
+                            ยังไม่ผูกบัญชีผู้ใช้
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-[11px] text-[#A89F91]">
+                        เบอร์โทร: {formatThaiPhoneForDisplay(selectedCustomer.phone)}
+                        {selectedCustomer.email && ` | ${selectedCustomer.email}`}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedCustomer(null)}
+                    className="text-xs text-amber-400 hover:underline font-medium self-end sm:self-auto cursor-pointer"
+                  >
+                    เปลี่ยนลูกค้า
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <div className="relative">
+                    <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#7A7265]" />
+                    <input
+                      type="text"
+                      value={customerSearchQuery}
+                      onChange={(e) => setCustomerSearchQuery(e.target.value)}
+                      placeholder="พิมพ์ชื่อ, เบอร์โทรศัพท์ หรืออีเมล เพื่อค้นหาลูกค้าเดิม..."
+                      className="w-full pl-9 pr-3 py-2 bg-[#171512] border border-[#4A443A] focus:border-amber-400 rounded-lg text-xs text-[#ECE4D3] focus:outline-none"
+                    />
+                    {isSearchingCustomers && (
+                      <Loader2 size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-amber-400 animate-spin" />
+                    )}
+                  </div>
+
+                  {existingCustomers.length > 0 && (
+                    <div className="max-h-40 overflow-y-auto bg-[#171512] border border-[#4A443A] rounded-lg divide-y divide-[#4A443A]/40 text-xs">
+                      {existingCustomers.map((cust) => {
+                        const hasUserId = Boolean(cust.user_id);
+                        return (
+                          <div
+                            key={cust.id}
+                            onClick={() => {
+                              setSelectedCustomer(cust);
+                            }}
+                            className="p-2.5 hover:bg-[#26231F] cursor-pointer flex items-center justify-between text-[#ECE4D3] transition-colors"
+                          >
+                            <div className="flex items-center gap-2">
+                              <span className="font-medium">{cust.display_name}</span>
+                              {!hasUserId && (
+                                <span className="text-[10px] text-red-400 bg-red-950/80 border border-red-900 px-1.5 py-0.5 rounded">
+                                  ยังไม่ผูกบัญชี
+                                </span>
+                              )}
+                            </div>
+                            <span className="text-[11px] text-[#A89F91] font-mono">
+                              {formatThaiPhoneForDisplay(cust.phone)}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
                   )}
                 </div>
-
-                {existingCustomers.length > 0 && (
-                  <div className="max-h-40 overflow-y-auto bg-[#171512] border border-[#4A443A] rounded-lg divide-y divide-[#4A443A]/40 text-xs">
-                    {existingCustomers.map((cust) => {
-                      const hasUserId = Boolean(cust.user_id);
-                      return (
-                        <div
-                          key={cust.id}
-                          onClick={() => {
-                            if (!hasUserId) {
-                              setFormError(`ลูกค้ารายนี้ (${cust.display_name}) ยังไม่ได้เชื่อมต่อบัญชีผู้ใช้ (user_id = null) ไม่สามารถเลือกได้ กรุณาส่งลิงก์ให้ลูกค้าลงทะเบียนก่อน`);
-                            }
-                            setSelectedCustomer(cust);
-                          }}
-                          className={`p-2.5 hover:bg-[#26231F] cursor-pointer flex items-center justify-between text-[#ECE4D3] transition-colors ${
-                            !hasUserId ? 'opacity-70 bg-red-950/20' : ''
-                          }`}
-                        >
-                          <div className="flex items-center gap-2">
-                            <span className="font-medium">{cust.display_name}</span>
-                            {!hasUserId && (
-                              <span className="text-[10px] text-red-400 bg-red-950/80 border border-red-900 px-1.5 py-0.5 rounded">
-                                ยังไม่ผูกบัญชี
-                              </span>
-                            )}
-                          </div>
-                          <span className="text-[11px] text-[#A89F91] font-mono">
-                            {formatThaiPhoneForDisplay(cust.phone)}
-                          </span>
-                        </div>
-                      );
-                    })}
+              )
+            ) : (
+              /* โหมด B: ลูกค้าใหม่ (Walk-in) */
+              <div className="space-y-3 pt-1 animate-fadeIn">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                  {/* Name */}
+                  <div>
+                    <label className="block text-xs font-medium text-[#ECE4D3] mb-1">
+                      ชื่อลูกค้า <span className="text-red-400">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={newCustomerName}
+                      onChange={(e) => {
+                        setNewCustomerName(e.target.value);
+                        setNewCustomerErrors((prev) => ({ ...prev, name: undefined }));
+                        setCustomerError(null);
+                      }}
+                      placeholder="เช่น สมชาย ใจดี"
+                      className={`w-full bg-[#171512] border rounded-lg px-3 py-2 text-xs text-[#ECE4D3] focus:outline-none ${
+                        newCustomerErrors.name ? 'border-red-500' : 'border-[#4A443A] focus:border-amber-400'
+                      }`}
+                    />
+                    {newCustomerErrors.name && (
+                      <p className="text-[10px] text-red-400 mt-0.5">{newCustomerErrors.name}</p>
+                    )}
                   </div>
-                )}
+
+                  {/* Phone */}
+                  <div>
+                    <label className="block text-xs font-medium text-[#ECE4D3] mb-1">
+                      เบอร์โทรศัพท์ <span className="text-red-400">*</span>
+                    </label>
+                    <input
+                      type="tel"
+                      value={newCustomerPhone}
+                      onChange={(e) => {
+                        setNewCustomerPhone(e.target.value);
+                        setNewCustomerErrors((prev) => ({ ...prev, phone: undefined }));
+                        setCustomerError(null);
+                      }}
+                      placeholder="เช่น 0812345678"
+                      className={`w-full bg-[#171512] border rounded-lg px-3 py-2 text-xs text-[#ECE4D3] focus:outline-none ${
+                        newCustomerErrors.phone ? 'border-red-500' : 'border-[#4A443A] focus:border-amber-400'
+                      }`}
+                    />
+                    {newCustomerErrors.phone && (
+                      <p className="text-[10px] text-red-400 mt-0.5">{newCustomerErrors.phone}</p>
+                    )}
+                  </div>
+
+                  {/* Email */}
+                  <div>
+                    <label className="block text-xs font-medium text-[#ECE4D3] mb-1">
+                      อีเมล <span className="text-[#7A7265] text-[10px]">(ไม่บังคับ)</span>
+                    </label>
+                    <input
+                      type="email"
+                      value={newCustomerEmail}
+                      onChange={(e) => {
+                        setNewCustomerEmail(e.target.value);
+                        setNewCustomerErrors((prev) => ({ ...prev, email: undefined }));
+                        setCustomerError(null);
+                      }}
+                      placeholder="customer@example.com"
+                      className={`w-full bg-[#171512] border rounded-lg px-3 py-2 text-xs text-[#ECE4D3] focus:outline-none ${
+                        newCustomerErrors.email ? 'border-red-500' : 'border-[#4A443A] focus:border-amber-400'
+                      }`}
+                    />
+                    {newCustomerErrors.email && (
+                      <p className="text-[10px] text-red-400 mt-0.5">{newCustomerErrors.email}</p>
+                    )}
+                  </div>
+
+                  {/* Date of Birth */}
+                  <div>
+                    <label className="block text-xs font-medium text-[#ECE4D3] mb-1">
+                      วันเดือนปีเกิด <span className="text-[#7A7265] text-[10px]">(ไม่บังคับ)</span>
+                    </label>
+                    <input
+                      type="date"
+                      value={newCustomerDob}
+                      onChange={(e) => setNewCustomerDob(e.target.value)}
+                      className="w-full bg-[#171512] border border-[#4A443A] focus:border-amber-400 rounded-lg px-3 py-2 text-xs text-[#ECE4D3] focus:outline-none [color-scheme:dark] cursor-pointer"
+                    />
+                  </div>
+                </div>
               </div>
             )}
           </div>
@@ -625,7 +790,7 @@ export default function CreateBookingModal({
             </div>
 
             {/* Appointment Start Time */}
-            <div>
+            <div className="col-span-1 sm:col-span-2">
               <label className="block text-xs font-medium text-[#ECE4D3] mb-1">
                 เวลานัดลูกค้า <span className="text-red-400">*</span>
               </label>
@@ -633,25 +798,7 @@ export default function CreateBookingModal({
                 type="time"
                 required
                 value={startTime}
-                onChange={(e) => {
-                  const newStart = e.target.value;
-                  setStartTime(newStart);
-                  setEndTime(calculateDefaultEndTime(newStart));
-                }}
-                className="w-full bg-[#0E0D0C] border border-[#4A443A] rounded-lg px-3 py-2 text-xs text-[#ECE4D3] focus:outline-none focus:border-amber-400 [color-scheme:dark] cursor-pointer"
-              />
-            </div>
-
-            {/* Estimated End Time */}
-            <div>
-              <label className="block text-xs font-medium text-[#ECE4D3] mb-1">
-                เวลาเสร็จโดยประมาณ <span className="text-red-400">*</span>
-              </label>
-              <input
-                type="time"
-                required
-                value={endTime}
-                onChange={(e) => setEndTime(e.target.value)}
+                onChange={(e) => setStartTime(e.target.value)}
                 className="w-full bg-[#0E0D0C] border border-[#4A443A] rounded-lg px-3 py-2 text-xs text-[#ECE4D3] focus:outline-none focus:border-amber-400 [color-scheme:dark] cursor-pointer"
               />
             </div>
@@ -755,9 +902,9 @@ export default function CreateBookingModal({
           <div className="flex items-center justify-end gap-2 pt-2 border-t border-[#4A443A]/60">
             <button
               type="button"
-              onClick={onClose}
+              onClick={handleClose}
               disabled={isSubmitting}
-              className="px-4 py-2 text-xs text-[#A89F91] hover:text-[#ECE4D3] bg-[#0E0D0C] border border-[#4A443A] rounded-lg transition-colors"
+              className="px-4 py-2 text-xs text-[#A89F91] hover:text-[#ECE4D3] bg-[#0E0D0C] border border-[#4A443A] rounded-lg transition-colors cursor-pointer"
             >
               ยกเลิก
             </button>

@@ -79,6 +79,7 @@ export default function BookingDetailPanel({
   const [rescheduleStartTime, setRescheduleStartTime] = useState<string>('');
   const [rescheduleEndTime, setRescheduleEndTime] = useState<string>('');
   const [rescheduleNote, setRescheduleNote] = useState<string>('');
+  const [sessionDurationMs, setSessionDurationMs] = useState<number>(8 * 3600 * 1000);
   const [isSubmittingReschedule, setIsSubmittingReschedule] = useState<boolean>(false);
   const [rescheduleError, setRescheduleError] = useState<string | null>(null);
 
@@ -93,17 +94,23 @@ export default function BookingDetailPanel({
     let defaultDate = booking?.requested_date || '';
     let defaultStart = '10:00';
     let defaultEnd = '18:00';
+    let duration = 8 * 3600 * 1000;
 
     if (session.start_at) {
       defaultDate = toBangkokDateString(session.start_at);
       const dStart = new Date(session.start_at);
       defaultStart = dStart.toLocaleTimeString('en-GB', { timeZone: 'Asia/Bangkok', hour: '2-digit', minute: '2-digit' });
-    }
-    if (session.end_at) {
-      const dEnd = new Date(session.end_at);
-      defaultEnd = dEnd.toLocaleTimeString('en-GB', { timeZone: 'Asia/Bangkok', hour: '2-digit', minute: '2-digit' });
+      if (session.end_at) {
+        const dEnd = new Date(session.end_at);
+        const diff = dEnd.getTime() - dStart.getTime();
+        if (diff > 0) {
+          duration = diff;
+          defaultEnd = dEnd.toLocaleTimeString('en-GB', { timeZone: 'Asia/Bangkok', hour: '2-digit', minute: '2-digit' });
+        }
+      }
     }
 
+    setSessionDurationMs(duration);
     setRescheduleDate(defaultDate);
     setRescheduleStartTime(defaultStart);
     setRescheduleEndTime(defaultEnd);
@@ -140,8 +147,15 @@ export default function BookingDetailPanel({
     setRescheduleError(null);
     try {
       const supabase = createClient();
-      const startAtIso = `${rescheduleDate}T${rescheduleStartTime}:00+07:00`;
-      const endAtIso = `${rescheduleDate}T${rescheduleEndTime}:00+07:00`;
+      const cleanStartTime = rescheduleStartTime.length === 5 ? rescheduleStartTime + ':00' : rescheduleStartTime;
+      const startAtIso = `${rescheduleDate}T${cleanStartTime}+07:00`;
+      
+      // Calculate end time automatically from preserved session duration
+      const startMs = new Date(startAtIso).getTime();
+      const endMs = startMs + sessionDurationMs;
+      const computedEndTime = new Date(endMs).toLocaleTimeString('en-GB', { timeZone: 'Asia/Bangkok', hour: '2-digit', minute: '2-digit' });
+      const cleanEndTime = computedEndTime.length === 5 ? computedEndTime + ':00' : computedEndTime;
+      const endAtIso = `${rescheduleDate}T${cleanEndTime}+07:00`;
       const finalNote = rescheduleNote.trim() ? rescheduleNote.trim() : null;
 
       const { error: updateErr } = await supabase
@@ -159,7 +173,7 @@ export default function BookingDetailPanel({
           p_session_id: reschedulingSession.id,
           p_new_date: rescheduleDate,
           p_new_start_time: rescheduleStartTime,
-          p_new_end_time: rescheduleEndTime,
+          p_new_end_time: computedEndTime,
           p_note: finalNote,
         });
         if (rpcErr) throw rpcErr;
@@ -384,56 +398,7 @@ export default function BookingDetailPanel({
     };
   }, [booking?.id, booking?.customer_user_id, booking?.estimate_request_id]);
 
-  // Additional Resilient Fallback State for Tattoo Specs from linked estimate_requests
-  const [estSpecs, setEstSpecs] = useState<{
-    style: string | null;
-    placement: string | null;
-    width_cm: number | null;
-    height_cm: number | null;
-    estimated_size_tier: string | null;
-  }>({
-    style: null,
-    placement: null,
-    width_cm: null,
-    height_cm: null,
-    estimated_size_tier: null,
-  });
 
-  React.useEffect(() => {
-    const estId = booking?.estimate_request_id;
-    if (!estId) return;
-
-    let isMounted = true;
-    const supabase = createClient();
-
-    async function fetchEstSpecs() {
-      try {
-        const { data: eData } = await supabase
-          .from('estimate_requests')
-          .select('style, style_preference, placement, width_cm, height_cm, estimated_size_tier')
-          .eq('id', estId)
-          .maybeSingle();
-
-        if (eData && isMounted) {
-          setEstSpecs({
-            style: eData.style || eData.style_preference || null,
-            placement: eData.placement || null,
-            width_cm: eData.width_cm ?? null,
-            height_cm: eData.height_cm ?? null,
-            estimated_size_tier: eData.estimated_size_tier || null,
-          });
-        }
-      } catch (err) {
-        console.error('Error fetching estimate specs fallback in BookingDetailPanel:', err);
-      }
-    }
-
-    fetchEstSpecs();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [booking?.id, booking?.estimate_request_id]);
 
   const isHealthUnknown =
     healthState.loading ||
@@ -459,15 +424,15 @@ export default function BookingDetailPanel({
   const rawArtistNickname = booking.artist_nickname;
   const artistDisplay = rawArtistNickname ? `${rawArtistName} (${rawArtistNickname})` : rawArtistName;
 
-  const rawStyle = booking.style_preference && booking.style_preference !== 'ไม่ระบุ' ? booking.style_preference : estSpecs.style;
+  const rawStyle = booking.style_preference && booking.style_preference !== 'ไม่ระบุ' ? booking.style_preference : null;
   const styleDisplay = rawStyle || 'ไม่ระบุ';
 
-  const rawPlacement = (booking.placement && booking.placement !== 'CUSTOM' && booking.placement !== 'ไม่ระบุ') ? booking.placement : estSpecs.placement;
+  const rawPlacement = (booking.placement && booking.placement !== 'CUSTOM' && booking.placement !== 'ไม่ระบุ') ? booking.placement : null;
   const placementDisplay = rawPlacement || 'ไม่ระบุ';
 
-  const wCm = booking.width_cm ?? estSpecs.width_cm;
-  const hCm = booking.height_cm ?? estSpecs.height_cm;
-  const sizeTierVal = booking.estimated_size_tier || booking.size_label || estSpecs.estimated_size_tier;
+  const wCm = booking.width_cm ?? null;
+  const hCm = booking.height_cm ?? null;
+  const sizeTierVal = booking.estimated_size_tier || booking.size_label || null;
   const sizeDisplay = formatTattooSize(wCm, hCm, sizeTierVal);
 
   const activeSession = booking.sessions?.find((s) => s.status !== 'CANCELLED') || booking.sessions?.[0];
@@ -490,7 +455,7 @@ export default function BookingDetailPanel({
 
   const descriptionDisplay = booking.description || booking.customer_note || '';
   const cleanDescription = parseNoteWithPreferredTime(descriptionDisplay).cleanNote || null;
-  const refImages = booking.reference_images || [];
+  const refImages = Array.isArray(booking.reference_images) && booking.reference_images.length > 0 ? booking.reference_images : [];
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -508,38 +473,44 @@ export default function BookingDetailPanel({
         );
       case 'WAITING_DEPOSIT':
         return (
-          <span className="bg-amber-950/60 text-amber-400 border border-amber-800/60 px-2.5 py-0.5 rounded text-xs font-semibold">
+          <span className="bg-purple-950/60 text-purple-400 border border-purple-800/60 px-2.5 py-0.5 rounded text-xs font-semibold">
             รอมัดจำ
           </span>
         );
       case 'CONFIRMED':
         return (
           <span className="bg-emerald-950/60 text-emerald-400 border border-emerald-800/60 px-2.5 py-0.5 rounded text-xs font-semibold">
-            ยืนยันคิวแล้ว
+            คิวยืนยันแล้ว
           </span>
         );
       case 'IN_PROGRESS':
         return (
-          <span className="bg-studio-red text-white border border-studio-red px-2.5 py-0.5 rounded text-xs font-semibold flex items-center gap-1">
-            <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+          <span className="bg-[#9C2F2F]/20 text-[#D64545] border border-[#9C2F2F]/60 px-2.5 py-0.5 rounded text-xs font-semibold flex items-center gap-1 animate-pulse">
+            <span className="w-1.5 h-1.5 rounded-full bg-[#D64545] animate-pulse" />
             กำลังดำเนินงาน
           </span>
         );
       case 'COMPLETED':
         return (
-          <span className="bg-emerald-950/60 text-emerald-400 border border-emerald-800/60 px-2.5 py-0.5 rounded text-xs font-semibold">
+          <span className="bg-emerald-950/80 text-emerald-300 border border-emerald-700/80 px-2.5 py-0.5 rounded text-xs font-semibold">
             งานเสร็จสิ้น
           </span>
         );
       case 'REJECTED':
         return (
-          <span className="bg-red-950/60 text-red-400 border border-red-800/60 px-2.5 py-0.5 rounded text-xs font-semibold">
+          <span className="bg-red-950/50 text-red-400 border border-red-900/60 px-2.5 py-0.5 rounded text-xs font-semibold">
             ปฏิเสธแล้ว
+          </span>
+        );
+      case 'EXPIRED':
+        return (
+          <span className="bg-zinc-900/90 text-zinc-400 border border-zinc-700/80 px-2.5 py-0.5 rounded text-xs font-semibold">
+            หมดอายุ
           </span>
         );
       case 'CANCELLED':
         return (
-          <span className="bg-[#1A1815] text-[#A89F91] border border-[#4A443A] px-2.5 py-0.5 rounded text-xs font-semibold">
+          <span className="bg-[#1F1D1A] text-[#7A7265] border border-[#4A443A] px-2.5 py-0.5 rounded text-xs font-semibold">
             ยกเลิกแล้ว
           </span>
         );
@@ -805,7 +776,7 @@ export default function BookingDetailPanel({
           {/* Section 1: Date & Time Card */}
           <div className="bg-studio-sec/80 border border-studio-border rounded-xl p-4 space-y-3">
             <div className="flex items-center space-x-2 text-studio-secondary text-[11px] uppercase tracking-wider font-semibold">
-              <Calendar size={14} className="text-studio-red" />
+              <Calendar size={14} className="text-studio-red-bright" />
               <span>วันและเวลานัดหมาย (Bangkok Time)</span>
             </div>
             <div className="grid grid-cols-2 gap-3 pt-1">
@@ -840,18 +811,11 @@ export default function BookingDetailPanel({
 
           {/* Section 2: Admin Actions Panel (Matched with Artist Action Card Information Layout) */}
           <div className="bg-studio-card border border-studio-border rounded-xl p-4 space-y-3">
-            {/* Header + Status Badge */}
+            {/* Header */}
             <div className="flex items-center justify-between">
               <span className="text-studio-secondary text-[11px] uppercase tracking-wider font-semibold">
                 การจัดการคิวงาน (ADMIN ACTIONS)
               </span>
-              {booking.operational_status ? (
-                <span className={`${booking.operational_status.badgeClass} px-2.5 py-0.5 rounded text-xs font-semibold`}>
-                  {booking.operational_status.label}
-                </span>
-              ) : (
-                getStatusBadge(booking.status)
-              )}
             </div>
 
             {/* CASE 1: Pending Payment Submission Action */}
@@ -1057,23 +1021,40 @@ export default function BookingDetailPanel({
             {!pendingSubmission && (booking.status === 'CONFIRMED' || booking.status === 'IN_PROGRESS') && (
               <div className="pt-1 space-y-3">
                 {/* Primary Action Full Width: Complete Booking */}
-                <button
-                  id="btn-open-complete-booking"
-                  type="button"
-                  onClick={() => {
-                    setActionError(null);
-                    const eligibility = checkAdminCompletionEligibility(booking);
-                    if (!eligibility.allowed) {
-                      setActionError(`${eligibility.title}: ${eligibility.reason}`);
-                      return;
-                    }
-                    setIsCompleteDialogOpen(true);
-                  }}
-                  className="w-full py-2.5 px-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition-all shadow-md cursor-pointer active:scale-[0.99]"
-                >
-                  <CheckCircle2 size={15} />
-                  <span>เสร็จสิ้นงาน</span>
-                </button>
+                {(() => {
+                  const eligibility = checkAdminCompletionEligibility(booking);
+                  return (
+                    <div className="space-y-1.5">
+                      <button
+                        id="btn-open-complete-booking"
+                        type="button"
+                        onClick={() => {
+                          setActionError(null);
+                          if (!eligibility.allowed) {
+                            setActionError(`${eligibility.title}: ${eligibility.reason}`);
+                            return;
+                          }
+                          setIsCompleteDialogOpen(true);
+                        }}
+                        disabled={!eligibility.allowed}
+                        className={`w-full py-2.5 px-4 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition-all shadow-md active:scale-[0.99] ${
+                          eligibility.allowed
+                            ? 'bg-emerald-600 hover:bg-emerald-500 text-white cursor-pointer'
+                            : 'bg-zinc-800 text-zinc-500 border border-zinc-700 cursor-not-allowed opacity-75'
+                        }`}
+                      >
+                        <CheckCircle2 size={15} />
+                        <span>เสร็จสิ้นงาน</span>
+                      </button>
+                      {!eligibility.allowed && (
+                        <p className="text-[11px] text-amber-400 font-medium text-center flex items-center justify-center gap-1">
+                          <AlertTriangle size={12} className="shrink-0" />
+                          <span>{eligibility.reason}</span>
+                        </p>
+                      )}
+                    </div>
+                  );
+                })()}
 
                 {/* Divider & 3-Column Secondary Action Row */}
                 <div className="pt-2 border-t border-studio-border/60 grid grid-cols-3 gap-2">
@@ -1126,7 +1107,7 @@ export default function BookingDetailPanel({
           {/* Section 3: Customer Information */}
           <div className="bg-studio-card border border-studio-border rounded-xl p-4 space-y-3">
             <div className="flex items-center space-x-2 text-studio-secondary text-[11px] uppercase tracking-wider font-semibold">
-              <User size={14} className="text-studio-red" />
+              <User size={14} className="text-studio-red-bright" />
               <span>ข้อมูลลูกค้า</span>
             </div>
             <div className="space-y-2.5 pt-1 divide-y divide-studio-border/50">
@@ -1289,7 +1270,7 @@ export default function BookingDetailPanel({
           {/* Section 4: Tattoo Details & Specs */}
           <div className="bg-studio-card border border-studio-border rounded-xl p-4 space-y-3">
             <div className="flex items-center space-x-2 text-studio-secondary text-[11px] uppercase tracking-wider font-semibold">
-              <Layers size={14} className="text-studio-red" />
+              <Layers size={14} className="text-studio-red-bright" />
               <span>รายละเอียดงานสัก</span>
             </div>
             <div className="space-y-2 pt-1 divide-y divide-studio-border/50">
@@ -1329,12 +1310,10 @@ export default function BookingDetailPanel({
             </div>
           </div>
 
-
-
           {/* Section 6: Tattoo Sessions List */}
           <div className="bg-studio-card border border-studio-border rounded-xl p-4 space-y-3">
             <div className="flex items-center space-x-2 text-studio-secondary text-[11px] uppercase tracking-wider font-semibold">
-              <Calendar size={14} className="text-studio-red" />
+              <Calendar size={14} className="text-studio-red-bright" />
               <span>รอบการสักทั้งหมด ({booking.sessions?.length || 0} รอบ)</span>
             </div>
             <BookingSessionList booking={booking} blockedDates={blockedDates} onRefresh={onRefresh} embedMode={true} />
@@ -1344,7 +1323,7 @@ export default function BookingDetailPanel({
           <div className="bg-studio-card border border-studio-border rounded-xl p-4 space-y-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-2 text-studio-secondary text-[11px] uppercase tracking-wider font-semibold">
-                <ImageIcon size={14} className="text-studio-red" />
+                <ImageIcon size={14} className="text-studio-red-bright" />
                 <span>ภาพเรฟเฟอเรนซ์ / แบบลายสัก</span>
               </div>
               <span className="text-[10px] text-studio-muted">
@@ -1437,7 +1416,7 @@ export default function BookingDetailPanel({
                     .filter((s) => s.status !== 'CANCELLED')
                     .map((s) => (
                       <option key={s.id} value={s.id}>
-                        รอบที่ {s.session_number} ({s.status === 'COMPLETED' ? 'เสร็จแล้ว' : s.status === 'IN_PROGRESS' ? 'กำลังสัก' : 'นัดหมายแล้ว'})
+                        รอบที่ {s.session_number} ({s.status === 'COMPLETED' ? 'เสร็จแล้ว' : s.status === 'IN_PROGRESS' ? 'กำลังสัก' : 'รอบนัด'})
                       </option>
                     ))}
                 </select>
@@ -1465,31 +1444,17 @@ export default function BookingDetailPanel({
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="block text-studio-secondary mb-1 font-medium">
-                    เวลาเริ่ม <span className="text-studio-red">*</span>
-                  </label>
-                  <input
-                    type="time"
-                    required
-                    value={rescheduleStartTime}
-                    onChange={(e) => setRescheduleStartTime(e.target.value)}
-                    className="w-full bg-studio-sec border border-studio-border rounded-xl px-3 py-2 text-studio-primary font-mono focus:outline-none focus:border-amber-400"
-                  />
-                </div>
-                <div>
-                  <label className="block text-studio-secondary mb-1 font-medium">
-                    เวลาสิ้นสุด <span className="text-studio-red">*</span>
-                  </label>
-                  <input
-                    type="time"
-                    required
-                    value={rescheduleEndTime}
-                    onChange={(e) => setRescheduleEndTime(e.target.value)}
-                    className="w-full bg-studio-sec border border-studio-border rounded-xl px-3 py-2 text-studio-primary font-mono focus:outline-none focus:border-amber-400"
-                  />
-                </div>
+              <div>
+                <label className="block text-studio-secondary mb-1 font-medium">
+                  เวลาเริ่ม <span className="text-studio-red">*</span>
+                </label>
+                <input
+                  type="time"
+                  required
+                  value={rescheduleStartTime}
+                  onChange={(e) => setRescheduleStartTime(e.target.value)}
+                  className="w-full bg-studio-sec border border-studio-border rounded-xl px-3 py-2 text-studio-primary font-mono focus:outline-none focus:border-amber-400"
+                />
               </div>
 
               <div>

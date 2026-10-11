@@ -89,11 +89,11 @@ export default function EstimateRequestList({
 
   const filterPills: Array<{ id: string; label: string }> = [
     { id: 'ALL', label: `ทั้งหมด (${statusCounts.all})` },
-    { id: 'NEW', label: `คำขอใหม่ (${statusCounts.new})` },
+    { id: 'NEW', label: `รอตรวจสอบ (${statusCounts.new})` },
     { id: 'WAITING_DEPOSIT', label: `รอมัดจำ (${statusCounts.waitingDeposit})` },
     { id: 'PENDING_SLIP', label: `สลิปรอตรวจ (${statusCounts.pendingSlip})` },
     { id: 'REJECTED', label: `ปฏิเสธ (${statusCounts.rejected})` },
-    { id: 'CANCELLED_EXPIRED', label: `ยกเลิก / หมดอายุ (${statusCounts.cancelledExpired})` },
+    { id: 'CANCELLED_EXPIRED', label: `หมดอายุ (${statusCounts.cancelledExpired})` },
   ];
 
   const filteredEstimates = useMemo(() => {
@@ -217,13 +217,13 @@ export default function EstimateRequestList({
         );
       case 'REJECTED':
         return (
-          <span className="bg-red-950/60 text-red-400 border border-red-800/60 px-2 py-0.5 rounded text-[10px] font-semibold">
+          <span className="bg-red-950/50 text-red-400 border border-red-900/60 px-2 py-0.5 rounded text-[10px] font-semibold">
             ปฏิเสธ
           </span>
         );
       case 'QUOTED':
         return (
-          <span className="bg-amber-950/60 text-amber-400 border border-amber-800/60 px-2 py-0.5 rounded text-[10px] font-semibold">
+          <span className="bg-purple-950/60 text-purple-400 border border-purple-800/60 px-2 py-0.5 rounded text-[10px] font-semibold">
             เสนอราคาแล้ว
           </span>
         );
@@ -235,7 +235,7 @@ export default function EstimateRequestList({
         );
       case 'CANCELLED':
         return (
-          <span className="bg-zinc-900/90 text-zinc-400 border border-zinc-700/80 px-2 py-0.5 rounded text-[10px] font-semibold">
+          <span className="bg-[#1F1D1A] text-[#7A7265] border border-[#4A443A] px-2 py-0.5 rounded text-[10px] font-semibold">
             ยกเลิก
           </span>
         );
@@ -303,7 +303,7 @@ export default function EstimateRequestList({
                   <th className="py-3 px-3">ช่างสัก / สไตล์</th>
                   <th className="py-3 px-3">วันและเวลานัดหมาย</th>
                   <th className="py-3 px-3 text-center">แจ้งเตือนสุขภาพ</th>
-                  <th className="py-3 px-3">ยื่นคำขอเมื่อ</th>
+                  <th className="py-3 px-3">วันที่ลูกค้าสะดวก</th>
                   <th className="py-3 px-3">สถานะ</th>
                   <th className="py-3 px-3 text-center">การจัดการ</th>
                 </tr>
@@ -419,17 +419,35 @@ export default function EstimateRequestList({
                         {renderHealthAlertBadge(est)}
                       </td>
 
-                      {/* 6. ยื่นคำขอเมื่อ */}
+                      {/* 6. วันที่ลูกค้าสะดวก */}
                       <td className="py-3 px-3">
-                        <span className={`${isInactive ? 'text-zinc-300' : 'text-[#ECE4D3]'} block font-medium`}>
-                          {formatDateBangkok(est.created_at)}
-                        </span>
-                        <span className={`text-[10px] ${isInactive ? 'text-zinc-500' : 'text-[#7A7265]'} block`}>
-                          {(() => {
-                            const t = formatTimeBangkok(est.created_at);
-                            return t.endsWith('น.') || t.endsWith('น') ? t : `${t} น.`;
-                          })()}
-                        </span>
+                        {(() => {
+                          const prefDate = est.preferred_date;
+                          const rawTime = est.preferred_time || (est as any).preferredTime;
+                          let timeStr = '';
+                          if (rawTime) {
+                            const hhmm = extractHHMM(rawTime) || rawTime;
+                            timeStr = hhmm.endsWith('น.') || hhmm.endsWith('น') ? hhmm : `${hhmm} น.`;
+                          } else if (est.description) {
+                            const { extractedTime } = parseNoteWithPreferredTime(est.description);
+                            if (extractedTime) timeStr = extractedTime;
+                          }
+
+                          if (!prefDate) {
+                            return <span className={isInactive ? 'text-zinc-500' : 'text-[#7A7265]'}>ไม่ได้ระบุ</span>;
+                          }
+
+                          return (
+                            <>
+                              <span className={`${isInactive ? 'text-zinc-300' : 'text-[#ECE4D3]'} block font-medium`}>
+                                {formatDateBangkok(prefDate)}
+                              </span>
+                              <span className={`text-[10px] ${isInactive ? 'text-zinc-500' : 'text-[#7A7265]'} block`}>
+                                {timeStr || 'ไม่ได้ระบุ'}
+                              </span>
+                            </>
+                          );
+                        })()}
                       </td>
 
                       {/* 7. สถานะ */}
@@ -455,20 +473,6 @@ export default function EstimateRequestList({
                             <span>{isInactive ? 'ดูรายละเอียด' : 'จัดการคำขอจอง'}</span>
                             <ChevronRight size={13} />
                           </button>
-                          {est.status === 'REJECTED' && !est.linked_booking && est.request_type !== 'DIRECT_BOOKING' && onDeleteRequest && (
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                onDeleteRequest(est);
-                              }}
-                              title="ลบคำขอที่ปฏิเสธแล้วถาวร"
-                              className="px-2.5 py-1 bg-[#2A1212] hover:bg-[#3D1A1A] text-[#E8B4B4] text-xs font-semibold rounded border border-[#9C2F2F] hover:border-[#B53838] transition-all inline-flex items-center gap-1 cursor-pointer"
-                            >
-                              <Trash2 size={12} />
-                              <span>ลบรายการ</span>
-                            </button>
-                          )}
                         </div>
                       </td>
                     </tr>
@@ -479,9 +483,16 @@ export default function EstimateRequestList({
           </div>
 
           {/* Mobile Card List */}
-          <div className="md:hidden space-y-3">
+          <div className="md:hidden space-y-3 font-prompt">
             {filteredEstimates.map((est) => {
-              const isInactive = est.operational_status?.key === 'CANCELLED' || est.status === 'CANCELLED' || est.status === 'EXPIRED' || est.status === 'REJECTED';
+              const opKey = est.operational_status?.key || est.status;
+              const isInactive = opKey === 'CANCELLED' || opKey === 'EXPIRED' || opKey === 'REJECTED' || est.status === 'CANCELLED' || est.status === 'EXPIRED' || est.status === 'REJECTED';
+              
+              const sizeStr = formatTattooSize(est.width_cm, est.height_cm);
+              const placementAndSize = [est.placement || 'ไม่ระบุตำแหน่ง', sizeStr ? `(${sizeStr})` : ''].filter(Boolean).join(' ');
+              const styleText = est.style_preference || est.style || 'ไม่ระบุสไตล์';
+              const artistAndStyle = `${est.artist_name || 'ยังไม่ระบุ'} · ${styleText}`;
+
               return (
                 <div
                   key={est.id}
@@ -489,16 +500,16 @@ export default function EstimateRequestList({
                   className={
                     isInactive
                       ? "bg-zinc-950/40 border border-zinc-800/70 rounded-xl p-3.5 space-y-2.5 shadow opacity-85 cursor-pointer"
-                      : "bg-[#0E0D0C] border border-[#4A443A] rounded-xl p-3.5 space-y-2.5 shadow cursor-pointer active:scale-[0.99] transition-all"
+                      : "bg-[#0E0D0C] border border-[#4A443A] hover:border-[#7A7265] rounded-xl p-3.5 space-y-2.5 shadow cursor-pointer active:scale-[0.99] transition-all"
                   }
                 >
+                  {/* 1. แถวบน: รหัสคำขอด้านซ้าย และสถานะคำขอด้านขวา */}
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-2 min-w-0">
-                      {renderRequestTypeBadge(est)}
-                      <span className={`text-xs font-semibold ${isInactive ? 'text-zinc-300' : 'text-[#ECE4D3]'} flex items-center gap-1.5 truncate`}>
-                        <User size={13} className={isInactive ? 'text-zinc-500 shrink-0' : 'text-[#9C2F2F] shrink-0'} />
-                        {est.customer_name}
+                      <span className={`text-xs font-mono font-bold ${isInactive ? 'text-zinc-500' : 'text-[#9C2F2F]'}`}>
+                        #{est.id.slice(0, 8)}
                       </span>
+                      {renderRequestTypeBadge(est)}
                     </div>
                     <div className="flex items-center gap-1.5 shrink-0">
                       {renderHealthAlertBadge(est)}
@@ -506,19 +517,51 @@ export default function EstimateRequestList({
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-1.5 text-xs">
-                    <div className={isInactive ? "bg-zinc-900/70 p-2 rounded border border-zinc-800/60" : "bg-[#171512] p-2 rounded border border-[#4A443A]/40"}>
-                      <span className="text-[9px] text-[#7A7265] block">ช่างที่ระบุ</span>
-                      <span className={isInactive ? "text-zinc-300 truncate block" : "text-[#ECE4D3] truncate block"}>{est.artist_name}</span>
+                  {/* 2. แถวถัดมา: วันที่ลูกค้าสะดวกและชื่อลูกค้า */}
+                  <div className="flex items-center justify-between text-xs border-y border-[#4A443A]/40 py-2 my-1">
+                    <div>
+                      <span className="text-[10px] text-[#7A7265] block">วันที่ลูกค้าสะดวก</span>
+                      {(() => {
+                        const prefDate = est.preferred_date;
+                        const rawTime = est.preferred_time || (est as any).preferredTime;
+                        let timeStr = '';
+                        if (rawTime) {
+                          const hhmm = extractHHMM(rawTime) || rawTime;
+                          timeStr = hhmm.endsWith('น.') || hhmm.endsWith('น') ? hhmm : `${hhmm} น.`;
+                        } else if (est.description) {
+                          const { extractedTime } = parseNoteWithPreferredTime(est.description);
+                          if (extractedTime) timeStr = extractedTime;
+                        }
+
+                        if (!prefDate) {
+                          return <span className="font-semibold text-zinc-500">ไม่ได้ระบุ</span>;
+                        }
+
+                        return (
+                          <span className="font-semibold text-[#ECE4D3]">
+                            {formatDateBangkok(prefDate)}{timeStr ? ` · ${timeStr}` : ''}
+                          </span>
+                        );
+                      })()}
                     </div>
-                    <div className={isInactive ? "bg-zinc-900/70 p-2 rounded border border-zinc-800/60" : "bg-[#171512] p-2 rounded border border-[#4A443A]/40"}>
-                      <span className="text-[9px] text-[#7A7265] block">ตำแหน่ง</span>
-                      <span className={isInactive ? "text-zinc-300 truncate block" : "text-[#ECE4D3] truncate block"}>{est.placement}</span>
+                    <div className="text-right">
+                      <span className="text-[10px] text-[#7A7265] block">ลูกค้า</span>
+                      <span className="font-semibold text-[#ECE4D3]">{est.customer_name}</span>
                     </div>
                   </div>
 
-                  <div className="flex items-center justify-end text-[11px] text-[#A89F91] pt-1">
-                    <div className="flex items-center gap-2">
+                  {/* 3. แถวล่าง: ช่างสักและสไตล์งาน พร้อมตำแหน่งและขนาดในรูปแบบกระชับ */}
+                  <div className="flex items-center justify-between text-xs gap-2">
+                    <div className="min-w-0 flex-1">
+                      <span className="text-[10px] text-[#7A7265] block">ช่างสัก / สไตล์ • ตำแหน่งและขนาด</span>
+                      <p className="font-medium text-[#ECE4D3] truncate">
+                        {artistAndStyle}
+                      </p>
+                      <p className="text-[11px] text-[#A89F91] truncate">
+                        {placementAndSize}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-1 shrink-0 self-end">
                       <button
                         type="button"
                         onClick={(e) => {
@@ -528,21 +571,8 @@ export default function EstimateRequestList({
                         className={isInactive ? "text-xs font-medium text-zinc-400 hover:text-zinc-300 flex items-center gap-0.5" : "text-xs font-medium text-emerald-400 hover:text-emerald-300 flex items-center gap-0.5"}
                       >
                         <span>{isInactive ? 'ดูรายละเอียด' : 'จัดการคำขอจอง'}</span>
-                        <ChevronRight size={13} />
+                        <ChevronRight size={14} />
                       </button>
-                      {est.status === 'REJECTED' && !est.linked_booking && est.request_type !== 'DIRECT_BOOKING' && onDeleteRequest && (
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onDeleteRequest(est);
-                          }}
-                          className="px-2 py-0.5 bg-[#2A1212] hover:bg-[#3D1A1A] text-[#E8B4B4] text-[11px] font-semibold rounded border border-[#9C2F2F] flex items-center gap-1 transition-all"
-                        >
-                          <Trash2 size={11} />
-                          <span>ลบรายการ</span>
-                        </button>
-                      )}
                     </div>
                   </div>
                 </div>

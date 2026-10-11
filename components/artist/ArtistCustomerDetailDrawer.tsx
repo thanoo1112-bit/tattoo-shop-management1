@@ -20,7 +20,8 @@ import {
 import { formatCustomerAgeDisplay, formatCustomerHealthInfo } from '@/lib/customerUtils';
 
 export interface ArtistCustomerDetail {
-  user_id: string;
+  customer_id?: string;
+  user_id?: string | null;
   display_name: string;
   phone?: string | null;
   email?: string | null;
@@ -113,7 +114,7 @@ function getBookingStatusBadge(status?: string | null) {
       return { label: 'รอมัดจำ', dot: 'bg-amber-400', badge: 'text-amber-300 bg-amber-950/60 border-amber-800' };
     case 'PENDING':
     case 'QUOTED':
-      return { label: 'รอตรวจสอบ', dot: 'bg-[#9C2F2F] animate-pulse', badge: 'text-[#9C2F2F] bg-[#9C2F2F]/20 border-[#9C2F2F]' };
+      return { label: 'รอตรวจสอบ', dot: 'bg-studio-red-bright animate-pulse', badge: 'text-studio-red-bright bg-[#9C2F2F]/20 border-studio-red-base' };
     case 'COMPLETED':
       return { label: 'งานเสร็จสิ้น', dot: 'bg-emerald-500', badge: 'text-emerald-400 bg-emerald-950/60 border-emerald-800' };
     case 'EXPIRED':
@@ -154,7 +155,7 @@ function ReferenceGallery({
     return (
       <div className="pt-2 border-t border-[#4A443A]/30">
         <span className="text-[10px] text-[#7A7265] italic bg-[#171512] border border-[#38332E] px-2.5 py-1 rounded-[4px] inline-flex items-center gap-1.5 font-prompt">
-          <Sparkles size={11} className="text-[#9C2F2F]/80" />
+          <Sparkles size={11} className="text-studio-red-bright/80" />
           <span>ไม่มีรูปอ้างอิง</span>
         </span>
       </div>
@@ -574,14 +575,14 @@ export default function ArtistCustomerDetailDrawer({
         <div className="space-y-4 border-b border-[#4A443A]/60 pb-5">
           <div className="flex justify-between items-center">
             <div className="flex items-center space-x-2">
-              <Sparkles size={16} className="text-[#9C2F2F]" />
+              <Sparkles size={16} className="text-studio-red-bright" />
               <span className="text-xs uppercase font-heading tracking-wider text-[#ECE4D3]">
                 CLIENT ARCHIVE • แฟ้มข้อมูลลูกค้า
               </span>
             </div>
             <button
               onClick={onClose}
-              className="text-[#7A7265] hover:text-[#9C2F2F] transition-colors p-1 cursor-pointer"
+              className="text-[#7A7265] hover:text-studio-red-bright transition-colors p-1 cursor-pointer"
             >
               <X size={20} />
             </button>
@@ -688,7 +689,7 @@ export default function ArtistCustomerDetailDrawer({
                 <div className="bg-[#171512] border-l-4 border-l-[#9C2F2F] border border-[#4A443A] p-4 rounded-[6px] space-y-3 shadow-lg">
                   <div className="flex justify-between items-center">
                     <div className="flex items-center space-x-1.5 text-xs text-[#ECE4D3] font-bold">
-                      <Clock3 size={14} className="text-[#9C2F2F]" />
+                      <Clock3 size={14} className="text-studio-red-bright" />
                       <span>นัดหมายถัดไป (NEXT APPOINTMENT)</span>
                     </div>
                     <span
@@ -1107,7 +1108,7 @@ export default function ArtistCustomerDetailDrawer({
           <button
             type="button"
             onClick={() => setLightboxGallery(null)}
-            className="absolute top-4 right-4 text-white hover:text-[#9C2F2F] bg-black/60 hover:bg-black/90 border border-white/20 p-2 rounded-full transition-colors z-20 cursor-pointer"
+            className="absolute top-4 right-4 text-white hover:text-studio-red-bright bg-black/60 hover:bg-black/90 border border-white/20 p-2 rounded-full transition-colors z-20 cursor-pointer"
             title="ปิด"
           >
             <X size={20} />

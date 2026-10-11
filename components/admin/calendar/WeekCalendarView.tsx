@@ -177,6 +177,7 @@ function getDenseStatusStyle(ev: CalendarSessionEvent): {
   text: string;
   badgeBg: string;
   badgeText: string;
+  badgeBorder: string;
   label: string;
 } {
   const cfg = getEventStatusConfig(ev);
@@ -186,6 +187,7 @@ function getDenseStatusStyle(ev: CalendarSessionEvent): {
     text: cfg.text,
     badgeBg: cfg.badgeBg,
     badgeText: cfg.badgeText,
+    badgeBorder: cfg.badgeBorder,
     label: cfg.label,
   };
 }
@@ -237,10 +239,20 @@ export default function WeekCalendarView({
     return days;
   }, [selectedDateStr, todayStr]);
 
-  // 2. Map Events by Date String (YYYY-MM-DD)
+  // 2. Map Events by Date String (YYYY-MM-DD) - Excludes CANCELLED, REJECTED, EXPIRED
   const eventsByDate = useMemo(() => {
     const map = new Map<string, CalendarSessionEvent[]>();
     events.forEach((ev) => {
+      const eff = getEffectiveEventStatus(ev);
+      if (eff === 'CANCELLED' || eff === 'REJECTED' || eff === 'EXPIRED') {
+        return;
+      }
+      if (ev.status === 'CANCELLED') {
+        return;
+      }
+      if (ev.booking?.status === 'CANCELLED' || ev.booking?.status === 'REJECTED' || ev.booking?.status === 'EXPIRED') {
+        return;
+      }
       const dateStr = getDateStrBangkok(ev.start_at);
       const list = map.get(dateStr) || [];
       list.push(ev);
@@ -337,24 +349,7 @@ export default function WeekCalendarView({
       {/* CENTER: DENSE WEEKLY TIME GRID CALENDAR (VERTICAL STACKED EVENTS) */}
       {/* ========================================================================= */}
       <div className="flex-1 min-w-0 w-full bg-[#12100E] border border-[#4A443A]/40 rounded-xl overflow-hidden shadow-xl">
-        {/* Mobile 7-Day Selector Strip */}
-        <div className="flex sm:hidden overflow-x-auto divide-x divide-[#4A443A]/20 bg-[#171512] border-b border-[#4A443A]/40 p-1">
-          {weekDays.map((day) => (
-            <button
-              key={day.dateStr}
-              type="button"
-              onClick={() => onSelectDate(day.dateStr)}
-              className={`flex-1 min-w-[54px] py-1.5 px-1 text-center rounded transition-colors ${
-                day.isSelected
-                  ? 'bg-[#9C2F2F] text-white font-bold'
-                  : 'text-[#A89F91] hover:bg-[#1A1815]'
-              }`}
-            >
-              <span className="text-[9px] block uppercase">{day.shortDay}</span>
-              <span className="text-xs font-bold">{day.dayNumber}</span>
-            </button>
-          ))}
-        </div>
+        {/* Weekly Time Grid Container */}
 
         <div className="overflow-x-auto max-h-[calc(100vh-170px)] overflow-y-auto relative">
           <div className="min-w-[800px] flex flex-col">
@@ -502,7 +497,7 @@ export default function WeekCalendarView({
                                   </span>
                                 )}
                                 <span
-                                  className={`px-1 py-0.2 rounded text-[8px] font-bold uppercase border ${stCfg.badgeBg} ${stCfg.badgeText} border-white/10`}
+                                  className={`px-1 py-0.2 rounded text-[8px] font-bold uppercase border ${stCfg.badgeBg} ${stCfg.badgeText} ${stCfg.badgeBorder}`}
                                 >
                                   {stCfg.label}
                                 </span>
@@ -536,9 +531,12 @@ export default function WeekCalendarView({
       {/* ========================================================================= */}
       {/* RIGHT SIDE PANEL: WEEKLY SUMMARY OR EVENT DETAIL */}
       {/* ========================================================================= */}
-      <div className="w-full lg:w-[320px] shrink-0 bg-[#12100E] border border-[#4A443A]/60 rounded-xl overflow-hidden shadow-2xl sticky top-4">
+      {/* ========================================================================= */}
+      {/* PC RIGHT SIDE PANEL (Desktop Only) */}
+      {/* ========================================================================= */}
+      <div className="hidden lg:block w-[320px] shrink-0 bg-[#12100E] border border-[#4A443A]/60 rounded-xl overflow-hidden shadow-2xl sticky top-4">
         {selectedEvent && selectedSpecs && selectedSessionCfg ? (
-          /* EVENT DETAIL PANEL */
+          /* EVENT DETAIL PANEL FOR DESKTOP */
           <div className="space-y-0 animate-fadeIn">
             {/* Header Bar */}
             <div className="p-3.5 border-b border-[#4A443A]/40 flex items-center justify-between bg-[#171512]">
@@ -636,14 +634,11 @@ export default function WeekCalendarView({
                   <CalendarIcon size={13} className="text-[#9C2F2F]" />
                   <span>{formatDateBangkok(selectedEvent.start_at, true)}</span>
                 </div>
-                <div className="flex items-center justify-between text-[#A89F91] pt-1.5 border-t border-[#4A443A]/30">
+                <div className="flex items-center text-[#A89F91] pt-1.5 border-t border-[#4A443A]/30">
                   <div className="flex items-center gap-1.5 text-[11px] text-[#ECE4D3] font-medium">
                     <Clock size={12} className="text-[#9C2F2F]" />
                     <span>{selectedSpecs.timeText}</span>
                   </div>
-                  <span className="text-[9px] text-[#A89F91] bg-[#0E0D0C] px-2 py-0.5 rounded border border-[#4A443A]/40">
-                    กันคิวประมาณ {calculateDurationText(selectedEvent.start_at, selectedEvent.end_at)}
-                  </span>
                 </div>
               </div>
 
@@ -684,28 +679,6 @@ export default function WeekCalendarView({
                   </div>
                 </div>
               </div>
-
-              {/* Booking Status & Note */}
-              {selectedEvent.booking && selectedBookingCfg && (
-                <div className="bg-[#171512] border border-[#4A443A]/40 rounded-lg p-2.5 space-y-1.5 text-xs">
-                  <span className="text-[9px] text-[#7A7265] uppercase tracking-wider block">
-                    สถานะคำขอ/การจอง
-                  </span>
-                  <div className="flex items-center justify-between">
-                    <span
-                      className={`px-2 py-0.5 rounded text-[10px] font-semibold border ${selectedBookingCfg.bg} ${selectedBookingCfg.text} ${selectedBookingCfg.border}`}
-                    >
-                      {selectedBookingCfg.label}
-                    </span>
-                    {selectedEvent.booking.status === 'WAITING_DEPOSIT' && (
-                      <span className="text-[9px] text-amber-400 font-semibold flex items-center gap-1">
-                        <AlertCircle size={10} />
-                        <span>รอมัดจำ</span>
-                      </span>
-                    )}
-                  </div>
-                </div>
-              )}
 
               {/* Financial Summary */}
               {selectedEvent.financial && (
@@ -762,7 +735,7 @@ export default function WeekCalendarView({
             </div>
           </div>
         ) : (
-          /* WEEKLY SUMMARY PANEL (DEFAULT WHEN NO EVENT SELECTED) */
+          /* WEEKLY SUMMARY PANEL (DESKTOP) */
           <div className="space-y-0 animate-fadeIn">
             {/* Header Bar */}
             <div className="p-3.5 border-b border-[#4A443A]/40 bg-[#171512] flex items-center justify-between">
@@ -918,6 +891,368 @@ export default function WeekCalendarView({
           </div>
         )}
       </div>
+
+      {/* ========================================================================= */}
+      {/* MOBILE EVENT DETAIL FULL-SCREEN MODAL (< lg screens, 100dvh) */}
+      {/* ========================================================================= */}
+      {selectedEvent && selectedSpecs && selectedSessionCfg && (
+        <div className="lg:hidden fixed inset-0 z-50 flex flex-col justify-between w-full h-[100dvh] h-screen bg-[#0E0D0C] overflow-hidden animate-fadeIn font-prompt">
+          {/* Header Bar */}
+          <div className="p-3.5 px-4 border-b border-[#4A443A]/40 flex items-center justify-between bg-[#171512] shrink-0">
+            <div>
+              <span className="text-[9px] text-[#A89F91] uppercase tracking-wider block font-semibold">
+                รายละเอียดคิวนัดหมาย
+              </span>
+              <h3 className="text-xs font-bold text-[#ECE4D3] flex items-center gap-2 mt-0.5">
+                <span>รอบสัก #{selectedEvent.session_number}</span>
+                <span
+                  className={`px-1.5 py-0.5 rounded text-[9px] font-semibold border ${selectedSessionCfg.badgeBg} ${selectedSessionCfg.badgeText} border-white/10`}
+                >
+                  {selectedSessionCfg.label}
+                </span>
+              </h3>
+            </div>
+            <button
+              type="button"
+              onClick={() => onSelectEvent(null)}
+              className="p-1.5 text-[#A89F91] hover:text-[#ECE4D3] hover:bg-[#0E0D0C] rounded-lg border border-[#4A443A]/40 transition-colors"
+              title="ปิด"
+            >
+              <X size={18} />
+            </button>
+          </div>
+
+          {/* Scrollable Body Content */}
+          <div className="p-4 space-y-3.5 overflow-y-auto flex-1 font-prompt">
+            {/* Reference Image Section (Left-aligned Square Box) */}
+            <div className="w-[140px] h-[140px] aspect-square rounded-xl border border-[#4A443A]/40 overflow-hidden bg-[#000000] relative group shrink-0">
+              {selectedEvent.estimate?.reference_images && selectedEvent.estimate.reference_images.length > 0 ? (
+                selectedEvent.estimate.reference_images.length === 1 ? (
+                  <div className="w-full h-full relative flex items-center justify-center bg-[#000000]">
+                    <CustomerReferenceImage
+                      src={selectedEvent.estimate.reference_images[0]}
+                      alt="Reference"
+                      className="w-full h-full object-cover"
+                    />
+                    <span className="absolute bottom-2 left-2 bg-black/80 text-[9px] text-[#ECE4D3] font-mono px-2 py-0.5 rounded border border-white/10 z-10">
+                      รูปอ้างอิง
+                    </span>
+                  </div>
+                ) : (
+                  <div className="w-full h-full p-1.5 flex flex-col justify-center bg-[#000000]">
+                    <span className="text-[9px] text-[#A89F91] uppercase tracking-wider block font-semibold text-center mb-1 truncate">
+                      รูปอ้างอิง ({selectedEvent.estimate.reference_images.length})
+                    </span>
+                    <div className="grid grid-cols-2 gap-1 flex-1">
+                      {selectedEvent.estimate.reference_images.slice(0, 4).map((imgUrl, idx) => (
+                        <div key={idx} className="rounded border border-[#4A443A]/30 overflow-hidden relative bg-[#0E0D0C] flex items-center justify-center">
+                          <CustomerReferenceImage
+                            src={imgUrl}
+                            alt={`Reference ${idx + 1}`}
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )
+              ) : (
+                <div className="w-full h-full flex items-center justify-center p-3 text-center text-xs text-[#7A7265]">
+                  <span>ไม่มีรูปอ้างอิง</span>
+                </div>
+              )}
+            </div>
+
+            {/* Core Specs Box */}
+            <div className="bg-[#171512] border border-[#4A443A]/40 rounded-xl p-3 space-y-2 text-xs">
+              <div className="flex justify-between items-center">
+                <span className="text-[#A89F91] flex items-center gap-1.5 text-[11px]">
+                  <Palette size={13} className="text-[#9C2F2F]" /> สไตล์งาน
+                </span>
+                <span className="font-bold text-[#ECE4D3] text-[11px]">{selectedSpecs.style}</span>
+              </div>
+
+              <div className="flex justify-between items-center pt-2 border-t border-[#4A443A]/30">
+                <span className="text-[#A89F91] flex items-center gap-1.5 text-[11px]">
+                  <Maximize2 size={13} className="text-[#9C2F2F]" /> ขนาดรอยสัก
+                </span>
+                <span className="font-bold text-[#ECE4D3] text-[11px]">{selectedSpecs.size}</span>
+              </div>
+
+              <div className="flex justify-between items-center pt-2 border-t border-[#4A443A]/30">
+                <span className="text-[#A89F91] flex items-center gap-1.5 text-[11px]">
+                  <MapPin size={13} className="text-[#9C2F2F]" /> ตำแหน่งที่สัก
+                </span>
+                <span className="font-bold text-[#ECE4D3] text-[11px]">{selectedSpecs.placement}</span>
+              </div>
+            </div>
+
+            {/* Date & Time Box */}
+            <div className="bg-[#171512] border border-[#4A443A]/40 rounded-xl p-3 space-y-2 text-xs">
+              <div className="flex items-center gap-2 text-[#ECE4D3] font-bold text-xs">
+                <CalendarIcon size={14} className="text-[#9C2F2F]" />
+                <span>{formatDateBangkok(selectedEvent.start_at, true)}</span>
+              </div>
+              <div className="flex items-center text-[#A89F91] pt-2 border-t border-[#4A443A]/30">
+                <div className="flex items-center gap-1.5 text-xs text-[#ECE4D3] font-medium">
+                  <Clock size={13} className="text-[#9C2F2F]" />
+                  <span>{selectedSpecs.timeText}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Customer & Artist Box */}
+            <div className="bg-[#171512] border border-[#4A443A]/40 rounded-xl p-3 space-y-2.5 text-xs">
+              <div>
+                <span className="text-[10px] text-[#7A7265] uppercase tracking-wider block mb-1">
+                  ลูกค้า (Customer)
+                </span>
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-[#ECE4D3] text-xs">
+                    {selectedEvent.customer?.display_name || 'ลูกค้า'}
+                  </span>
+                  {selectedEvent.customer?.phone && (
+                    <a
+                      href={`tel:${selectedEvent.customer.phone}`}
+                      className="text-[11px] text-[#A89F91] hover:text-[#ECE4D3] flex items-center gap-1 bg-[#0E0D0C] px-2.5 py-1 rounded-lg border border-[#4A443A]/40"
+                    >
+                      <Phone size={11} className="text-emerald-400" />
+                      <span>{selectedEvent.customer.phone}</span>
+                    </a>
+                  )}
+                </div>
+              </div>
+
+              <div className="pt-2 border-t border-[#4A443A]/30">
+                <span className="text-[10px] text-[#7A7265] uppercase tracking-wider block mb-1">
+                  ช่างสักผู้รับผิดชอบ (Artist)
+                </span>
+                <div className="flex items-center gap-2">
+                  <div className="w-6 h-6 rounded-full bg-[#0E0D0C] border border-[#4A443A] flex items-center justify-center text-[10px] font-bold text-[#ECE4D3]">
+                    {selectedEvent.artist?.nickname?.[0] || selectedEvent.artist?.name?.[0] || 'A'}
+                  </div>
+                  <span className="text-xs font-semibold text-[#ECE4D3]">
+                    {selectedEvent.artist?.name}{' '}
+                    {selectedEvent.artist?.nickname ? `(${selectedEvent.artist.nickname})` : ''}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Financial Summary */}
+            {selectedEvent.financial && (
+              <div className="bg-[#171512] border border-[#4A443A]/40 rounded-xl p-3 space-y-2 text-xs">
+                <span className="text-[10px] text-[#7A7265] uppercase tracking-wider flex items-center gap-1 font-semibold">
+                  <BadgeDollarSign size={13} />
+                  <span>สรุปการเงิน</span>
+                </span>
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div className="bg-[#0E0D0C] p-2 rounded-lg border border-[#4A443A]/30">
+                    <span className="text-[10px] text-[#7A7265] block">ราคาประเมิน</span>
+                    <span className="font-bold text-[#ECE4D3] text-xs">
+                      ฿{formatCurrency(selectedEvent.financial.quoted_price)}
+                    </span>
+                  </div>
+                  <div className="bg-[#0E0D0C] p-2 rounded-lg border border-[#4A443A]/30">
+                    <span className="text-[10px] text-[#7A7265] block">มัดจำที่ต้องชำระ</span>
+                    <span className="font-bold text-[#ECE4D3] text-xs">
+                      ฿{formatCurrency(selectedEvent.financial.deposit_required)}
+                    </span>
+                  </div>
+                  <div className="bg-[#0E0D0C] p-2 rounded-lg border border-[#4A443A]/30">
+                    <span className="text-[10px] text-[#7A7265] block">ชำระแล้ว</span>
+                    <span className="font-bold text-emerald-400 text-xs">
+                      ฿{formatCurrency(selectedEvent.financial.paid_total)}
+                    </span>
+                  </div>
+                  <div className="bg-[#0E0D0C] p-2 rounded-lg border border-[#4A443A]/30">
+                    <span className="text-[10px] text-[#7A7265] block">คงเหลือ</span>
+                    <span
+                      className={`font-bold text-xs ${
+                        selectedEvent.financial.remaining_balance > 0
+                          ? 'text-amber-400'
+                          : 'text-zinc-500'
+                      }`}
+                    >
+                      ฿{formatCurrency(selectedEvent.financial.remaining_balance)}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Bottom Actions Footer with Safe Bottom Margin */}
+          <div className="p-3.5 border-t border-[#4A443A]/40 bg-[#171512] shrink-0 pb-3.5">
+            <a
+              href={`/admin/requests?tab=bookings${selectedEvent?.booking_id ? `&booking_id=${selectedEvent.booking_id}` : ''}`}
+              className="w-full py-2.5 bg-[#9C2F2F] hover:bg-[#852525] text-xs font-bold text-white rounded-xl transition-colors flex items-center justify-center gap-1.5 shadow-md"
+            >
+              <ExternalLink size={14} />
+              <span>ดูรายละเอียดและจัดการคิวงาน</span>
+            </a>
+          </div>
+        </div>
+      )}
+
+      {/* Mobile Weekly Summary below grid (when no event selected) */}
+      {!selectedEvent && (
+        <div className="lg:hidden w-full bg-[#12100E] border border-[#4A443A]/60 rounded-xl overflow-hidden shadow-xl mt-4">
+          <div className="space-y-0 animate-fadeIn">
+            {/* Header Bar */}
+            <div className="p-3.5 border-b border-[#4A443A]/40 bg-[#171512] flex items-center justify-between">
+              <div>
+                <span className="text-[9px] text-[#A89F91] uppercase tracking-wider block">
+                  ตารางงานประจำสัปดาห์
+                </span>
+                <h3 className="text-xs font-bold text-[#ECE4D3] flex items-center gap-1.5 mt-0.5">
+                  <TrendingUp size={14} className="text-[#9C2F2F]" />
+                  <span>สรุปภาพรวม (WEEKLY SUMMARY)</span>
+                </h3>
+              </div>
+            </div>
+
+            {/* Body Content */}
+            <div className="p-3.5 space-y-4 max-h-[calc(100vh-210px)] overflow-y-auto">
+              {/* Weekly KPI Cards Grid */}
+              <div className="grid grid-cols-2 gap-2">
+                <div className="bg-[#171512] border border-[#4A443A]/40 rounded-lg p-2.5">
+                  <span className="text-[9px] text-[#A89F91] block">คิวงานสัปดาห์นี้</span>
+                  <span className="text-lg font-bold text-[#ECE4D3] mt-0.5 block">
+                    {metrics.total} <span className="text-[10px] text-[#7A7265] font-normal">งาน</span>
+                  </span>
+                </div>
+                <div className="bg-[#171512] border border-[#4A443A]/40 rounded-lg p-2.5">
+                  <span className="text-[9px] text-[#A89F91] block">นัดหมายแล้ว</span>
+                  <span className="text-lg font-bold text-blue-400 mt-0.5 block">
+                    {metrics.confirmed} <span className="text-[10px] text-[#7A7265] font-normal">งาน</span>
+                  </span>
+                </div>
+                <div className="bg-[#171512] border border-[#4A443A]/40 rounded-lg p-2.5">
+                  <span className="text-[9px] text-[#A89F91] block">รอมัดจำ</span>
+                  <span className="text-lg font-bold text-purple-400 mt-0.5 block">
+                    {metrics.waitingDeposit} <span className="text-[10px] text-[#7A7265] font-normal">งาน</span>
+                  </span>
+                </div>
+                <div className="bg-[#171512] border border-[#4A443A]/40 rounded-lg p-2.5">
+                  <span className="text-[9px] text-[#A89F91] block">งานเสร็จสิ้น</span>
+                  <span className="text-lg font-bold text-emerald-400 mt-0.5 block">
+                    {metrics.completed} <span className="text-[10px] text-[#7A7265] font-normal">งาน</span>
+                  </span>
+                </div>
+              </div>
+
+              {/* Selected Date Appointments List */}
+              <div className="bg-[#171512] border border-[#4A443A]/40 rounded-lg p-3 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-bold text-[#ECE4D3] flex items-center gap-1.5">
+                    <CalendarDays size={13} className="text-[#9C2F2F]" />
+                    <span>คิวงานวันที่ {formatDateBangkok(selectedDateStr, false)}</span>
+                  </span>
+                  <span className="text-[9px] text-[#A89F91] font-mono">
+                    {selectedDateEvents.length} คิว
+                  </span>
+                </div>
+
+                <div className="space-y-1.5">
+                  {selectedDateEvents.length === 0 ? (
+                    <div className="p-3 text-center bg-[#0E0D0C] rounded border border-[#4A443A]/20">
+                      <span className="text-[11px] text-[#7A7265] italic">ไม่มีคิวนัดหมายในวันนี้</span>
+                    </div>
+                  ) : (
+                    selectedDateEvents.map((ev) => {
+                      const { style, timeText } = getEventSpecs(ev);
+                      const statusCfg = getDenseStatusStyle(ev);
+
+                      return (
+                        <div
+                          key={ev.id}
+                          onClick={() => onSelectEvent(ev)}
+                          className="p-2 bg-[#0E0D0C] hover:bg-[#1A1815] border border-[#4A443A]/30 hover:border-[#9C2F2F]/60 rounded-md transition-all cursor-pointer flex items-center justify-between gap-2 group"
+                        >
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-[11px] font-bold text-[#ECE4D3] truncate">
+                                {style}
+                              </span>
+                              <span
+                                className={`px-1 py-0 rounded text-[8px] font-semibold border ${statusCfg.badgeBg} ${statusCfg.badgeText} border-white/10`}
+                              >
+                                {statusCfg.label}
+                              </span>
+                            </div>
+                            <div className="text-[10px] text-[#A89F91] flex items-center gap-2 mt-0.5">
+                              <span className="font-mono">{timeText}</span>
+                              <span>•</span>
+                              <span className="truncate">
+                                {ev.artist?.nickname || ev.artist?.name || 'ช่างสัก'}
+                              </span>
+                            </div>
+                          </div>
+                          <ChevronRight
+                            size={14}
+                            className="text-[#7A7265] group-hover:text-[#ECE4D3] transition-colors shrink-0"
+                          />
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+
+              {/* Active Artists Workload */}
+              <div className="bg-[#171512] border border-[#4A443A]/40 rounded-lg p-3 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-bold text-[#ECE4D3] flex items-center gap-1.5">
+                    <Users size={13} className="text-[#9C2F2F]" />
+                    <span>ภาระงานช่างสัก (Artist Workload)</span>
+                  </span>
+                </div>
+
+                <div className="space-y-2">
+                  {activeArtists.length === 0 ? (
+                    <span className="text-[11px] text-[#7A7265] italic block text-center">
+                      ไม่มีช่างสักในระบบ
+                    </span>
+                  ) : (
+                    activeArtists.map((artist) => {
+                      const artistSessionCount = weekEvents.filter((e) => e.artist_id === artist.id).length;
+                      const maxCount = Math.max(1, metrics.total);
+                      const percent = Math.round((artistSessionCount / maxCount) * 100);
+
+                      return (
+                        <div key={artist.id} className="space-y-1">
+                          <div className="flex items-center justify-between text-[10px]">
+                            <span className="font-medium text-[#ECE4D3]">
+                              {artist.name} {artist.nickname ? `(${artist.nickname})` : ''}
+                            </span>
+                            <span className="text-[#A89F91] font-mono">
+                              {artistSessionCount} งาน
+                            </span>
+                          </div>
+                          <div className="w-full h-1.5 bg-[#0E0D0C] rounded-full overflow-hidden border border-[#4A443A]/30">
+                            <div
+                              className="h-full bg-[#9C2F2F] rounded-full transition-all"
+                              style={{ width: `${percent}%` }}
+                            />
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Bottom Info */}
+            <div className="p-3 border-t border-[#4A443A]/40 bg-[#171512] text-center">
+              <span className="text-[10px] text-[#7A7265]">
+                คลิกที่การ์ดในตารางเพื่อดูรายละเอียดเชิงลึก
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -100,6 +100,7 @@ export default function BookingSessionList({
   const [editDate, setEditDate] = useState('');
   const [editStartTime, setEditStartTime] = useState('10:00');
   const [editEndTime, setEditEndTime] = useState('13:00');
+  const [sessionDurationMs, setSessionDurationMs] = useState<number>(8 * 3600 * 1000);
   const [editStatus, setEditStatus] = useState('SCHEDULED');
   const [editNote, setEditNote] = useState('');
   const [cancelReason, setCancelReason] = useState('');
@@ -197,6 +198,11 @@ export default function BookingSessionList({
     const endDateObj = new Date(session.end_at);
     const endTimeStr = endDateObj.toLocaleTimeString('th-TH', { timeZone: 'Asia/Bangkok', hour12: false, hour: '2-digit', minute: '2-digit' });
 
+    const startMs = startDateObj.getTime();
+    const endMs = endDateObj.getTime();
+    const durationMs = (!isNaN(startMs) && !isNaN(endMs) && endMs > startMs) ? (endMs - startMs) : (8 * 3600 * 1000);
+    setSessionDurationMs(durationMs);
+
     setEditDate(dateStr);
     setEditStartTime(startTimeStr);
     setEditEndTime(endTimeStr);
@@ -268,7 +274,18 @@ export default function BookingSessionList({
     try {
       const supabase = createClient();
       const startAtIso = `${editDate}T${editStartTime}:00+07:00`;
-      const endAtIso = `${editDate}T${editEndTime}:00+07:00`;
+
+      // Automatically calculate end time based on existing session duration
+      const startMs = new Date(startAtIso).getTime();
+      const computedEndMs = !isNaN(startMs) ? startMs + sessionDurationMs : startMs;
+      const endBangkokStr = new Date(computedEndMs).toLocaleTimeString('th-TH', {
+        timeZone: 'Asia/Bangkok',
+        hour12: false,
+        hour: '2-digit',
+        minute: '2-digit',
+      });
+      const computedEndTimeStr = endBangkokStr.length === 5 ? endBangkokStr : editStartTime;
+      const endAtIso = `${editDate}T${computedEndTimeStr}:00+07:00`;
       const finalNote = editNote.trim() ? editNote.trim() : null;
 
       const { error: updateErr } = await supabase
@@ -286,7 +303,7 @@ export default function BookingSessionList({
           p_session_id: activeModalSession.id,
           p_new_date: editDate,
           p_new_start_time: editStartTime,
-          p_new_end_time: editEndTime,
+          p_new_end_time: computedEndTimeStr,
           p_note: finalNote
         });
         if (rpcErr) throw rpcErr;
@@ -369,8 +386,8 @@ export default function BookingSessionList({
     switch (status) {
       case 'SCHEDULED':
         return (
-          <span className="bg-blue-950/60 text-blue-400 border border-blue-800/60 px-2 py-0.5 rounded text-[10px] font-semibold">
-            นัดหมายแล้ว
+          <span className="bg-amber-950/60 text-amber-400 border border-amber-800/60 px-2 py-0.5 rounded text-[10px] font-semibold">
+            รอบนัด
           </span>
         );
       case 'IN_PROGRESS':
@@ -390,7 +407,7 @@ export default function BookingSessionList({
       case 'CANCELLED':
         return (
           <span className="bg-[#1F1D1A] text-[#7A7265] border border-[#4A443A] px-2 py-0.5 rounded text-[10px] font-semibold">
-            ยกเลิกแล้ว
+            ยกเลิก
           </span>
         );
       default:
@@ -607,6 +624,15 @@ export default function BookingSessionList({
                     );
                   })()}
                 </div>
+                {(() => {
+                  if (isCancelled || isCompleted) return null;
+                  return (
+                    <div className="text-[10px] text-amber-400/90 bg-amber-950/30 border border-amber-900/40 px-2 py-0.5 rounded flex items-center gap-1 mt-1 font-normal">
+                      <AlertTriangle size={11} className="shrink-0 text-amber-400" />
+                      <span>ยังต้องเสร็จสิ้นรอบนี้ก่อนปิดงานหลัก</span>
+                    </div>
+                  );
+                })()}
                 {(() => {
                   if (isCancelled) return null;
                   const sessionDateStr = ses.start_at
@@ -841,25 +867,14 @@ export default function BookingSessionList({
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="block text-[#A89F91] mb-1">เวลาเริ่ม *</label>
-                  <input
-                    type="time"
-                    value={editStartTime}
-                    onChange={(e) => setEditStartTime(e.target.value)}
-                    className="w-full bg-[#0E0D0C] border border-[#4A443A] rounded-xl px-3 py-2 text-[#ECE4D3] font-mono focus:outline-none focus:border-[#9C2F2F]"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[#A89F91] mb-1">เวลาสิ้นสุด *</label>
-                  <input
-                    type="time"
-                    value={editEndTime}
-                    onChange={(e) => setEditEndTime(e.target.value)}
-                    className="w-full bg-[#0E0D0C] border border-[#4A443A] rounded-xl px-3 py-2 text-[#ECE4D3] font-mono focus:outline-none focus:border-[#9C2F2F]"
-                  />
-                </div>
+              <div>
+                <label className="block text-[#A89F91] mb-1">เวลาเริ่ม *</label>
+                <input
+                  type="time"
+                  value={editStartTime}
+                  onChange={(e) => setEditStartTime(e.target.value)}
+                  className="w-full bg-[#0E0D0C] border border-[#4A443A] rounded-xl px-3 py-2 text-[#ECE4D3] font-mono focus:outline-none focus:border-[#9C2F2F]"
+                />
               </div>
 
               <div>

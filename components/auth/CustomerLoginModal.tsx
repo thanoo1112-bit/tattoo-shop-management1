@@ -384,7 +384,7 @@ export default function CustomerLoginModal({ onClose, onSuccess }: CustomerLogin
                   setError('');
                   setSuccessMessage('');
                 }}
-                className="text-studio-red hover:underline font-semibold"
+                className="text-studio-red-bright hover:underline font-semibold"
               >
                 สมัครสมาชิก
               </button>
@@ -399,7 +399,7 @@ export default function CustomerLoginModal({ onClose, onSuccess }: CustomerLogin
                   setError('');
                   setSuccessMessage('');
                 }}
-                className="text-studio-red hover:underline font-semibold"
+                className="text-studio-red-bright hover:underline font-semibold"
               >
                 เข้าสู่ระบบ
               </button>

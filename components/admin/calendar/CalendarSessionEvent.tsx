@@ -61,7 +61,7 @@ export default function CalendarSessionEvent({
           className={`px-1.5 py-0.5 rounded text-[10px] font-semibold border ${statusCfg.badgeBg} ${statusCfg.badgeText} ${statusCfg.badgeBorder} shrink-0`}
         >
           {event.status === 'IN_PROGRESS' && (
-            <span className="inline-block w-1.5 h-1.5 rounded-full bg-white animate-pulse mr-1" />
+            <span className="inline-block w-1.5 h-1.5 rounded-full bg-[#D64545] animate-pulse mr-1" />
           )}
           {statusCfg.label}
         </span>

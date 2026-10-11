@@ -143,12 +143,9 @@ export default function PlacementSelector({ value, onChange }: PlacementSelector
       )}
 
       {/* Helper text */}
-      <div className="space-y-0.5 pt-0.5">
-        <p className="text-[11px] text-studio-secondary font-light leading-relaxed">
-          เลือกตำแหน่งที่ต้องการสัก
-        </p>
-        <p className="text-[10.5px] text-[#7A7265] font-light leading-relaxed">
-          * ร้านไม่รับสักบริเวณใบหน้าและจุดลับ
+      <div className="pt-0.5">
+        <p className="text-[10.5px] text-amber-400 font-medium leading-relaxed">
+          * ร้านไม่รับสักบริเวณขอบตาและจุดลับ
         </p>
       </div>
     </div>

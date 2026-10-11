@@ -534,7 +534,7 @@ export default function ArtistRequestDetailDrawer({ estimate, isOpen, onClose, o
             <span className="text-xs font-mono font-bold text-studio-primary bg-studio-sec px-2.5 py-1 rounded border border-studio-border">
               {requestCode}
             </span>
-            <span className={`text-xs px-2.5 py-0.5 rounded-full border font-medium ${estimate.status === 'REJECTED' ? 'bg-red-950/60 text-red-400 border-red-800/60' : 'bg-blue-950/60 text-blue-400 border-blue-800/60'}`}>
+            <span className={`text-xs px-2.5 py-0.5 rounded-full border font-medium ${estimate.status === 'REJECTED' ? 'bg-red-950/50 text-red-400 border-red-900/60' : 'bg-blue-950/60 text-blue-400 border-blue-800/60'}`}>
               {estimate.status === 'REJECTED' ? 'ปฏิเสธ' : 'คำขอใหม่'}
             </span>
             {isFlash && (
@@ -555,7 +555,7 @@ export default function ArtistRequestDetailDrawer({ estimate, isOpen, onClose, o
         <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-5 pb-24 text-xs">
           {/* Read-only Notice */}
           <div className="p-3.5 bg-studio-sec/80 border border-studio-border rounded-xl flex items-start space-x-3 text-studio-secondary">
-            <ShieldCheck size={16} className="text-studio-red shrink-0 mt-0.5" />
+            <ShieldCheck size={16} className="text-studio-red-bright shrink-0 mt-0.5" />
             <div className="space-y-0.5">
               <span className="font-semibold text-studio-primary block text-xs">
                 {isFlash ? 'รายละเอียดคำขอ Flash (Artist View)' : 'รายละเอียดคำขอจองงานสัก (Artist View)'}
@@ -571,7 +571,7 @@ export default function ArtistRequestDetailDrawer({ estimate, isOpen, onClose, o
           {/* Customer Info */}
           <div className="bg-studio-card border border-studio-border rounded-xl p-4 space-y-3">
             <div className="flex items-center space-x-2 text-studio-secondary text-[11px] uppercase tracking-wider font-semibold">
-              <User size={14} className="text-studio-red" />
+              <User size={14} className="text-studio-red-bright" />
               <span>ข้อมูลลูกค้าที่ติดต่อ</span>
             </div>
             <div className="space-y-2.5 pt-1 divide-y divide-studio-border/50">
@@ -751,7 +751,7 @@ export default function ArtistRequestDetailDrawer({ estimate, isOpen, onClose, o
                   {/* การ์ดวันที่ต้องการสัก & วันที่ส่งคำขอ */}
                   <div className="bg-studio-card border border-studio-border rounded-xl p-4 space-y-3 font-prompt">
                     <div className="flex items-center space-x-2 text-studio-secondary text-[11px] uppercase tracking-wider font-semibold">
-                      <Calendar size={14} className="text-studio-red" />
+                      <Calendar size={14} className="text-studio-red-bright" />
                       <span>วันที่ต้องการสัก & วันที่ส่งคำขอ</span>
                     </div>
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 pt-1">
@@ -779,7 +779,7 @@ export default function ArtistRequestDetailDrawer({ estimate, isOpen, onClose, o
                   {/* รายละเอียดคำขอจอง FLASH */}
                   <div className="bg-studio-card border border-studio-border rounded-xl p-4 space-y-3 font-prompt">
                     <div className="flex items-center space-x-2 text-studio-secondary text-[11px] uppercase tracking-wider font-semibold">
-                      <Layers size={14} className="text-studio-red" />
+                      <Layers size={14} className="text-studio-red-bright" />
                       <span>รายละเอียดคำขอจอง FLASH</span>
                     </div>
                     <div className="space-y-2 pt-1 divide-y divide-studio-border/50">
@@ -820,7 +820,7 @@ export default function ArtistRequestDetailDrawer({ estimate, isOpen, onClose, o
               <>
                 <div className="bg-studio-card border border-studio-border rounded-xl p-4 space-y-3">
                   <div className="flex items-center space-x-2 text-studio-secondary text-[11px] uppercase tracking-wider font-semibold">
-                    <Calendar size={14} className="text-studio-red" />
+                    <Calendar size={14} className="text-studio-red-bright" />
                     <span>วันที่ต้องการสัก & วันที่ส่งคำขอ</span>
                   </div>
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 pt-1">
@@ -848,7 +848,7 @@ export default function ArtistRequestDetailDrawer({ estimate, isOpen, onClose, o
                 {/* Tattoo Specs */}
                 <div className="bg-studio-card border border-studio-border rounded-xl p-4 space-y-3">
                   <div className="flex items-center space-x-2 text-studio-secondary text-[11px] uppercase tracking-wider font-semibold">
-                    <Layers size={14} className="text-studio-red" />
+                    <Layers size={14} className="text-studio-red-bright" />
                     <span>รายละเอียดงานสักที่ต้องการ</span>
                   </div>
                   <div className="space-y-2 pt-1 divide-y divide-studio-border/50">
@@ -1126,7 +1126,7 @@ export default function ArtistRequestDetailDrawer({ estimate, isOpen, onClose, o
         <div className="fixed inset-0 z-[100] bg-black/90 flex flex-col items-center justify-center p-4 font-prompt">
           <button
             onClick={() => setLightboxIndex(null)}
-            className="absolute top-4 right-4 text-white hover:text-studio-red p-2 cursor-pointer"
+            className="absolute top-4 right-4 text-white hover:text-studio-red-bright p-2 cursor-pointer"
           >
             <X size={24} />
           </button>
@@ -1165,7 +1165,7 @@ export default function ArtistRequestDetailDrawer({ estimate, isOpen, onClose, o
         <div className="fixed inset-0 z-[100] bg-black/90 flex flex-col items-center justify-center p-4 font-prompt animate-in fade-in duration-150">
           <button
             onClick={() => setShowFlashLightbox(false)}
-            className="absolute top-4 right-4 text-white hover:text-studio-red p-2 cursor-pointer"
+            className="absolute top-4 right-4 text-white hover:text-studio-red-bright p-2 cursor-pointer"
           >
             <X size={24} />
           </button>

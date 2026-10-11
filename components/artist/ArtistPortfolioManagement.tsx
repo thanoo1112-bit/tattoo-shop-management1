@@ -373,7 +373,7 @@ export default function ArtistPortfolioManagement() {
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 bg-studio-card border border-studio-border p-5 rounded-xl shadow-lg">
         <div className="space-y-1">
           <div className="flex items-center space-x-2">
-            <span className="text-xs text-studio-red uppercase tracking-wider font-semibold">
+            <span className="text-xs text-studio-red-bright uppercase tracking-wider font-semibold">
               ARTIST PORTFOLIO
             </span>
             <span className="text-studio-muted text-xs">•</span>
@@ -382,7 +382,7 @@ export default function ArtistPortfolioManagement() {
             </span>
           </div>
           <h1 className="text-xl sm:text-2xl font-heading font-semibold text-studio-primary flex items-center gap-2">
-            <ImageIcon className="text-studio-red" size={24} />
+            <ImageIcon className="text-studio-red-bright" size={24} />
             <span>จัดการผลงานของฉัน</span>
           </h1>
           <p className="text-xs text-studio-secondary max-w-2xl">
@@ -397,7 +397,7 @@ export default function ArtistPortfolioManagement() {
             className="p-2.5 bg-studio-sec border border-studio-border hover:border-studio-red/50 text-studio-secondary hover:text-studio-primary rounded-lg transition-colors cursor-pointer"
             title="รีเฟรชข้อมูล"
           >
-            <RefreshCw size={16} className={loading ? 'animate-spin text-studio-red' : ''} />
+            <RefreshCw size={16} className={loading ? 'animate-spin text-studio-red-bright' : ''} />
           </button>
 
           <button
@@ -499,7 +499,7 @@ export default function ArtistPortfolioManagement() {
                 setFilterVisibility('ALL');
                 setSearchQuery('');
               }}
-              className="text-studio-red hover:underline text-[11px]"
+              className="text-studio-red-bright hover:underline text-[11px]"
             >
               ล้างตัวกรองทั้งหมด
             </button>
@@ -510,7 +510,7 @@ export default function ArtistPortfolioManagement() {
       {/* Artwork Grid List */}
       {loading ? (
         <div className="py-20 text-center text-studio-secondary bg-studio-card border border-studio-border rounded-xl animate-pulse space-y-3">
-          <Loader2 size={24} className="animate-spin text-studio-red mx-auto" />
+          <Loader2 size={24} className="animate-spin text-studio-red-bright mx-auto" />
           <p className="text-xs">กำลังโหลดผลงาน...</p>
         </div>
       ) : filteredArtworks.length === 0 ? (
@@ -582,7 +582,7 @@ export default function ArtistPortfolioManagement() {
               {/* Artwork Information */}
               <div className="p-3 sm:p-4 flex-1 flex flex-col justify-between space-y-2.5">
                 <div className="space-y-0.5">
-                  <h3 className="text-xs sm:text-sm font-semibold text-studio-primary group-hover:text-studio-red transition-colors line-clamp-1">
+                  <h3 className="text-xs sm:text-sm font-semibold text-studio-primary group-hover:text-studio-red-bright transition-colors line-clamp-1">
                     {artwork.title}
                   </h3>
                   {artwork.description && (
@@ -642,7 +642,7 @@ export default function ArtistPortfolioManagement() {
               {/* Modal Header */}
               <div className="px-6 py-4 border-b border-studio-border flex items-center justify-between bg-studio-sec/50">
                 <h3 className="text-base font-semibold text-studio-primary flex items-center gap-2">
-                  <ImageIcon size={18} className="text-studio-red" />
+                  <ImageIcon size={18} className="text-studio-red-bright" />
                   <span>{editingArtwork ? 'แก้ไขผลงาน' : 'เพิ่มผลงานใหม่'}</span>
                 </h3>
                 <button
@@ -665,7 +665,7 @@ export default function ArtistPortfolioManagement() {
                 {/* Artwork Title */}
                 <div className="space-y-1.5">
                   <label className="text-xs text-studio-secondary font-medium block">
-                    ชื่อผลงาน <span className="text-studio-red">*</span>
+                    ชื่อผลงาน <span className="text-red-400">*</span>
                   </label>
                   <input
                     type="text"
@@ -680,7 +680,7 @@ export default function ArtistPortfolioManagement() {
                 {/* Style */}
                 <div className="space-y-1.5">
                   <label className="text-xs text-studio-secondary font-medium block">
-                    สไตล์ผลงาน <span className="text-studio-red">*</span>
+                    สไตล์ผลงาน <span className="text-red-400">*</span>
                   </label>
                   <select
                     required
@@ -700,7 +700,7 @@ export default function ArtistPortfolioManagement() {
                 {/* Image Upload / URL Input */}
                 <div className="space-y-1.5">
                   <label className="text-xs text-studio-secondary font-medium block">
-                    รูปภาพผลงาน <span className="text-studio-red">*</span>
+                    รูปภาพผลงาน <span className="text-red-400">*</span>
                   </label>
 
                   {/* Upload Box */}
@@ -722,12 +722,12 @@ export default function ArtistPortfolioManagement() {
                       >
                         {isUploadingImage ? (
                           <>
-                            <Loader2 size={16} className="animate-spin text-studio-red" />
+                            <Loader2 size={16} className="animate-spin text-studio-red-bright" />
                             <span>กำลังอัปโหลดรูปภาพ...</span>
                           </>
                         ) : (
                           <>
-                            <Upload size={16} className="text-studio-red" />
+                            <Upload size={16} className="text-studio-red-bright" />
                             <span>{formData.image_url ? 'เปลี่ยนรูปภาพ (อัปโหลดใหม่)' : 'เลือกไฟล์รูปภาพเพื่ออัปโหลด'}</span>
                           </>
                         )}

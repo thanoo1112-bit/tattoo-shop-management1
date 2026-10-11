@@ -11,9 +11,9 @@ export default function HeroSection() {
       {/* Background Studio/Artwork for Mobile */}
       <div className="absolute inset-0 lg:hidden pointer-events-none">
         <img
-          src="https://images.unsplash.com/photo-1598440947619-2c35fc9aa908?w=1200&auto=format&fit=crop&q=80"
+          src="/images/homepage-hero-tattoo.jpg"
           alt="157 Tattoo Atmosphere"
-          className="w-full h-full object-cover object-center opacity-25 filter grayscale contrast-125"
+          className="w-full h-full object-cover object-center opacity-25 filter grayscale-[0.25] contrast-110"
         />
         <div className="absolute inset-0 bg-gradient-to-t from-studio-main via-studio-main/85 to-studio-main/95" />
       </div>
@@ -86,27 +86,27 @@ export default function HeroSection() {
         {/* Right Side (Desktop 55% Showcase) */}
         <div className="hidden lg:block lg:col-span-7 relative h-[420px] sm:h-[500px] lg:h-[560px] xl:h-[620px] rounded-[8px] overflow-hidden border border-studio-border shadow-2xl group bg-studio-sec">
           <img
-            src="https://images.unsplash.com/photo-1598440947619-2c35fc9aa908?w=1600&auto=format&fit=crop&q=80"
+            src="/images/homepage-hero-tattoo.jpg"
             alt="157 Tattoo Studio Masterpiece"
-            className="w-full h-full object-cover object-center transform group-hover:scale-103 transition-transform duration-700 filter grayscale contrast-125"
+            className="w-full h-full object-cover object-center transform group-hover:scale-103 transition-transform duration-700 filter grayscale-[0.25] contrast-110"
           />
           <div className="absolute inset-0 bg-gradient-to-t from-studio-main/90 via-transparent to-transparent opacity-80" />
           
-          <div className="absolute bottom-6 left-6 right-6 p-4 bg-studio-sec/90 backdrop-blur-md border border-studio-border rounded-[6px] flex justify-between items-center">
-            <div>
-              <span className="text-[10px] uppercase tracking-widest text-studio-red font-heading font-normal block">
-                Resident Artist Flash Sheet
+          <div className="absolute bottom-6 left-6 right-6 p-4 bg-studio-sec/90 backdrop-blur-md border border-studio-border rounded-[6px] flex justify-between items-center gap-4">
+            <div className="space-y-0.5">
+              <span className="text-xs uppercase tracking-[0.2em] text-studio-red-bright font-heading font-semibold block">
+                157 TATTOO SELECTED WORKS
               </span>
-              <h3 className="text-sm xl:text-base font-bold text-studio-primary">
-                Dark Serpent & Skull — Blackwork Series
+              <h3 className="text-lg xl:text-xl font-bold uppercase tracking-wide text-studio-primary font-heading">
+                FROM CONCEPT TO SKIN
               </h3>
             </div>
             <Link
-              href="/portfolio?select=port-1"
-              className="text-xs text-studio-primary hover:text-studio-red hover:underline font-semibold flex items-center space-x-1"
+              href="/portfolio"
+              className="text-xs sm:text-sm uppercase tracking-wider text-studio-primary hover:text-studio-red-bright hover:underline font-semibold flex items-center space-x-1.5 shrink-0 font-prompt"
             >
-              <span>ดูรายละเอียด</span>
-              <ArrowRight size={13} />
+              <span>EXPLORE THE GALLERY</span>
+              <ArrowRight size={14} />
             </Link>
           </div>
         </div>

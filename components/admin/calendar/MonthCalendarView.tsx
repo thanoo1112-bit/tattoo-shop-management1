@@ -11,6 +11,7 @@ import {
   getSessionStatusConfig,
   getBookingStatusConfig,
   getEventStatusConfig,
+  getEffectiveEventStatus,
   getEventSpecs,
 } from './calendarUtils';
 import {
@@ -109,8 +110,14 @@ export default function MonthCalendarView({
   const eventsByDate = useMemo(() => {
     const map = new Map<string, CalendarSessionEvent[]>();
     events.forEach((ev) => {
-      const resolved = getResolvedStatus(ev);
-      if (resolved.key === 'CANCELLED') {
+      const eff = getEffectiveEventStatus(ev);
+      if (eff === 'CANCELLED' || eff === 'REJECTED' || eff === 'EXPIRED') {
+        return;
+      }
+      if (ev.status === 'CANCELLED') {
+        return;
+      }
+      if (ev.booking?.status === 'CANCELLED' || ev.booking?.status === 'REJECTED' || ev.booking?.status === 'EXPIRED') {
         return;
       }
       const dateStr = getDateStrBangkok(ev.start_at);
@@ -289,7 +296,7 @@ export default function MonthCalendarView({
 
                 {/* Closed Day Badges */}
                 {studioBlock && (
-                  <div className="mt-1 px-1.5 py-0.5 bg-red-950/80 border border-red-800/80 rounded text-[10px] font-semibold text-red-300 truncate">
+                  <div className="mt-1 px-1.5 py-0.5 bg-rose-950/80 border border-rose-800/80 rounded text-[10px] font-semibold text-rose-300 truncate">
                     🔒 ปิดทั้งร้าน
                   </div>
                 )}
@@ -300,7 +307,7 @@ export default function MonthCalendarView({
                       return (
                         <div
                           key={ab.id || ab.artist_id}
-                          className="px-1 py-0.5 bg-amber-950/60 border border-amber-800/60 rounded text-[9px] font-medium text-amber-300 truncate"
+                          className="px-1 py-0.5 bg-rose-950/50 border border-rose-900/60 rounded text-[9px] font-medium text-rose-300 truncate"
                         >
                           🔒 ช่าง{artName} ปิด
                         </div>
@@ -403,35 +410,6 @@ export default function MonthCalendarView({
 
         {/* Panel Body Content */}
         <div className="p-3.5 space-y-4 max-h-[calc(100vh-210px)] overflow-y-auto">
-          {/* Day Metrics Overview */}
-          <div className="grid grid-cols-2 gap-2 text-xs">
-            <div className="bg-[#171512] border border-[#4A443A]/40 rounded-lg p-2">
-              <span className="text-[9px] text-[#A89F91] block">ทั้งหมด</span>
-              <span className="text-base font-bold text-[#ECE4D3] mt-0.5 block">
-                {selectedDateMetrics.total} <span className="text-[10px] font-normal text-[#7A7265]">คิว</span>
-              </span>
-            </div>
-            <div className="bg-[#171512] border border-[#4A443A]/40 rounded-lg p-2">
-              <span className="text-[9px] text-[#A89F91] block">ยืนยันแล้ว</span>
-              <span className="text-base font-bold text-emerald-400 mt-0.5 block">
-                {selectedDateMetrics.confirmed} <span className="text-[10px] font-normal text-[#7A7265]">คิว</span>
-              </span>
-            </div>
-            <div className="bg-[#171512] border border-[#4A443A]/40 rounded-lg p-2">
-              <span className="text-[9px] text-[#A89F91] block">รอมัดจำ</span>
-              <span className="text-base font-bold text-amber-400 mt-0.5 block">
-                {selectedDateMetrics.waitingDeposit} <span className="text-[10px] font-normal text-[#7A7265]">คิว</span>
-              </span>
-            </div>
-            <div className="bg-[#171512] border border-[#4A443A]/40 rounded-lg p-2">
-              <span className="text-[9px] text-[#A89F91] block">ช่างว่าง</span>
-              <span className="text-base font-bold text-sky-400 mt-0.5 block">
-                {selectedDateMetrics.availableArtists}{' '}
-                <span className="text-[10px] font-normal text-[#7A7265]">/ {activeArtists.length} คน</span>
-              </span>
-            </div>
-          </div>
-
           {/* Appointments List for Selected Day */}
           <div className="space-y-2">
             <span className="text-[10px] font-bold text-[#A89F91] uppercase tracking-wider block">

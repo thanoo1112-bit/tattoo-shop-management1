@@ -22,16 +22,23 @@ export async function fetchWorkQueueBookings(supabase: SupabaseClient): Promise<
   ] = await Promise.all([
     supabase.from('bookings').select('*').order('created_at', { ascending: false }),
     supabase.from('booking_sessions').select('id, booking_id, artist_id, session_number, start_at, end_at, status, note, created_at, updated_at').order('session_number', { ascending: true }),
-    supabase.from('booking_payment_summary').select('booking_id, quoted_price, deposit_required, deposit_paid, final_paid, total_paid, paid_total, balance_due, payment_status, is_fully_paid, is_deposit_paid'),
+    supabase.from('booking_payment_summary').select('booking_id, estimate_request_id, customer_user_id, artist_id, quoted_price, deposit_required, paid_total, remaining_balance, deposit_paid, is_fully_paid'),
     supabase.from('booking_payments').select('id, booking_id, booking_session_id, amount, status').neq('status', 'VOIDED'),
     supabase.from('booking_payment_submissions').select('id, booking_id, status, claimed_amount, slip_path, reference_no, created_at').eq('status', 'PENDING'),
-    supabase.from('estimate_requests').select('id, customer_id, customer_user_id, artist_id, placement, description, width_cm, height_cm, style_preference, style, preferred_date, preferred_time, reference_images, artwork_title, status, request_type, work_type, color_technique, quoted_price, estimated_min_price, estimated_max_price, deposit_required, estimated_duration_minutes, quote_note, quoted_at, admin_reviewed_at, has_medical_condition, medical_condition_note, has_allergy, allergy_note, eligibility_confirmed_at, created_at, updated_at, is_date_proposed, proposed_artist_note, estimated_size_tier, customer_dob, price_estimated_at').order('created_at', { ascending: false }),
+    supabase.from('estimate_requests').select('id, customer_id, customer_user_id, artist_id, placement, description, width_cm, height_cm, style, preferred_date, preferred_time, reference_images, status, request_type, work_type, color_technique, quoted_price, estimated_min_price, estimated_max_price, deposit_required, estimated_duration_minutes, quote_note, quoted_at, has_medical_condition, medical_condition_note, has_allergy, allergy_note, created_at, updated_at, is_date_proposed, proposed_artist_note, estimated_size_tier, price_estimated_at').order('created_at', { ascending: false }),
     supabase.from('flash_reservations').select('*, flash_designs(*, artists(id, name, nickname))').order('created_at', { ascending: false }),
     supabase.from('artists').select('id, name, nickname').order('name'),
     supabase.from('artist_blocked_dates').select('id, scope, artist_id, blocked_date, reason'),
     supabase.from('customers').select('id, user_id, display_name, phone, email, date_of_birth, eligibility_confirmed_at, profile_completed_at, has_medical_condition, medical_condition_note, medical_conditions, has_allergy, allergy_note, allergies'),
     supabase.from('profiles').select('user_id, display_name, phone, email, date_of_birth'),
   ]);
+
+  if (bookRes.error) console.error('[bookingHydration] bookings query error:', bookRes.error.message);
+  if (estRes.error) {
+    console.error('[bookingHydration] estimate_requests query error:', estRes.error.message);
+    throw new Error(`ไม่สามารถโหลดข้อมูลคำขอราคาได้: ${estRes.error.message}`);
+  }
+  if (flashResRes.error) console.error('[bookingHydration] flash_reservations query error:', flashResRes.error.message);
 
   const bookData = bookRes.data || [];
   const sesData = sesRes.data || [];
@@ -88,7 +95,7 @@ export async function fetchWorkQueueBookings(supabase: SupabaseClient): Promise<
       .reduce((sum: number, p: any) => sum + Number(p.amount || 0), 0);
 
     const totalPaid = Math.max(
-      Number(summary?.paid_total ?? summary?.total_paid ?? 0),
+      Number(summary?.paid_total ?? 0),
       bookingPaidTotal
     );
 
@@ -100,7 +107,6 @@ export async function fetchWorkQueueBookings(supabase: SupabaseClient): Promise<
     const depositReqVal = Number(summary?.deposit_required ?? est?.deposit_required ?? flashDesignObj?.deposit_amount ?? (b as any)?.deposit_required ?? 0);
 
     const isDepPaid = Boolean(
-      summary?.is_deposit_paid ?? 
       summary?.deposit_paid ?? 
       (totalPaid > 0 && (depositReqVal === 0 || totalPaid >= depositReqVal))
     );
@@ -156,26 +162,26 @@ export async function fetchWorkQueueBookings(supabase: SupabaseClient): Promise<
       status: b.status,
       customer_note: b.customer_note || flashRes?.customer_note,
       admin_note: b.admin_note || flashRes?.admin_note,
-      placement: (b.placement && b.placement !== 'ไม่ระบุ' && b.placement !== 'CUSTOM')
-        ? b.placement
+      placement: (b.placement && typeof b.placement === 'string' && b.placement.trim() !== '' && b.placement !== 'ไม่ระบุ' && b.placement !== 'ไม่ระบุตำแหน่ง' && b.placement !== 'CUSTOM')
+        ? b.placement.trim()
         : (flashRes?.placement || est?.placement || null),
       width_cm: b.width_cm ?? flashRes?.width_cm ?? flashDesignObj?.width_cm ?? est?.width_cm ?? null,
       height_cm: b.height_cm ?? flashRes?.height_cm ?? flashDesignObj?.height_cm ?? est?.height_cm ?? null,
       estimated_size_tier: b.estimated_size_tier || est?.estimated_size_tier || null,
       size_label: flashDesignObj?.size_label || flashRes?.flash_design_size_label || b.size_label || est?.estimated_size_tier || null,
-      style_preference: flashStyle || est?.style || est?.style_preference || b.style_preference || null,
+      style_preference: flashStyle || (b.style_preference && b.style_preference !== 'ไม่ระบุ' ? b.style_preference : (est?.style || b.style_preference || null)),
       work_type: b.work_type || est?.work_type || (b.flash_reservation_id ? 'FLASH' : null),
       artwork_title: rawArtworkTitle,
       artwork_image_url: flashImgUrl || b.artwork_image_url || undefined,
       description: b.description || flashRes?.customer_note || est?.description || b.customer_note || null,
-      reference_images: flashImgUrl ? [flashImgUrl] : (b.reference_images || est?.reference_images || null),
+      reference_images: flashImgUrl ? [flashImgUrl] : ((Array.isArray(b.reference_images) && b.reference_images.length > 0) ? b.reference_images : (est?.reference_images || null)),
       created_at: b.created_at,
       updated_at: b.updated_at,
       customer_name: getCleanCustomerName(customer, profile),
       customer_phone: customer?.phone || profile?.phone || undefined,
       customer_email: customer?.email || profile?.email || undefined,
-      date_of_birth: customer?.date_of_birth || profile?.date_of_birth || est?.customer_dob || (b as any).date_of_birth || null,
-      customer_dob: customer?.date_of_birth || profile?.date_of_birth || est?.customer_dob || (b as any).customer_dob || null,
+      date_of_birth: customer?.date_of_birth || profile?.date_of_birth || (b as any).date_of_birth || null,
+      customer_dob: customer?.date_of_birth || profile?.date_of_birth || (b as any).customer_dob || null,
       is_age_confirmed: customer ? (customer.eligibility_confirmed_at || customer.profile_completed_at ? true : undefined) : undefined,
       artist_name: artist?.name || 'ยังไม่มอบหมายช่าง',
       artist_nickname: artist?.nickname || null,
@@ -231,5 +237,118 @@ export async function fetchWorkQueueBookings(supabase: SupabaseClient): Promise<
     workQueueBookings,
     artists: artData,
     blockedDates: blockedData,
+  };
+}
+
+/**
+ * Helper to extract Bangkok Date (YYYY-MM-DD) and Time (HH:mm) from an ISO string or raw time.
+ */
+function parseBangkokDateTime(isoOrTime: string | null | undefined): { dateStr: string | null; timeStr: string | null } {
+  if (!isoOrTime) return { dateStr: null, timeStr: null };
+  try {
+    if (isoOrTime.includes('T') || isoOrTime.includes('Z')) {
+      const d = new Date(isoOrTime);
+      if (!isNaN(d.getTime())) {
+        const dateStr = new Intl.DateTimeFormat('en-CA', {
+          timeZone: 'Asia/Bangkok',
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+        }).format(d);
+
+        const timeStr = new Intl.DateTimeFormat('en-GB', {
+          timeZone: 'Asia/Bangkok',
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: false,
+        }).format(d);
+
+        return { dateStr, timeStr };
+      }
+    }
+    const parts = isoOrTime.split('T');
+    const dateStr = parts.length > 1 ? parts[0] : null;
+    const rawTime = parts.length > 1 ? parts[1] : parts[0];
+    const timeClean = rawTime ? (rawTime.length >= 5 ? rawTime.slice(0, 5) : rawTime) : null;
+    return { dateStr, timeStr: timeClean };
+  } catch {
+    return { dateStr: null, timeStr: null };
+  }
+}
+
+/**
+ * Resolves active/upcoming session date & time for Admin Queue display (in Bangkok Timezone).
+ * Priority:
+ * 1. Earliest SCHEDULED active session (if any exist)
+ * 2. Active IN_PROGRESS session (if any exist)
+ * 3. Latest non-cancelled session or latest session (if all completed/cancelled)
+ * 4. Fallback to top-level booking requested_date & requested_start_time
+ */
+export function getActiveQueueSessionDateTime(b: {
+  requested_date?: string | null;
+  requested_start_time?: string | null;
+  requested_time?: string | null;
+  sessions?: Array<{
+    id?: string;
+    session_number?: number;
+    start_at?: string | null;
+    status?: string;
+  }> | null;
+}): {
+  displayDate: string | null;
+  displayTime: string | null;
+} {
+  const sessions = b.sessions || [];
+
+  if (sessions.length > 0) {
+    // 1. SCHEDULED active session (earliest by start_at or session_number)
+    const scheduledSessions = sessions.filter((s) => s.status === 'SCHEDULED' && s.start_at);
+    if (scheduledSessions.length > 0) {
+      const sorted = [...scheduledSessions].sort((a, b) =>
+        new Date(a.start_at!).getTime() - new Date(b.start_at!).getTime()
+      );
+      const target = sorted[0];
+      if (target.start_at) {
+        const parsed = parseBangkokDateTime(target.start_at);
+        return {
+          displayDate: parsed.dateStr || b.requested_date || null,
+          displayTime: parsed.timeStr || b.requested_start_time || b.requested_time || null,
+        };
+      }
+    }
+
+    // 2. IN_PROGRESS session
+    const inProgressSession = sessions.find((s) => s.status === 'IN_PROGRESS' && s.start_at);
+    if (inProgressSession && inProgressSession.start_at) {
+      const parsed = parseBangkokDateTime(inProgressSession.start_at);
+      return {
+        displayDate: parsed.dateStr || b.requested_date || null,
+        displayTime: parsed.timeStr || b.requested_start_time || b.requested_time || null,
+      };
+    }
+
+    // 3. Fallback: Latest non-cancelled session
+    const nonCancelled = sessions.filter((s) => s.status !== 'CANCELLED' && s.start_at);
+    if (nonCancelled.length > 0) {
+      const sortedDesc = [...nonCancelled].sort((a, b) =>
+        new Date(b.start_at!).getTime() - new Date(a.start_at!).getTime()
+      );
+      const latest = sortedDesc[0];
+      if (latest.start_at) {
+        const parsed = parseBangkokDateTime(latest.start_at);
+        return {
+          displayDate: parsed.dateStr || b.requested_date || null,
+          displayTime: parsed.timeStr || b.requested_start_time || b.requested_time || null,
+        };
+      }
+    }
+  }
+
+  // Fallback to booking fields
+  const reqTime = b.requested_start_time || b.requested_time || null;
+  const timeClean = reqTime ? (reqTime.length >= 5 ? reqTime.slice(0, 5) : reqTime) : null;
+  return {
+    displayDate: b.requested_date || null,
+    displayTime: timeClean,
   };
 }

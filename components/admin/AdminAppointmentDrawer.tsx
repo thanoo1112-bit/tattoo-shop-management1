@@ -123,14 +123,14 @@ export default function AdminAppointmentDrawer({
         <div className="space-y-4 border-b border-[#4A443A]/60 pb-5">
           <div className="flex justify-between items-center">
             <div className="flex items-center space-x-2">
-              <Sparkles size={16} className="text-[#9C2F2F]" />
+              <Sparkles size={16} className="text-studio-red-bright" />
               <span className="text-xs uppercase font-heading tracking-wider text-[#ECE4D3]">
                 MASTER CALENDAR • รายละเอียดคิวงานสัก
               </span>
             </div>
             <button
               onClick={onClose}
-              className="text-[#7A7265] hover:text-[#9C2F2F] transition-colors p-1"
+              className="text-[#7A7265] hover:text-studio-red-bright transition-colors p-1"
             >
               <X size={20} />
             </button>
@@ -145,7 +145,7 @@ export default function AdminAppointmentDrawer({
                 className="w-16 h-16 sm:w-20 sm:h-20 object-cover rounded-[6px] border border-[#4A443A] bg-[#0E0D0C] shrink-0 shadow-md"
               />
             ) : (
-              <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-[6px] bg-[#0E0D0C] border border-[#4A443A] flex items-center justify-center text-[#9C2F2F] shrink-0">
+              <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-[6px] bg-[#0E0D0C] border border-[#4A443A] flex items-center justify-center text-studio-red-bright shrink-0">
                 <FileText size={26} />
               </div>
             )}
@@ -175,7 +175,7 @@ export default function AdminAppointmentDrawer({
           {/* 1. Customer Info */}
           <div className="bg-[#0E0D0C] border border-[#4A443A] p-4 rounded-[6px] space-y-2.5">
             <div className="flex items-center space-x-2 text-[#ECE4D3] font-medium border-b border-[#4A443A]/40 pb-2">
-              <User size={14} className="text-[#9C2F2F]" />
+              <User size={14} className="text-studio-red-bright" />
               <span className="uppercase text-[11px] tracking-wider">
                 ข้อมูลลูกค้า (Customer)
               </span>
@@ -199,7 +199,7 @@ export default function AdminAppointmentDrawer({
           {/* 2. Artist Info */}
           <div className="bg-[#0E0D0C] border border-[#4A443A] p-4 rounded-[6px] space-y-2.5">
             <div className="flex items-center space-x-2 text-[#ECE4D3] font-medium border-b border-[#4A443A]/40 pb-2">
-              <ShieldCheck size={14} className="text-[#9C2F2F]" />
+              <ShieldCheck size={14} className="text-studio-red-bright" />
               <span className="uppercase text-[11px] tracking-wider">
                 ช่างสักผู้รับผิดชอบ (Artist)
               </span>
@@ -212,7 +212,7 @@ export default function AdminAppointmentDrawer({
                   className="w-10 h-10 rounded-full object-cover border border-[#4A443A]"
                 />
               ) : (
-                <div className="w-10 h-10 rounded-full bg-[#171512] border border-[#4A443A] flex items-center justify-center text-[#9C2F2F]">
+                <div className="w-10 h-10 rounded-full bg-[#171512] border border-[#4A443A] flex items-center justify-center text-studio-red-bright">
                   <User size={16} />
                 </div>
               )}
@@ -220,7 +220,7 @@ export default function AdminAppointmentDrawer({
                 <strong className="text-sm text-[#ECE4D3] block">
                   {assignedArtist?.name || booking.artistName}
                 </strong>
-                <span className="text-[11px] text-[#9C2F2F] uppercase tracking-wide">
+                <span className="text-[11px] text-studio-red-bright uppercase tracking-wide">
                   {assignedArtist?.specialty || 'Tattoo Artist'}
                 </span>
               </div>
@@ -230,7 +230,7 @@ export default function AdminAppointmentDrawer({
           {/* 3. Date & Time Specification */}
           <div className="bg-[#0E0D0C] border border-[#4A443A] p-4 rounded-[6px] space-y-3">
             <div className="flex items-center space-x-2 text-[#ECE4D3] font-medium border-b border-[#4A443A]/40 pb-2">
-              <Calendar size={14} className="text-[#9C2F2F]" />
+              <Calendar size={14} className="text-studio-red-bright" />
               <span className="uppercase text-[11px] tracking-wider">
                 กำหนดการนัดหมาย (Schedule)
               </span>
@@ -257,7 +257,7 @@ export default function AdminAppointmentDrawer({
           {/* 4. Placement & Size Specs */}
           <div className="bg-[#0E0D0C] border border-[#4A443A] p-4 rounded-[6px] space-y-2.5">
             <div className="flex items-center space-x-2 text-[#ECE4D3] font-medium border-b border-[#4A443A]/40 pb-2">
-              <MapPin size={14} className="text-[#9C2F2F]" />
+              <MapPin size={14} className="text-studio-red-bright" />
               <span className="uppercase text-[11px] tracking-wider">
                 ตำแหน่งและขนาด (Placement & Size)
               </span>
@@ -289,7 +289,7 @@ export default function AdminAppointmentDrawer({
           {/* 5. Financial & Deposit Summary */}
           <div className="bg-[#0E0D0C] border border-[#4A443A] p-4 rounded-[6px] space-y-2.5">
             <div className="flex items-center space-x-2 text-[#ECE4D3] font-medium border-b border-[#4A443A]/40 pb-2">
-              <BadgeDollarSign size={14} className="text-[#9C2F2F]" />
+              <BadgeDollarSign size={14} className="text-studio-red-bright" />
               <span className="uppercase text-[11px] tracking-wider">
                 การชำระเงินและมัดจำ (Financials)
               </span>

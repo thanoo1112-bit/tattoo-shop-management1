@@ -226,7 +226,7 @@ export default function ArtistTimeline({ singleArtistId = null }: ArtistTimeline
       {/* Timeline Header Info */}
       <div className="p-4 sm:p-5 border-b border-studio-border bg-studio-sec/40 flex flex-wrap justify-between items-center gap-3">
         <div className="flex items-center space-x-2">
-          <Calendar size={16} className="text-studio-red" />
+          <Calendar size={16} className="text-studio-red-bright" />
           <h3 className="text-xs md:text-sm font-heading font-normal uppercase tracking-wider text-studio-primary">
             {singleArtistId ? 'SCHEDULE AGENDA • ตารางงานประจำวันของช่าง' : 'MASTER SCHEDULE • ตารางเวลาปฏิบัติงานช่างสัก'}
           </h3>
@@ -322,7 +322,7 @@ export default function ArtistTimeline({ singleArtistId = null }: ArtistTimeline
 
                         <div className="flex items-center justify-between text-[11px] text-studio-secondary pt-0.5">
                           <span className="flex items-center gap-1">
-                            <Clock size={12} className="text-studio-red" />
+                            <Clock size={12} className="text-studio-red-bright" />
                             <span>เวลานัด {startTimeDisplay}</span>
                           </span>
                           <span className="text-studio-muted font-medium truncate max-w-[120px]">

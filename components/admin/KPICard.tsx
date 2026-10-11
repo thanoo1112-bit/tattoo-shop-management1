@@ -33,7 +33,7 @@ export default function KPICard({ title, value, change, changeType = 'neutral', 
         )}
       </div>
 
-      <div className="p-2.5 sm:p-3 bg-studio-main border border-studio-border text-studio-red rounded-[4px] shrink-0">
+      <div className="p-2.5 sm:p-3 bg-studio-main border border-studio-border text-studio-red-bright rounded-[4px] shrink-0">
         <Icon size={18} className="sm:w-5 sm:h-5" />
       </div>
     </div>

@@ -321,20 +321,20 @@ export default function CustomerDepositPaymentSection({
           <>
             <div className="border-b border-studio-border/40 pb-2">
               <span className="text-[11px] uppercase tracking-wider font-bold text-studio-secondary flex items-center gap-1.5">
-                <Wallet size={13} className="text-studio-red" /> สรุปการชำระเงิน
+                <Wallet size={13} className="text-studio-red" /> ใบเสร็จสรุปการชำระเงิน
               </span>
             </div>
 
             <div className="space-y-2 text-xs pt-1">
               <div className="flex items-center justify-between text-xs">
-                <span className="text-studio-secondary">ค่าบริการเนื้องานรอบนี้</span>
+                <span className="text-studio-secondary">ค่าบริการงานสักทั้งหมด</span>
                 <span className="font-semibold text-studio-primary">
                   ฿{formatCurrency(quotedPrice)}
                 </span>
               </div>
 
               <div className="flex items-center justify-between text-xs">
-                <span className="text-studio-secondary">หักเงินมัดจำ (โอนล็อกคิวไว้แล้ว)</span>
+                <span className="text-studio-secondary">หักเงินมัดจำ</span>
                 <span className="font-semibold text-studio-secondary font-mono">
                   −฿{formatCurrency(depositPaid)}
                 </span>
@@ -342,7 +342,7 @@ export default function CustomerDepositPaymentSection({
 
               <div className="border-t border-studio-border/40 pt-2.5 flex items-center justify-between text-xs">
                 <span className="font-bold text-studio-primary">
-                  ยอดที่ชำระหน้าร้านแล้ว
+                  ยอดชำระหน้าร้าน
                 </span>
                 <span className="font-bold text-emerald-400 text-sm sm:text-base font-mono">
                   ฿{formatCurrency(dayOfWorkPaid)}

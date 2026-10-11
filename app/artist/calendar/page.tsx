@@ -1,11 +1,18 @@
 'use client';
 
-import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import React, { useEffect, useState, useCallback, useMemo, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { useApp } from '../../../components/AppContext';
 import { createClient } from '../../../lib/supabase/client';
 import ArtistHeader from '../../../components/artist/ArtistHeader';
 import ArtistMobileNav from '../../../components/artist/ArtistMobileNav';
 import ArtistAppointmentDetailDrawer, { ArtistSessionDetail } from '../../../components/artist/ArtistAppointmentDetailDrawer';
+import CustomerReferenceImage from '@/components/common/CustomerReferenceImage';
+import PaymentSlipLightbox from '@/components/common/PaymentSlipLightbox';
+import { formatThaiPhoneForDisplay } from '@/lib/phoneUtils';
+import { parseNoteWithPreferredTime } from '@/lib/noteUtils';
+import { formatTattooSize } from '@/lib/utils/formatters';
+import { getTattooSizeCategory } from '@/lib/utils/tattooDuration';
 import { 
   ChevronLeft, 
   ChevronRight, 
@@ -14,25 +21,67 @@ import {
   User, 
   Layers, 
   RefreshCw,
-  Lock,
-  Unlock,
-  Ban,
-  Eye
+  Eye,
+  Search,
+  TriangleAlert,
+  CalendarDays,
+  LayoutList
 } from 'lucide-react';
 import { 
   getTodayBangkokStr, 
   getDateStrBangkok, 
   formatDateBangkok, 
   formatTimeBangkok, 
-  THAI_MONTHS_FULL, 
-  THAI_DAYS_SHORT 
+  THAI_MONTHS_FULL 
 } from '@/components/admin/calendar/calendarUtils';
-import { parseNoteWithPreferredTime } from '@/lib/noteUtils';
+import { getDepositDeadlineInfo } from '@/components/portal/portalUtils';
 
-export default function ArtistCalendarPage() {
-  const { isStaffLoggedIn, staffRole, staffArtistId, authLoading } = useApp();
+function isDepositExpired(booking?: any, estimate?: any, session?: any): boolean {
+  const status = booking?.status || estimate?.status || session?.status;
+  if (!status) return false;
+
+  if (status === 'EXPIRED') return true;
+
+  if (status === 'WAITING_DEPOSIT' || status === 'PENDING_DEPOSIT') {
+    const approvedAt = booking?.approved_at || estimate?.accepted_at || estimate?.quoted_at;
+    const createdAt = booking?.created_at || estimate?.created_at || session?.created_at;
+    const requestedDate = booking?.requested_date || estimate?.preferred_date || (session?.start_at ? session.start_at.slice(0, 10) : null);
+    const requestedStartTime = booking?.requested_start_time || estimate?.preferred_time || (session?.start_at ? session.start_at.slice(11, 19) : null);
+
+    const dlInfo = getDepositDeadlineInfo(approvedAt, createdAt, requestedDate, requestedStartTime);
+    return dlInfo?.isExpired ?? false;
+  }
+
+  return false;
+}
+
+function ArtistCalendarPageContent() {
+  const { isStaffLoggedIn, staffRole, staffArtistId, staffArtistRecord, profile, authLoading } = useApp();
   const supabase = createClient();
+  const searchParams = useSearchParams();
 
+  // View Switcher State ('calendar' | 'queue')
+  const [viewMode, setViewMode] = useState<'calendar' | 'queue'>('calendar');
+
+  useEffect(() => {
+    const viewParam = searchParams.get('view');
+    if (viewParam === 'queue' || viewParam === 'list') {
+      setViewMode('queue');
+    } else if (viewParam === 'calendar') {
+      setViewMode('calendar');
+    }
+  }, [searchParams]);
+
+  const handleSwitchView = (mode: 'calendar' | 'queue') => {
+    setViewMode(mode);
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.href);
+      url.searchParams.set('view', mode);
+      window.history.replaceState(null, '', url.toString());
+    }
+  };
+
+  // Loading & Data States
   const [loading, setLoading] = useState(true);
   const [sessions, setSessions] = useState<any[]>([]);
   const [bookingsMap, setBookingsMap] = useState<Map<string, any>>(new Map());
@@ -43,17 +92,20 @@ export default function ArtistCalendarPage() {
   const [paymentSummaryMap, setPaymentSummaryMap] = useState<Map<string, any>>(new Map());
   const [pendingSubmissions, setPendingSubmissions] = useState<any[]>([]);
   const [blockedDates, setBlockedDates] = useState<string[]>([]);
-  const [blockLoading, setBlockLoading] = useState<boolean>(false);
 
   // Month Calendar View State
   const [currentYear, setCurrentYear] = useState<number>(() => new Date().getFullYear());
   const [currentMonth, setCurrentMonth] = useState<number>(() => new Date().getMonth()); // 0-indexed
   const [selectedDateStr, setSelectedDateStr] = useState<string>(() => getTodayBangkokStr());
-  const [statusFilter, setStatusFilter] = useState<'ALL' | 'ACTIVE' | 'COMPLETED'>('ALL');
 
-  // Drawer State
+  // Queue List Filter & Search State
+  const [queueFilter, setQueueFilter] = useState<'ALL' | 'SCHEDULED' | 'MULTIPLE_SESSIONS' | 'COMPLETED' | 'CANCELLED'>('ALL');
+  const [searchQuery, setSearchQuery] = useState('');
+
+  // Drawer & Lightbox States
   const [selectedSessionDetail, setSelectedSessionDetail] = useState<ArtistSessionDetail | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [activeLightboxSlipPath, setActiveLightboxSlipPath] = useState<string | null>(null);
 
   const isAuthorized = Boolean(
     isStaffLoggedIn && (staffRole === 'ARTIST' || (staffRole === 'ADMIN' && staffArtistId))
@@ -68,44 +120,57 @@ export default function ArtistCalendarPage() {
     }
   }, [isAuthorized, authLoading]);
 
-  // Fetch live operational data for Artist (strictly scoped to staffArtistId)
+  // Comprehensive Data Fetching for Artist
   const fetchArtistData = useCallback(async () => {
     if (!isAuthorized || !staffArtistId) return;
     setLoading(true);
 
     try {
-      // 1. Query booking_sessions (scoped to staffArtistId, excluding CANCELLED)
+      // 1. Query booking_sessions
       const { data: dbSessions, error: sessErr } = await supabase
         .from('booking_sessions')
-        .select('id, booking_id, artist_id, session_number, start_at, end_at, status, note, created_at, updated_at')
+        .select('*')
         .eq('artist_id', staffArtistId)
-        .neq('status', 'CANCELLED')
         .order('start_at', { ascending: true });
 
-      if (sessErr) {
-        console.error('Error fetching artist sessions:', sessErr);
-        setLoading(false);
-        return;
-      }
+      if (sessErr) console.error('Error fetching artist sessions:', sessErr);
+      const sessionList = dbSessions ? [...dbSessions] : [];
 
-      const sessionList = dbSessions || [];
-      setSessions(sessionList);
-
-      // 2. Query bookings explicitly scoped to staffArtistId (excluding CANCELLED)
+      // 2. Query bookings explicitly scoped to staffArtistId
       const { data: bData, error: bErr } = await supabase
         .from('bookings')
-        .select('id, customer_id, customer_user_id, artist_id, estimate_request_id, flash_reservation_id, booking_number, status, appointment_date, appointment_time, end_time, work_type, custom_work_title, style, placement, width_cm, height_cm, requested_start_time, requested_date, artwork_title, artwork_image_url, description, customer_note, staff_note, rejection_reason, quoted_price, deposit_required, deposit_status, created_at, updated_at, request_type, booking_source, is_walkin, admin_notes, payment_status, cancellation_reason, next_session_number, total_sessions')
-        .eq('artist_id', staffArtistId)
-        .neq('status', 'CANCELLED');
+        .select('*')
+        .eq('artist_id', staffArtistId);
 
-      if (bErr) {
-        console.error('Error fetching artist bookings:', bErr);
-      }
+      if (bErr) console.error('Error fetching artist bookings:', bErr);
 
       const dbBookings = bData || [];
       const bMap = new Map<string, any>();
       dbBookings.forEach((b: any) => bMap.set(b.id, b));
       setBookingsMap(bMap);
+
+      // Synthesize virtual sessions for active bookings missing from booking_sessions
+      const existingSessionBookingIds = new Set(sessionList.map((s: any) => s.booking_id));
+      dbBookings.forEach((b: any) => {
+        if (['CONFIRMED', 'IN_PROGRESS', 'COMPLETED'].includes(b.status) && !existingSessionBookingIds.has(b.id)) {
+          const reqDate = b.requested_date || getTodayBangkokStr();
+          const reqTime = b.requested_start_time || '10:00:00';
+          const startAtStr = reqDate.includes('T') ? reqDate : `${reqDate}T${reqTime.length === 5 ? reqTime + ':00' : reqTime}+07:00`;
+          sessionList.push({
+            id: `virtual-${b.id}`,
+            booking_id: b.id,
+            artist_id: b.artist_id,
+            session_number: 1,
+            start_at: startAtStr,
+            end_at: startAtStr,
+            status: b.status === 'COMPLETED' ? 'COMPLETED' : b.status === 'IN_PROGRESS' ? 'IN_PROGRESS' : 'SCHEDULED',
+            created_at: b.created_at,
+            updated_at: b.updated_at,
+            is_virtual: true
+          });
+        }
+      });
+      setSessions(sessionList);
 
       // 3. Query linked estimate requests
       const estimateIds = Array.from(new Set(dbBookings.map((b: any) => b.estimate_request_id).filter(Boolean)));
@@ -113,7 +178,7 @@ export default function ArtistCalendarPage() {
       if (estimateIds.length > 0) {
         const { data: estData } = await supabase
           .from('estimate_requests')
-          .select('id, customer_user_id, artist_id, reference_images, width_cm, height_cm, placement, style, description, preferred_date, preferred_time, status, quoted_price, estimated_duration_minutes, deposit_required, quote_note, quoted_at, accepted_at, rejected_at, created_at, updated_at, work_type, estimated_min_price, estimated_max_price, price_estimated_at, request_type')
+          .select('id, customer_user_id, artist_id, reference_images, width_cm, height_cm, placement, style, description, preferred_date, preferred_time, status, quoted_price, estimated_duration_minutes, deposit_required, quote_note, quoted_at, accepted_at, rejected_at, created_at, updated_at, work_type, estimated_min_price, estimated_max_price, price_estimated_at, request_type, has_medical_condition, medical_condition_note, has_allergy, allergy_note')
           .in('id', estimateIds);
         dbEstimates = estData || [];
       }
@@ -121,19 +186,38 @@ export default function ArtistCalendarPage() {
       dbEstimates.forEach((e: any) => estMap.set(e.id, e));
       setEstimatesMap(estMap);
 
-      // 3.5 Query linked flash reservations
+      // 3.5 Query flash reservations via RPC
+      const { data: flashRpcData } = await supabase
+        .rpc('artist_get_flash_reservations', { p_artist_id: staffArtistId });
+
+      const artistFlashRes = (flashRpcData || []).map((res: any) => ({
+        ...res,
+        flash_designs: {
+          id: res.flash_design_id,
+          title: res.flash_design_title,
+          style: res.flash_design_style,
+          image_url: res.flash_design_image_url,
+          price: res.flash_design_price,
+          deposit_amount: res.flash_design_deposit_amount,
+          width_cm: res.flash_design_width_cm || res.width_cm,
+          height_cm: res.flash_design_height_cm || res.height_cm,
+          artist_id: res.flash_design_artist_id,
+        }
+      }));
+
       const flashResIds = Array.from(new Set(dbBookings.map((b: any) => b.flash_reservation_id).filter(Boolean)));
-      let dbFlashReservations: any[] = [];
+      let frMap = new Map<string, any>();
+      artistFlashRes.forEach((fr: any) => { if (fr.id) frMap.set(fr.id, fr); });
       if (flashResIds.length > 0) {
-        const { data: flashData } = await supabase
+        const { data: frData } = await supabase
           .from('flash_reservations')
           .select('*, flash_designs(*)')
           .in('id', flashResIds);
-        dbFlashReservations = flashData || [];
+        (frData || []).forEach((fr: any) => {
+          if (fr.id && !frMap.has(fr.id)) frMap.set(fr.id, fr);
+        });
       }
-      const flashMap = new Map<string, any>();
-      dbFlashReservations.forEach((f: any) => flashMap.set(f.id, f));
-      setFlashReservationsMap(flashMap);
+      setFlashReservationsMap(frMap);
 
       // 4. Query linked customers & profiles
       const customerUserIds = Array.from(
@@ -147,7 +231,6 @@ export default function ArtistCalendarPage() {
         const cMap = new Map<string, any>();
         const pMap = new Map<string, any>();
 
-        // 4a. Query via secure Artist RPC
         const { data: contactsData, error: contactsErr } = await supabase
           .rpc('artist_get_customer_contacts', {
             p_customer_user_ids: customerUserIds
@@ -162,10 +245,9 @@ export default function ArtistCalendarPage() {
           });
         }
 
-        // 4b. Direct table query to supplement extra fields
         const { data: cData } = await supabase
           .from('customers')
-          .select('user_id, display_name, first_name, last_name, phone, email, eligibility_confirmed_at, profile_completed_at')
+          .select('user_id, display_name, first_name, last_name, phone, email, date_of_birth, eligibility_confirmed_at, profile_completed_at, has_medical_condition, has_allergy')
           .in('user_id', customerUserIds);
 
         (cData || []).forEach((c: any) => {
@@ -175,7 +257,7 @@ export default function ArtistCalendarPage() {
 
         const { data: pData } = await supabase
           .from('profiles')
-          .select('user_id, display_name, email, phone')
+          .select('user_id, display_name, email, phone, date_of_birth')
           .in('user_id', customerUserIds);
 
         (pData || []).forEach((p: any) => {
@@ -187,7 +269,7 @@ export default function ArtistCalendarPage() {
         setProfilesMap(pMap);
       }
 
-      // 4.5 Query booking_payment_summary & pending payment submissions
+      // 5. Financial Summary & Submissions
       const dbBookingIds = dbBookings.map((b: any) => b.id);
       if (dbBookingIds.length > 0) {
         const { data: sumData } = await supabase
@@ -206,20 +288,15 @@ export default function ArtistCalendarPage() {
         setPendingSubmissions(subData || []);
       }
 
-      // 5. Query artist_blocked_dates for staffArtistId
-      const { data: bDatesData, error: bDatesErr } = await supabase
+      // 6. Query artist_blocked_dates
+      const { data: bDatesData } = await supabase
         .from('artist_blocked_dates')
         .select('blocked_date')
         .eq('artist_id', staffArtistId);
 
-      if (bDatesErr) {
-        console.error('Error fetching artist blocked dates:', bDatesErr);
-      } else {
-        const bList = (bDatesData || []).map((d: any) => d.blocked_date);
-        setBlockedDates(bList);
-      }
+      setBlockedDates((bDatesData || []).map((d: any) => d.blocked_date));
     } catch (err) {
-      console.error('Exception fetching artist calendar data:', err);
+      console.error('Exception fetching artist data:', err);
     } finally {
       setLoading(false);
     }
@@ -231,21 +308,27 @@ export default function ArtistCalendarPage() {
     }
   }, [isAuthorized, staffArtistId, fetchArtistData]);
 
-  // Today string
   const todayStr = useMemo(() => getTodayBangkokStr(), []);
 
   // Map sessions by date string YYYY-MM-DD
   const sessionsByDate = useMemo(() => {
     const map = new Map<string, any[]>();
     sessions.forEach((s) => {
+      const booking = bookingsMap.get(s.booking_id);
+      const estimate = booking?.estimate_request_id ? estimatesMap.get(booking.estimate_request_id) : null;
+      if (booking?.status === 'CANCELLED' || booking?.status === 'REJECTED' || s.status === 'CANCELLED') {
+        return;
+      }
+      if (isDepositExpired(booking, estimate, s)) {
+        return;
+      }
       const dStr = getDateStrBangkok(s.start_at);
       if (!map.has(dStr)) map.set(dStr, []);
       map.get(dStr)!.push(s);
     });
     return map;
-  }, [sessions]);
+  }, [sessions, bookingsMap, estimatesMap]);
 
-  // Calculate maximum session_number per booking_id across all sessions
   const maxSessionNumberMap = useMemo(() => {
     const map = new Map<string, number>();
     sessions.forEach((s) => {
@@ -259,59 +342,16 @@ export default function ArtistCalendarPage() {
     return map;
   }, [sessions]);
 
-  // Set of blocked dates
   const blockedDatesSet = useMemo(() => new Set(blockedDates), [blockedDates]);
 
-  // Status Priority for selected date: BOOKED > BLOCKED > AVAILABLE
-  const selectedDateStatus = useMemo(() => {
-    const daySessions = sessionsByDate.get(selectedDateStr) || [];
-    const hasActiveSession = daySessions.some(
-      (s) => s.status === 'SCHEDULED' || s.status === 'IN_PROGRESS' || s.status === 'COMPLETED'
-    );
-
-    if (hasActiveSession || daySessions.length > 0) {
-      return 'BOOKED';
-    }
-    if (blockedDatesSet.has(selectedDateStr)) {
-      return 'BLOCKED';
-    }
-    return 'AVAILABLE';
-  }, [sessionsByDate, selectedDateStr, blockedDatesSet]);
-
-  // Handler for toggling date block status via RPC
-  const handleToggleDayBlock = async (targetDateStr: string, blockStatus: boolean) => {
-    if (!targetDateStr || targetDateStr < todayStr) return;
-    setBlockLoading(true);
-    try {
-      const { error } = await supabase.rpc('artist_set_day_block', {
-        p_date: targetDateStr,
-        p_blocked: blockStatus,
-        p_reason: blockStatus ? 'ช่างปิดรับคิววันดังกล่าว' : null
-      });
-
-      if (error) {
-        alert(`ไม่สามารถดำเนินการได้: ${error.message}`);
-      } else {
-        await fetchArtistData();
-      }
-    } catch (err: any) {
-      console.error('Error toggling day block:', err);
-      alert('เกิดข้อผิดพลาดในการเปลี่ยนสถานะการรับคิว');
-    } finally {
-      setBlockLoading(false);
-    }
-  };
-
-  // Mon-Sun short Thai day names
+  // Calendar Grid Days Calculation (Month View: 7 Columns Mon-Sun)
   const THAI_DAYS_MON_FIRST = ['จ.', 'อ.', 'พ.', 'พฤ.', 'ศ.', 'ส.', 'อา.'];
 
-  // Calendar Grid Days Calculation (Month View: 7 Columns Mon-Sun)
   const calendarDays = useMemo(() => {
     const firstDayOfMonth = new Date(currentYear, currentMonth, 1);
     const lastDayOfMonth = new Date(currentYear, currentMonth + 1, 0);
     const daysInMonth = lastDayOfMonth.getDate();
 
-    // Convert getDay() (0=Sun, 1=Mon...6=Sat) to Mon-first offset (0=Mon...6=Sun)
     const startDayOffset = (firstDayOfMonth.getDay() + 6) % 7;
     const totalCells = Math.ceil((startDayOffset + daysInMonth) / 7) * 7;
 
@@ -350,19 +390,11 @@ export default function ArtistCalendarPage() {
     return days;
   }, [currentYear, currentMonth, selectedDateStr, todayStr, sessionsByDate, blockedDatesSet]);
 
-  // Selected Date Sessions (filtered)
   const selectedDateSessions = useMemo(() => {
-    const list = sessionsByDate.get(selectedDateStr) || [];
-    if (statusFilter === 'ACTIVE') {
-      return list.filter((s) => s.status === 'SCHEDULED' || s.status === 'IN_PROGRESS');
-    }
-    if (statusFilter === 'COMPLETED') {
-      return list.filter((s) => s.status === 'COMPLETED');
-    }
-    return list;
-  }, [sessionsByDate, selectedDateStr, statusFilter]);
+    return sessionsByDate.get(selectedDateStr) || [];
+  }, [sessionsByDate, selectedDateStr]);
 
-  // Month navigation handlers
+  // Month Navigation Handlers
   const handlePrevMonth = () => {
     if (currentMonth === 0) {
       setCurrentMonth(11);
@@ -388,8 +420,9 @@ export default function ArtistCalendarPage() {
     setSelectedDateStr(todayStr);
   };
 
+  // Helper Display Cleanups
   const getCleanCustomerName = (uid?: string | null) => {
-    if (!uid) return 'ไม่ระบุชื่อลูกค้า';
+    if (!uid) return 'ลูกค้า';
     const c = customersMap.get(uid);
     const p = profilesMap.get(uid);
     const candidate = (c?.display_name && c.display_name !== 'ลูกค้าประจำ')
@@ -404,57 +437,82 @@ export default function ArtistCalendarPage() {
     if (emailPrefix && emailPrefix !== 'ลูกค้าประจำ') {
       return emailPrefix;
     }
-    return 'ไม่ระบุชื่อลูกค้า';
+    return 'ลูกค้า (ไม่ระบุชื่อ)';
+  };
+
+  const getCustomerPhone = (uid?: string | null) => {
+    if (!uid) return '';
+    const c = customersMap.get(uid);
+    const p = profilesMap.get(uid);
+    const phone = p?.phone || c?.phone || '';
+    return phone ? formatThaiPhoneForDisplay(phone) : '';
   };
 
   const getIsAgeConfirmed = (uid?: string | null) => {
-    if (!uid) return false;
+    if (!uid) return undefined;
     const c = customersMap.get(uid);
-    return Boolean(c?.eligibility_confirmed_at || c?.profile_completed_at);
+    if (c?.eligibility_confirmed_at || c?.profile_completed_at) return true;
+    return undefined;
   };
 
-  // Helper to resolve main booking status badge config
-  const getBookingStatusBadge = (bookingStatus?: string) => {
+  const getBookingStatusBadge = (bookingStatus?: string, totalSessionsCount: number = 1) => {
     switch (bookingStatus) {
       case 'IN_PROGRESS':
         return {
           label: 'กำลังสัก',
-          className: 'bg-amber-950/60 text-amber-400 border-amber-800/60',
+          className: 'bg-[#9C2F2F]/20 text-[#D64545] border border-[#9C2F2F]/60 animate-pulse',
         };
       case 'COMPLETED':
         return {
           label: 'งานเสร็จสิ้น',
-          className: 'bg-emerald-950/60 text-emerald-400 border-emerald-800/60',
+          className: 'bg-emerald-950/80 text-emerald-300 border border-emerald-700/80',
         };
       case 'WAITING_DEPOSIT':
-      case 'PENDING_SLIP':
         return {
           label: 'รอมัดจำ',
-          className: 'bg-purple-950/60 text-purple-400 border-purple-800/60',
+          className: 'bg-purple-950/60 text-purple-400 border border-purple-800/60',
         };
-      case 'CANCELLED':
+      case 'PENDING_SLIP':
+        return {
+          label: 'สลิปรอตรวจ',
+          className: 'bg-amber-950/80 text-amber-300 border border-amber-800/80 animate-pulse',
+        };
       case 'REJECTED':
         return {
+          label: 'ปฏิเสธ',
+          className: 'bg-red-950/50 text-red-400 border border-red-900/60',
+        };
+      case 'EXPIRED':
+        return {
+          label: 'หมดเวลาชำระมัดจำ',
+          className: 'bg-zinc-900/90 text-zinc-400 border border-zinc-700/80',
+        };
+      case 'CANCELLED':
+        return {
           label: 'ยกเลิก',
-          className: 'bg-red-950/60 text-red-400 border-red-800/60',
+          className: 'bg-[#1F1D1A] text-[#7A7265] border border-[#4A443A]',
         };
       case 'CONFIRMED':
       default:
+        if (totalSessionsCount > 1) {
+          return {
+            label: 'รอบนัด',
+            className: 'bg-teal-950/60 text-teal-400 border border-teal-800/60',
+          };
+        }
         return {
           label: 'นัดหมายแล้ว',
-          className: 'bg-blue-950/60 text-blue-400 border-blue-800/60',
+          className: 'bg-emerald-950/60 text-emerald-400 border border-emerald-800/60',
         };
     }
   };
 
-  // Clean Start Time Only string ("เวลานัด HH:mm น.")
   const formatStartOnlyTime = (startAt: string) => {
     const raw = formatTimeBangkok(startAt);
     const clean = raw.replace(/\s*น\.?$/gi, '').trim();
     return `เวลานัด ${clean} น.`;
   };
 
-  // Helper to format artwork display title & style
   const getArtworkDisplayTitle = (sess: any) => {
     const booking = bookingsMap.get(sess.booking_id);
     const estimate = booking?.estimate_request_id ? estimatesMap.get(booking.estimate_request_id) : null;
@@ -475,7 +533,6 @@ export default function ArtistCalendarPage() {
       : workTitle;
   };
 
-  // Helper to get placement text
   const getPlacementDisplay = (sess: any) => {
     const booking = bookingsMap.get(sess.booking_id);
     const estimate = booking?.estimate_request_id ? estimatesMap.get(booking.estimate_request_id) : null;
@@ -483,13 +540,209 @@ export default function ArtistCalendarPage() {
     return booking?.placement || flashRes?.placement || estimate?.placement || 'ไม่ระบุตำแหน่ง';
   };
 
+  // Queue List Calculations
+  const resolveQueueOperationalStatus = (
+    sessStatus: string,
+    bookingStatus?: string
+  ): 'SCHEDULED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED' => {
+    if (sessStatus === 'CANCELLED' || bookingStatus === 'CANCELLED') return 'CANCELLED';
+    if (sessStatus === 'COMPLETED' || bookingStatus === 'COMPLETED') return 'COMPLETED';
+    if (sessStatus === 'IN_PROGRESS') return 'IN_PROGRESS';
+    return 'SCHEDULED';
+  };
+
+  const validQueueSessions = useMemo(() => {
+    return sessions.filter((sess: any) => {
+      const booking = bookingsMap.get(sess.booking_id);
+      if (!booking) return false;
+      const estimate = booking.estimate_request_id ? estimatesMap.get(booking.estimate_request_id) : null;
+      if (isDepositExpired(booking, estimate, sess)) return false;
+      if (['PENDING', 'WAITING_DEPOSIT', 'EXPIRED'].includes(booking.status)) return false;
+      if (['CONFIRMED', 'IN_PROGRESS', 'COMPLETED'].includes(booking.status)) return true;
+      if (booking.status === 'CANCELLED' || sess.status === 'CANCELLED') {
+        return Boolean(booking.approved_at || !sess.is_virtual || sess.status === 'CANCELLED');
+      }
+      return false;
+    });
+  }, [sessions, bookingsMap, estimatesMap]);
+
+  const groupedQueueBookings = useMemo(() => {
+    const map = new Map<string, any[]>();
+    validQueueSessions.forEach((sess: any) => {
+      if (!map.has(sess.booking_id)) map.set(sess.booking_id, []);
+      map.get(sess.booking_id)!.push(sess);
+    });
+
+    const result: any[] = [];
+    map.forEach((bSessions, bookingId) => {
+      const booking = bookingsMap.get(bookingId);
+      if (!booking) return;
+
+      const sortedSessions = [...bSessions].sort(
+        (a, b) => (a.session_number || 0) - (b.session_number || 0)
+      );
+
+      const activeSessions = sortedSessions.filter((s) => s.status !== 'CANCELLED');
+      const displaySession = activeSessions.length > 0 
+        ? activeSessions[activeSessions.length - 1] 
+        : sortedSessions[sortedSessions.length - 1];
+
+      const opStatus = resolveQueueOperationalStatus(displaySession.status, booking.status);
+
+      result.push({
+        booking_id: bookingId,
+        booking,
+        displaySession,
+        allSessions: sortedSessions,
+        totalSessionsCount: sortedSessions.length,
+        derived_op_status: opStatus,
+      });
+    });
+
+    return result;
+  }, [validQueueSessions, bookingsMap]);
+
+  const getArtistQueueCategory = useCallback((item: any) => {
+    const op = item.derived_op_status;
+    if (op === 'COMPLETED') return 'COMPLETED';
+    if (op === 'CANCELLED') return 'CANCELLED';
+    if ((item.totalSessionsCount || 1) > 1) return 'MULTIPLE_SESSIONS';
+    return 'SCHEDULED';
+  }, []);
+
+  const queueCounts = useMemo(() => {
+    let all = groupedQueueBookings.length;
+    let scheduled = 0;
+    let completed = 0;
+    let cancelled = 0;
+    let multipleSessions = 0;
+
+    groupedQueueBookings.forEach((item: any) => {
+      const cat = getArtistQueueCategory(item);
+      if (cat === 'COMPLETED') completed++;
+      else if (cat === 'CANCELLED') cancelled++;
+      else if (cat === 'MULTIPLE_SESSIONS') multipleSessions++;
+      else if (cat === 'SCHEDULED') scheduled++;
+    });
+
+    return { all, scheduled, multipleSessions, completed, cancelled };
+  }, [groupedQueueBookings, getArtistQueueCategory]);
+
+  const filteredQueueBookings = useMemo(() => {
+    let list = [...groupedQueueBookings];
+
+    if (queueFilter === 'SCHEDULED') {
+      list = list.filter((item) => getArtistQueueCategory(item) === 'SCHEDULED');
+    } else if (queueFilter === 'MULTIPLE_SESSIONS') {
+      list = list.filter((item) => getArtistQueueCategory(item) === 'MULTIPLE_SESSIONS');
+    } else if (queueFilter === 'COMPLETED') {
+      list = list.filter((item) => getArtistQueueCategory(item) === 'COMPLETED');
+    } else if (queueFilter === 'CANCELLED') {
+      list = list.filter((item) => getArtistQueueCategory(item) === 'CANCELLED');
+    }
+
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      list = list.filter((item) => {
+        const cName = getCleanCustomerName(item.booking.customer_user_id).toLowerCase();
+        const bId = item.booking.id.toLowerCase();
+        const estimate = item.booking.estimate_request_id ? estimatesMap.get(item.booking.estimate_request_id) : null;
+        const flashRes = item.booking.flash_reservation_id ? flashReservationsMap.get(item.booking.flash_reservation_id) : null;
+        const flashDesignObj = flashRes?.flash_designs || flashRes?.flash_design;
+        const flashTitle = flashDesignObj?.title || flashRes?.flash_design_title || '';
+        const title = (item.booking.artwork_title || flashTitle || '').toLowerCase();
+        return cName.includes(q) || bId.includes(q) || title.includes(q);
+      });
+    }
+
+    if (queueFilter === 'SCHEDULED' || queueFilter === 'MULTIPLE_SESSIONS') {
+      list.sort((a, b) => new Date(a.displaySession.start_at).getTime() - new Date(b.displaySession.start_at).getTime());
+    } else {
+      list.sort((a, b) => new Date(b.displaySession.start_at).getTime() - new Date(a.displaySession.start_at).getTime());
+    }
+
+    return list;
+  }, [groupedQueueBookings, queueFilter, searchQuery, estimatesMap, flashReservationsMap, customersMap, profilesMap, getArtistQueueCategory]);
+
+  const renderHealthAlertBadge = (booking: any, estimate: any, customer: any) => {
+    const hasMed = estimate?.has_medical_condition ?? customer?.has_medical_condition;
+    const hasAll = estimate?.has_allergy ?? customer?.has_allergy;
+
+    const isAlert = hasMed === true || hasAll === true;
+    const isHealthy = hasMed === false && hasAll === false;
+
+    if (isAlert) {
+      return (
+        <span
+          title="มีข้อมูลสุขภาพ กรุณาตรวจสอบรายละเอียดก่อนให้บริการ"
+          className="bg-[#2A1212] text-[#E8B4B4] border border-[#9C2F2F] px-2 py-0.5 rounded text-[10px] font-semibold inline-flex items-center gap-1 cursor-help shrink-0"
+        >
+          <TriangleAlert size={11} className="text-[#E8B4B4] shrink-0" />
+          <span>มีข้อมูล</span>
+        </span>
+      );
+    }
+
+    if (isHealthy) {
+      return (
+        <span className="bg-emerald-950/60 text-emerald-400 border border-emerald-800/60 px-2 py-0.5 rounded text-[10px] font-medium inline-flex items-center shrink-0">
+          ปกติ
+        </span>
+      );
+    }
+
+    return (
+      <span className="bg-[#1F1D1A] text-[#A89F91] border border-[#4A443A] px-2 py-0.5 rounded text-[10px] font-medium inline-flex items-center shrink-0">
+        ไม่ระบุ
+      </span>
+    );
+  };
+
+  const renderStatusBadge = (derived_op_status: string, totalSessionsCount: number = 1) => {
+    switch (derived_op_status) {
+      case 'IN_PROGRESS':
+        return (
+          <span className="bg-[#9C2F2F]/20 text-[#D64545] border border-[#9C2F2F]/60 px-2 py-0.5 rounded text-[10px] font-semibold inline-flex items-center gap-1 shrink-0 animate-pulse">
+            <span className="w-1.5 h-1.5 rounded-full bg-[#D64545] animate-pulse" />
+            กำลังสัก
+          </span>
+        );
+      case 'COMPLETED':
+        return (
+          <span className="bg-emerald-950/80 text-emerald-300 border border-emerald-700/80 px-2 py-0.5 rounded text-[10px] font-semibold shrink-0 inline-flex items-center">
+            งานเสร็จสิ้น
+          </span>
+        );
+      case 'CANCELLED':
+        return (
+          <span className="bg-[#1F1D1A] text-[#7A7265] border border-[#4A443A] px-2 py-0.5 rounded text-[10px] font-semibold shrink-0 inline-flex items-center">
+            ยกเลิก
+          </span>
+        );
+      case 'SCHEDULED':
+      default:
+        if (totalSessionsCount > 1) {
+          return (
+            <span className="bg-teal-950/60 text-teal-400 border border-teal-800/60 px-2 py-0.5 rounded text-[10px] font-semibold shrink-0 inline-flex items-center">
+              รอบนัด
+            </span>
+          );
+        }
+        return (
+          <span className="bg-emerald-950/60 text-emerald-400 border border-emerald-800/60 px-2 py-0.5 rounded text-[10px] font-semibold shrink-0 inline-flex items-center">
+            นัดหมายแล้ว
+          </span>
+        );
+    }
+  };
+
   // Open detail drawer
   const handleOpenDetail = (sess: any) => {
     const booking = bookingsMap.get(sess.booking_id);
-    const estimate = booking?.estimate_request_id ? estimatesMap.get(booking.estimate_request_id) : null;
-    const customerUserId = booking?.customer_user_id || estimate?.customer_user_id;
+    const customerUserId = booking?.customer_user_id;
     const customer = customerUserId ? customersMap.get(customerUserId) : null;
     const prof = customerUserId ? profilesMap.get(customerUserId) : null;
+    const estimate = booking?.estimate_request_id ? estimatesMap.get(booking.estimate_request_id) : null;
     const summary = paymentSummaryMap.get(sess.booking_id);
     const hasPendingSlip = pendingSubmissions.some((sub: any) => sub.booking_id === sess.booking_id);
     const depositReq = summary?.deposit_required ?? estimate?.deposit_required ?? 0;
@@ -521,6 +774,14 @@ export default function ArtistCalendarPage() {
       }))
       .sort((a, b) => a.session_number - b.session_number);
 
+    const flashRes = booking?.flash_reservation_id ? flashReservationsMap.get(booking.flash_reservation_id) : null;
+    const flashDesignObj = flashRes?.flash_designs || flashRes?.flash_design;
+    const flashTitle = flashDesignObj?.title || flashRes?.flash_design_title;
+    const flashImgUrl = flashDesignObj?.image_url || flashRes?.flash_design_image_url;
+    const flashStyle = flashDesignObj?.style || flashRes?.flash_design_style;
+    const flashWidth = booking?.width_cm ?? flashRes?.width_cm ?? flashDesignObj?.width_cm ?? flashRes?.flash_design_width_cm ?? estimate?.width_cm ?? null;
+    const flashHeight = booking?.height_cm ?? flashRes?.height_cm ?? flashDesignObj?.height_cm ?? flashRes?.flash_design_height_cm ?? estimate?.height_cm ?? null;
+
     const detail: ArtistSessionDetail = {
       session_id: sess.id,
       session_number: sess.session_number || 1,
@@ -532,32 +793,34 @@ export default function ArtistCalendarPage() {
 
       booking_id: sess.booking_id,
       booking_status: booking?.status || 'CONFIRMED',
-      booking_source: null,
-      artwork_title: getArtworkDisplayTitle(sess),
-      artwork_image_url: booking?.artwork_image_url,
-      placement: getPlacementDisplay(sess),
-      width_cm: estimate?.width_cm ?? booking?.width_cm ?? null,
-      height_cm: estimate?.height_cm ?? booking?.height_cm ?? null,
-      description: parseNoteWithPreferredTime(estimate?.description || booking?.description).cleanNote || null,
-      customer_note: booking?.customer_note,
-      staff_note: booking?.staff_note,
+      booking_source: booking?.booking_source,
+      artwork_title: booking?.artwork_title || (flashTitle ? `ลาย Flash: ${flashTitle}` : (booking?.flash_reservation_id ? 'ลาย Flash' : null)),
+      artwork_image_url: flashImgUrl || booking?.artwork_image_url || null,
+      placement: booking?.placement || flashRes?.placement || estimate?.placement || null,
+      width_cm: flashWidth,
+      height_cm: flashHeight,
+      description: parseNoteWithPreferredTime(estimate?.description || booking?.description || flashRes?.customer_note).cleanNote || null,
+      customer_note: booking?.customer_note || flashRes?.customer_note,
+      staff_note: booking?.staff_note || flashRes?.admin_note,
 
       customer_name: getCleanCustomerName(customerUserId),
       customer_phone: customer?.phone || prof?.phone || null,
       customer_email: prof?.email || customer?.email || null,
+      customer_dob: customer?.date_of_birth || prof?.date_of_birth || null,
+      date_of_birth: customer?.date_of_birth || prof?.date_of_birth || null,
       is_age_confirmed: getIsAgeConfirmed(customerUserId),
 
       estimate_request_id: booking?.estimate_request_id,
-      request_type: estimate?.request_type || null,
-      work_type: estimate?.work_type || null,
-      style: estimate?.style || estimate?.style_preference || booking?.style_preference || null,
-      reference_images: estimate?.reference_images || (booking?.artwork_image_url ? [booking.artwork_image_url] : null),
+      request_type: booking?.flash_reservation_id ? 'FLASH' : (estimate?.request_type || null),
+      work_type: estimate?.work_type || (booking?.flash_reservation_id ? 'FLASH' : null),
+      style: flashStyle || estimate?.style || estimate?.style_preference || booking?.style_preference || null,
+      reference_images: flashImgUrl ? [flashImgUrl] : (estimate?.reference_images || (booking?.artwork_image_url ? [booking.artwork_image_url] : null)),
 
-      quoted_price: summary?.quoted_price ?? estimate?.quoted_price ?? null,
+      quoted_price: summary?.quoted_price ?? estimate?.quoted_price ?? flashRes?.flash_design_price ?? flashDesignObj?.price ?? null,
       estimated_min_price: estimate?.estimated_min_price ?? null,
       estimated_max_price: estimate?.estimated_max_price ?? null,
       price_estimated_at: estimate?.price_estimated_at ?? null,
-      deposit_required: summary?.deposit_required ?? estimate?.deposit_required ?? null,
+      deposit_required: summary?.deposit_required ?? estimate?.deposit_required ?? 500,
       paid_total: summary?.paid_total ?? null,
       remaining_balance: summary?.remaining_balance ?? null,
       deposit_status: depositStatus,
@@ -580,53 +843,52 @@ export default function ArtistCalendarPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0E0D0C] text-[#ECE4D3] font-prompt flex flex-col pb-20 md:pb-10 overflow-x-hidden">
+    <div className="min-h-screen bg-[#0E0D0C] text-[#ECE4D3] font-prompt flex flex-col md:pl-64 pb-20 md:pb-10 overflow-x-hidden">
       {/* Header */}
       <ArtistHeader />
 
       {/* Main Content Container */}
       <main className="flex-1 max-w-[1600px] w-full mx-auto px-4 sm:px-6 md:px-10 xl:px-12 py-6 md:py-8 space-y-6 md:space-y-8">
-        {/* Top Controls: Title, Today Button, Month Nav, Month Year Title */}
+        {/* Top Header & View Switcher Bar */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-[#12100E] border border-[#4A443A]/40 p-4 rounded-xl shadow-lg">
           <div>
             <h1 className="text-lg sm:text-xl font-bold text-[#ECE4D3] flex items-center gap-2">
               <CalendarIcon size={20} className="text-red-500" />
-              <span>ปฏิทินของฉัน</span>
+              <span>คิวงานและปฏิทิน</span>
             </h1>
             <p className="text-xs text-[#A89F91] mt-0.5">
-              ตารางรอบนัดหมายฝั่งช่าง (แสดงตามวันเวลาจริง)
+              จัดการตารางคิวงาน นัดหมาย และดูปฏิทินรอบสักฝั่งช่าง
             </p>
           </div>
 
-          {/* Month Navigation & Today Button */}
+          {/* View Switcher Toggle Buttons & Refresh */}
           <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
-            <div className="text-sm sm:text-base font-bold text-[#ECE4D3] bg-[#171512] border border-[#4A443A]/40 px-3.5 py-1.5 rounded-lg shadow-inner">
-              {THAI_MONTHS_FULL[currentMonth]} {currentYear + 543}
-            </div>
+            {/* View Switcher Tabs */}
+            <div className="flex items-center p-1 bg-[#171512] border border-[#4A443A]/40 rounded-lg space-x-1">
+              <button
+                type="button"
+                onClick={() => handleSwitchView('calendar')}
+                className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer ${
+                  viewMode === 'calendar'
+                    ? 'bg-red-950/80 text-red-200 border border-red-800/80 shadow-xs'
+                    : 'text-[#A89F91] hover:text-[#ECE4D3] hover:bg-[#1A1815]'
+                }`}
+              >
+                <CalendarDays size={14} />
+                <span>ปฏิทิน</span>
+              </button>
 
-            <div className="flex items-center space-x-1 bg-[#171512] border border-[#4A443A]/40 p-1 rounded-lg">
               <button
                 type="button"
-                onClick={handlePrevMonth}
-                className="p-1.5 rounded-md hover:bg-[#1A1815] text-[#A89F91] hover:text-[#ECE4D3] transition-colors cursor-pointer"
-                title="เดือนก่อนหน้า"
+                onClick={() => handleSwitchView('queue')}
+                className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer ${
+                  viewMode === 'queue'
+                    ? 'bg-red-950/80 text-red-200 border border-red-800/80 shadow-xs'
+                    : 'text-[#A89F91] hover:text-[#ECE4D3] hover:bg-[#1A1815]'
+                }`}
               >
-                <ChevronLeft size={18} />
-              </button>
-              <button
-                type="button"
-                onClick={handleNextMonth}
-                className="p-1.5 rounded-md hover:bg-[#1A1815] text-[#A89F91] hover:text-[#ECE4D3] transition-colors cursor-pointer"
-                title="เดือนถัดไป"
-              >
-                <ChevronRight size={18} />
-              </button>
-              <button
-                type="button"
-                onClick={handleGoToday}
-                className="px-3 py-1 bg-red-950/80 hover:bg-red-900 border border-red-800/80 text-xs text-red-200 font-bold rounded-md transition-colors cursor-pointer ml-1"
-              >
-                วันนี้
+                <LayoutList size={14} />
+                <span>รายการคิว ({queueCounts.all})</span>
               </button>
             </div>
 
@@ -643,273 +905,598 @@ export default function ArtistCalendarPage() {
           </div>
         </div>
 
-        {/* Layout Grid: Left Month Calendar (Desktop ~70% lg:col-span-8) + Right Panel (Desktop ~30% lg:col-span-4) */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-          {/* Left: Monthly Calendar Grid (7 Columns Mon-Sun) */}
-          <div className="lg:col-span-8 bg-[#12100E] border border-[#4A443A]/40 rounded-xl p-3.5 sm:p-5 shadow-xl space-y-3">
-            {/* Weekday Header Row (Mon - Sun) */}
-            <div className="grid grid-cols-7 border-b border-[#4A443A]/40 bg-[#171512] text-center rounded-t-lg">
-              {THAI_DAYS_MON_FIRST.map((dName) => (
-                <div
-                  key={dName}
-                  className="py-2 text-xs font-bold text-[#A89F91] uppercase tracking-wider border-r border-[#4A443A]/20 last:border-r-0"
+        {/* ========================================================================= */}
+        {/* VIEW MODE 1: CALENDAR VIEW ("ปฏิทิน") */}
+        {/* ========================================================================= */}
+        {viewMode === 'calendar' && (
+          <div className="space-y-4">
+            {/* Month Navigation Row */}
+            <div className="flex items-center justify-between bg-[#171512] border border-[#4A443A]/40 px-4 py-2.5 rounded-xl shadow-xs">
+              <div className="text-sm sm:text-base font-bold text-[#ECE4D3]">
+                {THAI_MONTHS_FULL[currentMonth]} {currentYear + 543}
+              </div>
+
+              <div className="flex items-center space-x-1 bg-[#12100E] border border-[#4A443A]/40 p-1 rounded-lg">
+                <button
+                  type="button"
+                  onClick={handlePrevMonth}
+                  className="p-1.5 rounded-md hover:bg-[#1A1815] text-[#A89F91] hover:text-[#ECE4D3] transition-colors cursor-pointer"
+                  title="เดือนก่อนหน้า"
                 >
-                  {dName}
-                </div>
-              ))}
+                  <ChevronLeft size={18} />
+                </button>
+                <button
+                  type="button"
+                  onClick={handleNextMonth}
+                  className="p-1.5 rounded-md hover:bg-[#1A1815] text-[#A89F91] hover:text-[#ECE4D3] transition-colors cursor-pointer"
+                  title="เดือนถัดไป"
+                >
+                  <ChevronRight size={18} />
+                </button>
+                <button
+                  type="button"
+                  onClick={handleGoToday}
+                  className="px-3 py-1 bg-red-950/80 hover:bg-red-900 border border-red-800/80 text-xs text-red-200 font-bold rounded-md transition-colors cursor-pointer ml-1"
+                >
+                  วันนี้
+                </button>
+              </div>
             </div>
 
-            {/* Days Grid Cells */}
-            <div className="grid grid-cols-7 gap-1.5 sm:gap-2">
-              {calendarDays.map((day, idx) => {
-                const isSelected = day.isSelected;
-                const isToday = day.isToday;
-                const activeSessions = day.sessions;
-                const totalCount = activeSessions.length;
+            {/* Layout Grid: Left Month Calendar (Desktop lg:col-span-8) + Right Panel (Desktop lg:col-span-4) */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+              {/* Left: Monthly Calendar Grid (7 Columns Mon-Sun) */}
+              <div className="lg:col-span-8 bg-[#12100E] border border-[#4A443A]/40 rounded-xl p-3.5 sm:p-5 shadow-xl space-y-3">
+                {/* Weekday Header Row (Mon - Sun) */}
+                <div className="grid grid-cols-7 border-b border-[#4A443A]/40 bg-[#171512] text-center rounded-t-lg">
+                  {THAI_DAYS_MON_FIRST.map((dName) => (
+                    <div
+                      key={dName}
+                      className="py-2 text-xs font-bold text-[#A89F91] uppercase tracking-wider border-r border-[#4A443A]/20 last:border-r-0"
+                    >
+                      {dName}
+                    </div>
+                  ))}
+                </div>
 
-                return (
-                  <button
-                    key={idx}
-                    type="button"
-                    onClick={() => setSelectedDateStr(day.dateStr)}
-                    className={`min-h-[75px] sm:min-h-[95px] p-1.5 sm:p-2 rounded-xl border text-left flex flex-col justify-between transition-all cursor-pointer group relative overflow-hidden ${
-                      isSelected
-                        ? 'bg-red-950/30 border-red-600 ring-2 ring-red-500/50 shadow-lg z-10'
-                        : isToday
-                        ? 'bg-[#171512] border-[#4A443A] ring-1 ring-[#ECE4D3]/30'
-                        : day.isCurrentMonth
-                        ? 'bg-[#12100E] border-[#4A443A]/40 hover:bg-[#171512]'
-                        : 'bg-[#0E0D0C]/60 border-[#4A443A]/20 opacity-40 hover:opacity-70'
-                    }`}
-                  >
-                    {/* Date Cell Header */}
-                    <div className="flex items-center justify-between">
-                      <span
-                        className={`text-xs font-mono font-bold w-5 h-5 flex items-center justify-center rounded-full ${
-                          isToday
-                            ? 'bg-red-600 text-white'
-                            : isSelected
-                            ? 'text-red-400 font-extrabold'
+                {/* Days Grid Cells */}
+                <div className="grid grid-cols-7 gap-1.5 sm:gap-2">
+                  {calendarDays.map((day, idx) => {
+                    const isSelected = day.isSelected;
+                    const isToday = day.isToday;
+                    const activeSessions = day.sessions;
+                    const totalCount = activeSessions.length;
+
+                    return (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => setSelectedDateStr(day.dateStr)}
+                        className={`min-h-[75px] sm:min-h-[95px] p-1.5 sm:p-2 rounded-xl border text-left flex flex-col justify-between transition-all cursor-pointer group relative overflow-hidden ${
+                          isSelected
+                            ? 'bg-red-950/30 border-red-600 ring-2 ring-red-500/50 shadow-lg z-10'
+                            : isToday
+                            ? 'bg-[#171512] border-[#4A443A] ring-1 ring-[#ECE4D3]/30'
                             : day.isCurrentMonth
-                            ? 'text-[#ECE4D3]'
-                            : 'text-[#7A7265]'
+                            ? 'bg-[#12100E] border-[#4A443A]/40 hover:bg-[#171512]'
+                            : 'bg-[#0E0D0C]/60 border-[#4A443A]/20 opacity-40 hover:opacity-70'
                         }`}
                       >
-                        {day.dayNum}
-                      </span>
-                      {isToday && (
-                        <span className="text-[9px] font-semibold text-red-400 bg-red-950/80 px-1 rounded border border-red-800/60 hidden sm:inline">
-                          วันนี้
-                        </span>
-                      )}
-                    </div>
-
-                    {/* Session Pills in Month Cell */}
-                    <div className="mt-1 space-y-1 min-w-0">
-                      {totalCount > 0 ? (
-                        <div className="space-y-1 min-w-0">
-                          {/* Desktop View: Session Pills */}
-                          <div className="hidden sm:block space-y-1 min-w-0">
-                            {activeSessions.slice(0, 2).map((s: any) => {
-                              const sessNum = s.session_number || 1;
-                              const maxNum = maxSessionNumberMap.get(s.booking_id) || 1;
-                              const isLatest = sessNum >= maxNum;
-                              const timeStr = formatTimeBangkok(s.start_at).replace(/\s*น\.?$/gi, '').trim();
-                              const booking = bookingsMap.get(s.booking_id);
-                              const bBadge = getBookingStatusBadge(booking?.status);
-
-                              return (
-                                <div
-                                  key={s.id}
-                                  className={`px-1.5 py-0.5 rounded text-[10px] font-medium border truncate flex items-center justify-between gap-1 ${
-                                    isLatest
-                                      ? `${bBadge.className}`
-                                      : 'bg-[#171512] text-[#A89F91] border-[#4A443A]/40'
-                                  }`}
-                                  title={`รอบที่ ${sessNum} • ${timeStr} น.`}
-                                >
-                                  <span className="truncate font-mono font-bold">รอบ {sessNum}</span>
-                                  <span className="truncate text-[9.5px] opacity-90">{timeStr}</span>
-                                </div>
-                              );
-                            })}
-                            {totalCount > 2 && (
-                              <span className="text-[9.5px] text-[#A89F91] font-semibold block px-1 truncate">
-                                +{totalCount - 2} คิว
-                              </span>
-                            )}
-                          </div>
-
-                          {/* Mobile View: Compact Status-Aware Badge */}
-                          {(() => {
-                            const sessionStatusInfos = activeSessions.map((s: any) => {
-                              const booking = bookingsMap.get(s.booking_id);
-                              const statusKey = booking?.status || s.status || 'CONFIRMED';
-                              let colorClass = 'text-blue-400';
-                              if (statusKey === 'WAITING_DEPOSIT' || statusKey === 'PENDING_SLIP') {
-                                colorClass = 'text-purple-400';
-                              } else if (statusKey === 'COMPLETED') {
-                                colorClass = 'text-emerald-400';
-                              } else if (statusKey === 'IN_PROGRESS') {
-                                colorClass = 'text-amber-400';
-                              } else if (statusKey === 'CANCELLED' || statusKey === 'REJECTED') {
-                                colorClass = 'text-red-400';
-                              }
-                              return { key: statusKey, colorClass };
-                            });
-
-                            const uniqueInfos = Array.from(
-                              new Map(sessionStatusInfos.map((info) => [info.key, info])).values()
-                            );
-
-                            if (uniqueInfos.length === 1) {
-                              const singleInfo = uniqueInfos[0];
-                              return (
-                                <div className="flex sm:hidden items-center gap-1">
-                                  <span className={`text-[9px] font-bold truncate flex items-center gap-1 ${singleInfo.colorClass}`}>
-                                    <span>●</span>
-                                    <span>{totalCount} คิว</span>
-                                  </span>
-                                </div>
-                              );
-                            }
-
-                            return (
-                              <div className="flex sm:hidden items-center gap-1">
-                                <div className="flex items-center gap-0.5 shrink-0 text-[9px]">
-                                  {uniqueInfos.map((info) => (
-                                    <span key={info.key} className={info.colorClass}>●</span>
-                                  ))}
-                                </div>
-                                <span className="text-[9px] font-bold text-[#ECE4D3] truncate">
-                                  {totalCount} คิว
-                                </span>
-                              </div>
-                            );
-                          })()}
-                        </div>
-                      ) : day.isBlocked ? (
-                        <div className="text-[9.5px] text-zinc-400 bg-zinc-900 border border-zinc-700/60 px-1 py-0.5 rounded truncate">
-                          🔒 ปิดรับคิว
-                        </div>
-                      ) : (
-                        <div className="h-2" />
-                      )}
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Right: Selected Date Appointment List (Desktop ~30% lg:col-span-4) */}
-          <div className="lg:col-span-4 bg-[#12100E] border border-[#4A443A]/40 rounded-xl p-4 sm:p-5 shadow-xl space-y-4">
-            {/* Right Panel Header */}
-            <div className="flex items-center justify-between border-b border-[#4A443A]/40 pb-3">
-              <div>
-                <span className="text-[10px] text-[#A89F91] uppercase tracking-wider block font-semibold">
-                  รายการนัดของวันที่เลือก
-                </span>
-                <h3 className="text-sm sm:text-base font-bold text-[#ECE4D3] flex items-center gap-1.5 mt-0.5">
-                  <CalendarIcon size={15} className="text-red-500" />
-                  <span>{formatDateBangkok(selectedDateStr, true)}</span>
-                </h3>
-              </div>
-              <span className="text-xs font-bold text-red-400 bg-red-950/60 border border-red-800/60 px-2.5 py-1 rounded-full">
-                {selectedDateSessions.length} รายการ
-              </span>
-            </div>
-
-            {/* List of Appointment Cards */}
-            <div className="space-y-3 max-h-[calc(100vh-250px)] overflow-y-auto pr-1">
-              {loading ? (
-                <div className="p-8 text-center text-[#A89F91] animate-pulse text-xs">
-                  กำลังโหลดข้อมูล...
-                </div>
-              ) : selectedDateSessions.length === 0 ? (
-                <div className="p-6 text-center bg-[#171512] border border-dashed border-[#4A443A]/40 rounded-xl space-y-2">
-                  <CalendarIcon size={24} className="mx-auto text-[#7A7265]" />
-                  <p className="text-xs text-[#ECE4D3] font-medium">ไม่มีคิวนัดหมายในวันนี้</p>
-                  <p className="text-[11px] text-[#7A7265]">
-                    เลือกวันอื่นบนปฏิทินเพื่อดูรายการนัด
-                  </p>
-                </div>
-              ) : (
-                selectedDateSessions.map((sess: any) => {
-                  const booking = bookingsMap.get(sess.booking_id);
-                  const estimate = booking?.estimate_request_id ? estimatesMap.get(booking.estimate_request_id) : null;
-                  const customerUserId = booking?.customer_user_id || estimate?.customer_user_id;
-                  const customerName = getCleanCustomerName(customerUserId);
-                  const artworkTitle = getArtworkDisplayTitle(sess);
-                  const placementDisplay = getPlacementDisplay(sess);
-
-                  const sessNum = sess.session_number || 1;
-                  const maxNum = maxSessionNumberMap.get(sess.booking_id) || 1;
-                  const isLatestSession = sessNum >= maxNum;
-                  const bBadge = getBookingStatusBadge(booking?.status);
-
-                  return (
-                    <div
-                      key={sess.id}
-                      onClick={() => handleOpenDetail(sess)}
-                      className="group bg-[#171512] border border-[#4A443A]/40 hover:border-red-600/60 p-3.5 sm:p-4 rounded-xl transition-all cursor-pointer space-y-2.5 shadow-md"
-                    >
-                      {/* Round Badge & Booking Status (Status Badge ONLY on Latest Session) */}
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-2">
-                          <span className="text-xs font-mono font-bold text-[#ECE4D3] bg-[#12100E] px-2.5 py-0.5 rounded border border-[#4A443A]/40">
-                            รอบที่ {sessNum}
+                        {/* Date Cell Header */}
+                        <div className="flex items-center justify-between">
+                          <span
+                            className={`text-xs font-mono font-bold w-5 h-5 flex items-center justify-center rounded-full ${
+                              isToday
+                                ? 'bg-red-600 text-white'
+                                : isSelected
+                                ? 'text-red-400 font-extrabold'
+                                : day.isCurrentMonth
+                                ? 'text-[#ECE4D3]'
+                                : 'text-[#7A7265]'
+                            }`}
+                          >
+                            {day.dayNum}
                           </span>
-                          {isLatestSession && (
-                            <span className={`text-[10px] px-2 py-0.5 rounded-full border font-medium ${bBadge.className}`}>
-                              {bBadge.label}
+                          {isToday && (
+                            <span className="text-[9px] font-semibold text-red-400 bg-red-950/80 px-1 rounded border border-red-800/60 hidden sm:inline">
+                              วันนี้
                             </span>
                           )}
                         </div>
 
-                        {/* View Details Action */}
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleOpenDetail(sess);
-                          }}
-                          className="px-2.5 py-1 bg-[#12100E] hover:bg-[#1A1815] text-[#A89F91] group-hover:text-[#ECE4D3] text-[11px] font-semibold rounded-lg border border-[#4A443A]/40 transition-colors flex items-center space-x-1 cursor-pointer"
-                        >
-                          <Eye size={12} />
-                          <span>ดูรายละเอียด</span>
-                        </button>
-                      </div>
+                        {/* Session Pills in Month Cell */}
+                        <div className="mt-1 space-y-1 min-w-0">
+                          {totalCount > 0 ? (
+                            <div className="space-y-1 min-w-0">
+                              {/* Desktop View: Session Pills */}
+                              <div className="hidden sm:block space-y-1 min-w-0">
+                                {activeSessions.slice(0, 2).map((s: any) => {
+                                  const sessNum = s.session_number || 1;
+                                  const maxNum = maxSessionNumberMap.get(s.booking_id) || 1;
+                                  const isLatest = sessNum >= maxNum;
+                                  const timeStr = formatTimeBangkok(s.start_at).replace(/\s*น\.?$/gi, '').trim();
+                                  const booking = bookingsMap.get(s.booking_id);
+                                  const bBadge = getBookingStatusBadge(booking?.status, maxNum);
 
-                      {/* Artwork Title & Time (Start time only "เวลานัด HH:mm น.") */}
-                      <div className="space-y-1">
-                        <h4 className="text-xs sm:text-sm font-semibold text-[#ECE4D3] group-hover:text-red-400 transition-colors">
-                          {artworkTitle}
-                        </h4>
-                        <div className="flex items-center space-x-1.5 text-xs font-mono text-red-400 font-semibold">
-                          <Clock size={12} className="shrink-0" />
-                          <span>{formatStartOnlyTime(sess.start_at)}</span>
-                        </div>
-                      </div>
+                                  return (
+                                    <div
+                                      key={s.id}
+                                      className={`px-1.5 py-0.5 rounded text-[10px] font-medium border truncate flex items-center justify-between gap-1 ${
+                                        isLatest
+                                          ? `${bBadge.className}`
+                                          : 'bg-[#171512] text-[#A89F91] border-[#4A443A]/40'
+                                      }`}
+                                      title={`รอบที่ ${sessNum} • ${timeStr} น.`}
+                                    >
+                                      <span className="truncate font-mono font-bold">รอบ {sessNum}</span>
+                                      <span className="truncate text-[9.5px] opacity-90">{timeStr}</span>
+                                    </div>
+                                  );
+                                })}
+                                {totalCount > 2 && (
+                                  <span className="text-[9.5px] text-[#A89F91] font-semibold block px-1 truncate">
+                                    +{totalCount - 2} คิว
+                                  </span>
+                                )}
+                              </div>
 
-                      {/* Customer Name & Placement */}
-                      <div className="pt-2 border-t border-[#4A443A]/30 flex items-center justify-between text-[11px] text-[#A89F91]">
-                        <div className="flex items-center space-x-1.5 truncate max-w-[160px]">
-                          <User size={12} className="shrink-0 text-[#7A7265]" />
-                          <span className="text-[#ECE4D3] truncate font-medium">{customerName}</span>
+                              {/* Mobile View: Compact Status Badge */}
+                              {(() => {
+                                const sessionStatusInfos = activeSessions.map((s: any) => {
+                                  const booking = bookingsMap.get(s.booking_id);
+                                  const statusKey = booking?.status || s.status || 'CONFIRMED';
+                                  let colorClass = 'text-emerald-400';
+                                  if (statusKey === 'WAITING_DEPOSIT') {
+                                    colorClass = 'text-purple-400';
+                                  } else if (statusKey === 'PENDING_SLIP') {
+                                    colorClass = 'text-amber-300';
+                                  } else if (statusKey === 'COMPLETED') {
+                                    colorClass = 'text-emerald-300';
+                                  } else if (statusKey === 'IN_PROGRESS') {
+                                    colorClass = 'text-[#D64545]';
+                                  } else if (statusKey === 'CANCELLED') {
+                                    colorClass = 'text-[#7A7265]';
+                                  } else if (statusKey === 'REJECTED') {
+                                    colorClass = 'text-red-400';
+                                  } else if (statusKey === 'EXPIRED') {
+                                    colorClass = 'text-zinc-400';
+                                  }
+                                  return { key: statusKey, colorClass };
+                                });
+
+                                const uniqueInfos = Array.from(
+                                  new Map(sessionStatusInfos.map((info) => [info.key, info])).values()
+                                );
+
+                                if (uniqueInfos.length === 1) {
+                                  const singleInfo = uniqueInfos[0];
+                                  return (
+                                    <div className="flex sm:hidden items-center gap-1">
+                                      <span className={`text-[9px] font-bold truncate flex items-center gap-1 ${singleInfo.colorClass}`}>
+                                        <span>●</span>
+                                        <span>{totalCount} คิว</span>
+                                      </span>
+                                    </div>
+                                  );
+                                }
+
+                                return (
+                                  <div className="flex sm:hidden items-center gap-1">
+                                    <div className="flex items-center gap-0.5 shrink-0 text-[9px]">
+                                      {uniqueInfos.map((info) => (
+                                        <span key={info.key} className={info.colorClass}>●</span>
+                                      ))}
+                                    </div>
+                                    <span className="text-[9px] font-bold text-[#ECE4D3] truncate">
+                                      {totalCount} คิว
+                                    </span>
+                                  </div>
+                                );
+                              })()}
+                            </div>
+                          ) : day.isBlocked ? (
+                            <div className="text-[9.5px] text-rose-300 bg-rose-950/70 border border-rose-800/70 px-1 py-0.5 rounded truncate">
+                              🔒 ปิดรับคิว
+                            </div>
+                          ) : (
+                            <div className="h-2" />
+                          )}
                         </div>
-                        <div className="flex items-center space-x-1.5 truncate max-w-[140px]">
-                          <Layers size={12} className="shrink-0 text-[#7A7265]" />
-                          <span className="truncate">{placementDisplay}</span>
-                        </div>
-                      </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Right: Selected Date Appointment List (Desktop lg:col-span-4) */}
+              <div className="lg:col-span-4 bg-[#12100E] border border-[#4A443A]/40 rounded-xl p-4 sm:p-5 shadow-xl space-y-4">
+                {/* Right Panel Header */}
+                <div className="flex items-center justify-between border-b border-[#4A443A]/40 pb-3">
+                  <div>
+                    <span className="text-[10px] text-[#A89F91] uppercase tracking-wider block font-semibold">
+                      รายการนัดของวันที่เลือก
+                    </span>
+                    <h3 className="text-sm sm:text-base font-bold text-[#ECE4D3] flex items-center gap-1.5 mt-0.5">
+                      <CalendarIcon size={15} className="text-red-500" />
+                      <span>{formatDateBangkok(selectedDateStr, true)}</span>
+                    </h3>
+                  </div>
+                  <span className="text-xs font-bold text-red-400 bg-red-950/60 border border-red-800/60 px-2.5 py-1 rounded-full">
+                    {selectedDateSessions.length} รายการ
+                  </span>
+                </div>
+
+                {/* List of Appointment Cards */}
+                <div className="space-y-3 max-h-[calc(100vh-250px)] overflow-y-auto pr-1">
+                  {loading ? (
+                    <div className="p-8 text-center text-[#A89F91] animate-pulse text-xs">
+                      กำลังโหลดข้อมูล...
                     </div>
-                  );
-                })
-              )}
+                  ) : selectedDateSessions.length === 0 ? (
+                    <div className="p-6 text-center bg-[#171512] border border-dashed border-[#4A443A]/40 rounded-xl space-y-2">
+                      <CalendarIcon size={24} className="mx-auto text-[#7A7265]" />
+                      <p className="text-xs text-[#ECE4D3] font-medium">ไม่มีคิวนัดหมายในวันนี้</p>
+                      <p className="text-[11px] text-[#7A7265]">
+                        เลือกวันอื่นบนปฏิทินเพื่อดูรายการนัด
+                      </p>
+                    </div>
+                  ) : (
+                    selectedDateSessions.map((sess: any) => {
+                      const booking = bookingsMap.get(sess.booking_id);
+                      const estimate = booking?.estimate_request_id ? estimatesMap.get(booking.estimate_request_id) : null;
+                      const customerUserId = booking?.customer_user_id || estimate?.customer_user_id;
+                      const customerName = getCleanCustomerName(customerUserId);
+                      const artworkTitle = getArtworkDisplayTitle(sess);
+                      const placementDisplay = getPlacementDisplay(sess);
+
+                      const sessNum = sess.session_number || 1;
+                      const maxNum = maxSessionNumberMap.get(sess.booking_id) || 1;
+                      const isLatestSession = sessNum >= maxNum;
+                      const bBadge = getBookingStatusBadge(booking?.status, maxNum);
+
+                      return (
+                        <div
+                          key={sess.id}
+                          onClick={() => handleOpenDetail(sess)}
+                          className="group bg-[#171512] border border-[#4A443A]/40 hover:border-red-600/60 p-3.5 sm:p-4 rounded-xl transition-all cursor-pointer space-y-2.5 shadow-md"
+                        >
+                          {/* Session Number & Status */}
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center space-x-2">
+                              <span className="text-xs font-mono font-bold text-[#ECE4D3] bg-[#12100E] px-2.5 py-0.5 rounded border border-[#4A443A]/40">
+                                รอบที่ {sessNum}
+                              </span>
+                              {isLatestSession && (
+                                <span className={`text-[10px] px-2 py-0.5 rounded-full border font-medium ${bBadge.className}`}>
+                                  {bBadge.label}
+                                </span>
+                              )}
+                            </div>
+
+                            {/* View Details Action */}
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleOpenDetail(sess);
+                              }}
+                              className="px-2.5 py-1 bg-[#12100E] hover:bg-[#1A1815] text-[#A89F91] group-hover:text-[#ECE4D3] text-[11px] font-semibold rounded-lg border border-[#4A443A]/40 transition-colors flex items-center space-x-1 cursor-pointer"
+                            >
+                              <Eye size={12} />
+                              <span>ดูรายละเอียด</span>
+                            </button>
+                          </div>
+
+                          {/* Artwork Title & Time */}
+                          <div className="space-y-1">
+                            <h4 className="text-xs sm:text-sm font-semibold text-[#ECE4D3] group-hover:text-red-400 transition-colors">
+                              {artworkTitle}
+                            </h4>
+                            <div className="flex items-center space-x-1.5 text-xs font-mono text-red-400 font-semibold">
+                              <Clock size={12} className="shrink-0" />
+                              <span>{formatStartOnlyTime(sess.start_at)}</span>
+                            </div>
+                          </div>
+
+                          {/* Customer Name & Placement */}
+                          <div className="pt-2 border-t border-[#4A443A]/30 flex items-center justify-between text-[11px] text-[#A89F91]">
+                            <div className="flex items-center space-x-1.5 truncate max-w-[160px]">
+                              <User size={12} className="shrink-0 text-[#7A7265]" />
+                              <span className="text-[#ECE4D3] truncate font-medium">{customerName}</span>
+                            </div>
+                            <div className="flex items-center space-x-1.5 truncate max-w-[140px]">
+                              <Layers size={12} className="shrink-0 text-[#7A7265]" />
+                              <span className="truncate">{placementDisplay}</span>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
             </div>
           </div>
-        </div>
+        )}
+
+        {/* ========================================================================= */}
+        {/* VIEW MODE 2: QUEUE LIST VIEW ("รายการคิว") */}
+        {/* ========================================================================= */}
+        {viewMode === 'queue' && (
+          <div className="bg-[#171512] border border-[#4A443A] rounded-xl p-4 sm:p-5 shadow-lg space-y-4 font-prompt">
+            {/* Filter Bar & Search */}
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+              {/* Status Filter Pills */}
+              <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 scrollbar-none">
+                {[
+                  { id: 'ALL', label: `ทั้งหมด (${queueCounts.all})` },
+                  { id: 'SCHEDULED', label: `นัดหมายแล้ว (${queueCounts.scheduled})` },
+                  { id: 'MULTIPLE_SESSIONS', label: `รอบนัด (${queueCounts.multipleSessions})` },
+                  { id: 'COMPLETED', label: `งานเสร็จสิ้น (${queueCounts.completed})` },
+                  { id: 'CANCELLED', label: `ยกเลิก (${queueCounts.cancelled})` },
+                ].map((pill) => {
+                  const isSelected = queueFilter === pill.id;
+                  return (
+                    <button
+                      key={pill.id}
+                      type="button"
+                      onClick={() => setQueueFilter(pill.id as any)}
+                      className={`px-3 py-1.5 text-xs rounded-md font-medium transition-colors border shrink-0 cursor-pointer ${
+                        isSelected
+                          ? 'bg-[#ECE4D3] text-[#0E0D0C] border-[#ECE4D3] shadow'
+                          : 'bg-[#0E0D0C] text-[#A89F91] border-[#4A443A] hover:text-[#ECE4D3] hover:border-[#7A7265]'
+                      }`}
+                    >
+                      {pill.label}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Search Bar */}
+              <div className="relative min-w-[220px]">
+                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#7A7265]" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="ค้นหาชื่อลูกค้า, ลายสัก, รหัส..."
+                  className="w-full bg-[#0E0D0C] border border-[#4A443A] rounded-lg pl-9 pr-3 py-1.5 text-xs text-[#ECE4D3] placeholder-[#7A7265] focus:outline-none focus:border-[#ECE4D3]"
+                />
+              </div>
+            </div>
+
+            {/* Queue List Table / Cards */}
+            {loading ? (
+              <div className="py-12 text-center text-[#A89F91] bg-[#0E0D0C]/40 border border-dashed border-[#4A443A] rounded-lg animate-pulse text-xs">
+                กำลังโหลดข้อมูลคิวงาน...
+              </div>
+            ) : filteredQueueBookings.length === 0 ? (
+              <div className="py-12 text-center border border-dashed border-[#4A443A]/60 rounded-lg bg-[#0E0D0C]/40 space-y-2">
+                <CalendarIcon size={28} className="text-[#7A7265] mx-auto opacity-60" />
+                <h4 className="text-xs sm:text-sm font-semibold text-[#ECE4D3]">ยังไม่มีคิวงาน</h4>
+                <p className="text-[11px] text-[#7A7265] max-w-sm mx-auto">
+                  รายการคิวงานและนัดหมายที่ยืนยันแล้วจะแสดงในส่วนนี้
+                </p>
+              </div>
+            ) : (
+              <>
+                {/* Desktop Table View */}
+                <div className="hidden md:block overflow-x-auto">
+                  <table className="w-full text-left text-xs text-[#ECE4D3]">
+                    <thead className="bg-[#0E0D0C] text-[#7A7265] uppercase text-[10px] tracking-wider border-b border-[#4A443A]">
+                      <tr>
+                        <th className="py-3 px-3">รหัส / ลูกค้า</th>
+                        <th className="py-3 px-3">งานที่จองและขนาด</th>
+                        <th className="py-3 px-3">สไตล์</th>
+                        <th className="py-3 px-3">วันและเวลานัด</th>
+                        <th className="py-3 px-3 text-center">แจ้งเตือนสุขภาพ</th>
+                        <th className="py-3 px-3">สถานะ</th>
+                        <th className="py-3 px-3 text-center">การจัดการ</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[#4A443A]/50">
+                      {filteredQueueBookings.map((item: any) => {
+                        const { booking, displaySession, derived_op_status } = item;
+                        const customerName = getCleanCustomerName(booking.customer_user_id);
+                        const customer = booking.customer_user_id ? customersMap.get(booking.customer_user_id) : null;
+                        const estimate = booking.estimate_request_id ? estimatesMap.get(booking.estimate_request_id) : null;
+                        const flashRes = booking.flash_reservation_id ? flashReservationsMap.get(booking.flash_reservation_id) : null;
+                        const isFlash = Boolean(booking.flash_reservation_id || estimate?.request_type === 'FLASH');
+                        
+                        const flashDesignObj = flashRes?.flash_designs || flashRes?.flash_design;
+                        const flashTitle = flashDesignObj?.title || flashRes?.flash_design_title;
+                        const flashImgUrl = flashDesignObj?.image_url || flashRes?.flash_design_image_url;
+                        const artworkTitle = booking.artwork_title || (flashTitle ? `ลาย Flash: ${flashTitle}` : (isFlash ? 'ลาย Flash' : 'งานสัก Custom'));
+                        const refImageSrc = flashImgUrl || booking.artwork_image_url || estimate?.reference_images?.[0] || null;
+
+                        const width = booking.width_cm ?? flashRes?.width_cm ?? flashDesignObj?.width_cm ?? estimate?.width_cm ?? null;
+                        const height = booking.height_cm ?? flashRes?.height_cm ?? flashDesignObj?.height_cm ?? estimate?.height_cm ?? null;
+                        const sizeCategory = getTattooSizeCategory(booking.size_tier || estimate?.estimated_size_tier, width, height, booking.size_text);
+                        const rawSizeText = booking.size_tier || estimate?.estimated_size_tier || booking.size_text || (sizeCategory ? `Size ${sizeCategory}` : null);
+                        const sizeDisplay = (width || height || booking.size_tier || estimate?.estimated_size_tier || sizeCategory)
+                          ? formatTattooSize(width, height, rawSizeText)
+                          : 'ไม่ระบุขนาด';
+
+                        const rawStyle = flashDesignObj?.style || flashRes?.flash_design_style || estimate?.style || estimate?.style_preference || booking.style_preference || '';
+                        const styleName = rawStyle ? rawStyle.replace(/\s*custom\s*/gi, '').trim() : 'ไม่ระบุสไตล์';
+                        const placement = booking.placement || flashRes?.placement || estimate?.placement || 'ไม่ระบุตำแหน่ง';
+
+                        return (
+                          <tr
+                            key={`QUEUE-ROW-${booking.id}`}
+                            onClick={() => handleOpenDetail(displaySession)}
+                            className="cursor-pointer transition-colors hover:bg-[#1F1D1A]/60"
+                          >
+                            {/* 1. รหัส / ลูกค้า */}
+                            <td className="py-3 px-3 text-[#A89F91]">
+                              <span className="text-[10px] text-[#7A7265] font-mono block font-semibold">
+                                #{booking.id.slice(0, 8).toUpperCase()}
+                              </span>
+                              <div className="font-semibold text-xs text-[#ECE4D3] mt-0.5">
+                                {customerName}
+                              </div>
+                            </td>
+
+                            {/* 2. งานที่จองและขนาด */}
+                            <td className="py-3 px-3">
+                              <div className="flex items-center space-x-2.5">
+                                <div className="w-10 h-10 rounded-lg bg-[#0E0D0C] border border-[#4A443A] overflow-hidden shrink-0">
+                                  <CustomerReferenceImage src={refImageSrc} alt="รูปงาน" className="w-full h-full object-cover" />
+                                </div>
+                                <div className="min-w-0">
+                                  <div className="font-medium text-xs text-[#ECE4D3] truncate max-w-[180px]">
+                                    {artworkTitle}
+                                  </div>
+                                  <div className="text-[11px] text-[#A89F91] truncate max-w-[180px]">
+                                    {placement !== 'ไม่ระบุตำแหน่ง' ? `${placement} • ${sizeDisplay}` : sizeDisplay}
+                                  </div>
+                                </div>
+                              </div>
+                            </td>
+
+                            {/* 3. สไตล์ */}
+                            <td className="py-3 px-3 text-[#A89F91]">
+                              <div className="font-medium text-xs text-[#ECE4D3]">
+                                {styleName}
+                              </div>
+                            </td>
+
+                            {/* 4. วันและเวลานัด */}
+                            <td className="py-3 px-3 text-[#A89F91]">
+                              <div className="font-medium text-xs text-[#ECE4D3] flex items-center gap-1.5">
+                                <CalendarIcon size={12} className="text-[#7A7265] shrink-0" />
+                                <span>{formatDateBangkok(displaySession.start_at)}</span>
+                              </div>
+                              <div className="text-[11px] text-[#A89F91] font-mono mt-0.5 flex items-center gap-1.5">
+                                <Clock size={11} className="text-[#7A7265] shrink-0" />
+                                <span>{formatTimeBangkok(displaySession.start_at)}</span>
+                              </div>
+                            </td>
+
+                            {/* 5. แจ้งเตือนสุขภาพ */}
+                            <td className="py-3 px-3 text-center">
+                              {renderHealthAlertBadge(booking, estimate, customer)}
+                            </td>
+
+                            {/* 6. สถานะ */}
+                            <td className="py-3 px-3">
+                              {renderStatusBadge(derived_op_status, item.totalSessionsCount)}
+                            </td>
+
+                            {/* 7. การจัดการ */}
+                            <td className="py-3 px-3 text-center">
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleOpenDetail(displaySession);
+                                }}
+                                className="px-2.5 py-1 text-[11px] font-medium bg-[#1F1D1A] hover:bg-[#2A2723] text-[#ECE4D3] border border-[#4A443A] hover:border-[#7A7265] rounded-md transition-colors inline-flex items-center gap-1 cursor-pointer"
+                              >
+                                <span>รายละเอียด</span>
+                                <ChevronRight size={12} />
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Mobile Card View */}
+                <div className="md:hidden space-y-2.5">
+                  {filteredQueueBookings.map((item: any) => {
+                    const { booking, displaySession, derived_op_status } = item;
+                    const customerName = getCleanCustomerName(booking.customer_user_id);
+                    const customer = booking.customer_user_id ? customersMap.get(booking.customer_user_id) : null;
+                    const estimate = booking.estimate_request_id ? estimatesMap.get(booking.estimate_request_id) : null;
+                    const flashRes = booking.flash_reservation_id ? flashReservationsMap.get(booking.flash_reservation_id) : null;
+                    const isFlash = Boolean(booking.flash_reservation_id || estimate?.request_type === 'FLASH');
+                    
+                    const flashDesignObj = flashRes?.flash_designs || flashRes?.flash_design;
+                    const flashTitle = flashDesignObj?.title || flashRes?.flash_design_title;
+                    const flashImgUrl = flashDesignObj?.image_url || flashRes?.flash_design_image_url;
+                    const artworkTitle = booking.artwork_title || (flashTitle ? `ลาย Flash: ${flashTitle}` : (isFlash ? 'ลาย Flash' : 'งานสัก Custom'));
+                    const refImageSrc = flashImgUrl || booking.artwork_image_url || estimate?.reference_images?.[0] || null;
+
+                    const width = booking.width_cm ?? flashRes?.width_cm ?? flashDesignObj?.width_cm ?? estimate?.width_cm ?? null;
+                    const height = booking.height_cm ?? flashRes?.height_cm ?? flashDesignObj?.height_cm ?? estimate?.height_cm ?? null;
+                    const sizeCategory = getTattooSizeCategory(booking.size_tier || estimate?.estimated_size_tier, width, height, booking.size_text);
+                    const rawSizeText = booking.size_tier || estimate?.estimated_size_tier || booking.size_text || (sizeCategory ? `Size ${sizeCategory}` : null);
+                    const sizeDisplay = (width || height || booking.size_tier || estimate?.estimated_size_tier || sizeCategory)
+                      ? formatTattooSize(width, height, rawSizeText)
+                      : 'ไม่ระบุขนาด';
+
+                    const rawStyle = flashDesignObj?.style || flashRes?.flash_design_style || estimate?.style || estimate?.style_preference || booking.style_preference || '';
+                    const styleName = rawStyle ? rawStyle.replace(/\s*custom\s*/gi, '').trim() : 'ไม่ระบุสไตล์';
+                    const placement = booking.placement || flashRes?.placement || estimate?.placement || 'ไม่ระบุตำแหน่ง';
+
+                    return (
+                      <div
+                        key={`MOBILE-QUEUE-${booking.id}`}
+                        onClick={() => handleOpenDetail(displaySession)}
+                        className="bg-[#0E0D0C] border border-[#4A443A]/70 hover:border-[#7A7265] rounded-lg p-3.5 space-y-2.5 cursor-pointer transition-colors"
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <div className="flex items-center space-x-1.5">
+                              <span className="text-[10px] text-[#7A7265] font-mono font-semibold">
+                                #{booking.id.slice(0, 8).toUpperCase()}
+                              </span>
+                              <span className="font-semibold text-xs text-[#ECE4D3] truncate">{customerName}</span>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            {renderHealthAlertBadge(booking, estimate, customer)}
+                            {renderStatusBadge(derived_op_status, item.totalSessionsCount)}
+                          </div>
+                        </div>
+
+                        <div className="flex items-center space-x-3 pt-1 border-t border-[#4A443A]/40">
+                          <div className="w-11 h-11 rounded-lg bg-[#171512] border border-[#4A443A] overflow-hidden shrink-0">
+                            <CustomerReferenceImage src={refImageSrc} alt="รูปงาน" className="w-full h-full object-cover" />
+                          </div>
+                          <div className="min-w-0 flex-1 space-y-0.5">
+                            <h4 className="text-xs font-semibold text-[#ECE4D3] truncate">{artworkTitle}</h4>
+                            <p className="text-[11px] text-[#A89F91] truncate">
+                              {placement !== 'ไม่ระบุตำแหน่ง' ? `${placement} • ` : ''}ขนาด: {sizeDisplay}
+                            </p>
+                            <p className="text-[11px] text-[#7A7265] truncate">
+                              สไตล์: <span className="text-[#A89F91]">{styleName}</span>
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="pt-2 border-t border-[#4A443A]/40 flex items-center justify-between text-xs">
+                          <div className="flex items-center space-x-2 text-[#ECE4D3] font-mono text-[11px]">
+                            <CalendarIcon size={12} className="text-[#7A7265]" />
+                            <span>{formatDateBangkok(displaySession.start_at)}</span>
+                            <span className="text-[#7A7265]">•</span>
+                            <Clock size={11} className="text-[#7A7265]" />
+                            <span className="text-[#A89F91]">{formatTimeBangkok(displaySession.start_at)}</span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleOpenDetail(displaySession);
+                            }}
+                            className="px-2 py-0.5 text-[10px] font-semibold bg-[#1F1D1A] text-[#ECE4D3] border border-[#4A443A] rounded flex items-center gap-0.5"
+                          >
+                            <span>รายละเอียด</span>
+                            <ChevronRight size={10} />
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </>
+            )}
+          </div>
+        )}
       </main>
 
       {/* Mobile Bottom Nav */}
@@ -925,6 +1512,27 @@ export default function ArtistCalendarPage() {
         }}
         onRefresh={fetchArtistData}
       />
+
+      {/* Slip Lightbox */}
+      <PaymentSlipLightbox
+        isOpen={Boolean(activeLightboxSlipPath)}
+        src={activeLightboxSlipPath}
+        onClose={() => setActiveLightboxSlipPath(null)}
+      />
     </div>
+  );
+}
+
+export default function ArtistCalendarPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-[#0E0D0C] flex items-center justify-center font-prompt text-xs text-[#A89F91]">
+          <span className="animate-pulse">กำลังโหลดข้อมูลคิวงานและปฏิทิน...</span>
+        </div>
+      }
+    >
+      <ArtistCalendarPageContent />
+    </Suspense>
   );
 }

@@ -111,7 +111,7 @@ export default function ArtistRevenuePage() {
       // 1. Fetch bookings assigned to current artist
       const { data: dbBookings, error: bErr } = await supabase
         .from('bookings')
-        .select('id, artist_id, customer_user_id, estimate_request_id, flash_reservation_id, flash_design_id, status, appointment_date, created_at, requested_date, artwork_title, custom_work_title, style_preference, quoted_price')
+        .select('id, artist_id, customer_user_id, estimate_request_id, flash_reservation_id, status, created_at, requested_date, quoted_price')
         .eq('artist_id', activeArtistId);
 
       if (bErr) {
@@ -134,7 +134,7 @@ export default function ArtistRevenuePage() {
       // 2. Fetch RECORDED payments for current artist's bookings
       const { data: dbPayments, error: pErr } = await supabase
         .from('booking_payments')
-        .select('id, booking_id, amount, status, paid_at, payment_type, payment_method, verified_at, notes')
+        .select('id, booking_id, amount, status, paid_at, payment_type, payment_method, note')
         .in('booking_id', bookingIds)
         .eq('status', 'RECORDED')
         .order('paid_at', { ascending: false });
@@ -154,7 +154,7 @@ export default function ArtistRevenuePage() {
       if (estimateIds.length > 0) {
         const { data: dbEstimates } = await supabase
           .from('estimate_requests')
-          .select('id, artwork_title, style, style_preference, flash_design_id, request_type')
+          .select('id, style, request_type')
           .in('id', estimateIds);
         (dbEstimates || []).forEach((e: any) => estimatesMap.set(e.id, e));
       }
@@ -210,7 +210,6 @@ export default function ArtistRevenuePage() {
 
       // 5. Fetch linked flash designs for flash bookings
       const allFlashDesignIds = Array.from(new Set([
-        ...bookings.map((b: any) => b.flash_design_id).filter(Boolean),
         ...Array.from(estimatesMap.values()).map((e: any) => e.flash_design_id).filter(Boolean),
         ...flashDesignIdsFromRes.filter(Boolean)
       ]));
@@ -244,13 +243,13 @@ export default function ArtistRevenuePage() {
 
         const { data: cData } = await supabase
           .from('customers')
-          .select('user_id, display_name, first_name, last_name, email')
+          .select('user_id, display_name, email')
           .in('user_id', customerUserIds);
 
         (cData || []).forEach((c: any) => {
           if (c.user_id && !contactsMap.has(c.user_id)) {
             contactsMap.set(c.user_id, {
-              display_name: c.display_name || (c.first_name ? `${c.first_name} ${c.last_name || ''}`.trim() : c.email)
+              display_name: c.display_name || c.email
             });
           }
         });
@@ -428,7 +427,7 @@ export default function ArtistRevenuePage() {
   const artistName = staffArtistRecord?.name || profile?.display_name || 'ช่างประจำร้าน';
 
   return (
-    <div className="min-h-screen bg-studio-main text-studio-primary font-prompt flex flex-col pb-20 md:pb-10">
+    <div className="min-h-screen bg-studio-main text-studio-primary font-prompt flex flex-col md:pl-64 pb-20 md:pb-10">
       {/* Header */}
       <ArtistHeader />
 
@@ -438,7 +437,7 @@ export default function ArtistRevenuePage() {
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
             <div className="flex items-center space-x-2">
-              <span className="text-xs text-studio-red uppercase tracking-wider font-semibold">
+              <span className="text-xs text-studio-red-bright uppercase tracking-wider font-semibold">
                 Artist Portal
               </span>
               <span className="text-studio-muted text-xs">•</span>
@@ -447,7 +446,7 @@ export default function ArtistRevenuePage() {
               </span>
             </div>
             <h1 className="text-xl sm:text-2xl font-heading font-semibold text-studio-primary mt-1 flex items-center space-x-2">
-              <DollarSign className="text-studio-red" size={24} />
+              <DollarSign className="text-studio-red-bright" size={24} />
               <span>รายได้จากงานสัก</span>
             </h1>
           </div>
@@ -457,7 +456,7 @@ export default function ArtistRevenuePage() {
             disabled={loading}
             className="self-start sm:self-auto flex items-center space-x-1.5 px-3 py-1.5 bg-studio-card border border-studio-border hover:border-studio-red/50 text-xs text-studio-secondary hover:text-studio-primary rounded-lg transition-colors cursor-pointer disabled:opacity-50"
           >
-            <RefreshCw size={13} className={loading ? 'animate-spin text-studio-red' : ''} />
+            <RefreshCw size={13} className={loading ? 'animate-spin text-studio-red-bright' : ''} />
             <span>อัปเดตข้อมูล</span>
           </button>
         </div>
@@ -512,7 +511,7 @@ export default function ArtistRevenuePage() {
           {/* Section Title & Filter Buttons */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-studio-border/60 pb-3">
             <div className="flex items-center space-x-2">
-              <div className="w-2.5 h-2.5 rounded-full bg-studio-red" />
+              <div className="w-2.5 h-2.5 rounded-full bg-studio-red-bright" />
               <h2 className="text-base sm:text-lg font-heading font-semibold text-studio-primary">
                 ประวัติรายได้ ({filteredJobRecords.length})
               </h2>
@@ -571,7 +570,7 @@ export default function ArtistRevenuePage() {
                 onClick={() => fetchArtistRevenue()}
                 className="inline-flex items-center space-x-2 px-4 py-2 bg-studio-card border border-studio-border hover:border-studio-red/50 text-xs text-studio-primary rounded-lg transition-colors cursor-pointer"
               >
-                <RefreshCw size={14} className="text-studio-red" />
+                <RefreshCw size={14} className="text-studio-red-bright" />
                 <span>อัปเดตข้อมูลอีกครั้ง</span>
               </button>
             </div>

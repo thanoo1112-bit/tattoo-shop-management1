@@ -63,10 +63,10 @@ export default function AdminHeader() {
           </Link>
           <Link
             href="/admin/requests"
-            className="relative text-[#A89F91] hover:text-[#9C2F2F] p-1.5 transition-colors"
+            className="relative text-[#A89F91] hover:text-studio-red-bright p-1.5 transition-colors"
             title="การแจ้งเตือน"
           >
-            <Bell size={18} className={pendingDepositsCount > 0 ? 'text-[#9C2F2F]' : 'text-[#A89F91]'} />
+            <Bell size={18} className={pendingDepositsCount > 0 ? 'text-studio-red-bright' : 'text-[#A89F91]'} />
             {pendingDepositsCount > 0 && (
               <span className="absolute top-0.5 right-0.5 min-w-[16px] h-4 px-1 bg-[#9C2F2F] text-[#ECE4D3] text-[9px] font-bold rounded-full flex items-center justify-center ring-2 ring-[#0E0D0C] animate-pulse">
                 {pendingDepositsCount}
@@ -86,11 +86,11 @@ export default function AdminHeader() {
                 href={item.href}
                 className={`flex items-center space-x-3 px-4 py-3 text-xs xl:text-sm transition-colors ${
                   active
-                    ? 'border-l-4 border-[#9C2F2F] text-[#ECE4D3] bg-[#171512] font-semibold'
+                    ? 'border-l-4 border-studio-red-base text-[#ECE4D3] bg-[#171512] font-semibold'
                     : 'border-l-4 border-transparent text-[#A89F91] hover:text-[#ECE4D3] hover:bg-[#171512]/60 font-medium'
                 }`}
               >
-                <Icon size={18} className={active ? 'text-[#9C2F2F]' : 'text-[#7A7265]'} />
+                <Icon size={18} className={active ? 'text-studio-red-bright' : 'text-[#7A7265]'} />
                 <span>{item.name}</span>
                 {item.name === 'คำขอ' && pendingDepositsCount > 0 && (
                   <span className="ml-auto bg-[#9C2F2F] text-[#ECE4D3] text-[10px] font-bold px-2 py-0.5 rounded-full">
@@ -106,7 +106,7 @@ export default function AdminHeader() {
         <div className="border-t border-[#4A443A]/60 p-4 space-y-3 shrink-0 bg-[#0E0D0C]">
           {/* Admin Profile Info */}
           <div className="flex items-center space-x-2.5 py-1 px-2">
-            <div className="w-8 h-8 rounded-full bg-[#9C2F2F]/15 border border-[#9C2F2F]/30 flex items-center justify-center text-[#9C2F2F] shrink-0">
+            <div className="w-8 h-8 rounded-full bg-[#9C2F2F]/15 border border-[#9C2F2F]/30 flex items-center justify-center text-studio-red-bright shrink-0">
               <ShieldCheck size={16} />
             </div>
             <div className="min-w-0 flex-1">
@@ -121,7 +121,7 @@ export default function AdminHeader() {
           <button
             type="button"
             onClick={logoutStaff}
-            className="w-full flex items-center space-x-2.5 text-xs text-[#7A7265] hover:text-[#9C2F2F] py-2 px-2 rounded hover:bg-[#9C2F2F]/10 transition-colors font-medium text-left"
+            className="w-full flex items-center space-x-2.5 text-xs text-[#7A7265] hover:text-studio-red-bright py-2 px-2 rounded hover:bg-[#9C2F2F]/10 transition-colors font-medium text-left"
             title="ออกจากระบบ"
           >
             <LogOut size={16} />
@@ -137,7 +137,7 @@ export default function AdminHeader() {
         <Link href="/admin/dashboard" className="flex items-center space-x-2">
           <span className="text-lg font-heading tracking-[0.1em] text-[#ECE4D3]">157</span>
           <span className="text-lg font-heading tracking-[0.1em] text-[#9C2F2F]">TATTOO</span>
-          <span className="text-[9px] bg-[#9C2F2F]/15 text-[#9C2F2F] border border-[#9C2F2F]/30 px-1.5 py-0.5 rounded font-bold uppercase tracking-widest">
+          <span className="text-[9px] bg-[#9C2F2F]/15 text-studio-red-bright border border-[#9C2F2F]/30 px-1.5 py-0.5 rounded font-bold uppercase tracking-widest">
             {staffRole || 'ADMIN'}
           </span>
         </Link>
@@ -145,7 +145,7 @@ export default function AdminHeader() {
         <div className="flex items-center space-x-3">
           <Link
             href="/admin/requests"
-            className="relative text-[#A89F91] hover:text-[#9C2F2F] p-1.5"
+            className="relative text-[#A89F91] hover:text-studio-red-bright p-1.5"
             title="การแจ้งเตือน"
           >
             <Bell size={18} />
@@ -157,7 +157,7 @@ export default function AdminHeader() {
           <div className="flex items-center space-x-2 border-l border-[#4A443A] pl-3">
             <button
               onClick={logoutStaff}
-              className="text-[#A89F91] hover:text-[#9C2F2F] p-1.5 flex items-center space-x-1"
+              className="text-[#A89F91] hover:text-studio-red-bright p-1.5 flex items-center space-x-1"
               title="ออกจากระบบ"
             >
               <LogOut size={16} />

@@ -25,9 +25,30 @@ import {
   Sparkles
 } from 'lucide-react';
 import { formatCustomerAgeDisplay } from '@/lib/customerUtils';
+import { getDepositDeadlineInfo } from '@/components/portal/portalUtils';
+
+function isDepositExpired(booking?: any, estimate?: any): boolean {
+  const status = booking?.status || estimate?.status;
+  if (!status) return false;
+
+  if (status === 'EXPIRED') return true;
+
+  if (status === 'WAITING_DEPOSIT' || status === 'PENDING_DEPOSIT') {
+    const approvedAt = booking?.approved_at || estimate?.accepted_at || estimate?.quoted_at;
+    const createdAt = booking?.created_at || estimate?.created_at;
+    const requestedDate = booking?.requested_date || estimate?.preferred_date;
+    const requestedStartTime = booking?.requested_start_time || estimate?.preferred_time;
+
+    const dlInfo = getDepositDeadlineInfo(approvedAt, createdAt, requestedDate, requestedStartTime);
+    return dlInfo?.isExpired ?? false;
+  }
+
+  return false;
+}
 
 interface FormattedArtistCustomer {
-  user_id: string;
+  customer_id: string;
+  user_id: string | null;
   display_name: string;
   phone?: string | null;
   email?: string | null;
@@ -225,119 +246,61 @@ export default function ArtistCustomersPage() {
       const paymentSubmissions = dbSubmissions || [];
       const payments = dbPayments || [];
 
-      // Collect all distinct customer user IDs / customer IDs associated with this artist
-      const allCustomerUserIds = Array.from(
-        new Set([
-          ...bookings.map((b: any) => b.customer_user_id || b.customer_id),
-          ...estimates.map((e: any) => e.customer_user_id || e.customer_id),
-        ].filter(Boolean))
-      );
+      // 4. Fetch artist customers master list via RPC artist_list_customers()
+      const { data: artistCustomers, error: acRpcErr } = await supabase
+        .rpc('artist_list_customers');
 
-      if (allCustomerUserIds.length === 0) {
+      if (acRpcErr) {
+        console.error('Error fetching artist customers via artist_list_customers:', acRpcErr);
+      }
+
+      const masterCustomers = (artistCustomers || []) as Array<{
+        customer_id: string;
+        user_id: string | null;
+        display_name: string;
+        phone: string;
+        email: string | null;
+        date_of_birth: string | null;
+      }>;
+
+      if (masterCustomers.length === 0) {
         setCustomersList([]);
         hasLoadedOnceRef.current[currentArtistId] = true;
         lastLoadedArtistIdRef.current = currentArtistId;
         return;
       }
 
-      // 4. Fetch customer contact metadata via RPC (bypasses RLS restrictions for assigned artist customers)
-      let contactsMap = new Map<string, any>();
-      const { data: contactsData, error: cRpcErr } = await supabase
-        .rpc('artist_get_customer_contacts', {
-          p_customer_user_ids: allCustomerUserIds
-        });
-
-      if (cRpcErr) {
-        console.error('Error fetching artist customer contacts via RPC:', cRpcErr);
-      } else if (contactsData) {
-        contactsData.forEach((c: any) => {
-          if (c.user_id) contactsMap.set(c.user_id, c);
-        });
-      }
-
-      // Direct fallback queries for additional fields
-      const { data: cData, error: customersError } = await supabase
-        .from('customers')
-        .select('user_id, id, display_name, phone, email, date_of_birth, eligibility_confirmed_at, profile_completed_at')
-        .in('user_id', allCustomerUserIds);
-
-      if (customersError) {
-        console.error('[artist/customers] failed to load customer profiles', customersError);
-      }
-
-      const { data: pData } = await supabase
-        .from('profiles')
-        .select('user_id, display_name, email, phone')
-        .in('user_id', allCustomerUserIds);
-
-      const cMap = new Map<string, any>();
-      (cData || []).forEach((c: any) => {
-        if (c.user_id) cMap.set(c.user_id, c);
-        if (c.id) cMap.set(c.id, c);
-      });
-
-      const pMap = new Map<string, any>();
-      (pData || []).forEach((p: any) => {
-        if (p.user_id) pMap.set(p.user_id, p);
-      });
-
       const currentArtistName = staffArtistRecord?.name || staffArtistRecord?.nickname || 'ไม่ระบุช่าง';
 
       // Build customer models
-      const formattedCustomers: FormattedArtistCustomer[] = allCustomerUserIds.map((uid: string) => {
-        const contact = contactsMap.get(uid);
-        const c = cMap.get(uid);
-        const p = pMap.get(uid);
+      const formattedCustomers: FormattedArtistCustomer[] = masterCustomers.map((ac) => {
+        const uid = ac.user_id;
+        const cid = ac.customer_id;
 
         // Filter work history for this customer strictly for this artist
-        const custBookings = bookings.filter((b: any) => b.customer_user_id === uid || b.customer_id === uid);
-        const custEstimates = estimates.filter((e: any) => e.customer_user_id === uid || e.customer_id === uid);
+        const custBookings = bookings.filter((b: any) => 
+          (uid && b.customer_user_id === uid) || (cid && b.customer_id === cid)
+        );
+        const custEstimates = estimates.filter((e: any) => 
+          (uid && e.customer_user_id === uid) || (cid && e.customer_id === cid)
+        );
         const custBookingIds = new Set(custBookings.map((b: any) => b.id));
         const custSessions = sessions.filter((s: any) => custBookingIds.has(s.booking_id));
 
-        // 1. Resolve Display Name in order of fallback
-        const rpcName = contact?.display_name;
-        const profileName = p?.display_name;
-        const customerName = c?.display_name || null;
-        const requestName = custEstimates.find((e: any) => e.customer_name || e.contact_name)?.customer_name || custEstimates.find((e: any) => e.contact_name)?.contact_name;
-        const bookingName = custBookings.find((b: any) => b.customer_name || b.contact_name)?.customer_name || custBookings.find((b: any) => b.contact_name)?.contact_name;
+        // 1. Resolve Display Name
+        const displayName = ac.display_name || 'ไม่ระบุชื่อ';
 
-        let displayName = 'ไม่ระบุชื่อ';
-        const candidates = [rpcName, profileName, customerName, requestName, bookingName].filter(Boolean);
-        const validCandidate = candidates.find((n) => n !== 'ลูกค้าประจำ' && n !== 'ลูกค้า 157 TATTOO' && n !== 'ลูกค้าทั่วไป' && n !== 'ลูกค้า (ไม่ระบุชื่อ)');
+        // 2. Resolve Phone
+        const phone = ac.phone || null;
 
-        if (validCandidate) {
-          displayName = validCandidate;
-        } else {
-          const emailCandidate = p?.email || c?.email || custEstimates.find((e: any) => e.email)?.email || custBookings.find((b: any) => b.customer_email)?.customer_email;
-          if (emailCandidate && emailCandidate.includes('@')) {
-            const prefix = emailCandidate.split('@')[0];
-            if (prefix && prefix !== 'ลูกค้าประจำ') {
-              displayName = prefix;
-            }
-          }
-        }
+        // 3. Resolve Email
+        const email = ac.email || null;
 
-        // 2. Resolve Phone in order of fallback
-        const rpcPhone = contact?.phone;
-        const profilePhone = p?.phone;
-        const customerPhone = c?.phone;
-        const requestPhone = custEstimates.map((e: any) => e.phone || e.contact_phone || e.customer_phone).find(Boolean);
-        const bookingPhone = custBookings.map((b: any) => b.customer_phone || b.contact_phone || b.phone).find(Boolean);
-        const sessionPhone = custSessions.map((s: any) => s.customer_phone || s.phone).find(Boolean);
+        // 4. Resolve Date of Birth
+        const dateOfBirth = ac.date_of_birth || null;
 
-        const phone = rpcPhone || profilePhone || customerPhone || requestPhone || bookingPhone || sessionPhone || null;
-
-        // 3. Resolve Email in order of fallback
-        const rpcEmail = contact?.email;
-        const estEmail = custEstimates.map((e: any) => e.email || e.customer_email || e.contact_email).find(Boolean);
-        const bookEmail = custBookings.map((b: any) => b.customer_email || b.email || b.contact_email).find(Boolean);
-        const sessEmail = custSessions.map((s: any) => s.customer_email || s.email).find(Boolean);
-
-        const email = rpcEmail || p?.email || c?.email || estEmail || bookEmail || sessEmail || null;
-
-        // 4. Age / Health confirmation status
-        const isAgeConfirmed = Boolean(c?.eligibility_confirmed_at || c?.profile_completed_at);
+        // 5. Age / Health confirmation status
+        const isAgeConfirmed = false;
 
         // 5. Calculate confirmed/approved jobs matching Admin isConfirmedWork rule
         const approvedBookingIds = new Set<string>();
@@ -355,14 +318,16 @@ export default function ArtistCustomersPage() {
           return isConfirmedStatus || hasApprovedSubmission;
         });
 
-        // Calculate pending deposits
+        // Calculate pending deposits (excluding expired deposits)
         const pendingDepositBookings = custBookings.filter((b: any) => {
           const dep = Number(b.deposit_required || 0);
           const isPaid = b.is_deposit_paid || b.status === 'CONFIRMED' || b.status === 'IN_PROGRESS' || b.status === 'COMPLETED';
+          if (isDepositExpired(b)) return false;
           return (dep > 0 && !isPaid) || b.status === 'PENDING_DEPOSIT' || b.status === 'WAITING_DEPOSIT';
         });
         const pendingDepositEstimates = custEstimates.filter((e: any) => {
           const dep = Number(e.deposit_required || 0);
+          if (isDepositExpired(null, e)) return false;
           return e.status === 'WAITING_DEPOSIT' || (dep > 0 && e.status === 'QUOTED');
         });
         const pendingDepositsCount = pendingDepositBookings.length + pendingDepositEstimates.length;
@@ -427,13 +392,14 @@ export default function ArtistCustomersPage() {
         }
 
         return {
+          customer_id: cid,
           user_id: uid,
           display_name: displayName,
           phone,
           email,
-          date_of_birth: c?.date_of_birth ?? custEstimates.find((e: any) => e.date_of_birth)?.date_of_birth ?? custBookings.find((b: any) => b.date_of_birth)?.date_of_birth ?? null,
-          medical_conditions: custEstimates.find((e: any) => e.medical_condition_note)?.medical_condition_note || c?.medical_condition_note || null,
-          allergies: custEstimates.find((e: any) => e.allergy_note)?.allergy_note || c?.allergy_note || null,
+          date_of_birth: dateOfBirth,
+          medical_conditions: custEstimates.find((e: any) => e.medical_condition_note)?.medical_condition_note || null,
+          allergies: custEstimates.find((e: any) => e.allergy_note)?.allergy_note || null,
           is_age_confirmed: isAgeConfirmed,
           bookings_count: confirmedJobBookings.length,
           pending_deposits_count: pendingDepositsCount,
@@ -450,8 +416,8 @@ export default function ArtistCustomersPage() {
           bookings: custBookings,
           sessions: custSessions,
           estimates: custEstimates,
-          flashReservations: flashReservations.filter((fr: any) => fr.customer_user_id === uid || fr.customer_id === uid),
-          paymentSubmissions: paymentSubmissions.filter((sub: any) => custBookingIds.has(sub.booking_id) || sub.customer_user_id === uid),
+          flashReservations: flashReservations.filter((fr: any) => (uid && fr.customer_user_id === uid) || (cid && fr.customer_id === cid)),
+          paymentSubmissions: paymentSubmissions.filter((sub: any) => custBookingIds.has(sub.booking_id) || (uid && sub.customer_user_id === uid)),
           payments: payments.filter((p: any) => custBookingIds.has(p.booking_id)),
           staffArtistName: currentArtistName,
         };
@@ -505,6 +471,7 @@ export default function ArtistCustomersPage() {
 
   const handleOpenDetail = (cust: FormattedArtistCustomer) => {
     setSelectedCustomerDetail({
+      customer_id: cust.customer_id,
       user_id: cust.user_id,
       display_name: cust.display_name,
       phone: cust.phone,
@@ -535,34 +502,36 @@ export default function ArtistCustomersPage() {
   const artistName = staffArtistRecord?.name || profile?.display_name || 'ช่างประจำร้าน';
 
   return (
-    <div className="min-h-screen bg-studio-main text-studio-primary font-prompt flex flex-col pb-20 md:pb-10">
+    <div className="min-h-screen bg-studio-main text-studio-primary font-prompt flex flex-col md:pl-64 pb-20 md:pb-10">
       {/* Header */}
       <ArtistHeader />
 
       {/* Main Content */}
       <main className="flex-1 max-w-[1600px] w-full mx-auto px-4 sm:px-6 md:px-10 xl:px-12 py-6 md:py-8 space-y-6 md:space-y-8">
-        {/* Title & Refresh */}
+        {/* Title & Actions */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
             <div className="flex items-center space-x-2">
-              <span className="text-xs text-studio-red uppercase tracking-wider font-semibold">
+              <span className="text-xs text-studio-red-bright uppercase tracking-wider font-semibold">
                 ARTIST PORTAL • {artistName}
               </span>
             </div>
             <h1 className="text-xl sm:text-2xl font-heading font-semibold text-studio-primary mt-1 flex items-center space-x-2">
-              <Users className="text-studio-red" size={24} />
+              <Users className="text-studio-red-bright" size={24} />
               <span>ลูกค้าของฉัน ({customersList.length})</span>
             </h1>
           </div>
 
-          <button
-            onClick={() => fetchMyCustomers()}
-            disabled={initialLoading || isRefreshing}
-            className="self-start sm:self-auto flex items-center space-x-1.5 px-3 py-1.5 bg-studio-card border border-studio-border hover:border-studio-red/50 text-xs text-studio-secondary hover:text-studio-primary rounded-lg transition-colors cursor-pointer disabled:opacity-50"
-          >
-            <RefreshCw size={13} className={isRefreshing || initialLoading ? 'animate-spin text-studio-red' : ''} />
-            <span>{isRefreshing ? 'กำลังอัปเดต...' : 'อัปเดตข้อมูล'}</span>
-          </button>
+          <div className="flex items-center space-x-2.5 self-start sm:self-auto">
+            <button
+              onClick={() => fetchMyCustomers()}
+              disabled={initialLoading || isRefreshing}
+              className="flex items-center space-x-1.5 px-3 py-1.5 bg-studio-card border border-studio-border hover:border-studio-red/50 text-xs text-studio-secondary hover:text-studio-primary rounded-lg transition-colors cursor-pointer disabled:opacity-50"
+            >
+              <RefreshCw size={13} className={isRefreshing || initialLoading ? 'animate-spin text-studio-red-bright' : ''} />
+              <span>{isRefreshing ? 'กำลังอัปเดต...' : 'อัปเดตข้อมูล'}</span>
+            </button>
+          </div>
         </div>
 
         {/* Search Bar & Filters */}
@@ -596,7 +565,7 @@ export default function ArtistCustomersPage() {
                 onClick={() => setIsStatusDropdownOpen((prev) => !prev)}
                 className="h-[38px] px-3 bg-studio-card border border-studio-border hover:border-studio-secondary rounded-lg text-xs font-medium text-studio-primary flex items-center space-x-2 transition-colors outline-none cursor-pointer"
               >
-                <span className="w-1.5 h-1.5 rounded-full bg-studio-red" />
+                <span className="w-1.5 h-1.5 rounded-full bg-studio-red-bright" />
                 <span>
                   {selectedStatusFilter === 'ALL' && 'สถานะทั้งหมด'}
                   {selectedStatusFilter === 'HAS_NEXT' && 'มีคิวถัดไป'}
@@ -629,7 +598,7 @@ export default function ArtistCustomersPage() {
                     >
                       <span>{item.label}</span>
                       {selectedStatusFilter === item.id && (
-                        <Check size={13} className="text-studio-red" />
+                        <Check size={13} className="text-studio-red-bright" />
                       )}
                     </button>
                   ))}
@@ -644,7 +613,7 @@ export default function ArtistCustomersPage() {
                 onClick={() => setIsSortDropdownOpen((prev) => !prev)}
                 className="h-[38px] px-3 bg-studio-card border border-studio-border hover:border-studio-secondary rounded-lg text-xs font-medium text-studio-primary flex items-center space-x-2 transition-colors outline-none cursor-pointer"
               >
-                <ArrowUpDown size={13} className="text-studio-red" />
+                <ArrowUpDown size={13} className="text-studio-red-bright" />
                 <span>{sortOrder === 'latest' ? 'ล่าสุด' : 'ตามชื่อ ก-ฮ'}</span>
                 <ChevronDown size={13} className="text-studio-muted" />
               </button>
@@ -662,7 +631,7 @@ export default function ArtistCustomersPage() {
                     }`}
                   >
                     <span>ล่าสุด</span>
-                    {sortOrder === 'latest' && <Check size={13} className="text-studio-red" />}
+                    {sortOrder === 'latest' && <Check size={13} className="text-studio-red-bright" />}
                   </button>
                   <button
                     type="button"
@@ -675,7 +644,7 @@ export default function ArtistCustomersPage() {
                     }`}
                   >
                     <span>ตามชื่อ ก-ฮ</span>
-                    {sortOrder === 'alphabetical' && <Check size={13} className="text-studio-red" />}
+                    {sortOrder === 'alphabetical' && <Check size={13} className="text-studio-red-bright" />}
                   </button>
                 </div>
               )}
@@ -724,7 +693,7 @@ export default function ArtistCustomersPage() {
                       const phoneFormatted = cust.phone ? formatThaiPhoneForDisplay(cust.phone) : '-';
                       return (
                         <tr
-                          key={cust.user_id}
+                          key={cust.customer_id || cust.user_id}
                           onClick={() => handleOpenDetail(cust)}
                           className="h-[68px] hover:bg-studio-sec/40 transition-colors cursor-pointer group"
                         >
@@ -769,7 +738,7 @@ export default function ArtistCustomersPage() {
                           <td className="py-3 px-4">
                             {cust.nextAppointment ? (
                               <div className="flex items-center space-x-1.5">
-                                <span className="w-1.5 h-1.5 rounded-full bg-studio-red shrink-0" />
+                                <span className="w-1.5 h-1.5 rounded-full bg-studio-red-bright shrink-0" />
                                 <div>
                                   <span className="font-mono text-studio-primary block font-semibold">
                                     {formatDateBangkok(cust.nextAppointment.date)}
@@ -818,7 +787,7 @@ export default function ArtistCustomersPage() {
                 const phoneFormatted = cust.phone ? formatThaiPhoneForDisplay(cust.phone) : 'ไม่ระบุเบอร์';
                 return (
                   <div
-                    key={cust.user_id}
+                    key={cust.customer_id || cust.user_id}
                     onClick={() => handleOpenDetail(cust)}
                     className="p-4 bg-studio-card border border-studio-border hover:border-studio-red/40 rounded-xl space-y-3 cursor-pointer shadow-md transition-all"
                   >
@@ -862,7 +831,7 @@ export default function ArtistCustomersPage() {
                       {cust.nextAppointment ? (
                         <>
                           <div>
-                            <span className="text-[9px] text-studio-red font-bold block uppercase">
+                            <span className="text-[9px] text-studio-red-bright font-bold block uppercase">
                               นัดหมายถัดไป:
                             </span>
                             <span className="font-mono text-studio-primary text-xs font-semibold">

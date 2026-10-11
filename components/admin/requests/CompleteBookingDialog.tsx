@@ -131,7 +131,7 @@ export function CompleteBookingDialog({
 
       if (error) {
         console.error('[CompleteBookingDialog] RPC error:', error);
-        setErrorMessage(mapServerCompletionError(error.message));
+        setErrorMessage(mapServerCompletionError(error.message, (error as any).code));
         setIsSubmitting(false);
         return;
       }
@@ -140,7 +140,7 @@ export function CompleteBookingDialog({
       onClose();
     } catch (err: any) {
       console.error('[CompleteBookingDialog] Execution error:', err);
-      setErrorMessage(mapServerCompletionError(err.message || 'เกิดข้อผิดพลาดในการบันทึกข้อมูล'));
+      setErrorMessage(mapServerCompletionError(err.message || 'เกิดข้อผิดพลาดในการบันทึกข้อมูล', err.code));
     } finally {
       setIsSubmitting(false);
     }

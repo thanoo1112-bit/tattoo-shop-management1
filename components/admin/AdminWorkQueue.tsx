@@ -6,10 +6,11 @@ import { useApp } from '@/components/AppContext';
 import AdminHeader from './AdminHeader';
 import AdminMobileBottomNav from './AdminMobileBottomNav';
 import BookingDetailPanel from './requests/BookingDetailPanel';
-import { fetchWorkQueueBookings } from './requests/bookingHydration';
+import { fetchWorkQueueBookings, getActiveQueueSessionDateTime } from './requests/bookingHydration';
 import { BookingItem } from './requests/types';
 import { formatDateBangkok, formatTimeBangkok } from '@/components/admin/calendar/calendarUtils';
 import { formatTattooSize } from '@/lib/utils/formatters';
+import CustomerReferenceImage from '@/components/common/CustomerReferenceImage';
 import {
   CalendarCheck,
   Search,
@@ -18,12 +19,14 @@ import {
   User,
   CheckCircle2,
   AlertCircle,
+  AlertTriangle,
   XCircle,
   Play,
   Layers,
   Sparkles,
   ChevronRight,
   Calendar,
+  Image as ImageIcon,
 } from 'lucide-react';
 
 interface AdminWorkQueueProps {
@@ -32,7 +35,7 @@ interface AdminWorkQueueProps {
 
 export default function AdminWorkQueue({ embedded = false }: AdminWorkQueueProps = {}) {
   const { staffRole } = useApp();
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
 
   const [loading, setLoading] = useState(true);
   const [workQueueBookings, setWorkQueueBookings] = useState<BookingItem[]>([]);
@@ -53,18 +56,16 @@ export default function AdminWorkQueue({ embedded = false }: AdminWorkQueueProps
       setArtists(res.artists || []);
       setBlockedDates(res.blockedDates || []);
 
-      if (selectedBooking) {
-        const updated = (res.workQueueBookings || []).find((b) => b.id === selectedBooking.id);
-        if (updated) {
-          setSelectedBooking(updated);
-        }
-      }
+      setSelectedBooking((prev) => {
+        if (!prev) return null;
+        return (res.workQueueBookings || []).find((b) => b.id === prev.id) || prev;
+      });
     } catch (err) {
       console.error('[AdminWorkQueue] Error loading work queue bookings:', err);
     } finally {
       setLoading(false);
     }
-  }, [supabase, selectedBooking]);
+  }, [supabase]);
 
   useEffect(() => {
     let isMounted = true;
@@ -78,22 +79,30 @@ export default function AdminWorkQueue({ embedded = false }: AdminWorkQueueProps
   // 'confirmed' includes both CONFIRMED and IN_PROGRESS
   const statusCounts = useMemo(() => {
     let confirmedCount = 0;
+    let sessionsCount = 0;
     let completedCount = 0;
     let cancelledCount = 0;
 
     workQueueBookings.forEach((b) => {
-      if (b.status === 'CONFIRMED' || b.status === 'IN_PROGRESS') {
-        confirmedCount++;
-      } else if (b.status === 'COMPLETED') {
+      const isMulti = Boolean(
+        (b.sessions && b.sessions.length > 1) ||
+        (b.sessions && b.sessions.some(s => (s.session_number || 1) >= 2))
+      );
+      if (b.status === 'COMPLETED') {
         completedCount++;
       } else if (b.status === 'CANCELLED' || b.status === 'REJECTED') {
         cancelledCount++;
+      } else if (isMulti) {
+        sessionsCount++;
+      } else {
+        confirmedCount++;
       }
     });
 
     return {
       all: workQueueBookings.length,
       confirmed: confirmedCount,
+      sessions: sessionsCount,
       completed: completedCount,
       cancelled: cancelledCount,
     };
@@ -103,6 +112,7 @@ export default function AdminWorkQueue({ embedded = false }: AdminWorkQueueProps
   const filterPills = [
     { id: 'ALL', label: `ทั้งหมด (${statusCounts.all})` },
     { id: 'CONFIRMED', label: `นัดหมายแล้ว (${statusCounts.confirmed})` },
+    { id: 'SESSIONS', label: `รอบนัด (${statusCounts.sessions})` },
     { id: 'COMPLETED', label: `งานเสร็จสิ้น (${statusCounts.completed})` },
     { id: 'CANCELLED', label: `ยกเลิก (${statusCounts.cancelled})` },
   ];
@@ -113,8 +123,15 @@ export default function AdminWorkQueue({ embedded = false }: AdminWorkQueueProps
 
     return workQueueBookings.filter((b) => {
       // 1. Tab Filter
+      const isMulti = Boolean(
+        (b.sessions && b.sessions.length > 1) ||
+        (b.sessions && b.sessions.some(s => (s.session_number || 1) >= 2))
+      );
+
       if (statusFilter === 'CONFIRMED') {
-        if (b.status !== 'CONFIRMED' && b.status !== 'IN_PROGRESS') return false;
+        if ((b.status !== 'CONFIRMED' && b.status !== 'IN_PROGRESS') || isMulti) return false;
+      } else if (statusFilter === 'SESSIONS') {
+        if (!isMulti || b.status === 'COMPLETED' || b.status === 'CANCELLED' || b.status === 'REJECTED') return false;
       } else if (statusFilter === 'COMPLETED') {
         if (b.status !== 'COMPLETED') return false;
       } else if (statusFilter === 'CANCELLED') {
@@ -134,38 +151,64 @@ export default function AdminWorkQueue({ embedded = false }: AdminWorkQueueProps
   }, [workQueueBookings, statusFilter, searchQuery]);
 
   // Render Status Badge
-  const renderStatusBadge = (status: string) => {
-    switch (status) {
-      case 'IN_PROGRESS':
-        return (
-          <span className="bg-amber-950/60 text-amber-400 border border-amber-800/60 px-2 py-0.5 rounded text-[10px] font-semibold inline-flex items-center gap-1">
-            <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
-            <span>กำลังสัก</span>
-          </span>
-        );
-      case 'COMPLETED':
-        return (
-          <span className="bg-emerald-950/60 text-emerald-400 border border-emerald-800/60 px-2 py-0.5 rounded text-[10px] font-semibold inline-flex items-center gap-1">
-            <CheckCircle2 size={11} className="text-emerald-400" />
-            <span>งานเสร็จสิ้น</span>
-          </span>
-        );
-      case 'CANCELLED':
-      case 'REJECTED':
-        return (
-          <span className="bg-zinc-900/90 text-zinc-400 border border-zinc-700/80 px-2 py-0.5 rounded text-[10px] font-semibold">
-            {status === 'REJECTED' ? 'ปฏิเสธ' : 'ยกเลิก'}
-          </span>
-        );
-      case 'CONFIRMED':
-      default:
-        return (
-          <span className="bg-blue-950/60 text-blue-400 border border-blue-800/60 px-2 py-0.5 rounded text-[10px] font-semibold">
-            นัดหมายแล้ว
-          </span>
-        );
+  const renderStatusBadge = (book: BookingItem) => {
+    const isMultiSession = Boolean(
+      (book.sessions && book.sessions.length > 1) ||
+      (book.sessions && book.sessions.some(s => (s.session_number || 1) >= 2))
+    );
+    const status = book.status;
+    const isCompleted = status === 'COMPLETED';
+    const isCancelled = status === 'CANCELLED' || status === 'REJECTED';
+
+    if (isCompleted) {
+      return (
+        <span className="bg-emerald-950/60 text-emerald-400 border border-emerald-800/60 px-2 py-0.5 rounded text-[10px] font-semibold inline-flex items-center gap-1">
+          <CheckCircle2 size={11} className="text-emerald-400" />
+          <span>งานเสร็จสิ้น</span>
+        </span>
+      );
     }
+    if (isCancelled) {
+      return (
+        <span className="bg-zinc-900/90 text-zinc-400 border border-zinc-700/80 px-2 py-0.5 rounded text-[10px] font-semibold">
+          {status === 'REJECTED' ? 'ปฏิเสธ' : 'ยกเลิก'}
+        </span>
+      );
+    }
+    if (isMultiSession) {
+      return (
+        <span className="bg-amber-950/60 text-amber-400 border border-amber-800/60 px-2 py-0.5 rounded text-[10px] font-semibold">
+          รอบนัด
+        </span>
+      );
+    }
+    if (status === 'IN_PROGRESS') {
+      return (
+        <span className="bg-amber-950/60 text-amber-400 border border-amber-800/60 px-2 py-0.5 rounded text-[10px] font-semibold inline-flex items-center gap-1">
+          <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+          <span>กำลังสัก</span>
+        </span>
+      );
+    }
+    return (
+      <span className="bg-blue-950/60 text-blue-400 border border-blue-800/60 px-2 py-0.5 rounded text-[10px] font-semibold">
+        นัดหมายแล้ว
+      </span>
+    );
   };
+
+  const formatQueueTime = useCallback((rawTime?: string | null) => {
+    if (!rawTime) return '';
+    if (rawTime.includes('T')) {
+      return formatTimeBangkok(rawTime);
+    }
+    const clean = rawTime.replace(' น.', '').trim();
+    const parts = clean.split(':');
+    if (parts.length >= 2) {
+      return `${parts[0].padStart(2, '0')}:${parts[1].padStart(2, '0')} น.`;
+    }
+    return rawTime;
+  }, []);
 
   const queueContent = (
     <div className="space-y-4 font-prompt">
@@ -219,7 +262,7 @@ export default function AdminWorkQueue({ embedded = false }: AdminWorkQueueProps
           {/* Content List: Compact Table / Mobile Cards */}
           {loading ? (
             <div className="py-12 text-center border border-dashed border-[#4A443A]/60 rounded-lg bg-[#0E0D0C]/40 space-y-2">
-              <RefreshCw size={24} className="animate-spin text-[#9C2F2F] mx-auto" />
+              <RefreshCw size={24} className="animate-spin text-studio-red-bright mx-auto" />
               <p className="text-xs text-[#A89F91]">กำลังโหลดข้อมูลคิวงาน...</p>
             </div>
           ) : filteredBookings.length === 0 ? (
@@ -239,21 +282,24 @@ export default function AdminWorkQueue({ embedded = false }: AdminWorkQueueProps
                 <table className="w-full text-left text-xs text-[#ECE4D3]">
                   <thead className="bg-[#0E0D0C] text-[#7A7265] uppercase text-[10px] tracking-wider border-b border-[#4A443A]">
                     <tr>
-                      <th className="py-3 px-3">รหัสคิว</th>
-                      <th className="py-3 px-3">วัน / เวลานัดหมาย</th>
-                      <th className="py-3 px-3">ลูกค้า</th>
-                      <th className="py-3 px-3">ช่างสัก</th>
-                      <th className="py-3 px-3">ลายสัก / ตำแหน่ง / ขนาด</th>
+                      <th className="py-3 px-3">รหัส / ลูกค้า</th>
+                      <th className="py-3 px-3">งานที่จองและขนาด</th>
+                      <th className="py-3 px-3">ช่างสัก / สไตล์</th>
+                      <th className="py-3 px-3">วันและเวลานัดหมาย</th>
+                      <th className="py-3 px-3 text-center">แจ้งเตือนสุขภาพ</th>
                       <th className="py-3 px-3">สถานะ</th>
-                      <th className="py-3 px-3 text-center">จัดการ</th>
+                      <th className="py-3 px-3 text-center">การจัดการ</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[#4A443A]/50">
                     {filteredBookings.map((b) => {
                       const isSelected = selectedBooking?.id === b.id;
                       const isInactive = b.status === 'CANCELLED' || b.status === 'REJECTED';
-                      const dateDisplay = b.requested_date ? formatDateBangkok(b.requested_date, true) : 'ไม่ระบุวัน';
-                      const timeDisplay = b.requested_start_time ? formatTimeBangkok(b.requested_start_time) : '';
+                      const { displayDate, displayTime } = getActiveQueueSessionDateTime(b);
+                      const dateDisplay = displayDate ? formatDateBangkok(displayDate, true) : 'ไม่ระบุวัน';
+                      const timeDisplay = formatQueueTime(displayTime);
+                      const hasHealthAlert = Boolean(b.has_medical_condition || b.has_allergy);
+                      const isFlash = Boolean(b.flash_reservation_id || b.work_type === 'FLASH');
 
                       return (
                         <tr
@@ -267,48 +313,106 @@ export default function AdminWorkQueue({ embedded = false }: AdminWorkQueueProps
                               : 'hover:bg-[#0E0D0C]/70'
                           }`}
                         >
-                          <td className="py-3 px-3 font-mono font-bold text-[#9C2F2F]">
-                            #{b.id.slice(0, 8)}
+                          {/* 1. รหัส / ลูกค้า */}
+                          <td className="py-3 px-3">
+                            {isFlash && (
+                              <div className="flex items-center gap-1.5 mb-1">
+                                <span className={isInactive ? "bg-zinc-900/90 text-zinc-400 border border-zinc-800 px-2 py-0.5 rounded text-[10px] font-semibold inline-flex items-center gap-1 shadow-xs" : "bg-amber-500/20 text-amber-300 border border-amber-500/40 px-2 py-0.5 rounded text-[10px] font-semibold inline-flex items-center gap-1 shadow-sm"}>
+                                  <Sparkles size={11} className={isInactive ? "text-zinc-500" : "text-amber-400"} />
+                                  <span>Flash</span>
+                                </span>
+                              </div>
+                            )}
+                            <div className={`font-semibold ${isInactive ? 'text-zinc-300' : 'text-[#ECE4D3]'}`}>
+                              {b.customer_name}
+                            </div>
+                            <div className="text-[10px] text-[#7A7265] font-mono">
+                              ID: {b.id ? (b.id.length > 8 ? b.id.slice(0, 8).toUpperCase() : b.id.toUpperCase()) : '-'}
+                            </div>
                           </td>
-                          <td className={`py-3 px-3 ${isInactive ? 'text-zinc-500' : 'text-[#ECE4D3]'}`}>
-                            <span className="block font-medium">{dateDisplay}</span>
+
+                          {/* 2. งานที่จองและขนาด */}
+                          <td className="py-3 px-3 max-w-[220px]">
+                            <div className="flex items-center gap-2.5">
+                              {b.reference_images && b.reference_images.length > 0 ? (
+                                <div className="w-9 h-9 rounded-lg overflow-hidden border border-[#4A443A] shrink-0 bg-[#0E0D0C]">
+                                  <CustomerReferenceImage
+                                    src={b.reference_images[0]}
+                                    alt="ภาพตัวอย่าง"
+                                    className="w-full h-full object-cover"
+                                  />
+                                </div>
+                              ) : (
+                                <div className="w-9 h-9 rounded-lg border border-[#4A443A] shrink-0 bg-[#0E0D0C] flex items-center justify-center text-[#7A7265]">
+                                  {isFlash ? (
+                                    <Sparkles size={16} className="text-amber-400/80" />
+                                  ) : (
+                                    <ImageIcon size={16} />
+                                  )}
+                                </div>
+                              )}
+                              <div className="min-w-0 flex-1">
+                                <span className={`block font-medium truncate ${isInactive ? 'text-zinc-300' : 'text-[#ECE4D3]'}`}>
+                                  {b.artwork_title || (isFlash ? 'งานสัก Flash' : 'งานสัก Custom')}
+                                </span>
+                                <span className={`text-[10px] ${isInactive ? 'text-zinc-500' : 'text-[#7A7265]'} block truncate`}>
+                                  {b.placement || 'ไม่ระบุตำแหน่ง'}
+                                  {formatTattooSize(b.width_cm, b.height_cm, b.estimated_size_tier || b.size_label) !== 'ไม่ระบุขนาด' &&
+                                    ` • ${formatTattooSize(b.width_cm, b.height_cm, b.estimated_size_tier || b.size_label)}`}
+                                </span>
+                              </div>
+                            </div>
+                          </td>
+
+                          {/* 3. ช่างสัก / สไตล์ */}
+                          <td className="py-3 px-3">
+                            <span className={`${isInactive ? 'text-zinc-300' : 'text-[#ECE4D3]'} block font-medium`}>
+                              {b.artist_name}
+                            </span>
+                            <span className={`text-[10px] ${isInactive ? 'text-zinc-500' : 'text-[#7A7265]'} block`}>
+                              {b.style_preference || 'ไม่ระบุ'}
+                            </span>
+                          </td>
+
+                          {/* 4. วันและเวลานัดหมาย */}
+                          <td className="py-3 px-3">
+                            <span className={`${isInactive ? 'text-zinc-300' : 'text-[#ECE4D3]'} block font-medium`}>
+                              {dateDisplay}
+                            </span>
                             {timeDisplay && (
                               <span className={`text-[10px] ${isInactive ? 'text-zinc-500' : 'text-[#7A7265]'} block`}>
                                 {timeDisplay}
                               </span>
                             )}
                           </td>
-                          <td className={`py-3 px-3 font-medium ${isInactive ? 'text-zinc-300' : 'text-[#ECE4D3]'}`}>
-                            <span className="block font-medium">{b.customer_name}</span>
-                            {b.customer_phone && (
-                              <span className={`text-[10px] font-mono ${isInactive ? 'text-zinc-500' : 'text-[#7A7265]'} block`}>
-                                {b.customer_phone}
+
+                          {/* 5. แจ้งเตือนสุขภาพ */}
+                          <td className="py-3 px-3 text-center">
+                            {hasHealthAlert ? (
+                              <span
+                                title="มีข้อมูลสุขภาพ กรุณาตรวจสอบรายละเอียดก่อนให้บริการ"
+                                className={
+                                  isInactive
+                                    ? "bg-zinc-900/90 text-zinc-400 border border-zinc-700/80 px-2 py-0.5 rounded text-[10px] font-medium inline-flex items-center gap-1 cursor-help"
+                                    : "bg-[#2A1212] text-[#E8B4B4] border border-[#9C2F2F] px-2 py-0.5 rounded text-[10px] font-semibold inline-flex items-center gap-1 cursor-help"
+                                }
+                              >
+                                <AlertTriangle size={11} className={isInactive ? "text-zinc-500 shrink-0" : "text-[#E8B4B4] shrink-0"} />
+                                <span>มีข้อมูล</span>
+                              </span>
+                            ) : (
+                              <span className={isInactive ? "bg-zinc-900/60 text-zinc-500 border border-zinc-800/80 px-2 py-0.5 rounded text-[10px] font-medium inline-flex items-center" : "bg-emerald-950/60 text-emerald-400 border border-emerald-800/60 px-2 py-0.5 rounded text-[10px] font-medium inline-flex items-center"}>
+                                ปกติ
                               </span>
                             )}
                           </td>
+
+                          {/* 6. สถานะ */}
                           <td className="py-3 px-3">
-                            <span className={`${isInactive ? 'text-zinc-300' : 'text-[#ECE4D3]'} block font-medium`}>
-                              {b.artist_name}
-                            </span>
-                            {b.sessions && b.sessions.length > 1 && (
-                              <span className="text-[10px] text-amber-400 block font-medium">
-                                {b.sessions.length} รอบสัก
-                              </span>
-                            )}
+                            {renderStatusBadge(b)}
                           </td>
-                          <td className="py-3 px-3">
-                            <span className={isInactive ? 'text-zinc-300' : 'text-[#ECE4D3]'}>
-                              {b.artwork_title || 'งานสัก Custom'}
-                            </span>
-                            <span className={`text-[10px] ${isInactive ? 'text-zinc-500' : 'text-[#7A7265]'} block`}>
-                              {b.placement || 'ไม่ระบุตำแหน่ง'}
-                              {formatTattooSize(b.width_cm, b.height_cm) !== 'ไม่ระบุ' &&
-                                ` • ${formatTattooSize(b.width_cm, b.height_cm)}`}
-                            </span>
-                          </td>
-                          <td className="py-3 px-3">
-                            {renderStatusBadge(b.status)}
-                          </td>
+
+                          {/* 7. การจัดการ */}
                           <td className="py-3 px-3 text-center">
                             <button
                               type="button"
@@ -334,11 +438,22 @@ export default function AdminWorkQueue({ embedded = false }: AdminWorkQueueProps
               </div>
 
               {/* Mobile Compact Card List */}
-              <div className="md:hidden space-y-3">
+              <div className="md:hidden space-y-3 font-prompt">
                 {filteredBookings.map((b) => {
                   const isInactive = b.status === 'CANCELLED' || b.status === 'REJECTED';
-                  const dateDisplay = b.requested_date ? formatDateBangkok(b.requested_date, true) : 'ไม่ระบุวัน';
-                  const timeDisplay = b.requested_start_time ? formatTimeBangkok(b.requested_start_time) : '';
+                  const { displayDate, displayTime } = getActiveQueueSessionDateTime(b);
+                  const dateDisplay = displayDate ? formatDateBangkok(displayDate, true) : 'ไม่ระบุวัน';
+                  const timeDisplay = formatQueueTime(displayTime);
+                  const hasHealthAlert = Boolean(b.has_medical_condition || b.has_allergy);
+
+                  const placementText = b.placement || 'ไม่ระบุตำแหน่ง';
+                  const sizeText = formatTattooSize(b.width_cm, b.height_cm, b.estimated_size_tier || b.size_label);
+                  const placementAndSize = sizeText !== 'ไม่ระบุขนาด'
+                    ? `${placementText} • ${sizeText}`
+                    : `${placementText} • ไม่ระบุขนาด`;
+
+                  const styleText = b.style_preference || (b as any).style || 'ไม่ระบุสไตล์';
+                  const artistAndStyle = `${b.artist_name || 'ยังไม่มอบหมายช่าง'} · ${styleText}`;
 
                   return (
                     <div
@@ -347,15 +462,34 @@ export default function AdminWorkQueue({ embedded = false }: AdminWorkQueueProps
                       className={
                         isInactive
                           ? 'bg-zinc-950/40 border border-zinc-800/70 rounded-xl p-3.5 space-y-2.5 shadow opacity-85 cursor-pointer'
-                          : 'bg-[#0E0D0C] border border-[#4A443A] rounded-xl p-3.5 space-y-2.5 shadow cursor-pointer active:scale-[0.99] transition-all'
+                          : 'bg-[#0E0D0C] border border-[#4A443A] hover:border-[#7A7265] rounded-xl p-3.5 space-y-2.5 shadow cursor-pointer active:scale-[0.99] transition-all'
                       }
                     >
-                      {/* Top Header: ID & Status */}
+                      {/* Top Header: ID, Health Badge & Status */}
                       <div className="flex items-center justify-between gap-2">
-                        <span className="text-xs font-mono font-bold text-[#9C2F2F]">
+                        <span className={`text-xs font-mono font-bold ${isInactive ? 'text-zinc-500' : 'text-studio-red-bright'}`}>
                           #{b.id.slice(0, 8)}
                         </span>
-                        {renderStatusBadge(b.status)}
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          {hasHealthAlert ? (
+                            <span
+                              title="มีข้อมูลสุขภาพ กรุณาตรวจสอบรายละเอียดก่อนให้บริการ"
+                              className={
+                                isInactive
+                                  ? "bg-zinc-900/90 text-zinc-400 border border-zinc-700/80 px-2 py-0.5 rounded text-[10px] font-medium inline-flex items-center gap-1 cursor-help"
+                                  : "bg-[#2A1212] text-[#E8B4B4] border border-[#9C2F2F] px-2 py-0.5 rounded text-[10px] font-semibold inline-flex items-center gap-1 cursor-help"
+                              }
+                            >
+                              <AlertTriangle size={11} className={isInactive ? "text-zinc-500 shrink-0" : "text-[#E8B4B4] shrink-0"} />
+                              <span>มีข้อมูล</span>
+                            </span>
+                          ) : (
+                            <span className={isInactive ? "bg-zinc-900/60 text-zinc-500 border border-zinc-800/80 px-2 py-0.5 rounded text-[10px] font-medium inline-flex items-center" : "bg-emerald-950/60 text-emerald-400 border border-emerald-800/60 px-2 py-0.5 rounded text-[10px] font-medium inline-flex items-center"}>
+                              ปกติ
+                            </span>
+                          )}
+                          {renderStatusBadge(b)}
+                        </div>
                       </div>
 
                       {/* Info Row: Date & Customer */}
@@ -370,15 +504,30 @@ export default function AdminWorkQueue({ embedded = false }: AdminWorkQueueProps
                         </div>
                       </div>
 
-                      {/* Bottom Row: Artist & Artwork */}
-                      <div className="flex items-center justify-between text-xs">
+                      {/* Bottom Row: Artist/Style, Placement/Size & Action Button */}
+                      <div className="flex items-center justify-between text-xs gap-2">
                         <div className="min-w-0 flex-1">
-                          <span className="text-[10px] text-[#7A7265] block">ช่างสัก / งานสัก</span>
+                          <span className="text-[10px] text-[#7A7265] block">ช่างสัก / สไตล์ • ตำแหน่งและขนาด</span>
                           <p className="font-medium text-[#ECE4D3] truncate">
-                            {b.artist_name} • {b.artwork_title || 'งานสัก Custom'}
+                            {artistAndStyle}
+                          </p>
+                          <p className="text-[11px] text-[#A89F91] truncate">
+                            {placementAndSize}
                           </p>
                         </div>
-                        <ChevronRight size={16} className="text-[#7A7265] shrink-0 ml-2" />
+                        <div className="flex items-center gap-1 shrink-0 self-end">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedBooking(b);
+                            }}
+                            className={isInactive ? "text-xs font-medium text-zinc-400 hover:text-zinc-300 flex items-center gap-0.5" : "text-xs font-medium text-[#A89F91] hover:text-[#ECE4D3] flex items-center gap-0.5"}
+                          >
+                            <span>ดูรายละเอียด</span>
+                            <ChevronRight size={14} />
+                          </button>
+                        </div>
                       </div>
                     </div>
                   );
@@ -417,7 +566,7 @@ export default function AdminWorkQueue({ embedded = false }: AdminWorkQueueProps
               WORK QUEUE MANAGEMENT • จัดการคิวงาน
             </span>
             <h1 className="text-xl sm:text-2xl font-bold text-[#ECE4D3] flex items-center gap-2.5 mt-0.5">
-              <CalendarCheck className="text-[#9C2F2F]" size={26} />
+              <CalendarCheck className="text-studio-red-bright" size={26} />
               <span>จัดการคิวงาน</span>
             </h1>
             <p className="text-xs sm:text-sm text-[#A89F91] mt-1">
@@ -431,7 +580,7 @@ export default function AdminWorkQueue({ embedded = false }: AdminWorkQueueProps
             disabled={loading}
             className="self-start sm:self-auto px-3.5 py-2 bg-[#171512] hover:bg-[#221F1A] border border-[#4A443A] text-xs font-semibold text-[#ECE4D3] rounded-xl flex items-center gap-2 transition-all cursor-pointer shadow-sm active:scale-95"
           >
-            <RefreshCw size={14} className={loading ? 'animate-spin text-[#9C2F2F]' : ''} />
+            <RefreshCw size={14} className={loading ? 'animate-spin text-studio-red-bright' : ''} />
             <span>รีเฟรชข้อมูล</span>
           </button>
         </div>

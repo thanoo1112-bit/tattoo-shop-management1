@@ -12,6 +12,7 @@ import {
   formatDateBangkok,
   getDateStrBangkok,
   getEffectiveEventStatus,
+  getEventStatusConfig,
   THAI_MONTHS_FULL,
 } from './calendarUtils';
 import CalendarToolbar from './CalendarToolbar';
@@ -19,7 +20,7 @@ import CalendarFilters from './CalendarFilters';
 import MonthCalendarView from './MonthCalendarView';
 import WeekCalendarView from './WeekCalendarView';
 import DayAgendaView from './DayAgendaView';
-import CalendarSessionDetailDrawer from './CalendarSessionDetailDrawer';
+import AdminQueueTableView from './AdminQueueTableView';
 import AvailabilityBlockModal, { BlockedDateItem } from './AvailabilityBlockModal';
 import { AlertCircle, CheckCircle2 } from 'lucide-react';
 import BookingDetailPanel from '@/components/admin/requests/BookingDetailPanel';
@@ -81,7 +82,7 @@ export default function AdminMasterCalendar() {
         supabase
           .from('bookings')
           .select(
-            'id, status, customer_id, customer_user_id, artist_id, requested_date, requested_start_time, customer_note, admin_note, started_at, completed_at, created_at, estimate_request_id'
+            'id, status, customer_id, customer_user_id, artist_id, requested_date, requested_start_time, customer_note, admin_note, started_at, completed_at, created_at, approved_at, estimate_request_id'
           )
           .not('status', 'in', '("CANCELLED","REJECTED","EXPIRED")'),
         supabase
@@ -216,6 +217,7 @@ export default function AdminMasterCalendar() {
             booking_id: b.id,
             artist_id: b.artist_id,
             session_number: 1,
+            total_sessions_count: bSessions.length || 1,
             start_at: startAtIso,
             end_at: endAtIso,
             status: sessionStatus,
@@ -231,12 +233,16 @@ export default function AdminMasterCalendar() {
 
         // Hydrate all explicitly created sessions (session 1 for legacy, session 2+ for extra rounds)
         bSessions.forEach((s) => {
+          if (s.status === 'CANCELLED' || s.status === 'REJECTED' || s.status === 'EXPIRED') {
+            return;
+          }
           const sessionArtistInfo = s.artist_id ? artistsMap.get(s.artist_id) || artistInfo : artistInfo;
           hydratedEvents.push({
             id: s.id,
             booking_id: s.booking_id,
             artist_id: s.artist_id,
             session_number: s.session_number,
+            total_sessions_count: bSessions.length || 1,
             start_at: s.start_at,
             end_at: s.end_at,
             status: s.status,
@@ -361,24 +367,33 @@ export default function AdminMasterCalendar() {
   // --------------------------------------------------------------------------
   const filteredSessions = useMemo(() => {
     return sessions.filter((ev) => {
+      // 0. Hide terminal statuses (CANCELLED, REJECTED, EXPIRED) unless filtering by CANCELLED
+      const effStatus = getEffectiveEventStatus(ev);
+      const isTerminal = effStatus === 'CANCELLED' || effStatus === 'REJECTED' || effStatus === 'EXPIRED' || ev.status === 'CANCELLED' || ev.booking?.status === 'CANCELLED' || ev.booking?.status === 'REJECTED' || ev.booking?.status === 'EXPIRED';
+
+      if (selectedStatus !== 'CANCELLED' && isTerminal) {
+        return false;
+      }
+      if (selectedStatus === 'CANCELLED' && !isTerminal) {
+        return false;
+      }
+
       // 1. Artist Filter
       if (selectedArtistId !== 'ALL' && ev.artist_id !== selectedArtistId) {
         return false;
       }
 
-      // 2. Status Filter
-      if (selectedStatus !== 'ALL') {
-        const effStatus = getEffectiveEventStatus(ev);
+      // 2. Status Filter Aligned with Artist Queue
+      if (selectedStatus !== 'ALL' && selectedStatus !== 'CANCELLED') {
+        const cfg = getEventStatusConfig(ev);
         if (selectedStatus === 'SCHEDULED' || selectedStatus === 'CONFIRMED') {
-          if (effStatus !== 'CONFIRMED') return false;
-        } else if (selectedStatus === 'WAITING_DEPOSIT') {
-          if (effStatus !== 'WAITING_DEPOSIT') return false;
-        } else if (selectedStatus === 'IN_PROGRESS') {
-          if (effStatus !== 'IN_PROGRESS') return false;
+          // Active single-session appointment ("นัดหมายแล้ว")
+          if (cfg.label !== 'นัดหมายแล้ว') return false;
+        } else if (selectedStatus === 'SESSIONS' || selectedStatus === 'MULTI_SESSION') {
+          // Active multi-session appointment ("รอบนัด")
+          if (cfg.label !== 'รอบนัด') return false;
         } else if (selectedStatus === 'COMPLETED') {
-          if (effStatus !== 'COMPLETED') return false;
-        } else if (selectedStatus === 'CANCELLED') {
-          if (effStatus !== 'CANCELLED') return false;
+          if (effStatus !== 'COMPLETED' && cfg.label !== 'งานเสร็จสิ้น') return false;
         } else if (effStatus !== selectedStatus) {
           return false;
         }
@@ -443,6 +458,10 @@ export default function AdminMasterCalendar() {
       return `${THAI_MONTHS_FULL[monthIndex]} ${yearBE}`;
     }
 
+    if (viewMode === 'QUEUE') {
+      return `ตารางคิวงาน (${filteredSessions.length} รายการ)`;
+    }
+
     if (viewMode === 'WEEK') {
       const cur = new Date(selectedDateStr);
       const dayOfWeek = cur.getDay();
@@ -458,10 +477,74 @@ export default function AdminMasterCalendar() {
     }
 
     return formatDateBangkok(selectedDateStr, true);
-  }, [selectedDateStr, viewMode, workQueueBookings.length]);
+  }, [selectedDateStr, viewMode, filteredSessions.length]);
+
+  const handleSelectEvent = useCallback(
+    (ev: CalendarSessionEvent | null) => {
+      if (!ev) {
+        setSelectedEvent(null);
+        return;
+      }
+      setSelectedEvent(ev);
+
+      if (!ev.booking_id) return;
+
+      const bObj = workQueueBookings.find((b) => b.id === ev.booking_id);
+      if (bObj) {
+        setSelectedBookingForDetail(bObj);
+      } else {
+        const b = ev.booking;
+        const est = ev.estimate;
+        const cust = ev.customer;
+        const art = ev.artist;
+
+        const synthetic: BookingItem = {
+          id: ev.booking_id,
+          requested_date: b?.requested_date || null,
+          status: b?.status || (ev.status === 'COMPLETED' ? 'COMPLETED' : 'CONFIRMED'),
+          customer_name: cust?.display_name || 'ลูกค้า',
+          artist_name: art ? (art.nickname ? `${art.name} (${art.nickname})` : art.name) : 'ช่างประจำร้าน',
+          artist_nickname: art?.nickname || null,
+          artwork_title: est?.description || (est?.work_type === 'FLASH' ? 'งานสัก Flash' : 'งานสัก Custom'),
+          placement: est?.placement || undefined,
+          width_cm: est?.width_cm || undefined,
+          height_cm: est?.height_cm || undefined,
+          style_preference: est?.style || undefined,
+          created_at: ev.created_at,
+          updated_at: ev.created_at,
+          estimate_request_id: b?.estimate_request_id || null,
+          artist_id: ev.artist_id || null,
+          financial: {
+            quoted_price: ev.financial?.quoted_price || est?.quoted_price || 0,
+            deposit_required: ev.financial?.deposit_required || est?.deposit_required || 0,
+            total_paid: ev.financial?.paid_total || 0,
+            remaining_balance: ev.financial?.remaining_balance || 0,
+            is_deposit_paid: ev.financial?.deposit_paid || false,
+            is_fully_paid: ev.financial?.is_fully_paid || false,
+          },
+          sessions: sessions
+            .filter((s) => s.booking_id === ev.booking_id)
+            .map((s) => ({
+              id: s.id,
+              booking_id: s.booking_id,
+              artist_id: s.artist_id,
+              session_number: s.session_number,
+              start_at: s.start_at,
+              end_at: s.end_at,
+              status: s.status,
+              note: s.note,
+              created_at: s.created_at,
+              updated_at: s.created_at,
+            })),
+        };
+        setSelectedBookingForDetail(synthetic);
+      }
+    },
+    [workQueueBookings, sessions]
+  );
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 font-prompt">
       {/* 1. Header Section */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-1">
         <div>
@@ -505,7 +588,7 @@ export default function AdminMasterCalendar() {
         </div>
       )}
 
-      {/* 4. Filter & Search Controls (for Calendar Views) */}
+      {/* 4. Filter & Search Controls (for Calendar & Queue Views) */}
       <CalendarFilters
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
@@ -551,8 +634,28 @@ export default function AdminMasterCalendar() {
               onSelectDate={(date) => {
                 setSelectedDateStr(date);
               }}
-              onSelectEvent={setSelectedEvent}
+              onSelectEvent={handleSelectEvent}
               todayStr={todayStr}
+            />
+          )}
+
+          {viewMode === 'QUEUE' && (
+            <AdminQueueTableView
+              events={filteredSessions}
+              bookings={workQueueBookings}
+              searchQuery={searchQuery}
+              selectedArtistId={selectedArtistId}
+              selectedStatus={selectedStatus}
+              onSelectEvent={handleSelectEvent}
+              onOpenBookingDetail={(bId) => {
+                const bObj = workQueueBookings.find((b) => b.id === bId);
+                if (bObj) {
+                  setSelectedBookingForDetail(bObj);
+                } else {
+                  const ev = filteredSessions.find((s) => s.booking_id === bId);
+                  if (ev) handleSelectEvent(ev);
+                }
+              }}
             />
           )}
 
@@ -564,9 +667,8 @@ export default function AdminMasterCalendar() {
               selectedEvent={selectedEvent}
               onSelectDate={(date) => {
                 setSelectedDateStr(date);
-                setViewMode('DAY');
               }}
-              onSelectEvent={setSelectedEvent}
+              onSelectEvent={handleSelectEvent}
               todayStr={todayStr}
             />
           )}
@@ -578,19 +680,11 @@ export default function AdminMasterCalendar() {
                 (s) => getDateStrBangkok(s.start_at) === selectedDateStr
               )}
               onSelectDate={setSelectedDateStr}
-              onSelectEvent={setSelectedEvent}
+              onSelectEvent={handleSelectEvent}
               todayStr={todayStr}
             />
           )}
         </>
-      )}
-
-      {/* 7. Floating Side Drawer / Bottom Sheet Detail for MONTH & DAY views */}
-      {viewMode !== 'WEEK' && (
-        <CalendarSessionDetailDrawer
-          event={selectedEvent}
-          onClose={() => setSelectedEvent(null)}
-        />
       )}
 
       {/* 8. Booking Detail Panel (Table View & Direct Item Selection) */}

@@ -457,7 +457,7 @@ export default function AdminFlashManagement() {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-studio-border pb-4">
         <div>
           <div className="inline-flex items-center space-x-2 bg-studio-sec border border-studio-border px-2.5 py-0.5 rounded text-studio-paper text-[10px] uppercase font-heading tracking-widest mb-1">
-            <Sparkles size={12} className="text-studio-red" />
+            <Sparkles size={12} className="text-studio-red-bright" />
             <span>Flash Catalog Management</span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-heading font-normal tracking-wide text-studio-primary">
@@ -631,7 +631,7 @@ export default function AdminFlashManagement() {
                       decoding="async"
                     />
                     <div className="absolute top-1.5 sm:top-2 left-1.5 sm:left-2 flex gap-1 max-w-[65%] min-w-0">
-                      <span className="bg-studio-main/90 border border-studio-border text-studio-red text-[9px] font-bold px-1.5 py-0.5 rounded shrink-0">
+                      <span className="bg-studio-main/90 border border-studio-border text-studio-red-bright text-[9px] font-bold px-1.5 py-0.5 rounded shrink-0">
                         #{d.sort_order}
                       </span>
                       <span className="bg-studio-main/90 border border-studio-border text-studio-secondary text-[9px] px-1.5 py-0.5 rounded truncate">

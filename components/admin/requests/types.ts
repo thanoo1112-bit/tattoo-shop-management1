@@ -273,6 +273,7 @@ export interface BookingItem {
   // Operational status hydration:
   has_pending_payment_submission?: boolean;
   pending_submission?: PendingPaymentSubmission | null;
+  flash_reservation?: any;
   operational_status?: OperationalStatusInfo;
   price_adjustments?: PriceAdjustmentItem[];
 }
@@ -410,7 +411,9 @@ export function resolveEstimateOperationalStatus(
     return {
       key: 'CANCELLED',
       label: request.status === 'EXPIRED' ? 'หมดเวลาชำระมัดจำ' : 'ยกเลิก',
-      badgeClass: 'bg-zinc-900/90 text-zinc-400 border border-zinc-700/80',
+      badgeClass: request.status === 'EXPIRED'
+        ? 'bg-zinc-900/90 text-zinc-400 border border-zinc-700/80'
+        : 'bg-[#1F1D1A] text-[#7A7265] border border-[#4A443A]',
     };
   }
 
@@ -418,7 +421,7 @@ export function resolveEstimateOperationalStatus(
     return {
       key: 'REJECTED',
       label: 'ปฏิเสธ',
-      badgeClass: 'bg-zinc-900/90 text-zinc-400 border border-zinc-700/80',
+      badgeClass: 'bg-red-950/50 text-red-400 border border-red-900/60',
     };
   }
 
@@ -437,7 +440,9 @@ export function resolveEstimateOperationalStatus(
       return {
         key: 'CANCELLED',
         label: (linkedBooking.status as string) === 'EXPIRED' ? 'หมดเวลาชำระมัดจำ' : 'ยกเลิก',
-        badgeClass: 'bg-zinc-900/90 text-zinc-400 border border-zinc-700/80',
+        badgeClass: (linkedBooking.status as string) === 'EXPIRED'
+          ? 'bg-zinc-900/90 text-zinc-400 border border-zinc-700/80'
+          : 'bg-[#1F1D1A] text-[#7A7265] border border-[#4A443A]',
       };
     }
 
@@ -445,7 +450,7 @@ export function resolveEstimateOperationalStatus(
       return {
         key: 'REJECTED',
         label: 'ปฏิเสธ',
-        badgeClass: 'bg-zinc-900/90 text-zinc-400 border border-zinc-700/80',
+        badgeClass: 'bg-red-950/50 text-red-400 border border-red-900/60',
       };
     }
 
@@ -453,7 +458,7 @@ export function resolveEstimateOperationalStatus(
       return {
         key: 'COMPLETED',
         label: 'เสร็จสิ้น',
-        badgeClass: 'bg-emerald-950/60 text-emerald-400 border border-emerald-800/60',
+        badgeClass: 'bg-emerald-950/80 text-emerald-300 border border-emerald-700/80',
       };
     }
 
@@ -469,8 +474,8 @@ export function resolveEstimateOperationalStatus(
     if (multiSessionInfo.isIncomplete) {
       return {
         key: 'MULTI_SESSION_INCOMPLETE',
-        label: 'รอบสัก',
-        badgeClass: 'bg-purple-950/60 text-purple-400 border border-purple-800/60',
+        label: 'คิวยืนยันแล้ว',
+        badgeClass: 'bg-teal-950/60 text-teal-400 border border-teal-800/60',
       };
     }
 
@@ -479,15 +484,15 @@ export function resolveEstimateOperationalStatus(
       return {
         key: 'IN_PROGRESS',
         label: 'กำลังสัก',
-        badgeClass: 'bg-amber-950/60 text-amber-400 border border-amber-800/60 animate-pulse',
+        badgeClass: 'bg-[#9C2F2F]/20 text-[#D64545] border border-[#9C2F2F]/60 animate-pulse',
       };
     }
 
     if (linkedBooking.status === 'CONFIRMED') {
       return {
         key: 'CONFIRMED',
-        label: 'นัดหมายแล้ว',
-        badgeClass: 'bg-blue-950/60 text-blue-400 border border-blue-800/60',
+        label: 'คิวยืนยันแล้ว',
+        badgeClass: 'bg-emerald-950/60 text-emerald-400 border border-emerald-800/60',
       };
     }
   }
@@ -529,7 +534,11 @@ export function resolveBookingOperationalStatus(
     return {
       key: statusStr,
       label: statusStr === 'EXPIRED' ? 'หมดอายุ' : statusStr === 'REJECTED' ? 'ปฏิเสธ' : 'ยกเลิก',
-      badgeClass: 'bg-red-950/60 text-red-400 border border-red-800/60',
+      badgeClass: statusStr === 'EXPIRED'
+        ? 'bg-zinc-900/90 text-zinc-400 border border-zinc-700/80'
+        : statusStr === 'REJECTED'
+        ? 'bg-red-950/50 text-red-400 border border-red-900/60'
+        : 'bg-[#1F1D1A] text-[#7A7265] border border-[#4A443A]',
     };
   }
 
@@ -538,7 +547,7 @@ export function resolveBookingOperationalStatus(
     return {
       key: 'COMPLETED',
       label: 'งานเสร็จสิ้น',
-      badgeClass: 'bg-emerald-950/60 text-emerald-400 border border-emerald-800/60',
+      badgeClass: 'bg-emerald-950/80 text-emerald-300 border border-emerald-700/80',
     };
   }
 
@@ -551,13 +560,13 @@ export function resolveBookingOperationalStatus(
     };
   }
 
-  // 4. multi-session incomplete status ("รอบสัก")
+  // 4. multi-session incomplete status ("คิวยืนยันแล้ว")
   const multiSession = isMultiSessionIncompleteBooking(booking);
   if (multiSession.isIncomplete) {
     return {
       key: 'MULTI_SESSION_INCOMPLETE',
-      label: 'รอบสัก',
-      badgeClass: 'bg-purple-950/60 text-purple-400 border border-purple-800/60',
+      label: 'คิวยืนยันแล้ว',
+      badgeClass: 'bg-teal-950/60 text-teal-400 border border-teal-800/60',
     };
   }
 
@@ -567,7 +576,7 @@ export function resolveBookingOperationalStatus(
     return {
       key: 'IN_PROGRESS',
       label: 'กำลังสัก',
-      badgeClass: 'bg-amber-950/60 text-amber-400 border border-amber-800/60 animate-pulse',
+      badgeClass: 'bg-[#9C2F2F]/20 text-[#D64545] border border-[#9C2F2F]/60 animate-pulse',
     };
   }
 
@@ -583,7 +592,7 @@ export function resolveBookingOperationalStatus(
   // 7. CONFIRMED (or default confirmed status)
   return {
     key: 'CONFIRMED',
-    label: 'นัดหมายแล้ว',
-    badgeClass: 'bg-blue-950/60 text-blue-400 border border-blue-800/60',
+    label: 'คิวยืนยันแล้ว',
+    badgeClass: 'bg-emerald-950/60 text-emerald-400 border border-emerald-800/60',
   };
 }

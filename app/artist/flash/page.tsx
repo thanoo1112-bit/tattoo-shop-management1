@@ -64,7 +64,7 @@ function ArtistFlashContent() {
   }
 
   return (
-    <div className="min-h-screen bg-studio-main text-studio-primary font-prompt flex flex-col pb-20 md:pb-10 animate-fadeIn">
+    <div className="min-h-screen bg-studio-main text-studio-primary font-prompt flex flex-col md:pl-64 pb-20 md:pb-10 animate-fadeIn">
       <ArtistHeader />
 
       <main className="flex-1 max-w-[1600px] w-full mx-auto px-4 sm:px-6 md:px-10 xl:px-12 py-6 md:py-8 space-y-6 md:space-y-8">

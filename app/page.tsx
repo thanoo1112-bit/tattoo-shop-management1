@@ -5,11 +5,12 @@ import { useRouter } from 'next/navigation';
 import CustomerHeader from '@/components/customer/CustomerHeader';
 import MobileBottomNav from '@/components/customer/MobileBottomNav';
 import HeroSection from '@/components/customer/HeroSection';
+import StudioAtmosphereSection from '@/components/customer/StudioAtmosphereSection';
 import { Artist } from '@/data/mockArtists';
 import { useApp } from '@/components/AppContext';
 import { getThumbnailUrl, handleThumbnailError } from '@/lib/utils/thumbnailHelper';
 import Link from 'next/link';
-import { Sparkles, Compass, Award, MapPin, Clock, Phone, ShieldCheck, ArrowRight, ArrowUpRight, Users, UserRound, Droplet, Skull } from 'lucide-react';
+import { Sparkles, Compass, Award, MapPin, Clock, Phone, ShieldCheck, ArrowRight, ArrowUpRight, Users, UserRound, Droplet, Skull, Eye, X } from 'lucide-react';
 
 const TattooMachineIcon = ({ size = 18, className = '' }: { size?: number; className?: string }) => (
   <svg
@@ -41,6 +42,27 @@ export default function HomePage() {
   const [livePortfolio, setLivePortfolio] = useState<any[]>([]);
   const [portfolioLoading, setPortfolioLoading] = useState(true);
   const [portfolioError, setPortfolioError] = useState<string | null>(null);
+  const [selectedWorksTab, setSelectedWorksTab] = useState<'flash' | 'portfolio'>('portfolio');
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (previewImage) {
+      const originalOverflow = document.body.style.overflow;
+      document.body.style.overflow = 'hidden';
+
+      const handleKeyDown = (e: KeyboardEvent) => {
+        if (e.key === 'Escape') {
+          setPreviewImage(null);
+        }
+      };
+      window.addEventListener('keydown', handleKeyDown);
+
+      return () => {
+        document.body.style.overflow = originalOverflow;
+        window.removeEventListener('keydown', handleKeyDown);
+      };
+    }
+  }, [previewImage]);
 
   useEffect(() => {
     if (!authLoading && user && profile) {
@@ -64,7 +86,7 @@ export default function HomePage() {
           .select('*')
           .order('sort_order', { ascending: true })
           .order('created_at', { ascending: true })
-          .limit(4);
+          .limit(2);
 
         if (!error && data && isMounted) {
           setFeaturedArtists(data.map((item: any) => ({
@@ -101,6 +123,7 @@ export default function HomePage() {
             deposit_amount,
             image_url,
             status,
+            is_repeatable,
             artists (
               id,
               name,
@@ -128,6 +151,7 @@ export default function HomePage() {
             deposit: Number(f.deposit_amount) || 0,
             image: f.image_url,
             status: f.status,
+            is_repeatable: Boolean(f.is_repeatable),
           })));
         }
 
@@ -197,375 +221,7 @@ export default function HomePage() {
       {/* Main Content Area */}
       <main className="max-w-[1560px] mx-auto px-4 sm:px-6 md:px-12 xl:px-16 py-10 md:py-20 space-y-16 sm:space-y-24 md:space-y-28">
         
-        {/* Section 1: Featured Flash (Flash Sheet aesthetic) */}
-        <section className="space-y-4 sm:space-y-6">
-          <div className="flex justify-between items-end border-b border-studio-border pb-3 sm:pb-5 gap-2">
-            <div>
-              <div className="inline-flex items-center space-x-1.5 bg-studio-sec border border-studio-border px-2.5 py-0.5 rounded text-studio-red text-[10px] uppercase font-bold tracking-widest mb-1">
-                <span>Available Flash Sheet</span>
-              </div>
-              <h2 className="text-2xl sm:text-3xl md:text-4xl font-heading font-normal tracking-[0.04em] text-studio-primary">
-                FLASH ที่พร้อมจอง
-              </h2>
-            </div>
-            <Link
-              href="/flash"
-              className="text-xs sm:text-sm text-studio-primary hover:text-studio-red hover:underline font-medium flex items-center space-x-1 shrink-0 pb-1"
-            >
-              <span>ดูลายว่างทั้งหมด</span>
-              <ArrowRight size={13} />
-            </Link>
-          </div>
-
-          {/* Horizontal Snap Scroll on Mobile / Grid on Desktop */}
-          <div className="flex lg:grid overflow-x-auto lg:overflow-visible pb-4 lg:pb-0 gap-4 lg:grid-cols-4 scrollbar-none snap-x -mx-4 px-4 lg:mx-0 lg:px-0">
-            {liveFlash.map((item) => (
-              <div
-                key={item.id}
-                className="w-[78vw] max-w-[300px] shrink-0 snap-center lg:w-auto bg-studio-card border border-studio-border hover:border-studio-red/60 rounded-[6px] overflow-hidden flex flex-col justify-between group transition-all duration-300 shadow-md"
-              >
-                <Link
-                  href={`/booking?flash=${item.id}`}
-                  className="aspect-square bg-studio-main overflow-hidden relative block"
-                >
-                  <img
-                    src={item.image}
-                    alt={item.title}
-                    className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-500"
-                  />
-                  <div className="absolute top-2.5 left-2.5 bg-studio-sec/90 border border-studio-border text-studio-paper text-[9px] font-bold px-2 py-0.5 rounded">
-                    {item.status === 'AVAILABLE' ? 'ว่าง (พร้อมจอง)' : item.status === 'HELD' ? 'รอการยืนยัน' : item.status === 'RESERVED' ? 'จองแล้ว' : 'ปิดจอง'}
-                  </div>
-                </Link>
-
-                <div className="p-3.5 space-y-3">
-                  <div>
-                    <h3 className="text-base sm:text-lg font-heading tracking-wide text-studio-primary truncate">{item.title}</h3>
-                    <div className="flex justify-between items-center text-xs text-studio-secondary mt-0.5">
-                      <span>ช่าง: {item.artistName}</span>
-                      <span>ขนาด: {item.size}</span>
-                    </div>
-                  </div>
-
-                  <div className="flex justify-between items-center border-t border-studio-border/60 pt-2.5">
-                    <div>
-                      <span className="text-[9px] text-studio-muted block leading-none">ราคาค่าสัก</span>
-                      <span className="text-sm font-bold text-studio-red mt-0.5 block">
-                        ฿{item.price.toLocaleString()}
-                      </span>
-                    </div>
-                    <Link
-                      href={`/booking?flash=${item.id}`}
-                      className="min-h-[38px] bg-studio-red text-studio-paper hover:bg-tattoo-red-dark active:scale-95 py-2 px-4 rounded-[4px] text-xs font-semibold uppercase tracking-wider transition-all flex items-center justify-center text-center border border-studio-red"
-                    >
-                      จองลายนี้
-                    </Link>
-                  </div>
-                </div>
-              </div>
-            ))}
-            {liveFlash.length === 0 && (
-              <div className="col-span-4 py-8 text-center text-xs text-studio-muted bg-studio-card border border-studio-border rounded-[6px]">
-                ไม่มีรายการลาย Flash ที่พร้อมจองในขณะนี้
-              </div>
-            )}
-          </div>
-        </section>
-
-        {/* Section 2: Portfolio Showcase */}
-        <section className="space-y-4 sm:space-y-6">
-          <div className="flex justify-between items-end border-b border-studio-border pb-3 sm:pb-5 gap-2">
-            <div>
-              <div className="inline-flex items-center space-x-1.5 bg-studio-sec border border-studio-border px-2.5 py-0.5 rounded text-studio-secondary text-[10px] uppercase font-bold tracking-widest mb-1">
-                <span>Recent Studio Works</span>
-              </div>
-              <h2 className="text-2xl sm:text-3xl md:text-4xl font-heading font-normal tracking-[0.04em] text-studio-primary">
-                ผลงานล่าสุด (PORTFOLIO)
-              </h2>
-            </div>
-            <Link
-              href="/portfolio"
-              className="text-xs sm:text-sm text-studio-primary hover:text-studio-red hover:underline font-medium flex items-center space-x-1 shrink-0 pb-1"
-            >
-              <span>ดูทั้งหมด</span>
-              <ArrowRight size={13} />
-            </Link>
-          </div>
-
-          {/* Loading Skeleton */}
-          {portfolioLoading && (
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2.5 sm:gap-4">
-              {Array.from({ length: 9 }).map((_, idx) => (
-                <div
-                  key={idx}
-                  className={`bg-studio-card border border-studio-border rounded-[6px] overflow-hidden animate-pulse ${
-                    idx === 0 || idx === 3 || idx === 6 ? 'lg:col-span-2 aspect-[4/3]' : 'aspect-square'
-                  } ${idx === 6 ? 'lg:-mt-[118px]' : ''}`}
-                >
-                  <div className="w-full h-full bg-studio-sec/60" />
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* Empty State */}
-          {!portfolioLoading && livePortfolio.length === 0 && (
-            <div className="bg-studio-card border border-studio-border p-10 rounded-[6px] text-center space-y-2">
-              <p className="text-sm font-semibold text-studio-primary">ยังไม่มีผลงานที่เผยแพร่</p>
-              <p className="text-xs text-studio-secondary">ผลงานสักคัสตอมใหม่จะถูกเพิ่มในหน้านี้เร็วๆ นี้</p>
-              <Link
-                href="/portfolio"
-                className="inline-block text-xs text-studio-red hover:underline pt-2 font-medium"
-              >
-                ไปที่หน้า Portfolio →
-              </Link>
-            </div>
-          )}
-
-          {/* Live Portfolio Grid */}
-          {!portfolioLoading && livePortfolio.length > 0 && (
-            <>
-              {/* Mobile Asymmetric 9-Image Masonry (< 640px) */}
-              <div className="sm:hidden space-y-2 font-prompt">
-                {/* Row 1: 2 Large Cards (2 cols) */}
-                <div className="grid grid-cols-2 gap-2">
-                  {livePortfolio.slice(0, 2).map((item) => (
-                    <Link
-                      key={item.id}
-                      href={`/portfolio?select=${item.id}`}
-                      className="bg-studio-card border border-studio-border hover:border-studio-red/60 rounded-md overflow-hidden relative block aspect-[4/3] group"
-                    >
-                      <img src={item.image} onError={(e) => handleThumbnailError(e, item.originalImage || item.image)} alt={item.title} className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-500" loading="lazy" decoding="async" />
-                      <div className="absolute inset-0 bg-gradient-to-t from-studio-main/90 via-studio-main/30 to-transparent flex flex-col justify-end p-2">
-                        <span className="text-[9px] uppercase tracking-wider text-studio-red font-bold">{item.style}</span>
-                        <h4 className="text-xs font-heading font-normal tracking-wide text-studio-paper truncate">{item.title}</h4>
-                        <span className="text-[10px] text-studio-muted truncate">ช่าง: {item.artistName}</span>
-                      </div>
-                    </Link>
-                  ))}
-                </div>
-
-                {/* Row 2: 3 Small Cards (3 cols) */}
-                {livePortfolio.length > 2 && (
-                  <div className="grid grid-cols-3 gap-2">
-                    {livePortfolio.slice(2, 5).map((item) => (
-                      <Link
-                        key={item.id}
-                        href={`/portfolio?select=${item.id}`}
-                        className="bg-studio-card border border-studio-border hover:border-studio-red/60 rounded-md overflow-hidden relative block aspect-square group"
-                      >
-                        <img src={item.image} onError={(e) => handleThumbnailError(e, item.originalImage || item.image)} alt={item.title} className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-500" loading="lazy" decoding="async" />
-                        <div className="absolute inset-0 bg-gradient-to-t from-studio-main/90 via-studio-main/20 to-transparent flex flex-col justify-end p-1.5">
-                          <span className="text-[8px] uppercase tracking-wider text-studio-red font-bold truncate">{item.style}</span>
-                          <h4 className="text-[10px] font-heading font-normal text-studio-paper truncate">{item.title}</h4>
-                          <span className="text-[9px] text-studio-muted truncate">ช่าง: {item.artistName}</span>
-                        </div>
-                      </Link>
-                    ))}
-                  </div>
-                )}
-
-                {/* Row 3-4: Asymmetric 2-column layout (Tall 6 on Left + Stacked 7 & 8 on Right) */}
-                {livePortfolio.length > 5 && (
-                  <div className="grid grid-cols-2 gap-2">
-                    {/* Left: Tall Image 6 */}
-                    {livePortfolio[5] && (
-                      <Link
-                        href={`/portfolio?select=${livePortfolio[5].id}`}
-                        className="bg-studio-card border border-studio-border hover:border-studio-red/60 rounded-md overflow-hidden relative block h-full min-h-[220px] group"
-                      >
-                        <img src={livePortfolio[5].image} onError={(e) => handleThumbnailError(e, livePortfolio[5].originalImage || livePortfolio[5].image)} alt={livePortfolio[5].title} className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-500" loading="lazy" decoding="async" />
-                        <div className="absolute inset-0 bg-gradient-to-t from-studio-main/90 via-studio-main/30 to-transparent flex flex-col justify-end p-2">
-                          <span className="text-[9px] uppercase tracking-wider text-studio-red font-bold">{livePortfolio[5].style}</span>
-                          <h4 className="text-xs font-heading font-normal tracking-wide text-studio-paper truncate">{livePortfolio[5].title}</h4>
-                          <span className="text-[10px] text-studio-muted truncate">ช่าง: {livePortfolio[5].artistName}</span>
-                        </div>
-                      </Link>
-                    )}
-
-                    {/* Right: Stacked Medium 7 & 8 */}
-                    <div className="flex flex-col gap-2">
-                      {livePortfolio.slice(6, 8).map((item) => (
-                        <Link
-                          key={item.id}
-                          href={`/portfolio?select=${item.id}`}
-                          className="bg-studio-card border border-studio-border hover:border-studio-red/60 rounded-md overflow-hidden relative block aspect-[4/3] flex-1 group"
-                        >
-                          <img src={item.image} onError={(e) => handleThumbnailError(e, item.originalImage || item.image)} alt={item.title} className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-500" loading="lazy" decoding="async" />
-                          <div className="absolute inset-0 bg-gradient-to-t from-studio-main/90 via-studio-main/30 to-transparent flex flex-col justify-end p-2">
-                            <span className="text-[9px] uppercase tracking-wider text-studio-red font-bold">{item.style}</span>
-                            <h4 className="text-xs font-heading font-normal tracking-wide text-studio-paper truncate">{item.title}</h4>
-                            <span className="text-[10px] text-studio-muted truncate">ช่าง: {item.artistName}</span>
-                          </div>
-                        </Link>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Row 5: Balanced Image 9 (Full-width wide banner card) */}
-                {livePortfolio[8] && (
-                  <Link
-                    href={`/portfolio?select=${livePortfolio[8].id}`}
-                    className="bg-studio-card border border-studio-border hover:border-studio-red/60 rounded-md overflow-hidden relative block aspect-[21/9] group"
-                  >
-                    <img src={livePortfolio[8].image} onError={(e) => handleThumbnailError(e, livePortfolio[8].originalImage || livePortfolio[8].image)} alt={livePortfolio[8].title} className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-500" loading="lazy" decoding="async" />
-                    <div className="absolute inset-0 bg-gradient-to-t from-studio-main/90 via-studio-main/30 to-transparent flex flex-col justify-end p-2">
-                      <span className="text-[9px] uppercase tracking-wider text-studio-red font-bold">{livePortfolio[8].style}</span>
-                      <h4 className="text-xs font-heading font-normal tracking-wide text-studio-paper truncate">{livePortfolio[8].title}</h4>
-                      <span className="text-[10px] text-studio-muted truncate">ช่าง: {livePortfolio[8].artistName}</span>
-                    </div>
-                  </Link>
-                )}
-              </div>
-
-              {/* Desktop Portfolio Grid (sm+) */}
-              <div className="hidden sm:grid sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2.5 sm:gap-4">
-                {livePortfolio.slice(0, 9).map((item, idx) => (
-                  <Link
-                    key={item.id}
-                    href={`/portfolio?select=${item.id}`}
-                    className={`bg-studio-card border border-studio-border hover:border-studio-red/60 rounded-[6px] overflow-hidden group relative transition-all block ${
-                      idx === 0 || idx === 3 || idx === 6 ? 'lg:col-span-2 aspect-[4/3]' : 'aspect-square'
-                    } ${idx === 6 ? 'lg:-mt-[118px]' : ''}`}
-                  >
-                    <img
-                      src={item.image}
-                      onError={(e) => handleThumbnailError(e, item.originalImage || item.image)}
-                      alt={item.title}
-                      className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-500"
-                      loading="lazy"
-                      decoding="async"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-studio-main/90 via-studio-main/30 to-transparent flex flex-col justify-end p-2.5 sm:p-4">
-                      <span className="text-[9px] uppercase tracking-wider text-studio-red font-bold">
-                        {item.style}
-                      </span>
-                      <h4 className="text-xs sm:text-sm font-heading font-normal tracking-wide text-studio-paper truncate">
-                        {item.title}
-                      </h4>
-                      <span className="text-[10px] text-studio-muted truncate">
-                        ช่าง: {item.artistName}
-                      </span>
-                    </div>
-                  </Link>
-                ))}
-              </div>
-            </>
-          )}
-
-          <div className="pt-2 text-center lg:hidden">
-            <Link
-              href="/portfolio"
-              className="inline-flex min-h-[44px] items-center justify-center w-full bg-studio-card border border-studio-border text-studio-secondary hover:text-studio-primary text-xs font-semibold uppercase tracking-wider rounded-[4px] py-3 px-4"
-            >
-              ดูผลงานทั้งหมดใน Portfolio →
-            </Link>
-          </div>
-        </section>
-
-        {/* Section 3: Featured Artists */}
-        <section className="space-y-4 sm:space-y-6">
-          <div className="flex justify-between items-end border-b border-studio-border pb-3 sm:pb-5 gap-2">
-            <div>
-              <div className="inline-flex items-center space-x-1.5 bg-studio-sec border border-studio-border px-2.5 py-0.5 rounded text-studio-secondary text-[10px] uppercase font-bold tracking-widest mb-1">
-                <span>The Tattoo Masters</span>
-              </div>
-              <h2 className="text-2xl sm:text-3xl md:text-4xl font-heading font-normal tracking-[0.04em] text-studio-primary">
-                ช่างสักประจำร้าน (RESIDENT ARTISTS)
-              </h2>
-            </div>
-            <Link
-              href="/artists"
-              className="text-xs sm:text-sm text-studio-primary hover:text-studio-red hover:underline font-medium flex items-center space-x-1 shrink-0 pb-1"
-            >
-              <span>ดูช่างทุกคน</span>
-              <ArrowRight size={13} />
-            </Link>
-          </div>
-
-          {featuredArtists.length === 0 ? (
-            <div className="py-12 px-6 text-center bg-studio-card border border-studio-border rounded-[8px] max-w-lg mx-auto shadow-md space-y-2">
-              <div className="w-12 h-12 rounded-full bg-studio-main border border-studio-border flex items-center justify-center mx-auto text-studio-secondary">
-                <Users size={20} className="text-studio-red" />
-              </div>
-              <h3 className="text-base font-heading text-studio-primary">
-                กำลังอัปเดตข้อมูลรายชื่อช่างสักประจำสตูดิโอ
-              </h3>
-              <p className="text-xs text-studio-secondary">
-                กรุณาติดตามข้อมูลช่างสักและผลงานล่าสุดผ่านทางสตูดิโอ
-              </p>
-              <div className="pt-2">
-                <Link
-                  href="/artists"
-                  className="text-xs text-studio-red hover:underline font-semibold"
-                >
-                  ดูหน้ารวมช่างสัก →
-                </Link>
-              </div>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
-              {featuredArtists.map((artist) => {
-                const artistWorks = livePortfolio.filter((p) => p.artistId === artist.id).slice(0, 3);
-                return (
-                  <div
-                    key={artist.id}
-                    className="bg-studio-card border border-studio-border rounded-[8px] overflow-hidden flex flex-col justify-between group hover:border-studio-red/50 transition-all shadow-md"
-                  >
-                    <div className="p-4 sm:p-6 space-y-3.5">
-                      <div className="flex items-center space-x-3.5">
-                        <img
-                          src={artist.avatar_url || artist.avatar}
-                          alt={artist.name}
-                          className="w-14 h-14 sm:w-16 sm:h-16 rounded-full object-cover border-2 border-studio-border shrink-0"
-                        />
-                        <div className="min-w-0">
-                          <span className="text-[10px] uppercase tracking-wider text-studio-red font-bold block truncate">
-                            {artist.specialties && artist.specialties.length > 0 ? artist.specialties.join(' / ') : artist.specialty}
-                          </span>
-                          <h3 className="text-base sm:text-lg font-heading tracking-wide text-studio-primary mt-0.5 truncate">
-                            {artist.name}
-                          </h3>
-                          <span className="text-[10px] text-studio-muted">ช่างประจำสตูดิโอ 157 TATTOO</span>
-                        </div>
-                      </div>
-
-                      <p className="text-xs text-studio-secondary font-light leading-relaxed line-clamp-2">
-                        {artist.bio || 'ช่างสักมืออาชีพประจำ 157 TATTOO'}
-                      </p>
-
-                      {/* Mini portfolio preview strip (3 images) */}
-                      {artistWorks.length > 0 && (
-                        <div className="pt-1">
-                          <span className="text-[9px] uppercase tracking-wider text-studio-muted block mb-1.5">ตัวอย่างผลงาน:</span>
-                          <div className="grid grid-cols-3 gap-1.5">
-                            {artistWorks.map(w => (
-                              <div key={w.id} className="aspect-square bg-studio-main rounded overflow-hidden border border-studio-border/60">
-                                <img src={w.image} alt="" className="w-full h-full object-cover" />
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="p-3.5 sm:p-4 bg-studio-main/40 border-t border-studio-border">
-                      <Link
-                        href={`/artists?id=${artist.id}`}
-                        className="min-h-[44px] w-full text-center bg-transparent border border-studio-border text-studio-primary hover:bg-studio-sec active:scale-[0.99] text-xs font-semibold tracking-wider uppercase py-2.5 px-4 rounded-[4px] flex items-center justify-center transition-colors"
-                      >
-                        ดูผลงาน & นัดหมาย
-                      </Link>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </section>
-
-        {/* Section 4: Specialties */}
+        {/* Section: Tattoo Styles (Craftsmanship) */}
         <section className="space-y-4 sm:space-y-6">
           <div className="border-b border-studio-border pb-3 sm:pb-5">
             <span className="text-[10px] uppercase tracking-widest text-studio-secondary font-bold">Craftsmanship</span>
@@ -597,6 +253,360 @@ export default function HomePage() {
               );
             })}
           </div>
+        </section>
+
+        {/* Studio Atmosphere Section */}
+        <StudioAtmosphereSection />
+
+        {/* Section: SELECTED WORKS (Tabbed: Flash & Portfolio) */}
+        <section className="space-y-4 sm:space-y-6">
+          <div className="flex justify-between items-end border-b border-studio-border pb-3 sm:pb-5 gap-2">
+            <div>
+              <div className="inline-flex items-center space-x-1.5 bg-studio-sec border border-studio-border px-2.5 py-0.5 rounded text-studio-red-bright text-[10px] uppercase font-bold tracking-widest mb-1">
+                <span>SELECTED WORKS</span>
+              </div>
+              <h2 className="text-2xl sm:text-3xl md:text-4xl font-heading font-normal tracking-[0.04em] text-studio-primary">
+                ผลงานจาก 157 TATTOO
+              </h2>
+            </div>
+            {selectedWorksTab === 'portfolio' ? (
+              <Link
+                href="/portfolio"
+                className="text-xs sm:text-sm text-studio-primary hover:text-studio-red-bright hover:underline font-medium flex items-center space-x-1 shrink-0 pb-1 transition-colors"
+              >
+                <span>ดูผลงานทั้งหมด</span>
+                <ArrowRight size={13} />
+              </Link>
+            ) : (
+              <Link
+                href="/flash"
+                className="text-xs sm:text-sm text-studio-primary hover:text-studio-red-bright hover:underline font-medium flex items-center space-x-1 shrink-0 pb-1 transition-colors"
+              >
+                <span>ดู Flash ทั้งหมด</span>
+                <ArrowRight size={13} />
+              </Link>
+            )}
+          </div>
+
+          {/* Editorial Tabs Bar */}
+          <div className="flex items-center space-x-6 sm:space-x-8 border-b border-studio-border text-xs sm:text-sm tracking-wider uppercase">
+            <button
+              type="button"
+              onClick={() => setSelectedWorksTab('portfolio')}
+              className={`pb-3 transition-colors relative font-heading cursor-pointer tracking-wider ${
+                selectedWorksTab === 'portfolio'
+                  ? 'text-studio-primary font-medium border-b-2 border-studio-red-base -mb-[1px]'
+                  : 'text-studio-muted hover:text-studio-secondary border-b-2 border-transparent -mb-[1px]'
+              }`}
+            >
+              PORTFOLIO — ผลงานล่าสุด
+            </button>
+            <button
+              type="button"
+              onClick={() => setSelectedWorksTab('flash')}
+              className={`pb-3 transition-colors relative font-heading cursor-pointer tracking-wider ${
+                selectedWorksTab === 'flash'
+                  ? 'text-studio-primary font-medium border-b-2 border-studio-red-base -mb-[1px]'
+                  : 'text-studio-muted hover:text-studio-secondary border-b-2 border-transparent -mb-[1px]'
+              }`}
+            >
+              FLASH — พร้อมจอง
+            </button>
+          </div>
+
+          {/* Tab 1: PORTFOLIO Cards (Default) */}
+          {selectedWorksTab === 'portfolio' && (
+            <>
+              {/* Loading Skeleton */}
+              {portfolioLoading && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+                  {Array.from({ length: 4 }).map((_, idx) => (
+                    <div
+                      key={idx}
+                      className="bg-studio-card border border-studio-border rounded-[6px] overflow-hidden animate-pulse aspect-square"
+                    >
+                      <div className="w-full h-full bg-studio-sec/60" />
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Empty State */}
+              {!portfolioLoading && livePortfolio.length === 0 && (
+                <div className="bg-studio-card border border-studio-border p-10 rounded-[6px] text-center space-y-2">
+                  <p className="text-sm font-semibold text-studio-primary">ยังไม่มีผลงานที่เผยแพร่</p>
+                  <p className="text-xs text-studio-secondary">ผลงานสักคัสตอมใหม่จะถูกเพิ่มในหน้านี้เร็วๆ นี้</p>
+                  <Link
+                    href="/portfolio"
+                    className="inline-block text-xs text-studio-red-bright hover:underline pt-2 font-medium"
+                  >
+                    ไปที่หน้า Portfolio →
+                  </Link>
+                </div>
+              )}
+
+              {/* Live Portfolio Grid - Clean 4 Cards with mobile horizontal swipe */}
+              {!portfolioLoading && livePortfolio.length > 0 && (
+                <div className="flex lg:grid overflow-x-auto lg:overflow-visible pb-4 lg:pb-0 gap-4 lg:grid-cols-4 scrollbar-none snap-x -mx-4 px-4 lg:mx-0 lg:px-0">
+                  {livePortfolio.slice(0, 4).map((item) => (
+                    <div
+                      key={item.id}
+                      className="w-[78vw] max-w-[300px] shrink-0 snap-center lg:w-auto bg-studio-card border border-studio-border hover:border-studio-red/60 rounded-[6px] overflow-hidden group relative transition-all duration-300 flex flex-col justify-between shadow-md"
+                    >
+                      {/* Image Container - Click to open Lightbox (aspect-square to match Flash) */}
+                      <div
+                        onClick={() => setPreviewImage(item.originalImage || item.image)}
+                        className="aspect-square bg-studio-main overflow-hidden relative cursor-zoom-in group/img"
+                        role="button"
+                        tabIndex={0}
+                        aria-label={`ดูภาพขนาดใหญ่ ${item.title}`}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            setPreviewImage(item.originalImage || item.image);
+                          }
+                        }}
+                      >
+                        <img
+                          src={item.image}
+                          onError={(e) => handleThumbnailError(e, item.originalImage || item.image)}
+                          alt={item.title}
+                          className="w-full h-full object-cover object-center transform group-hover/img:scale-[1.03] transition-transform duration-500"
+                          loading="lazy"
+                          decoding="async"
+                        />
+                      </div>
+
+                      {/* Card Info & CTA */}
+                      <div className="p-3.5 flex flex-col justify-between flex-1 space-y-2.5 min-w-0">
+                        <div className="space-y-1 min-w-0">
+                          <span className="text-[9px] uppercase tracking-wider text-studio-red-bright font-bold block truncate">
+                            {item.style}
+                          </span>
+                          <Link
+                            href="/portfolio"
+                            className="text-sm sm:text-base font-bold tracking-wide text-studio-primary truncate hover:text-studio-red-bright transition-colors block"
+                          >
+                            {item.title}
+                          </Link>
+                          <p className="text-xs text-studio-secondary truncate">
+                            ช่าง: <strong className="text-studio-primary font-medium">{item.artistName}</strong>
+                          </p>
+                        </div>
+                        <div className="pt-2.5 border-t border-studio-border/50 flex items-center justify-end text-xs mt-auto">
+                          <Link
+                            href="/portfolio"
+                            className="inline-flex items-center space-x-1 text-studio-red-bright font-semibold transition-all hover:text-tattoo-red-dark text-[11px] sm:text-xs cursor-pointer group/cta"
+                          >
+                            <span>ดูผลงาน</span>
+                            <ArrowRight size={13} className="transform group-hover/cta:translate-x-0.5 transition-transform" />
+                          </Link>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </>
+          )}
+
+          {/* Tab 2: FLASH Cards */}
+          {selectedWorksTab === 'flash' && (
+            <div className="flex lg:grid overflow-x-auto lg:overflow-visible pb-4 lg:pb-0 gap-4 lg:grid-cols-4 scrollbar-none snap-x -mx-4 px-4 lg:mx-0 lg:px-0">
+              {liveFlash.map((item) => (
+                <div
+                  key={item.id}
+                  className="w-[78vw] max-w-[300px] shrink-0 snap-center lg:w-auto bg-studio-card border border-studio-border hover:border-studio-red/50 rounded-[6px] overflow-hidden flex flex-col justify-between group transition-all duration-300 shadow-md"
+                >
+                  {/* Image Container with Top-Right Badge Stack - Click to open Lightbox */}
+                  <div
+                    onClick={() => setPreviewImage(item.image)}
+                    className="aspect-square bg-studio-main overflow-hidden relative block cursor-zoom-in group/img"
+                    role="button"
+                    tabIndex={0}
+                    aria-label={`ดูภาพขนาดใหญ่ ${item.title}`}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        setPreviewImage(item.image);
+                      }
+                    }}
+                  >
+                    <img
+                      src={item.image}
+                      alt={item.title}
+                      className="w-full h-full object-cover transform group-hover/img:scale-[1.02] transition-transform duration-500"
+                    />
+                    {/* Top-Right Badge Stack */}
+                    <div className="absolute top-3 right-3 flex flex-col items-end gap-1.5 pointer-events-none">
+                      {/* 1. Availability Status Badge (matching /flash 100%) */}
+                      {item.status === 'AVAILABLE' ? (
+                        <span className="text-[9px] bg-emerald-950/60 border border-emerald-600/40 text-emerald-400 px-2 py-0.5 rounded font-bold shadow">
+                          ● ว่าง (พร้อมจอง)
+                        </span>
+                      ) : item.status === 'HELD' ? (
+                        <span className="text-[9px] bg-amber-950/60 border border-amber-600/40 text-amber-300 px-2 py-0.5 rounded font-bold shadow">
+                          ● รอการยืนยัน
+                        </span>
+                      ) : item.status === 'RESERVED' ? (
+                        <span className="text-[9px] bg-indigo-950/60 border border-indigo-600/40 text-indigo-300 px-2 py-0.5 rounded font-bold shadow">
+                          ● จองแล้ว
+                        </span>
+                      ) : (
+                        <span className="text-[9px] bg-[#171512] border border-[#4A443A] text-[#7A7265] px-2 py-0.5 rounded font-bold shadow">
+                          ✕ ปิดจอง
+                        </span>
+                      )}
+
+                      {/* 2. Repeatability Badge */}
+                      {item.is_repeatable ? (
+                        <span className="text-[9px] bg-cyan-950/80 border border-cyan-600/40 text-cyan-300 px-2 py-0.5 rounded font-bold shadow">
+                          สักซ้ำได้
+                        </span>
+                      ) : (
+                        <span className="text-[9px] bg-amber-950/80 border border-amber-600/40 text-amber-300 px-2 py-0.5 rounded font-bold shadow">
+                          ลายเดียว
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Info Container */}
+                  <div className="p-3.5 flex flex-col justify-between flex-1 space-y-2.5 min-w-0">
+                    <div className="space-y-1 min-w-0">
+                      {/* Style Text */}
+                      <span className="text-[9px] text-studio-red-bright font-bold uppercase tracking-wider block">
+                        {item.style || 'FLASH'}
+                      </span>
+
+                      {/* Title - clickable to /flash?select=${item.id} */}
+                      <Link
+                        href={`/flash?select=${item.id}`}
+                        className="text-sm sm:text-base font-bold tracking-wide text-studio-primary truncate hover:text-studio-red-bright transition-colors block"
+                      >
+                        {item.title}
+                      </Link>
+
+                      {/* Artist */}
+                      <p className="text-xs text-studio-secondary truncate">
+                        ช่าง: <strong className="text-studio-primary font-medium">{item.artistName}</strong>
+                      </p>
+                    </div>
+
+                    {/* Bottom Single CTA Row */}
+                    <div className="pt-2.5 border-t border-studio-border/50 flex items-center justify-end text-xs mt-auto">
+                      {item.status === 'AVAILABLE' ? (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            router.push(`/booking?flash=${item.id}`);
+                          }}
+                          className="inline-flex items-center space-x-1 text-studio-red-bright hover:text-tattoo-red-dark font-semibold transition-all group/btn text-[11px] sm:text-xs cursor-pointer"
+                        >
+                          <span>จองลายนี้</span>
+                          <ArrowRight size={13} className="transform group-hover/btn:translate-x-0.5 transition-transform" />
+                        </button>
+                      ) : (
+                        <span className="text-[11px] sm:text-xs text-studio-muted font-medium">
+                          {item.status === 'HELD' ? 'รอการยืนยัน' : item.status === 'RESERVED' ? 'จองแล้ว' : 'ปิดจอง'}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+              {liveFlash.length === 0 && (
+                <div className="col-span-4 py-8 text-center text-xs text-studio-muted bg-studio-card border border-studio-border rounded-[6px]">
+                  ไม่มีรายการลาย Flash ที่พร้อมจองในขณะนี้
+                </div>
+              )}
+            </div>
+          )}
+        </section>
+
+        {/* Section 3: Featured Artists */}
+        <section className="space-y-4 sm:space-y-6">
+          <div className="flex justify-between items-end border-b border-studio-border pb-3 sm:pb-5 gap-2">
+            <div>
+              <div className="inline-flex items-center space-x-1.5 bg-studio-sec border border-studio-border px-2.5 py-0.5 rounded text-studio-secondary text-[10px] uppercase font-bold tracking-widest mb-1">
+                <span>The Tattoo Masters</span>
+              </div>
+              <h2 className="text-2xl sm:text-3xl md:text-4xl font-heading font-normal tracking-[0.04em] text-studio-primary">
+                ช่างสักประจำร้าน (RESIDENT ARTISTS)
+              </h2>
+            </div>
+            <Link
+              href="/artists"
+              className="text-xs sm:text-sm text-studio-primary hover:text-studio-red-bright hover:underline font-medium flex items-center space-x-1 shrink-0 pb-1"
+            >
+              <span>ดูช่างทุกคน</span>
+              <ArrowRight size={13} />
+            </Link>
+          </div>
+
+          {featuredArtists.length === 0 ? (
+            <div className="py-12 px-6 text-center bg-studio-card border border-studio-border rounded-[8px] max-w-lg mx-auto shadow-md space-y-2">
+              <div className="w-12 h-12 rounded-full bg-studio-main border border-studio-border flex items-center justify-center mx-auto text-studio-secondary">
+                <Users size={20} className="text-studio-red" />
+              </div>
+              <h3 className="text-base font-heading text-studio-primary">
+                กำลังอัปเดตข้อมูลรายชื่อช่างสักประจำสตูดิโอ
+              </h3>
+              <p className="text-xs text-studio-secondary">
+                กรุณาติดตามข้อมูลช่างสักและผลงานล่าสุดผ่านทางสตูดิโอ
+              </p>
+              <div className="pt-2">
+                <Link
+                  href="/artists"
+                  className="text-xs text-studio-red-bright hover:underline font-semibold"
+                >
+                  ดูหน้ารวมช่างสัก →
+                </Link>
+              </div>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
+              {featuredArtists.slice(0, 2).map((artist) => (
+                <div
+                  key={artist.id}
+                  className="bg-studio-card border border-studio-border rounded-[8px] overflow-hidden flex flex-col justify-between group hover:border-studio-red/50 transition-all shadow-md"
+                >
+                  <div className="p-4 sm:p-6 space-y-3.5">
+                    <div className="flex items-center space-x-3.5">
+                      <img
+                        src={artist.avatar_url || artist.avatar}
+                        alt={artist.name}
+                        className="w-14 h-14 sm:w-16 sm:h-16 rounded-full object-cover border-2 border-studio-border shrink-0"
+                      />
+                      <div className="min-w-0">
+                        <span className="text-[10px] uppercase tracking-wider text-studio-red-bright font-bold block truncate">
+                          {artist.specialties && artist.specialties.length > 0 ? artist.specialties.join(' / ') : artist.specialty}
+                        </span>
+                        <h3 className="text-base sm:text-lg font-heading tracking-wide text-studio-primary mt-0.5 truncate">
+                          {artist.name}
+                        </h3>
+                        <span className="text-[10px] text-studio-muted">ช่างประจำสตูดิโอ 157 TATTOO</span>
+                      </div>
+                    </div>
+
+                    <p className="text-xs text-studio-secondary font-light leading-relaxed line-clamp-2">
+                      {artist.bio || 'ช่างสักมืออาชีพประจำ 157 TATTOO'}
+                    </p>
+                  </div>
+
+                  <div className="p-3.5 sm:p-4 bg-studio-main/40 border-t border-studio-border">
+                    <Link
+                      href={`/artists?id=${artist.id}`}
+                      className="min-h-[44px] w-full text-center bg-transparent border border-studio-border text-studio-primary hover:bg-studio-sec hover:border-studio-red/50 active:scale-[0.99] text-xs font-semibold tracking-wider uppercase py-2.5 px-4 rounded-[4px] flex items-center justify-center transition-colors"
+                    >
+                      ดูผลงาน & นัดหมาย
+                    </Link>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </section>
 
         {/* Section 5: Studio Standard & Info */}
@@ -651,6 +661,41 @@ export default function HomePage() {
 
       {/* Mobile Fixed Bottom Navigation Bar */}
       <MobileBottomNav />
+
+      {/* Homepage Portfolio & Flash Pure Image Lightbox */}
+      {previewImage && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/90 backdrop-blur-sm p-4 sm:p-6"
+          onClick={() => setPreviewImage(null)}
+        >
+          {/* Close Button Top-Right */}
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              setPreviewImage(null);
+            }}
+            aria-label="ปิดรูปภาพ"
+            className="absolute top-4 right-4 sm:top-6 sm:right-6 w-11 h-11 flex items-center justify-center rounded-full bg-studio-card/80 border border-studio-border text-studio-primary hover:text-studio-red hover:border-studio-red/50 transition-colors cursor-pointer z-10"
+          >
+            <X size={22} />
+          </button>
+
+          {/* Centered Image Container */}
+          <div
+            className="relative flex items-center justify-center max-w-[90vw] max-h-[88vh]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <img
+              src={previewImage}
+              alt="ผลงานรอยสัก"
+              className="max-w-[90vw] max-h-[88vh] w-auto h-auto object-contain select-none rounded-[4px] shadow-2xl"
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

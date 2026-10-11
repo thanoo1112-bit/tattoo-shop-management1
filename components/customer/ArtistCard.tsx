@@ -21,25 +21,11 @@ export default function ArtistCard({ artist, onSelect }: ArtistCardProps) {
             className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-500"
           />
           <div className="absolute inset-0 bg-gradient-to-t from-studio-card/80 via-transparent to-transparent"></div>
-          
-          {/* Status Badge */}
-          <div className="absolute top-3 left-3 bg-studio-main/80 backdrop-blur-sm border border-studio-border px-2.5 py-1 rounded-[4px] flex items-center space-x-1.5">
-            <span className={`w-2 h-2 rounded-full ${
-              (artist.status === 'Available' || artist.status === 'AVAILABLE') ? 'bg-green-500' :
-              (artist.status === 'Tattooing' || artist.status === 'TATTOOING') ? 'bg-studio-red' :
-              (artist.status === 'Break' || artist.status === 'BREAK') ? 'bg-blue-500' : 'bg-studio-muted'
-            }`}></span>
-            <span className="text-[10px] text-studio-secondary font-medium uppercase tracking-wider">
-              {(artist.status === 'Available' || artist.status === 'AVAILABLE') ? 'ว่าง' :
-               (artist.status === 'Tattooing' || artist.status === 'TATTOOING') ? 'กำลังสัก' :
-               (artist.status === 'Break' || artist.status === 'BREAK') ? 'พักเบรค' : 'หยุดปฏิบัติงาน'}
-            </span>
-          </div>
         </div>
 
         {/* Info */}
         <div className="p-5">
-          <span className="text-[10px] uppercase tracking-widest text-studio-red font-bold block leading-relaxed">
+          <span className="text-[10px] uppercase tracking-widest text-studio-red-bright font-bold block leading-relaxed">
             {artist.specialties && artist.specialties.length > 0 ? artist.specialties.join(' / ') : artist.specialty}
           </span>
 

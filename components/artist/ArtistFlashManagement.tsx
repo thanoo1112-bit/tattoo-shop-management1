@@ -429,7 +429,7 @@ export default function ArtistFlashManagement() {
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 bg-studio-card border border-studio-border p-5 rounded-xl shadow-lg">
         <div className="space-y-1">
           <div className="flex items-center space-x-2">
-            <span className="text-xs text-studio-red uppercase tracking-wider font-semibold">
+            <span className="text-xs text-studio-red-bright uppercase tracking-wider font-semibold">
               ARTIST FLASH DESIGNS
             </span>
             <span className="text-studio-muted text-xs">•</span>
@@ -438,7 +438,7 @@ export default function ArtistFlashManagement() {
             </span>
           </div>
           <h1 className="text-xl sm:text-2xl font-heading font-semibold text-studio-primary flex items-center gap-2">
-            <Sparkles className="text-studio-red" size={24} />
+            <Sparkles className="text-studio-red-bright" size={24} />
             <span>จัดการลาย Flash ของฉัน</span>
           </h1>
           <p className="text-xs text-studio-secondary max-w-2xl">
@@ -453,7 +453,7 @@ export default function ArtistFlashManagement() {
             className="p-2.5 bg-studio-sec border border-studio-border hover:border-studio-red/50 text-studio-secondary hover:text-studio-primary rounded-lg transition-colors cursor-pointer"
             title="รีเฟรชข้อมูล"
           >
-            <RefreshCw size={16} className={loading ? 'animate-spin text-studio-red' : ''} />
+            <RefreshCw size={16} className={loading ? 'animate-spin text-studio-red-bright' : ''} />
           </button>
 
           <button
@@ -562,7 +562,7 @@ export default function ArtistFlashManagement() {
                 setFilterStatus('ALL');
                 setSearchQuery('');
               }}
-              className="text-studio-red hover:underline text-[11px]"
+              className="text-studio-red-bright hover:underline text-[11px]"
             >
               ล้างตัวกรองทั้งหมด
             </button>
@@ -573,7 +573,7 @@ export default function ArtistFlashManagement() {
       {/* Grid List */}
       {loading ? (
         <div className="py-20 text-center text-studio-secondary bg-studio-card border border-studio-border rounded-xl animate-pulse space-y-3">
-          <Loader2 size={24} className="animate-spin text-studio-red mx-auto" />
+          <Loader2 size={24} className="animate-spin text-studio-red-bright mx-auto" />
           <p className="text-xs">กำลังโหลดลาย Flash...</p>
         </div>
       ) : filteredDesigns.length === 0 ? (
@@ -659,7 +659,7 @@ export default function ArtistFlashManagement() {
                 {/* Info Container */}
                 <div className="p-3 sm:p-4 flex-1 flex flex-col justify-between space-y-2.5">
                   <div className="space-y-0.5">
-                    <h3 className="text-xs sm:text-sm font-semibold text-studio-primary group-hover:text-studio-red transition-colors line-clamp-1">
+                    <h3 className="text-xs sm:text-sm font-semibold text-studio-primary group-hover:text-studio-red-bright transition-colors line-clamp-1">
                       {design.title}
                     </h3>
                     {design.description && (
@@ -737,7 +737,7 @@ export default function ArtistFlashManagement() {
               {/* Modal Header */}
               <div className="px-5 py-4 border-b border-[#2D2820] flex items-center justify-between bg-[#171512]">
                 <h3 className="text-sm sm:text-base font-bold text-[#ECE4D3] flex items-center gap-2">
-                  <Sparkles size={18} className="text-[#9C2F2F]" />
+                  <Sparkles size={18} className="text-studio-red-bright" />
                   <span>{editingDesign ? 'แก้ไขแบบลายสัก FLASH' : 'เพิ่มแบบลายสัก FLASH ใหม่'}</span>
                 </h3>
                 <button
@@ -761,7 +761,7 @@ export default function ArtistFlashManagement() {
                 <div className="bg-[#171512] border border-[#2D2820] rounded-lg p-4 space-y-3">
                   {/* Card Header with Icon */}
                   <div className="flex items-center gap-2 border-b border-[#2D2820] pb-2.5">
-                    <Camera size={15} className="text-[#9C2F2F]" />
+                    <Camera size={15} className="text-studio-red-bright" />
                     <span className="text-xs font-bold text-[#ECE4D3]">รูปภาพลาย Flash</span>
                     <span className="text-red-400">*</span>
                   </div>
@@ -783,7 +783,7 @@ export default function ArtistFlashManagement() {
                       className="w-28 h-28 sm:w-32 sm:h-32 bg-[#0E0D0C] border border-[#2D2820] hover:border-[#9C2F2F]/60 rounded-lg flex flex-col items-center justify-center cursor-pointer transition-colors shrink-0 overflow-hidden relative group"
                     >
                       {isUploadingImage ? (
-                        <Loader2 size={22} className="animate-spin text-[#9C2F2F]" />
+                        <Loader2 size={22} className="animate-spin text-studio-red-bright" />
                       ) : formImageUrl ? (
                         <img src={formImageUrl} alt="Preview" className="w-full h-full object-contain p-1" />
                       ) : (
@@ -812,7 +812,7 @@ export default function ArtistFlashManagement() {
                           onClick={() => fileInputRef.current?.click()}
                           className="px-3 py-1.5 bg-[#25201A] hover:bg-[#322A22] border border-[#2D2820] text-xs text-[#ECE4D3] rounded transition-colors flex items-center gap-1.5 font-medium cursor-pointer"
                         >
-                          <Camera size={13} className="text-[#9C2F2F]" />
+                          <Camera size={13} className="text-studio-red-bright" />
                           <span>{formImageUrl ? 'เลือกรูปใหม่' : 'เลือกรูปใหม่'}</span>
                         </button>
 

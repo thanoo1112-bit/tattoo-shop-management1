@@ -1,5 +1,6 @@
 import { SessionStatus, BookingStatus, CalendarSessionEvent } from './types';
 import { formatTattooSize } from '@/lib/utils/formatters';
+import { getDepositDeadlineInfo } from '@/components/portal/portalUtils';
 
 export const TIMEZONE = 'Asia/Bangkok';
 
@@ -189,7 +190,18 @@ export function getEffectiveEventStatus(ev: CalendarSessionEvent): EffectiveEven
   // 2. Execution & Payment statuses (Booking status takes precedence over session)
   if (bookingStatus === 'COMPLETED' || status === 'COMPLETED') return 'COMPLETED';
   if (bookingStatus === 'IN_PROGRESS' || status === 'IN_PROGRESS') return 'IN_PROGRESS';
-  if (bookingStatus === 'WAITING_DEPOSIT') return 'WAITING_DEPOSIT';
+  if (bookingStatus === 'WAITING_DEPOSIT') {
+    const deadlineInfo = getDepositDeadlineInfo(
+      ev.booking?.approved_at,
+      ev.booking?.created_at || ev.created_at,
+      ev.booking?.requested_date,
+      ev.booking?.requested_start_time
+    );
+    if (deadlineInfo?.isExpired) {
+      return 'EXPIRED';
+    }
+    return 'WAITING_DEPOSIT';
+  }
   if (bookingStatus === 'PENDING') return 'PENDING';
 
   return 'CONFIRMED';
@@ -217,27 +229,27 @@ export function getEventStatusConfig(ev: CalendarSessionEvent): {
       return {
         key: 'CANCELLED',
         label: 'ยกเลิก',
-        bg: 'bg-red-950/20',
-        border: 'border-red-900/40',
-        text: 'text-zinc-500 line-through',
-        badgeBg: 'bg-red-950/60',
-        badgeText: 'text-red-400',
-        badgeBorder: 'border-red-800/60',
-        dotClass: 'bg-red-400',
-        colorClass: 'text-red-400',
+        bg: 'bg-[#1F1D1A]',
+        border: 'border-[#4A443A]',
+        text: 'text-[#7A7265] line-through',
+        badgeBg: 'bg-[#1F1D1A]',
+        badgeText: 'text-[#7A7265]',
+        badgeBorder: 'border-[#4A443A]',
+        dotClass: 'bg-[#7A7265]',
+        colorClass: 'text-[#7A7265]',
       };
     case 'REJECTED':
       return {
         key: 'REJECTED',
         label: 'ปฏิเสธ',
-        bg: 'bg-zinc-900/90',
-        border: 'border-zinc-700/80',
-        text: 'text-zinc-400',
-        badgeBg: 'bg-zinc-900/90',
-        badgeText: 'text-zinc-400',
-        badgeBorder: 'border-zinc-700/80',
-        dotClass: 'bg-zinc-400',
-        colorClass: 'text-zinc-400',
+        bg: 'bg-red-950/20',
+        border: 'border-red-900/40',
+        text: 'text-red-400',
+        badgeBg: 'bg-red-950/50',
+        badgeText: 'text-red-400',
+        badgeBorder: 'border-red-900/60',
+        dotClass: 'bg-red-400',
+        colorClass: 'text-red-400',
       };
     case 'EXPIRED':
       return {
@@ -245,38 +257,38 @@ export function getEventStatusConfig(ev: CalendarSessionEvent): {
         label: 'หมดเวลาชำระมัดจำ',
         bg: 'bg-zinc-950/30',
         border: 'border-zinc-800/60',
-        text: 'text-zinc-500',
+        text: 'text-zinc-400',
         badgeBg: 'bg-zinc-900/90',
         badgeText: 'text-zinc-400',
         badgeBorder: 'border-zinc-700/80',
-        dotClass: 'bg-zinc-500',
-        colorClass: 'text-zinc-500',
+        dotClass: 'bg-zinc-400',
+        colorClass: 'text-zinc-400',
       };
     case 'COMPLETED':
       return {
         key: 'COMPLETED',
         label: 'งานเสร็จสิ้น',
-        bg: 'bg-emerald-950/25',
-        border: 'border-emerald-800/50',
+        bg: 'bg-emerald-950/30',
+        border: 'border-emerald-800/60',
         text: 'text-emerald-300',
-        badgeBg: 'bg-emerald-950/60',
-        badgeText: 'text-emerald-400',
-        badgeBorder: 'border-emerald-800/60',
-        dotClass: 'bg-emerald-400',
-        colorClass: 'text-emerald-400',
+        badgeBg: 'bg-emerald-950/80',
+        badgeText: 'text-emerald-300',
+        badgeBorder: 'border-emerald-700/80',
+        dotClass: 'bg-emerald-300',
+        colorClass: 'text-emerald-300',
       };
     case 'IN_PROGRESS':
       return {
         key: 'IN_PROGRESS',
         label: 'กำลังสัก',
-        bg: 'bg-amber-950/25',
-        border: 'border-amber-800/50',
-        text: 'text-amber-300',
-        badgeBg: 'bg-amber-950/60',
-        badgeText: 'text-amber-400',
-        badgeBorder: 'border-amber-800/60',
-        dotClass: 'bg-amber-400',
-        colorClass: 'text-amber-400',
+        bg: 'bg-[#9C2F2F]/20',
+        border: 'border-[#9C2F2F]/60',
+        text: 'text-[#D64545]',
+        badgeBg: 'bg-[#9C2F2F]/20',
+        badgeText: 'text-[#D64545]',
+        badgeBorder: 'border-[#9C2F2F]/60',
+        dotClass: 'bg-[#D64545]',
+        colorClass: 'text-[#D64545]',
       };
     case 'WAITING_DEPOSIT':
       return {
@@ -305,26 +317,43 @@ export function getEventStatusConfig(ev: CalendarSessionEvent): {
         colorClass: 'text-blue-400',
       };
     case 'CONFIRMED':
-    default:
+    default: {
+      const bAny = ev.booking as any;
+      const totalSessionsCount = ev.total_sessions_count || bAny?.total_sessions_count || (Array.isArray(bAny?.sessions) ? bAny.sessions.length : 1) || (ev.session_number > 1 ? ev.session_number : 1);
+      if (totalSessionsCount > 1) {
+        return {
+          key: 'CONFIRMED',
+          label: 'รอบนัด',
+          bg: 'bg-teal-950/25',
+          border: 'border-teal-800/50',
+          text: 'text-teal-300',
+          badgeBg: 'bg-teal-950/60',
+          badgeText: 'text-teal-400',
+          badgeBorder: 'border-teal-800/60',
+          dotClass: 'bg-teal-400',
+          colorClass: 'text-teal-400',
+        };
+      }
       return {
         key: 'CONFIRMED',
         label: 'นัดหมายแล้ว',
-        bg: 'bg-blue-950/25',
-        border: 'border-blue-800/50',
-        text: 'text-blue-300',
-        badgeBg: 'bg-blue-950/60',
-        badgeText: 'text-blue-400',
-        badgeBorder: 'border-blue-800/60',
-        dotClass: 'bg-blue-400',
-        colorClass: 'text-blue-400',
+        bg: 'bg-emerald-950/25',
+        border: 'border-emerald-800/50',
+        text: 'text-emerald-300',
+        badgeBg: 'bg-emerald-950/60',
+        badgeText: 'text-emerald-400',
+        badgeBorder: 'border-emerald-800/60',
+        dotClass: 'bg-emerald-400',
+        colorClass: 'text-emerald-400',
       };
+    }
   }
 }
 
 /**
  * Get visual configuration for Session Status
  */
-export function getSessionStatusConfig(status: SessionStatus): {
+export function getSessionStatusConfig(status: SessionStatus, totalSessionsCount: number = 1): {
   label: string;
   bg: string;
   border: string;
@@ -334,40 +363,50 @@ export function getSessionStatusConfig(status: SessionStatus): {
 } {
   switch (status) {
     case 'SCHEDULED':
+      if (totalSessionsCount > 1) {
+        return {
+          label: 'รอบนัด',
+          bg: 'bg-teal-950/25',
+          border: 'border-teal-800/40',
+          text: 'text-teal-300',
+          badgeBg: 'bg-teal-950/60',
+          badgeText: 'text-teal-400',
+        };
+      }
       return {
         label: 'นัดหมายแล้ว',
-        bg: 'bg-blue-950/25',
-        border: 'border-blue-800/40',
-        text: 'text-blue-300',
-        badgeBg: 'bg-blue-950/60',
-        badgeText: 'text-blue-400',
-      };
-    case 'IN_PROGRESS':
-      return {
-        label: 'มีรอบสัก',
-        bg: 'bg-purple-950/25',
-        border: 'border-purple-800/40',
-        text: 'text-purple-300',
-        badgeBg: 'bg-purple-950/60',
-        badgeText: 'text-purple-400',
-      };
-    case 'COMPLETED':
-      return {
-        label: 'งานเสร็จสิ้น',
         bg: 'bg-emerald-950/25',
         border: 'border-emerald-800/40',
         text: 'text-emerald-300',
         badgeBg: 'bg-emerald-950/60',
         badgeText: 'text-emerald-400',
       };
+    case 'IN_PROGRESS':
+      return {
+        label: 'มีรอบสัก',
+        bg: 'bg-[#9C2F2F]/20',
+        border: 'border-[#9C2F2F]/60',
+        text: 'text-[#D64545]',
+        badgeBg: 'bg-[#9C2F2F]/20',
+        badgeText: 'text-[#D64545]',
+      };
+    case 'COMPLETED':
+      return {
+        label: 'งานเสร็จสิ้น',
+        bg: 'bg-emerald-950/30',
+        border: 'border-emerald-800/60',
+        text: 'text-emerald-300',
+        badgeBg: 'bg-emerald-950/80',
+        badgeText: 'text-emerald-300',
+      };
     case 'CANCELLED':
       return {
         label: 'ยกเลิก',
-        bg: 'bg-red-950/25 opacity-60',
-        border: 'border-red-800/40',
-        text: 'text-red-400',
-        badgeBg: 'bg-red-950/60',
-        badgeText: 'text-red-400',
+        bg: 'bg-[#1F1D1A]',
+        border: 'border-[#4A443A]',
+        text: 'text-[#7A7265]',
+        badgeBg: 'bg-[#1F1D1A]',
+        badgeText: 'text-[#7A7265]',
       };
     default:
       return {
@@ -384,7 +423,7 @@ export function getSessionStatusConfig(status: SessionStatus): {
 /**
  * Get visual configuration for Booking Status
  */
-export function getBookingStatusConfig(status: BookingStatus): {
+export function getBookingStatusConfig(status: BookingStatus, totalSessionsCount: number = 1): {
   label: string;
   text: string;
   bg: string;
@@ -394,59 +433,67 @@ export function getBookingStatusConfig(status: BookingStatus): {
     case 'WAITING_DEPOSIT':
       return {
         label: 'รอมัดจำ',
-        text: 'text-purple-300',
+        text: 'text-purple-400',
         bg: 'bg-purple-950/60',
         border: 'border-purple-800/60',
       };
     case 'CONFIRMED':
+      if (totalSessionsCount > 1) {
+        return {
+          label: 'รอบนัด',
+          text: 'text-teal-400',
+          bg: 'bg-teal-950/60',
+          border: 'border-teal-800/60',
+        };
+      }
       return {
         label: 'นัดหมายแล้ว',
-        text: 'text-blue-400',
-        bg: 'bg-blue-950/40',
-        border: 'border-blue-800/50',
+        text: 'text-emerald-400',
+        bg: 'bg-emerald-950/60',
+        border: 'border-emerald-800/60',
       };
     case 'IN_PROGRESS':
       return {
         label: 'มีรอบสัก',
-        text: 'text-purple-400',
-        bg: 'bg-purple-950/40',
-        border: 'border-purple-800/50',
+        text: 'text-[#D64545]',
+        bg: 'bg-[#9C2F2F]/20',
+        border: 'border-[#9C2F2F]/60',
       };
     case 'COMPLETED':
       return {
         label: 'งานเสร็จสิ้น',
-        text: 'text-emerald-400',
-        bg: 'bg-emerald-950/40',
-        border: 'border-emerald-800/50',
+        text: 'text-emerald-300',
+        bg: 'bg-emerald-950/80',
+        border: 'border-emerald-700/80',
       };
     case 'CANCELLED':
       return {
         label: 'ยกเลิก',
-        text: 'text-red-400',
-        bg: 'bg-red-950/40',
-        border: 'border-red-800/50',
+        text: 'text-[#7A7265]',
+        bg: 'bg-[#1F1D1A]',
+        border: 'border-[#4A443A]',
       };
     case 'REJECTED':
       return {
         label: 'ปฏิเสธ',
         text: 'text-red-400',
-        bg: 'bg-red-950/40',
-        border: 'border-red-800/50',
+        bg: 'bg-red-950/50',
+        border: 'border-red-900/60',
       };
     case 'APPROVED':
       return {
         label: 'อนุมัติแล้ว',
-        text: 'text-blue-300',
-        bg: 'bg-blue-950/30',
-        border: 'border-blue-800/40',
+        text: 'text-emerald-400',
+        bg: 'bg-emerald-950/60',
+        border: 'border-emerald-800/60',
       };
     case 'PENDING':
     default:
       return {
         label: 'รอตรวจสอบ',
-        text: 'text-yellow-400',
-        bg: 'bg-yellow-950/40',
-        border: 'border-yellow-800/50',
+        text: 'text-blue-400',
+        bg: 'bg-blue-950/60',
+        border: 'border-blue-800/60',
       };
   }
 }

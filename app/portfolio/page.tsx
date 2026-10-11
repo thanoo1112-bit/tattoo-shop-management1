@@ -13,6 +13,7 @@ import {
   Sparkles,
   Calendar,
   ArrowLeft,
+  ArrowRight,
   ArrowUpRight,
   Search,
   SlidersHorizontal,
@@ -241,7 +242,7 @@ function PortfolioContent() {
     setSelectedArtwork(item);
     setPanelView('default');
     if (typeof window !== 'undefined' && window.innerWidth < 1024) {
-      setShowMobileDetail(true);
+      setShowLightbox(true);
     }
   };
 
@@ -254,7 +255,7 @@ function PortfolioContent() {
           <div className="w-full lg:w-[63%] space-y-6">
             <div className="border-b border-studio-border pb-4 flex flex-col sm:flex-row justify-between items-start sm:items-end gap-2">
               <div>
-                <span className="text-[10px] uppercase tracking-widest text-studio-red font-bold">157 TATTOO GALLERY</span>
+                <span className="text-[10px] uppercase tracking-widest text-studio-red-bright font-bold">157 TATTOO GALLERY</span>
                 <h1 className="text-2xl md:text-3xl font-black tracking-wider text-studio-primary mt-1">
                   ผลงานสัก (PORTFOLIO)
                 </h1>
@@ -264,10 +265,10 @@ function PortfolioContent() {
               </div>
             </div>
 
-            <div className="flex flex-col xl:flex-row gap-4 justify-between items-start xl:items-center bg-studio-card/60 p-3 rounded-[6px] border border-studio-border">
+            <div className="flex flex-col sm:flex-row gap-3 justify-between items-start sm:items-center bg-studio-card/60 p-3 rounded-[6px] border border-studio-border">
               <PortfolioFilter activeFilter={filter} onFilterChange={setFilter} filters={dynamicFilters} />
 
-              <div className="flex items-center gap-3 w-full xl:w-auto shrink-0">
+              <div className="flex items-center gap-3 w-full sm:w-auto shrink-0">
                 <div className="relative flex-1 sm:w-56">
                   <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-studio-muted" />
                   <input
@@ -304,7 +305,7 @@ function PortfolioContent() {
             <div className="flex justify-between items-center text-xs text-studio-secondary px-1">
               <span>
                 แสดงผลงานทั้งหมด <strong className="text-studio-primary">{filteredArtworks.length}</strong> รายการ
-                {filter !== 'All' && <span> • สไตล์: <strong className="text-studio-red">{filter}</strong></span>}
+                {filter !== 'All' && <span> • สไตล์: <strong className="text-studio-red-bright">{filter}</strong></span>}
                 {searchQuery && <span> • ค้นหา: &quot;<strong className="text-studio-primary">{searchQuery}</strong>&quot;</span>}
               </span>
               {(filter !== 'All' || searchQuery) && (
@@ -313,7 +314,7 @@ function PortfolioContent() {
                     setFilter('All');
                     setSearchQuery('');
                   }}
-                  className="text-studio-red hover:underline text-[11px]"
+                  className="text-studio-red-bright hover:underline text-[11px]"
                 >
                   ล้างตัวกรอง
                 </button>
@@ -321,10 +322,10 @@ function PortfolioContent() {
             </div>
 
             {loading && (
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                {[1, 2, 3, 4, 5, 6].map((idx) => (
+              <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
+                {[1, 2, 3, 4, 5, 6, 7, 8].map((idx) => (
                   <div key={idx} className="bg-studio-card border border-studio-border rounded-[6px] overflow-hidden animate-pulse">
-                    <div className="aspect-square bg-studio-sec/60" />
+                    <div className="aspect-[4/5] bg-studio-sec/60" />
                     <div className="p-3 space-y-2">
                       <div className="h-3 bg-studio-sec/80 rounded w-3/4" />
                       <div className="h-2 bg-studio-sec/50 rounded w-1/2" />
@@ -371,47 +372,58 @@ function PortfolioContent() {
             )}
 
             {!loading && !error && filteredArtworks.length > 0 && (
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4">
+              <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
                 {filteredArtworks.map((item) => {
                   const isSelected = selectedArtwork?.id === item.id;
                   const artistName = item.artists?.name || 'ช่างประจำร้าน';
-                  const durationText = formatDurationDisplay(item.estimated_duration_minutes);
 
                   return (
                     <div
                       key={item.id}
                       onClick={() => handleItemSelect(item)}
-                      className={`aspect-square bg-studio-main border rounded-[6px] overflow-hidden group cursor-pointer transition-all duration-200 relative ${
+                      className={`bg-studio-card border rounded-[6px] overflow-hidden group cursor-pointer transition-all duration-300 relative flex flex-col justify-between ${
                         isSelected
                           ? 'border-studio-red ring-1 ring-studio-red shadow-lg shadow-studio-red/10'
-                          : 'border-studio-border hover:border-studio-red/60 hover:shadow-md'
+                          : 'border-studio-border hover:border-studio-red/60'
                       }`}
                     >
-                      <img
-                        src={getThumbnailUrl(item.image_url)}
-                        onError={(e) => handleThumbnailError(e, item.image_url)}
-                        alt={item.title}
-                        className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-500"
-                        loading="lazy"
-                        decoding="async"
-                      />
+                      {/* Image Area */}
+                      <div className="aspect-[4/5] bg-studio-main overflow-hidden relative">
+                        <img
+                          src={getThumbnailUrl(item.image_url)}
+                          onError={(e) => handleThumbnailError(e, item.image_url)}
+                          alt={item.title}
+                          className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-500"
+                          loading="lazy"
+                          decoding="async"
+                        />
+                      </div>
 
-                      {/* Permanent Dark Gradient Overlay on Image Bottom */}
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent flex flex-col justify-end p-3 sm:p-3.5 space-y-0.5 pointer-events-none">
-                        {/* Style name in Red */}
-                        <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-studio-red truncate">
-                          {item.style}
-                        </span>
+                      {/* Info Area Below Image */}
+                      <div className="p-3 bg-studio-card flex flex-col justify-between flex-1 min-w-0 space-y-2">
+                        <div className="space-y-0.5 min-w-0">
+                          <span className="text-[9px] uppercase tracking-wider text-studio-red-bright font-bold block">
+                            {item.style}
+                          </span>
+                          <h4 className="text-xs font-bold text-studio-primary truncate group-hover:text-studio-red-bright transition-colors">
+                            {item.title}
+                          </h4>
+                          <p className="text-[10px] text-studio-secondary truncate">
+                            ช่าง: {artistName}
+                          </p>
+                        </div>
 
-                        {/* Artwork Title in White */}
-                        <h3 className="text-xs sm:text-sm font-heading font-bold tracking-wide text-studio-primary truncate">
-                          {item.title}
-                        </h3>
-
-                        {/* Artist Name */}
-                        <span className="text-[10px] sm:text-xs text-studio-secondary truncate">
-                          ช่าง: {artistName}
-                        </span>
+                        {/* Bottom Action Row (CTA Only, Aligned Right) */}
+                        <div className="pt-2.5 mt-auto border-t border-studio-border/50 flex items-center justify-end min-w-0">
+                          <Link
+                            href={`/booking?artist=${item.artist_id}&artwork=${item.id}`}
+                            onClick={(e) => e.stopPropagation()}
+                            className="inline-flex items-center space-x-1 text-studio-red-bright hover:text-tattoo-red-dark font-semibold transition-all group/btn text-[11px] sm:text-xs"
+                          >
+                            <span>จองคิวกับช่างคนนี้</span>
+                            <ArrowRight size={13} className="transform group-hover/btn:translate-x-0.5 transition-transform" />
+                          </Link>
+                        </div>
                       </div>
                     </div>
                   );
@@ -420,118 +432,24 @@ function PortfolioContent() {
             )}
           </div>
 
-          <div className="hidden lg:block w-full lg:w-[37%] sticky top-24 space-y-4">
+          <div className="hidden lg:block w-full lg:w-[37%] sticky top-24">
             {selectedArtwork ? (
-              <div className="bg-studio-card border border-studio-border p-5 rounded-[8px] space-y-5 shadow-xl">
-                {panelView === 'default' ? (
-                  <div className="space-y-4">
-                    <div className="flex justify-between items-center border-b border-studio-border pb-3">
-                      <span className="text-[10px] uppercase tracking-widest text-studio-red font-bold">
-                        งานออกแบบเฉพาะบุคคล (Custom Artwork)
-                      </span>
-                      <span className="text-[10px] bg-studio-red/10 border border-studio-red/30 text-studio-red px-2 py-0.5 rounded font-bold">
-                        {selectedArtwork.style}
-                      </span>
-                    </div>
-
-                    <div className="aspect-[4/3] rounded-[6px] border border-studio-border overflow-hidden bg-studio-main relative group">
-                      <img
-                        src={getThumbnailUrl(selectedArtwork.image_url)}
-                        onError={(e) => handleThumbnailError(e, selectedArtwork.image_url)}
-                        alt={selectedArtwork.title}
-                        className="w-full h-full object-cover cursor-pointer"
-                        onClick={() => setShowLightbox(true)}
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowLightbox(true)}
-                        className="absolute bottom-2.5 right-2.5 bg-studio-main/80 hover:bg-studio-main border border-studio-border/80 text-studio-primary text-[10px] px-2 py-1 rounded flex items-center gap-1 shadow-md backdrop-blur-sm z-10 transition-colors"
-                      >
-                        <ZoomIn size={12} />
-                        <span>ขยายดูรูปจริง</span>
-                      </button>
-                    </div>
-
-                    <div>
-                      <h3 className="text-xl font-bold text-studio-primary tracking-wide">{selectedArtwork.title}</h3>
-                      <p className="text-xs text-studio-secondary mt-1">
-                        ช่างสักประจำผลงาน:{' '}
-                        <strong className="text-studio-primary">{formatArtistTitle(selectedArtwork.artists?.name)}</strong>
-                        {selectedArtwork.artists?.nickname && ` (${selectedArtwork.artists.nickname})`}
-                      </p>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-3 border-t border-b border-studio-border/60 py-4 text-xs">
-                      <div className="space-y-1">
-                        <span className="text-[10px] text-studio-muted flex items-center gap-1">
-                          <User size={12} /> ช่างสัก
-                        </span>
-                        <span className="font-semibold text-studio-primary block truncate">
-                          {formatArtistTitle(selectedArtwork.artists?.name)}
-                        </span>
-                      </div>
-
-                      <div className="space-y-1">
-                        <span className="text-[10px] text-studio-muted">สไตล์ลายสัก</span>
-                        <span className="font-semibold text-studio-primary block">{selectedArtwork.style}</span>
-                      </div>
-                    </div>
-
-                    {selectedArtwork.description &&
-                      selectedArtwork.description.trim() !== '' &&
-                      selectedArtwork.description.trim() !== 'ว่าง' &&
-                      selectedArtwork.description.trim() !== '-' && (
-                        <div className="space-y-1">
-                          <span className="text-[10px] font-medium uppercase tracking-wider text-studio-muted block">
-                            รายละเอียดผลงาน
-                          </span>
-                          <p className="text-xs text-studio-secondary leading-relaxed whitespace-pre-line bg-studio-main/40 p-2.5 rounded border border-studio-border/50">
-                            {selectedArtwork.description.trim()}
-                          </p>
-                        </div>
-                    )}
-
-                    <div className="space-y-3 pt-2">
-                      <Link
-                        href={`/booking?artist=${selectedArtwork.artist_id}&artwork=${selectedArtwork.id}`}
-                        className="min-h-[46px] w-full bg-studio-red hover:bg-[#802222] text-studio-paper py-3 px-4 rounded-[4px] text-xs font-bold uppercase tracking-widest transition-all shadow-lg shadow-studio-red/10 flex items-center justify-center space-x-2 border border-studio-red active:scale-[0.99] text-center block"
-                      >
-                        <Calendar size={14} />
-                        <span>จองคิวกับ{formatArtistTitle(selectedArtwork.artists?.name)}</span>
-                      </Link>
-
-                      {selectedArtwork.artist_id && (
-                        <Link
-                          href={`/artists?id=${selectedArtwork.artist_id}`}
-                          className="w-full bg-transparent border border-studio-border text-studio-secondary hover:text-studio-primary hover:border-studio-red/50 py-2.5 px-4 rounded-[4px] text-xs font-medium transition-all block text-center"
-                        >
-                          ดูประวัติและผลงานทั้งหมดของ{formatArtistTitle(selectedArtwork.artists?.name)} →
-                        </Link>
-                      )}
-                    </div>
-                  </div>
-                ) : (
-                  <div className="space-y-4 animate-fadeIn">
-                    <button
-                      onClick={() => setPanelView('default')}
-                      className="flex items-center space-x-1.5 text-xs text-studio-secondary hover:text-studio-red transition-colors uppercase font-semibold pb-2 border-b border-studio-border w-full"
-                    >
-                      <ArrowLeft size={14} />
-                      <span>ย้อนกลับไปดูรายละเอียดผลงาน</span>
-                    </button>
-                    <EstimateForm
-                      preselectedArtistId={selectedArtwork.artist_id}
-                      preselectedArtworkImage={selectedArtwork.image_url}
-                      preselectedStyle={selectedArtwork.style}
-                      compact={true}
-                      onSuccess={() => setPanelView('default')}
-                    />
-                  </div>
-                )}
+              <div className="bg-studio-card border border-studio-border p-4 rounded-[8px] shadow-xl animate-fadeIn">
+                {/* Selected Artwork Image Container (Thumbnail Image, Single Outer Frame) */}
+                <div className="w-full h-[520px] max-h-[75vh] flex items-center justify-center relative">
+                  <img
+                    src={getThumbnailUrl(selectedArtwork.image_url)}
+                    onError={(e) => handleThumbnailError(e, selectedArtwork.image_url)}
+                    alt={selectedArtwork.title}
+                    className="w-full h-full object-contain rounded-[4px] select-none"
+                    loading="eager"
+                    decoding="async"
+                  />
+                </div>
               </div>
             ) : (
               <div className="bg-studio-card border border-studio-border p-8 rounded-[8px] text-center text-xs text-studio-muted">
-                เลือกผลงานจากรายการเพื่อดูรายละเอียด
+                เลือกผลงานจากรายการเพื่อดูรูปภาพ
               </div>
             )}
           </div>
@@ -575,7 +493,7 @@ function PortfolioContent() {
 
             <div className="p-5 pb-[max(1.75rem,env(safe-area-inset-bottom,28px))] flex flex-col justify-between overflow-y-auto space-y-4">
               <div>
-                <span className="text-[10px] font-bold uppercase tracking-widest text-studio-red bg-studio-sec px-2.5 py-1 border border-studio-border rounded-[4px]">
+                <span className="text-[10px] font-bold uppercase tracking-widest text-studio-red-bright bg-studio-sec px-2.5 py-1 border border-studio-border rounded-[4px]">
                   {selectedArtwork.style}
                 </span>
 
@@ -647,7 +565,7 @@ function PortfolioContent() {
         <div className="lg:hidden px-4 py-8 border-t border-studio-border mt-8 bg-studio-card animate-fadeIn">
           <button
             onClick={() => setPanelView('default')}
-            className="flex items-center space-x-1.5 text-xs text-studio-secondary hover:text-studio-red transition-colors uppercase font-semibold mb-6"
+            className="flex items-center space-x-1.5 text-xs text-studio-secondary hover:text-studio-red-bright transition-colors uppercase font-semibold mb-6"
           >
             <ArrowLeft size={14} />
             <span>ย้อนกลับไปดูผลงาน</span>
@@ -674,7 +592,7 @@ function PortfolioContent() {
           <div className="relative max-w-4xl max-h-[90vh] text-center" onClick={(e) => e.stopPropagation()}>
             <button
               onClick={() => setShowLightbox(false)}
-              className="absolute -top-10 right-0 text-white hover:text-studio-red text-sm font-bold bg-studio-main/80 border border-studio-border px-3 py-1 rounded"
+              className="absolute -top-10 right-0 text-white hover:text-studio-red-bright text-sm font-bold bg-studio-main/80 border border-studio-border px-3 py-1 rounded"
             >
               ✕ ปิด
             </button>

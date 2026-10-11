@@ -366,7 +366,7 @@ export default function AdminRequestCenter() {
       <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4 border-b border-[#4A443A] pb-5">
         <div>
           <div className="inline-flex items-center space-x-2 bg-[#171512] border border-[#4A443A] px-2.5 py-0.5 rounded text-[#ECE4D3] text-[10px] uppercase font-heading tracking-widest mb-1.5">
-            <Sparkles size={12} className="text-[#9C2F2F]" />
+            <Sparkles size={12} className="text-studio-red-bright" />
             <span>REQUEST CENTER • ศูนย์จัดการคำขอ</span>
           </div>
           <h1 className="text-3xl md:text-4xl font-heading font-normal tracking-wide text-[#ECE4D3]">
@@ -384,7 +384,7 @@ export default function AdminRequestCenter() {
               สถานะคำขอปัจจุบัน:
             </span>
             <div className="flex items-center space-x-2">
-              <span className="w-2 h-2 rounded-full bg-[#9C2F2F] animate-pulse" />
+              <span className="w-2 h-2 rounded-full bg-studio-red-bright animate-pulse" />
               <span className="text-xs font-semibold text-[#ECE4D3] font-mono">
                 {totalPendingAll} รายการรอดำเนินการ
               </span>
@@ -413,7 +413,7 @@ export default function AdminRequestCenter() {
               คำขอจองคิว
             </span>
             {pendingBookingsCount > 0 && (
-              <span className="w-2 h-2 rounded-full bg-[#9C2F2F] animate-pulse" />
+              <span className="w-2 h-2 rounded-full bg-studio-red-bright animate-pulse" />
             )}
           </div>
           <div className="mt-2 flex items-baseline space-x-2">
@@ -421,7 +421,7 @@ export default function AdminRequestCenter() {
               {bookings.length}
             </span>
             {pendingBookingsCount > 0 && (
-              <span className="text-[10px] sm:text-xs font-semibold text-[#9C2F2F]">
+              <span className="text-[10px] sm:text-xs font-semibold text-studio-red-bright">
                 ({pendingBookingsCount} รอตรวจ)
               </span>
             )}
@@ -449,7 +449,7 @@ export default function AdminRequestCenter() {
               กำหนดราคางานสัก
             </span>
             {pendingEstimatesCount > 0 && (
-              <span className="w-2 h-2 rounded-full bg-[#9C2F2F] animate-pulse" />
+              <span className="w-2 h-2 rounded-full bg-studio-red-bright animate-pulse" />
             )}
           </div>
           <div className="mt-2 flex items-baseline space-x-2">
@@ -457,7 +457,7 @@ export default function AdminRequestCenter() {
               {bookings.length}
             </span>
             {pendingEstimatesCount > 0 && (
-              <span className="text-[10px] sm:text-xs font-semibold text-[#9C2F2F]">
+              <span className="text-[10px] sm:text-xs font-semibold text-studio-red-bright">
                 ({pendingEstimatesCount} รอตรวจ)
               </span>
             )}
@@ -485,7 +485,7 @@ export default function AdminRequestCenter() {
               สลิปมัดจำ
             </span>
             {pendingDepositsCount > 0 && (
-              <span className="w-2 h-2 rounded-full bg-[#9C2F2F] animate-pulse" />
+              <span className="w-2 h-2 rounded-full bg-studio-red-bright animate-pulse" />
             )}
           </div>
           <div className="mt-2 flex items-baseline space-x-2">
@@ -493,7 +493,7 @@ export default function AdminRequestCenter() {
               {bookingPayments.length}
             </span>
             {pendingDepositsCount > 0 && (
-              <span className="text-[10px] sm:text-xs font-semibold text-[#9C2F2F]">
+              <span className="text-[10px] sm:text-xs font-semibold text-studio-red-bright">
                 ({pendingDepositsCount} รอตรวจ)
               </span>
             )}
@@ -622,7 +622,7 @@ export default function AdminRequestCenter() {
               onClick={() => setIsArtistDropdownOpen((prev) => !prev)}
               className="h-[38px] px-3 bg-[#0E0D0C] border border-[#4A443A] hover:border-[#7A7265] rounded-[6px] text-xs font-medium text-[#ECE4D3] flex items-center space-x-2 transition-colors outline-none focus:ring-1 focus:ring-[#9C2F2F]"
             >
-              <User size={13} className="text-[#9C2F2F]" />
+              <User size={13} className="text-studio-red-bright" />
               <span className="truncate max-w-[110px]">
                 {selectedArtistFilter === 'ALL'
                   ? 'ช่างทั้งหมด'
@@ -647,7 +647,7 @@ export default function AdminRequestCenter() {
                 >
                   <span>ช่างทั้งหมด</span>
                   {selectedArtistFilter === 'ALL' && (
-                    <Check size={13} className="text-[#9C2F2F]" />
+                    <Check size={13} className="text-studio-red-bright" />
                   )}
                 </button>
                 {artists.map((artist) => (
@@ -666,7 +666,7 @@ export default function AdminRequestCenter() {
                   >
                     <span className="truncate">{artist.name}</span>
                     {selectedArtistFilter === artist.id && (
-                      <Check size={13} className="text-[#9C2F2F]" />
+                      <Check size={13} className="text-studio-red-bright" />
                     )}
                   </button>
                 ))}
@@ -681,7 +681,7 @@ export default function AdminRequestCenter() {
             className="h-[38px] px-3 bg-[#0E0D0C] border border-[#4A443A] hover:border-[#7A7265] rounded-[6px] text-xs font-medium text-[#ECE4D3] flex items-center space-x-1.5 transition-colors"
             title="เรียงตามวันที่"
           >
-            <ArrowUpDown size={12} className="text-[#9C2F2F]" />
+            <ArrowUpDown size={12} className="text-studio-red-bright" />
             <span>{sortOrder === 'newest' ? 'ล่าสุด' : 'เก่าสุด'}</span>
           </button>
         </div>
@@ -1198,14 +1198,14 @@ export default function AdminRequestCenter() {
             <div className="space-y-4 border-b border-[#4A443A]/60 pb-5">
               <div className="flex justify-between items-center">
                 <div className="flex items-center space-x-2">
-                  <Sparkles size={16} className="text-[#9C2F2F]" />
+                  <Sparkles size={16} className="text-studio-red-bright" />
                   <span className="text-xs uppercase font-heading tracking-wider text-[#ECE4D3]">
                     BOOKING REQUEST • คำขอจองคิว
                   </span>
                 </div>
                 <button
                   onClick={closeAllDrawers}
-                  className="text-[#7A7265] hover:text-[#9C2F2F] transition-colors p-1"
+                  className="text-[#7A7265] hover:text-studio-red-bright transition-colors p-1"
                 >
                   <X size={20} />
                 </button>
@@ -1219,7 +1219,7 @@ export default function AdminRequestCenter() {
                     className="w-16 h-16 sm:w-20 sm:h-20 object-cover rounded-[6px] border border-[#4A443A] bg-[#0E0D0C] shrink-0"
                   />
                 ) : (
-                  <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-[6px] bg-[#0E0D0C] border border-[#4A443A] flex items-center justify-center text-[#9C2F2F] shrink-0">
+                  <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-[6px] bg-[#0E0D0C] border border-[#4A443A] flex items-center justify-center text-studio-red-bright shrink-0">
                     <FileText size={24} />
                   </div>
                 )}
@@ -1412,14 +1412,14 @@ export default function AdminRequestCenter() {
             <div className="space-y-4 border-b border-[#4A443A]/60 pb-5">
               <div className="flex justify-between items-center">
                 <div className="flex items-center space-x-2">
-                  <Sparkles size={16} className="text-[#9C2F2F]" />
+                  <Sparkles size={16} className="text-studio-red-bright" />
                   <span className="text-xs uppercase font-heading tracking-wider text-[#ECE4D3]">
                     TATTOO REQUEST • คำขอจอง
                   </span>
                 </div>
                 <button
                   onClick={closeAllDrawers}
-                  className="text-[#7A7265] hover:text-[#9C2F2F] transition-colors p-1"
+                  className="text-[#7A7265] hover:text-studio-red-bright transition-colors p-1"
                 >
                   <X size={20} />
                 </button>
@@ -1583,14 +1583,14 @@ export default function AdminRequestCenter() {
             <div className="space-y-4 border-b border-[#4A443A]/60 pb-5">
               <div className="flex justify-between items-center">
                 <div className="flex items-center space-x-2">
-                  <Sparkles size={16} className="text-[#9C2F2F]" />
+                  <Sparkles size={16} className="text-studio-red-bright" />
                   <span className="text-xs uppercase font-heading tracking-wider text-[#ECE4D3]">
                     DEPOSIT VERIFICATION • ตรวจสอบมัดจำ
                   </span>
                 </div>
                 <button
                   onClick={closeAllDrawers}
-                  className="text-[#7A7265] hover:text-[#9C2F2F] transition-colors p-1"
+                  className="text-[#7A7265] hover:text-studio-red-bright transition-colors p-1"
                 >
                   <X size={20} />
                 </button>

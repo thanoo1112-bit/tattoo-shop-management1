@@ -69,7 +69,7 @@ export default function DepositVerificationQueue() {
       {/* Header */}
       <div className="p-4 border-b border-studio-border bg-studio-sec/40 flex flex-wrap justify-between items-center gap-3">
         <div className="flex items-center space-x-2">
-          <ShieldCheck size={16} className="text-studio-red" />
+          <ShieldCheck size={16} className="text-studio-red-bright" />
           <h3 className="text-xs font-bold uppercase tracking-wider text-studio-primary">
             คิวตรวจสอบเงินมัดจำ (Deposit Verification Queue)
           </h3>
@@ -133,7 +133,7 @@ export default function DepositVerificationQueue() {
                       <Mail size={10} />
                       <span className="font-mono">{linkedBooking?.customerEmail}</span>
                     </div>
-                    <div className="text-[9px] text-studio-red mt-1">
+                    <div className="text-[9px] text-studio-red-bright mt-1">
                       คิว: {linkedBooking?.artworkTitle || 'งานสัก'} ({linkedBooking?.date})
                     </div>
                   </td>
@@ -141,7 +141,7 @@ export default function DepositVerificationQueue() {
                     {linkedBooking?.artistName || '-'}
                   </td>
                   <td className="p-4">
-                    <span className="font-bold text-studio-red">
+                    <span className="font-bold text-studio-primary">
                       ฿{payment.amount.toLocaleString()}
                     </span>
                   </td>

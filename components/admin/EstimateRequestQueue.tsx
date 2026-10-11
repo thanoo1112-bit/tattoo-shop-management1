@@ -164,7 +164,7 @@ export default function EstimateRequestQueue({ singleArtistId = null }: Estimate
         <h3 className="text-xs font-bold uppercase tracking-wider text-studio-primary">
           คำขอจองคิวสัก (Booking Requests Queue)
         </h3>
-        <span className="text-[9px] bg-studio-red/10 text-studio-red border border-studio-red/30 px-2 py-0.5 rounded font-mono font-bold uppercase">
+        <span className="text-[9px] bg-studio-red/10 text-studio-red-bright border border-studio-red/30 px-2 py-0.5 rounded font-mono font-bold uppercase">
           Database Active
         </span>
       </div>
@@ -203,11 +203,11 @@ export default function EstimateRequestQueue({ singleArtistId = null }: Estimate
                 </td>
                 <td className="p-4 space-y-1">
                   <div className="flex items-center space-x-1">
-                    <Ruler size={11} className="text-studio-red" />
+                    <Ruler size={11} className="text-studio-red-bright" />
                     <span>ขนาด: <span className="font-bold">{formatTattooSize(req.width, req.height)}</span></span>
                   </div>
                   <div className="flex items-center space-x-1">
-                    <MapPin size={11} className="text-studio-red" />
+                    <MapPin size={11} className="text-studio-red-bright" />
                     <span>ตำแหน่ง: <span className="font-semibold text-studio-secondary">{req.placement}</span></span>
                   </div>
                   <div className="text-[10px] text-studio-muted font-light max-w-xs line-clamp-1 italic">

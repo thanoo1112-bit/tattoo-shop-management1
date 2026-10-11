@@ -6,6 +6,7 @@ import {
   formatDateBangkok,
   formatTimeBangkok,
   getEventStatusConfig,
+  getEffectiveEventStatus,
 } from './calendarUtils';
 import {
   Clock,
@@ -51,11 +52,19 @@ export default function DayAgendaView({
     return strip;
   }, [selectedDateStr, todayStr]);
 
-  // Sort events by start time
+  // Sort events by start time - Excludes CANCELLED, REJECTED, EXPIRED
   const sortedEvents = useMemo(() => {
-    return [...events].sort(
-      (a, b) => new Date(a.start_at).getTime() - new Date(b.start_at).getTime()
-    );
+    return events
+      .filter((ev) => {
+        const eff = getEffectiveEventStatus(ev);
+        if (eff === 'CANCELLED' || eff === 'REJECTED' || eff === 'EXPIRED') return false;
+        if (ev.status === 'CANCELLED') return false;
+        if (ev.booking?.status === 'CANCELLED' || ev.booking?.status === 'REJECTED' || ev.booking?.status === 'EXPIRED') return false;
+        return true;
+      })
+      .sort(
+        (a, b) => new Date(a.start_at).getTime() - new Date(b.start_at).getTime()
+      );
   }, [events]);
 
   return (

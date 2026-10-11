@@ -234,18 +234,54 @@ export default function CustomerLoginPage({ initialFlipped = false }: CustomerLo
       
       {/* LEFT 50%: Hero Panel with Dynamic Crossfade on Flip */}
       <div className="hidden lg:flex lg:w-[50%] relative overflow-hidden bg-studio-sec border-r border-studio-border flex-col justify-between p-12 xl:p-16">
-        <img
-          src={isFlipped 
-            ? "https://images.unsplash.com/photo-1598440947619-2c35fc9aa908?w=1600&auto=format&fit=crop&q=80"
-            : "https://images.unsplash.com/photo-1560707303-4e980c87f92e?w=1600&auto=format&fit=crop&q=80"
-          }
-          alt="157 Tattoo Studio"
-          className="absolute inset-0 w-full h-full object-cover object-center opacity-30 filter grayscale contrast-125 transition-opacity duration-700"
+        {/* Background Image: Customer (Waiting Area / Sofa) */}
+        <div
+          className={`absolute inset-0 transition-opacity duration-700 pointer-events-none ${
+            isFlipped ? 'opacity-0' : 'opacity-100'
+          }`}
+          style={{
+            backgroundImage: "url('/images/login/customer-login-bg.jpg')",
+            backgroundSize: 'cover',
+            backgroundPosition: 'center 45%',
+            backgroundRepeat: 'no-repeat',
+          }}
         />
-        <div className="absolute inset-0 bg-gradient-to-r from-studio-main/90 via-studio-main/60 to-studio-main/95" />
+
+        {/* Background Image: Staff (Tattoo Room / Tattoo Beds) */}
+        <div
+          className={`absolute inset-0 transition-opacity duration-700 pointer-events-none ${
+            isFlipped ? 'opacity-100' : 'opacity-0'
+          }`}
+          style={{
+            backgroundImage: "url('/images/login/staff-login-bg.jpg')",
+            backgroundSize: 'cover',
+            backgroundPosition: 'center 42%',
+            backgroundRepeat: 'no-repeat',
+          }}
+        />
+
+        {/* Customer Overlay: fine-tuned darkness for text prominence without drowning sofa */}
+        <div
+          className={`absolute inset-0 transition-opacity duration-700 pointer-events-none ${
+            isFlipped ? 'opacity-0' : 'opacity-100'
+          }`}
+        >
+          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/58 to-black/45" />
+          <div className="absolute inset-0 bg-black/18" />
+        </div>
+
+        {/* Staff Overlay: tuned to reveal beds and texture while protecting text readability */}
+        <div
+          className={`absolute inset-0 transition-opacity duration-700 pointer-events-none ${
+            isFlipped ? 'opacity-100' : 'opacity-0'
+          }`}
+        >
+          <div className="absolute inset-0 bg-black/50" />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/65 via-transparent to-black/25" />
+        </div>
 
         <div className="relative z-10">
-          <Link href="/" className="inline-flex items-center space-x-2 text-xs text-studio-secondary hover:text-studio-red transition-colors">
+          <Link href="/" className="inline-flex items-center space-x-2 text-xs text-studio-secondary hover:text-studio-red-bright transition-colors">
             <ArrowLeft size={14} />
             <span>กลับสู่หน้าแรก</span>
           </Link>
@@ -256,12 +292,12 @@ export default function CustomerLoginPage({ initialFlipped = false }: CustomerLo
           <div className="inline-flex items-center space-x-2 bg-studio-sec border border-studio-border px-3 py-1 rounded text-studio-paper text-[11px] uppercase font-heading tracking-widest self-start transition-all duration-300">
             {isFlipped ? (
               <>
-                <Shield size={12} className="text-studio-red" />
+                <Shield size={12} className="text-studio-red-bright" />
                 <span>Staff Management Portal</span>
               </>
             ) : (
               <>
-                <Sparkles size={12} className="text-studio-red" />
+                <Sparkles size={12} className="text-studio-red-bright" />
                 <span>Customer Experience Portal</span>
               </>
             )}
@@ -284,7 +320,7 @@ export default function CustomerLoginPage({ initialFlipped = false }: CustomerLo
             <span className="font-heading tracking-wider">157 TATTOO STUDIO • BANGKOK, THAILAND</span>
           ) : (
             <>
-              <ShieldCheck size={15} className="text-studio-red" />
+              <ShieldCheck size={15} className="text-studio-red-bright" />
               <span>มาตรฐานความสะอาด ปลอดภัย และระบบจัดการระดับมืออาชีพ</span>
             </>
           )}
@@ -296,7 +332,7 @@ export default function CustomerLoginPage({ initialFlipped = false }: CustomerLo
         
         {/* Mobile Back Link */}
         <div className="w-full max-w-md lg:hidden mb-4">
-          <Link href="/" className="inline-flex items-center space-x-2 text-xs text-studio-secondary hover:text-studio-red transition-colors min-h-[40px]">
+          <Link href="/" className="inline-flex items-center space-x-2 text-xs text-studio-secondary hover:text-studio-red-bright transition-colors min-h-[40px]">
             <ArrowLeft size={15} />
             <span>กลับสู่หน้าแรก</span>
           </Link>
@@ -564,7 +600,7 @@ export default function CustomerLoginPage({ initialFlipped = false }: CustomerLo
                         setCustomerError('');
                         setSuccessMessage('');
                       }}
-                      className="text-studio-red hover:underline font-medium"
+                      className="text-studio-red-bright hover:underline font-medium"
                     >
                       สมัครสมาชิกใหม่ที่นี่
                     </button>
@@ -579,7 +615,7 @@ export default function CustomerLoginPage({ initialFlipped = false }: CustomerLo
                         setCustomerError('');
                         setSuccessMessage('');
                       }}
-                      className="text-studio-red hover:underline font-medium"
+                      className="text-studio-red-bright hover:underline font-medium"
                     >
                       เข้าสู่ระบบที่นี่
                     </button>
@@ -599,7 +635,7 @@ export default function CustomerLoginPage({ initialFlipped = false }: CustomerLo
                   className="group inline-flex items-center space-x-1.5 text-xs text-studio-secondary hover:text-studio-primary transition-colors py-1.5 px-3 rounded hover:bg-studio-sec/60"
                 >
                   <span className="font-light">สำหรับผู้ดูแลระบบ</span>
-                  <ArrowRight size={14} className="text-studio-red transition-transform group-hover:translate-x-0.5" />
+                  <ArrowRight size={14} className="text-studio-red-bright transition-transform group-hover:translate-x-0.5" />
                 </button>
               </div>
             </div>
@@ -710,7 +746,7 @@ export default function CustomerLoginPage({ initialFlipped = false }: CustomerLo
                       >
                         <div className="flex items-center space-x-1.5 min-w-0">
                           <span className="text-xs sm:text-sm shrink-0">👑</span>
-                          <span className="text-[11px] sm:text-xs font-semibold text-studio-primary group-hover:text-studio-red transition-colors truncate">
+                          <span className="text-[11px] sm:text-xs font-semibold text-studio-primary group-hover:text-studio-red-bright transition-colors truncate">
                             เจ้าของร้าน
                           </span>
                         </div>
@@ -736,7 +772,7 @@ export default function CustomerLoginPage({ initialFlipped = false }: CustomerLo
                       >
                         <div className="flex items-center space-x-1.5 min-w-0">
                           <span className="text-xs sm:text-sm shrink-0">🎨</span>
-                          <span className="text-[11px] sm:text-xs font-semibold text-studio-primary group-hover:text-studio-red transition-colors truncate">
+                          <span className="text-[11px] sm:text-xs font-semibold text-studio-primary group-hover:text-studio-red-bright transition-colors truncate">
                             ช่างสัก
                           </span>
                         </div>
@@ -775,7 +811,7 @@ export default function CustomerLoginPage({ initialFlipped = false }: CustomerLo
                   }}
                   className="group inline-flex items-center space-x-1.5 text-xs text-studio-secondary hover:text-studio-primary transition-colors py-1.5 px-3 rounded hover:bg-studio-sec/60"
                 >
-                  <ArrowLeft size={14} className="text-studio-red transition-transform group-hover:-translate-x-0.5" />
+                  <ArrowLeft size={14} className="text-studio-red-bright transition-transform group-hover:-translate-x-0.5" />
                   <span className="font-light">กลับเข้าสู่ระบบลูกค้า</span>
                 </button>
               </div>

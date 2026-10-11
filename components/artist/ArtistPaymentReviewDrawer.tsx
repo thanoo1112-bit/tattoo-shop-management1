@@ -417,16 +417,19 @@ export default function ArtistPaymentReviewDrawer({
     try {
       const supabase = createClient();
       const amountToApprove = Number(submission.claimed_amount) || depositRequired || 500;
-      const { data, error: appErr } = await supabase.rpc('admin_approve_payment_submission', {
+      const { data, error: appErr } = await supabase.rpc('artist_approve_payment_submission', {
         p_submission_id: submission.id,
         p_verified_amount: amountToApprove,
         p_payment_method: 'BANK_TRANSFER',
         p_reference_no: submission.reference_no ? String(submission.reference_no).trim() : null,
-        p_admin_note: 'ช่างสักตรวจสอบและอนุมัติสลิปมัดจำ',
+        p_artist_note: 'ช่างสักตรวจสอบและอนุมัติสลิปมัดจำ',
       });
 
       if (appErr) {
         console.error('Error approving payment submission:', appErr);
+        if (appErr.message?.includes('คุณไม่มีสิทธิ์') || appErr.code === '42501') {
+          throw new Error('คุณไม่มีสิทธิ์ตรวจสอบการชำระเงินของคิวนี้');
+        }
         throw new Error(appErr.message || 'เกิดข้อผิดพลาดในการอนุมัติสลิป');
       }
 
@@ -459,6 +462,9 @@ export default function ArtistPaymentReviewDrawer({
 
       if (rejErr) {
         console.error('Error rejecting payment submission:', rejErr);
+        if (rejErr.message?.includes('คุณไม่มีสิทธิ์') || rejErr.code === '42501') {
+          throw new Error('คุณไม่มีสิทธิ์ตรวจสอบการชำระเงินของคิวนี้');
+        }
         throw new Error(rejErr.message || 'เกิดข้อผิดพลาดในการปฏิเสธสลิป');
       }
 
@@ -511,7 +517,7 @@ export default function ArtistPaymentReviewDrawer({
           {/* กล่อง 1: แจ้งสถานะคำขอ / สถานะการชำระเงิน */}
           <div className="bg-[#0E0D0C] border border-[#4A443A]/70 rounded-xl p-3.5 space-y-2 shadow-sm">
             <div className="flex items-center gap-1.5 text-[11px] font-semibold text-[#7A7265] uppercase tracking-wider">
-              <AlertCircle size={13} className="text-[#9C2F2F]" />
+              <AlertCircle size={13} className="text-studio-red-bright" />
               <span>สถานะคำขอ / การชำระเงิน</span>
             </div>
             <div className="bg-amber-950/30 border border-amber-800/50 p-2.5 rounded-lg text-xs text-amber-300 flex items-start gap-2">
@@ -525,7 +531,7 @@ export default function ArtistPaymentReviewDrawer({
           {/* กล่อง 2: ข้อมูลลูกค้า — ชื่อ, อีเมล, เบอร์โทร, อายุ */}
           <div className="bg-[#0E0D0C] border border-[#4A443A]/70 rounded-xl p-3.5 space-y-2.5 shadow-sm">
             <div className="flex items-center gap-1.5 text-[11px] font-semibold text-[#7A7265] uppercase tracking-wider">
-              <User size={13} className="text-[#9C2F2F]" />
+              <User size={13} className="text-studio-red-bright" />
               <span>ข้อมูลลูกค้า</span>
             </div>
 
@@ -533,7 +539,7 @@ export default function ArtistPaymentReviewDrawer({
               {/* ชื่อลูกค้า */}
               <div className="flex items-center justify-between">
                 <span className="text-[#7A7265] flex items-center gap-1">
-                  <User size={12} className="text-[#9C2F2F]" />
+                  <User size={12} className="text-studio-red-bright" />
                   <span>ชื่อลูกค้า:</span>
                 </span>
                 <span className="font-semibold text-[#ECE4D3]">{displayCustName}</span>
@@ -583,7 +589,7 @@ export default function ArtistPaymentReviewDrawer({
           {/* กล่อง 3: ข้อมูลสุขภาพที่ลูกค้าแจ้ง (โรคประจำตัว, การแพ้ยา, การรับรองอายุ) */}
           <div className="bg-[#0E0D0C] border border-[#4A443A]/70 rounded-xl p-3.5 space-y-2.5 shadow-sm">
             <div className="flex items-center gap-1.5 text-[11px] font-semibold text-[#7A7265] uppercase tracking-wider">
-              <ShieldCheck size={13} className="text-[#9C2F2F]" />
+              <ShieldCheck size={13} className="text-studio-red-bright" />
               <span>ข้อมูลสุขภาพที่ลูกค้าแจ้ง</span>
             </div>
 
@@ -637,7 +643,7 @@ export default function ArtistPaymentReviewDrawer({
           {/* กล่อง 4: วันนัด, เวลาเริ่ม, วันที่ส่งคำขอ */}
           <div className="bg-[#0E0D0C] border border-[#4A443A]/70 rounded-xl p-3.5 space-y-2 shadow-sm">
             <div className="flex items-center gap-1.5 text-[11px] font-semibold text-[#7A7265] uppercase tracking-wider">
-              <Calendar size={13} className="text-[#9C2F2F]" />
+              <Calendar size={13} className="text-studio-red-bright" />
               <span>กำหนดการ & วันที่ส่งคำขอ</span>
             </div>
 
@@ -671,7 +677,7 @@ export default function ArtistPaymentReviewDrawer({
           {/* กล่อง 5: รายละเอียดงานสัก — ประเภทงาน, ชื่อผลงาน (ถ้ามี), สไตล์งาน, ตำแหน่ง, ขนาด, รายละเอียดเพิ่มเติม */}
           <div className="bg-[#0E0D0C] border border-[#4A443A]/70 rounded-xl p-3.5 space-y-2.5 shadow-sm">
             <div className="flex items-center gap-1.5 text-[11px] font-semibold text-[#7A7265] uppercase tracking-wider">
-              <FileText size={13} className="text-[#9C2F2F]" />
+              <FileText size={13} className="text-studio-red-bright" />
               <span>รายละเอียดงานสัก</span>
             </div>
 
@@ -718,7 +724,7 @@ export default function ArtistPaymentReviewDrawer({
           <div className="bg-[#0E0D0C] border border-[#4A443A]/70 rounded-xl p-3.5 space-y-2 shadow-sm">
             <div className="flex items-center justify-between text-[11px] font-semibold text-[#7A7265] uppercase tracking-wider">
               <span className="flex items-center gap-1.5">
-                <ImageIcon size={13} className="text-[#9C2F2F]" />
+                <ImageIcon size={13} className="text-studio-red-bright" />
                 <span>รูปภาพอ้างอิง</span>
               </span>
               <span className="text-xs text-[#A89F91]">({refImages.length} รูป)</span>
@@ -797,18 +803,20 @@ export default function ArtistPaymentReviewDrawer({
 
         </div>
 
-        {/* Sticky Footer Bar at Bottom: ปุ่มเขียว ยืนยันสลิป และปุ่มแดง ปฏิเสธสลิป */}
-        <div className="p-4 bg-[#0E0D0C] border-t border-[#4A443A] flex flex-col gap-2 shrink-0">
+        {/* Sticky Footer Bar at Bottom: Action buttons for Artist */}
+        <div className="p-4 bg-[#0E0D0C] border-t border-[#4A443A] flex flex-col gap-2 shrink-0 font-prompt">
           
           {actionError && (
-            <div className="p-2.5 bg-red-950/60 border border-red-900/60 rounded-lg text-xs text-red-400">
-              {actionError}
+            <div className="p-2.5 bg-red-950/60 border border-red-900/60 rounded-lg text-xs text-red-400 font-medium flex items-center gap-1.5">
+              <AlertCircle size={15} className="shrink-0 text-red-400" />
+              <span>{actionError}</span>
             </div>
           )}
 
           {actionSuccess && (
-            <div className="p-2.5 bg-emerald-950/60 border border-emerald-800/60 rounded-lg text-xs text-emerald-300 font-semibold text-center">
-              {actionSuccess}
+            <div className="p-2.5 bg-emerald-950/60 border border-emerald-800/60 rounded-lg text-xs text-emerald-300 font-semibold text-center flex items-center justify-center gap-1.5">
+              <CheckCircle2 size={15} className="shrink-0 text-emerald-400" />
+              <span>{actionSuccess}</span>
             </div>
           )}
 
@@ -886,6 +894,12 @@ export default function ArtistPaymentReviewDrawer({
                 </button>
               </div>
             )
+          )}
+
+          {submission.status !== 'PENDING' && !actionSuccess && (
+            <div className="p-3 bg-[#171512] border border-[#4A443A] rounded-xl text-xs text-[#A89F91] text-center font-medium">
+              สถานะสลิป: {submission.status === 'APPROVED' ? 'อนุมัติแล้ว' : submission.status === 'REJECTED' ? 'ปฏิเสธแล้ว' : submission.status}
+            </div>
           )}
 
         </div>

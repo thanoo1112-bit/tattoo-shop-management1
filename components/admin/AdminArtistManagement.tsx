@@ -50,15 +50,6 @@ const PRESET_SPECIALTIES = [
   'Geometric',
 ];
 
-const WORKING_DAYS_LIST = [
-  { key: 'Mon', th: 'จ.' },
-  { key: 'Tue', th: 'อ.' },
-  { key: 'Wed', th: 'พ.' },
-  { key: 'Thu', th: 'พฤ.' },
-  { key: 'Fri', th: 'ศ.' },
-  { key: 'Sat', th: 'ส.' },
-  { key: 'Sun', th: 'อา.' },
-];
 
 const STATUS_CONFIG: Record<string, { label: string; dot: string; badge: string }> = {
   AVAILABLE: { label: 'ว่าง', dot: 'bg-[#4E9F6E]', badge: 'text-emerald-400 bg-emerald-950/60 border-emerald-800' },
@@ -175,7 +166,7 @@ function ArtistAvatarUploader({
                 onClick={() => fileInputRef.current?.click()}
                 className="px-3 py-1.5 bg-[#171512] hover:bg-[#25211D] border border-[#4A443A] hover:border-[#9C2F2F] text-xs text-[#ECE4D3] rounded transition-colors flex items-center space-x-1.5"
               >
-                <Camera size={13} className="text-[#9C2F2F]" />
+                <Camera size={13} className="text-studio-red-bright" />
                 <span>เปลี่ยนรูป</span>
               </button>
               <button
@@ -246,8 +237,6 @@ interface ArtistFormProps {
   customSpecialtyInput: string;
   setCustomSpecialtyInput: (val: string) => void;
   handleAddCustomSpecialty: () => void;
-  formWorkingDays: string[];
-  handleToggleWorkingDay: (dayKey: string) => void;
   formStatus: 'AVAILABLE' | 'TATTOOING' | 'BREAK' | 'OFF_DUTY';
   setFormStatus: (val: 'AVAILABLE' | 'TATTOOING' | 'BREAK' | 'OFF_DUTY') => void;
   formBasePrice: string;
@@ -282,8 +271,6 @@ function ArtistForm({
   customSpecialtyInput,
   setCustomSpecialtyInput,
   handleAddCustomSpecialty,
-  formWorkingDays,
-  handleToggleWorkingDay,
   formStatus,
   setFormStatus,
   formBasePrice,
@@ -491,32 +478,6 @@ function ArtistForm({
             </div>
           </div>
 
-          {/* 5. วันทำงาน (Working Days) */}
-          <div>
-            <label className="block text-[#A89F91] mb-1.5 font-medium">
-              วันทำงาน (Working Days)
-            </label>
-            <div className="grid grid-cols-7 gap-1.5">
-              {WORKING_DAYS_LIST.map((day) => {
-                const active = formWorkingDays.includes(day.key);
-                return (
-                  <button
-                    key={day.key}
-                    type="button"
-                    onClick={() => handleToggleWorkingDay(day.key)}
-                    className={`py-2 rounded text-center transition-colors border ${
-                      active
-                        ? 'bg-[#9C2F2F]/20 border-[#9C2F2F] text-[#ECE4D3] font-bold'
-                        : 'bg-[#0E0D0C] border-[#4A443A] text-[#7A7265]'
-                    }`}
-                  >
-                    <span className="block text-xs">{day.th}</span>
-                    <span className="block text-[9px] font-mono opacity-60">{day.key}</span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
 
         </div>
       </div>
@@ -602,7 +563,6 @@ export default function AdminArtistManagement() {
   const [formBio, setFormBio] = useState('');
   const [formSpecialties, setFormSpecialties] = useState<string[]>([]);
   const [customSpecialtyInput, setCustomSpecialtyInput] = useState('');
-  const [formWorkingDays, setFormWorkingDays] = useState<string[]>(['Mon', 'Tue', 'Wed', 'Thu', 'Fri']);
   const [formStatus, setFormStatus] = useState<'AVAILABLE' | 'TATTOOING' | 'BREAK' | 'OFF_DUTY'>('AVAILABLE');
   const [formBasePrice, setFormBasePrice] = useState<string>('');
   const [formIsActive, setFormIsActive] = useState(true);
@@ -715,7 +675,6 @@ export default function AdminArtistManagement() {
     setFormBio('');
     setFormSpecialties([]);
     setCustomSpecialtyInput('');
-    setFormWorkingDays([]);
     setFormStatus('AVAILABLE');
     setFormBasePrice('');
     setFormIsActive(true);
@@ -745,8 +704,6 @@ export default function AdminArtistManagement() {
       : (artist.specialty ? artist.specialty.split('/').map((s: string) => s.trim()) : []);
     setFormSpecialties(loadedSpecs);
     setCustomSpecialtyInput('');
-    const loadedDays = artist.working_days || artist.availability || [];
-    setFormWorkingDays(loadedDays);
     setFormStatus(normalizeStatus(artist.status));
     setFormBasePrice(artist.base_price != null ? String(artist.base_price) : '');
     setFormIsActive(artist.is_active !== undefined ? artist.is_active : true);
@@ -774,14 +731,6 @@ export default function AdminArtistManagement() {
     }
   };
 
-  // Toggle Working Day in Form
-  const handleToggleWorkingDay = (dayKey: string) => {
-    if (formWorkingDays.includes(dayKey)) {
-      setFormWorkingDays(formWorkingDays.filter((d) => d !== dayKey));
-    } else {
-      setFormWorkingDays([...formWorkingDays, dayKey]);
-    }
-  };
 
   // INSERT Real Artist to Supabase
   const handleSaveNewArtist = async (e: React.FormEvent) => {
@@ -867,7 +816,7 @@ export default function AdminArtistManagement() {
         avatar_url: finalAvatarUrl || null,
         bio: formBio.trim() || null,
         specialties: formSpecialties,
-        working_days: formWorkingDays,
+        working_days: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
         is_active: formIsActive,
         is_visible: formIsVisible,
         base_price: parsedBasePrice,
@@ -974,7 +923,11 @@ export default function AdminArtistManagement() {
         avatar_url: finalAvatarUrl || null,
         bio: formBio.trim() || null,
         specialties: formSpecialties,
-        working_days: formWorkingDays,
+        working_days: selectedArtist.working_days && selectedArtist.working_days.length > 0
+          ? selectedArtist.working_days
+          : (selectedArtist.availability && selectedArtist.availability.length > 0
+              ? selectedArtist.availability
+              : ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']),
         is_active: formIsActive,
         is_visible: formIsVisible,
         base_price: parsedBasePrice,
@@ -1227,7 +1180,7 @@ export default function AdminArtistManagement() {
       <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4 border-b border-[#4A443A] pb-5">
         <div>
           <div className="inline-flex items-center space-x-2 bg-[#171512] border border-[#4A443A] px-2.5 py-0.5 rounded text-[#ECE4D3] text-[10px] uppercase font-heading tracking-widest mb-1.5">
-            <Palette size={12} className="text-[#9C2F2F]" />
+            <Palette size={12} className="text-studio-red-bright" />
             <span>ARTISTS MASTER DATA • จัดการช่างสักประจำร้าน</span>
           </div>
           <h1 className="text-3xl md:text-4xl font-heading font-normal tracking-wide text-[#ECE4D3]">
@@ -1241,7 +1194,7 @@ export default function AdminArtistManagement() {
         {/* Right Actions: Total Count & Add Artist Button */}
         <div className="flex items-center space-x-3 w-full md:w-auto justify-between md:justify-end">
           <div className="px-3.5 py-2 bg-[#171512] border border-[#4A443A] rounded-[6px] flex items-center space-x-2">
-            <User size={14} className="text-[#9C2F2F]" />
+            <User size={14} className="text-studio-red-bright" />
             <span className="text-xs font-semibold text-[#ECE4D3] font-mono">
               {artists.length} ARTISTS
             </span>
@@ -1327,7 +1280,7 @@ export default function AdminArtistManagement() {
                   >
                     <span>{item.label}</span>
                     {selectedStatusFilter === item.id && (
-                      <Check size={13} className="text-[#9C2F2F]" />
+                      <Check size={13} className="text-studio-red-bright" />
                     )}
                   </button>
                 ))}
@@ -1343,7 +1296,7 @@ export default function AdminArtistManagement() {
                 onClick={() => setIsSpecialtyDropdownOpen((prev) => !prev)}
                 className="h-[38px] px-3 bg-[#0E0D0C] border border-[#4A443A] hover:border-[#7A7265] rounded-[6px] text-xs font-medium text-[#ECE4D3] flex items-center space-x-2 transition-colors outline-none focus:ring-1 focus:ring-[#9C2F2F]"
               >
-                <Palette size={13} className="text-[#9C2F2F]" />
+                <Palette size={13} className="text-studio-red-bright" />
                 <span className="truncate max-w-[120px]">
                   {selectedSpecialtyFilter === 'ALL'
                     ? 'สไตล์ทั้งหมด'
@@ -1368,7 +1321,7 @@ export default function AdminArtistManagement() {
                   >
                     <span>สไตล์ทั้งหมด</span>
                     {selectedSpecialtyFilter === 'ALL' && (
-                      <Check size={13} className="text-[#9C2F2F]" />
+                      <Check size={13} className="text-studio-red-bright" />
                     )}
                   </button>
                   {uniqueSpecialties.map((spec) => (
@@ -1387,7 +1340,7 @@ export default function AdminArtistManagement() {
                     >
                       <span>{spec}</span>
                       {selectedSpecialtyFilter === spec && (
-                        <Check size={13} className="text-[#9C2F2F]" />
+                        <Check size={13} className="text-studio-red-bright" />
                       )}
                     </button>
                   ))}
@@ -1407,7 +1360,7 @@ export default function AdminArtistManagement() {
             className="h-[38px] px-3 bg-[#0E0D0C] border border-[#4A443A] hover:border-[#7A7265] rounded-[6px] text-xs font-medium text-[#ECE4D3] flex items-center space-x-1.5 transition-colors"
             title="เรียงตาม"
           >
-            <ArrowUpDown size={12} className="text-[#9C2F2F]" />
+            <ArrowUpDown size={12} className="text-studio-red-bright" />
             <span>
               {sortOrder === 'sort_order'
                 ? 'ลำดับ'
@@ -1477,18 +1430,15 @@ export default function AdminArtistManagement() {
         </div>
       )}
 
-      {/* 6. DESKTOP ARTIST PROFILE CARDS GRID */}
+      {/* 6. ARTIST PROFILE CARDS GRID (2 COLUMNS ON MOBILE, RESPONSIVE DESKTOP) */}
       {!loading && artists.length > 0 && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+        <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4 md:gap-6">
           {filteredArtists.length === 0 ? (
             <div className="col-span-full py-16 text-center text-xs text-[#7A7265] bg-[#171512] border border-[#4A443A] rounded-[8px]">
               ไม่พบช่างสักที่ตรงกับการค้นหา
             </div>
           ) : (
             filteredArtists.map((artist) => {
-              const normStatus = normalizeStatus(artist.status);
-              const statusInfo = STATUS_CONFIG[normStatus] || STATUS_CONFIG.AVAILABLE;
-
               return (
                 <div
                   key={artist.id}
@@ -1498,53 +1448,40 @@ export default function AdminArtistManagement() {
                       : 'border-[#4A443A] hover:border-[#9C2F2F]'
                   }`}
                 >
-                  {/* Top: Portrait */}
-                  <div className="relative h-64 overflow-hidden bg-[#0E0D0C]">
+                  {/* Top: Portrait (4:3 aspect ratio on mobile, h-64 on desktop) */}
+                  <div className="relative aspect-[4/3] md:aspect-auto md:h-64 overflow-hidden bg-[#0E0D0C]">
                     <img
                       src={artist.avatar_url || artist.avatar}
                       alt={artist.name}
-                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                      className="w-full h-full object-cover object-top md:object-center transition-transform duration-500 group-hover:scale-105"
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-[#171512] via-transparent to-black/20" />
 
                     {/* Top Left Badges: Visibility / Active */}
-                    <div className="absolute top-3 left-3 flex flex-col gap-1.5">
+                    <div className="absolute top-2 left-2 sm:top-3 sm:left-3 flex flex-col gap-1">
                       {artist.is_visible === false && (
-                        <span className="px-2 py-0.5 rounded bg-black/80 border border-amber-500/40 text-amber-300 text-[9px] font-medium flex items-center gap-1">
-                          <EyeOff size={10} />
+                        <span className="px-1.5 py-0.5 rounded bg-black/80 border border-amber-500/40 text-amber-300 text-[8px] sm:text-[9px] font-medium flex items-center gap-1">
+                          <EyeOff size={9} />
                           <span>ซ่อนหน้าเว็บ</span>
                         </span>
                       )}
                       {artist.is_active === false && (
-                        <span className="px-2 py-0.5 rounded bg-black/80 border border-[#9C2F2F]/40 text-[#9C2F2F] text-[9px] font-medium flex items-center gap-1">
-                          <Power size={10} />
+                        <span className="px-1.5 py-0.5 rounded bg-black/80 border border-[#9C2F2F]/40 text-[#9C2F2F] text-[8px] sm:text-[9px] font-medium flex items-center gap-1">
+                          <Power size={9} />
                           <span>ปิดใช้งาน</span>
                         </span>
                       )}
                     </div>
 
-                    {/* Top Right: Status Badge */}
-                    <div
-                      className="absolute top-3 right-3"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <div className="bg-[#0E0D0C]/90 border border-[#4A443A] px-2.5 py-1 rounded-[4px] flex items-center space-x-1.5 shadow">
-                        <span className={`w-2 h-2 rounded-full ${statusInfo.dot}`} />
-                        <span className="text-[10px] text-[#ECE4D3] font-medium">
-                          {statusInfo.label}
-                        </span>
-                      </div>
-                    </div>
-
                     {/* Specialties Tags Bottom Left */}
-                    <div className="absolute bottom-3 left-3 right-3 flex flex-wrap gap-1.5">
+                    <div className="absolute bottom-2 left-2 right-2 sm:bottom-3 sm:left-3 sm:right-3 flex flex-wrap gap-1">
                       {(artist.specialties && artist.specialties.length > 0
                         ? artist.specialties
                         : artist.specialty ? artist.specialty.split('/') : []
                       ).map((style) => (
                         <span
                           key={style}
-                          className="px-2 py-0.5 rounded bg-[#0E0D0C]/90 border border-[#4A443A] text-[#ECE4D3] text-[10px] font-heading tracking-wider"
+                          className="px-1.5 py-0.5 rounded bg-[#0E0D0C]/90 border border-[#4A443A] text-[#ECE4D3] text-[9px] sm:text-[10px] font-heading tracking-wider"
                         >
                           {style.trim()}
                         </span>
@@ -1553,37 +1490,25 @@ export default function AdminArtistManagement() {
                   </div>
 
                   {/* Card Body */}
-                  <div className="p-4 space-y-3 flex-1 flex flex-col justify-between">
+                  <div className="p-2.5 sm:p-3 md:p-4 space-y-2 sm:space-y-3 flex-1 flex flex-col justify-between">
                     <div>
-                      <div className="flex justify-between items-start">
-                        <h3 className="text-xl font-heading font-normal text-[#ECE4D3] group-hover:text-white transition-colors truncate">
+                      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-0.5">
+                        <h3 className="text-sm sm:text-base md:text-xl font-heading font-normal text-[#ECE4D3] group-hover:text-white transition-colors truncate">
                           {artist.name}
                         </h3>
                         {artist.nickname && (
-                          <span className="text-xs text-[#7A7265] font-mono">
+                          <span className="text-[10px] sm:text-xs text-[#7A7265] font-mono shrink-0">
                             ({artist.nickname})
                           </span>
                         )}
                       </div>
-                      <p className="text-xs text-[#A89F91] line-clamp-2 mt-1 font-light leading-relaxed">
+                      <p className="text-[11px] sm:text-xs text-[#A89F91] line-clamp-2 mt-1 font-light leading-relaxed">
                         {artist.bio || 'ยังไม่มีรายละเอียดประวัติช่าง'}
                       </p>
                     </div>
 
-                    {/* Working Days Row */}
-                    <div className="pt-2 border-t border-[#4A443A]/40 flex items-center justify-between text-xs text-[#7A7265]">
-                      <span className="text-[10px]">วันทำงาน:</span>
-                      <div className="flex gap-1 font-mono text-[10px] text-[#ECE4D3]">
-                        {(artist.working_days || artist.availability || []).map((d) => (
-                          <span key={d} className="px-1 py-0.5 bg-[#0E0D0C] border border-[#4A443A]/40 rounded">
-                            {d}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Actions Button */}
-                    <div className="pt-2 border-t border-[#4A443A]/40 flex items-center gap-2">
+                    {/* Actions Buttons (Compact 2-tier layout on mobile, inline on desktop) */}
+                    <div className="pt-2 border-t border-[#4A443A]/40 flex flex-col md:flex-row gap-1.5 md:gap-2">
                       <button
                         type="button"
                         onClick={(e) => {
@@ -1591,39 +1516,43 @@ export default function AdminArtistManagement() {
                           setSelectedArtist(artist);
                           handleOpenEdit(artist);
                         }}
-                        className="flex-1 h-8 bg-[#0E0D0C] hover:bg-[#1f1b17] border border-[#4A443A] text-[#ECE4D3] rounded-[4px] text-xs font-semibold transition-colors flex items-center justify-center space-x-1"
+                        className="w-full md:flex-1 h-7 md:h-8 bg-[#0E0D0C] hover:bg-[#1f1b17] border border-[#4A443A] text-[#ECE4D3] rounded-[4px] text-[11px] md:text-xs font-semibold transition-colors flex items-center justify-center space-x-1"
                       >
-                        <Edit3 size={12} className="text-[#A89F91]" />
+                        <Edit3 size={11} className="text-[#A89F91] md:w-3 md:h-3" />
                         <span>แก้ไข</span>
                       </button>
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleOpenAccountModal(artist);
-                        }}
-                        className="px-2.5 h-8 bg-[#171512] hover:bg-[#25211D] border border-[#4A443A] hover:border-[#9C2F2F] text-[#ECE4D3] rounded-[4px] text-xs font-semibold transition-colors flex items-center justify-center space-x-1"
-                        title={artist.user_id ? 'จัดการบัญชีผู้ใช้งานช่าง' : 'ตั้งค่าบัญชีล็อกอินช่าง'}
-                      >
-                        <User size={12} className="text-[#9C2F2F]" />
-                        <span>{artist.user_id ? 'บัญชีผู้ใช้' : 'ตั้งค่าบัญชี'}</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setDeactivateConfirmArtist(artist);
-                        }}
-                        className={`px-2.5 h-8 rounded-[4px] text-xs font-semibold transition-colors flex items-center justify-center space-x-1 ${
-                          artist.is_active !== false
-                            ? 'bg-[#2A1212] hover:bg-[#3D1A1A] border border-[#9C2F2F] text-[#E8B4B4]'
-                            : 'bg-emerald-950/60 hover:bg-emerald-900/60 border border-emerald-800/80 text-emerald-400'
-                        }`}
-                        title={artist.is_active !== false ? 'ปิดใช้งานช่างสัก' : 'เปิดใช้งานช่างสัก'}
-                      >
-                        <Power size={12} />
-                        <span>{artist.is_active !== false ? 'ปิดใช้งาน' : 'เปิดใช้งาน'}</span>
-                      </button>
+
+                      <div className="grid grid-cols-2 md:flex md:items-center gap-1.5 md:gap-2">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleOpenAccountModal(artist);
+                          }}
+                          className="h-7 md:h-8 px-1.5 md:px-2.5 bg-[#171512] hover:bg-[#25211D] border border-[#4A443A] hover:border-[#9C2F2F] text-[#ECE4D3] rounded-[4px] text-[10px] md:text-xs font-semibold transition-colors flex items-center justify-center space-x-1"
+                          title={artist.user_id ? 'จัดการบัญชีผู้ใช้งานช่าง' : 'ตั้งค่าบัญชีล็อกอินช่าง'}
+                        >
+                          <User size={11} className="text-studio-red-bright md:w-3 md:h-3" />
+                          <span className="truncate">{artist.user_id ? 'บัญชี' : 'ตั้งค่า'}</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setDeactivateConfirmArtist(artist);
+                          }}
+                          className={`h-7 md:h-8 px-1.5 md:px-2.5 rounded-[4px] text-[10px] md:text-xs font-semibold transition-colors flex items-center justify-center space-x-1 ${
+                            artist.is_active !== false
+                              ? 'bg-[#2A1212] hover:bg-[#3D1A1A] border border-[#9C2F2F] text-[#E8B4B4]'
+                              : 'bg-emerald-950/60 hover:bg-emerald-900/60 border border-emerald-800/80 text-emerald-400'
+                          }`}
+                          title={artist.is_active !== false ? 'ปิดใช้งานช่างสัก' : 'เปิดใช้งานช่างสัก'}
+                        >
+                          <Power size={11} className="md:w-3 md:h-3" />
+                          <span className="truncate">{artist.is_active !== false ? 'ปิดใช้งาน' : 'เปิดใช้งาน'}</span>
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -1659,8 +1588,6 @@ export default function AdminArtistManagement() {
               customSpecialtyInput={customSpecialtyInput}
               setCustomSpecialtyInput={setCustomSpecialtyInput}
               handleAddCustomSpecialty={handleAddCustomSpecialty}
-              formWorkingDays={formWorkingDays}
-              handleToggleWorkingDay={handleToggleWorkingDay}
               formStatus={formStatus}
               setFormStatus={setFormStatus}
               formBasePrice={formBasePrice}
@@ -1712,8 +1639,6 @@ export default function AdminArtistManagement() {
               customSpecialtyInput={customSpecialtyInput}
               setCustomSpecialtyInput={setCustomSpecialtyInput}
               handleAddCustomSpecialty={handleAddCustomSpecialty}
-              formWorkingDays={formWorkingDays}
-              handleToggleWorkingDay={handleToggleWorkingDay}
               formStatus={formStatus}
               setFormStatus={setFormStatus}
               formBasePrice={formBasePrice}

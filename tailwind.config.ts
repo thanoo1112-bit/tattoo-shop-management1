@@ -22,7 +22,10 @@ const config: Config = {
           card: "#171512",        // SECONDARY BLACK
           border: "#4A443A",      // LINE / BORDER
           paper: "#ECE4D3",       // AGED PAPER / CREAM (7%)
-          red: "#9C2F2F",         // TATTOO RED (3% Primary Accent)
+          red: "#9C2F2F",         // TATTOO RED (3% Primary Accent - Base)
+          "red-bright": "#D64545", // HIGH CONTRAST RED (Small text, eyebrows, tags - refined dark crimson)
+          "red-base": "#C23B3B",   // MEDIUM CONTRAST RED
+          "red-dark": "#932828",   // DEEP CONTRAST RED
           copper: "#9C2F2F",      // Aliased to Tattoo Red for seamless system transition
           primary: "#ECE4D3",     // AGED PAPER / CREAM (Primary Text)
           secondary: "#A89F91",   // Muted cream for secondary text

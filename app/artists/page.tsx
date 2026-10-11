@@ -136,7 +136,7 @@ function ArtistsContent() {
         {/* Title */}
         {!selectedArtist && (
           <div className="border-b border-studio-border pb-4 mb-6 md:mb-8">
-            <span className="text-[10px] uppercase tracking-widest text-studio-red font-bold">Resident Artists</span>
+            <span className="text-[10px] uppercase tracking-widest text-studio-red-bright font-bold">Resident Artists</span>
             <h1 className="text-xl md:text-3xl font-bold tracking-wider text-studio-primary mt-0.5">ทีมช่างสักประจำร้าน</h1>
             <p className="text-xs text-studio-secondary mt-1">พบกับศิลปินผู้สร้างสรรค์ผลงานศิลปะบนผิวหนังประจำสตูดิโอ 157 TATTOO</p>
           </div>
@@ -222,7 +222,7 @@ function ArtistsContent() {
           <div className="max-w-xl mx-auto bg-studio-card border border-studio-border p-6 rounded-[8px] animate-fadeIn">
             <button
               onClick={() => setActiveForm('none')}
-              className="flex items-center space-x-1.5 text-xs text-studio-secondary hover:text-studio-red transition-colors uppercase font-semibold mb-6"
+              className="flex items-center space-x-1.5 text-xs text-studio-secondary hover:text-studio-red-bright transition-colors uppercase font-semibold mb-6"
             >
               <ArrowLeft size={14} />
               <span>ย้อนกลับไปประวัติช่างสัก</span>

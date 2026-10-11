@@ -236,7 +236,7 @@ export default function AdminDashboardPage() {
         <div className="border-b border-studio-border pb-4 flex justify-between items-end">
           <div>
             <div className="inline-flex items-center space-x-2 bg-studio-sec border border-studio-border px-2.5 py-0.5 sm:px-3 sm:py-1 rounded text-studio-paper text-[10px] uppercase font-heading tracking-widest mb-1">
-              <Sparkles size={12} className="text-studio-red" />
+              <Sparkles size={12} className="text-studio-red-bright" />
               <span>Studio Management</span>
             </div>
             <h1 className="text-2xl sm:text-3xl md:text-4xl font-heading font-normal tracking-wide text-studio-primary">

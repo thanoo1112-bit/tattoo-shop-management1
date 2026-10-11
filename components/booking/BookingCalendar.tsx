@@ -365,14 +365,14 @@ export default function BookingCalendar({
         <button
           type="button"
           onClick={() => onDateSelect('')}
-          className="text-studio-red hover:underline cursor-pointer transition-colors"
+          className="text-studio-red-bright hover:underline cursor-pointer transition-colors font-medium"
         >
           ล้าง
         </button>
         <button
           type="button"
           onClick={handleTodayClick}
-          className="text-studio-red hover:underline cursor-pointer transition-colors"
+          className="text-studio-red-bright hover:underline cursor-pointer transition-colors font-medium"
         >
           วันนี้
         </button>

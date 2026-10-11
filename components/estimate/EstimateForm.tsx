@@ -1023,24 +1023,6 @@ export default function EstimateForm({
   return (
     <div ref={formTopRef} className={`w-full mx-auto space-y-6 animate-fadeIn font-prompt ${compact ? '' : 'max-w-4xl'}`}>
       
-      {/* Notice Banner */}
-      <div className="bg-studio-card border border-studio-border p-4 sm:p-5 rounded-[8px] flex items-start space-x-3 shadow-md">
-        <Sparkles className="text-studio-red shrink-0 mt-0.5" size={18} />
-        <div className="text-xs space-y-1">
-          <h3 className="font-bold text-studio-primary">
-            {isEditMode ? 'แก้ไขคำขอจองคิว' : 'ประเมินรายละเอียดก่อนจองคิว'}
-          </h3>
-          <p className="text-studio-secondary font-light">
-            {isEditMode
-              ? 'ปรับรายละเอียดคำขอของคุณ แล้วบันทึกเพื่อส่งให้ร้านตรวจสอบอีกครั้ง'
-              : 'ส่งรายละเอียดงานที่ต้องการ พร้อมขนาด ตำแหน่ง และรูปอ้างอิง ทางร้านจะตรวจสอบและแจ้งราคาประเมินให้คุณก่อนยืนยันการจองคิว'}
-          </p>
-          {!isEditMode && (
-            <p className="text-[11px] text-studio-red font-medium pt-0.5">* ขั้นตอนนี้ยังไม่มีการชำระเงินหรือมัดจำ</p>
-          )}
-        </div>
-      </div>
-
       {/* Error Banner */}
       {error && (
         <div className="bg-red-950/40 border border-red-900/60 p-3.5 rounded-[6px] flex items-start space-x-3 text-xs text-red-400 animate-fadeIn">
@@ -1368,49 +1350,35 @@ export default function EstimateForm({
           </div>
         </section>
 
-        {/* SECTION 5 — ตรวจสอบและส่งคำขอ */}
-        <section className="space-y-4 pt-2 border-t border-studio-border">
-          {!isEditMode && (
-            <div className="bg-[#171512] border border-[#4A443A] p-4 rounded-[6px] space-y-2 text-xs text-studio-secondary font-prompt">
-              <div className="flex items-center space-x-2 text-amber-400 font-semibold">
-                <Sparkles size={16} className="shrink-0" />
-                <span>การประเมินราคาและการยืนยันคิวงาน</span>
-              </div>
-              <p className="leading-relaxed">
-                ร้านจะตรวจสอบรายละเอียดงานและแจ้งราคาประเมินให้คุณภายหลังผ่านระบบ Customer Portal (ราคางานจะประเมินจากรายละเอียด ขนาด ความซับซ้อน และรูปอ้างอิง)
-              </p>
-            </div>
-          )}
-
-          <div className="flex justify-end items-center space-x-3 pt-2">
-            {isEditMode && onCancel && (
-              <button
-                type="button"
-                onClick={onCancel}
-                disabled={loading}
-                className="min-h-[44px] px-6 py-2.5 bg-studio-main border border-studio-border text-studio-secondary hover:text-studio-primary rounded-[4px] text-xs font-semibold transition-all cursor-pointer disabled:opacity-50"
-              >
-                ยกเลิก
-              </button>
-            )}
+        {/* Submit Actions — ขั้นตอนสุดท้าย */}
+        <div className="pt-6 border-t border-studio-border flex justify-end items-center space-x-3">
+          {isEditMode && onCancel && (
             <button
-              type="submit"
-              disabled={loading || Boolean(flashId && !loadingFlash && !flashStyleName)}
-              className="w-full sm:w-auto min-h-[48px] bg-studio-red hover:bg-tattoo-red-dark text-white text-xs uppercase tracking-wider py-3 px-10 font-bold transition-all rounded-[4px] border border-studio-red flex items-center justify-center space-x-2 cursor-pointer shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+              type="button"
+              onClick={onCancel}
+              disabled={loading}
+              className="min-h-[44px] px-6 py-2.5 bg-studio-main border border-studio-border text-studio-secondary hover:text-studio-primary rounded-[4px] text-xs font-semibold transition-all cursor-pointer disabled:opacity-50"
             >
-              {loading ? (
-                <Loader2 size={16} className="animate-spin" />
-              ) : isEditMode ? (
-                <span>{initialData?.status === 'REJECTED' ? 'ส่งคำขอใหม่' : 'บันทึกการแก้ไข'}</span>
-              ) : (
-                <>
-                  <Send size={15} />
-                  <span>ส่งคำขอประเมินงานสัก</span>
-                </>
-              )}
+              ยกเลิก
             </button>
-          </div>
-        </section>
+          )}
+          <button
+            type="submit"
+            disabled={loading || Boolean(flashId && !loadingFlash && !flashStyleName)}
+            className="w-full sm:w-auto min-h-[48px] bg-studio-red hover:bg-tattoo-red-dark text-white text-xs uppercase tracking-wider py-3 px-10 font-bold transition-all rounded-[4px] border border-studio-red flex items-center justify-center space-x-2 cursor-pointer shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {loading ? (
+              <Loader2 size={16} className="animate-spin" />
+            ) : isEditMode ? (
+              <span>{initialData?.status === 'REJECTED' ? 'ส่งคำขอใหม่' : 'บันทึกการแก้ไข'}</span>
+            ) : (
+              <>
+                <Send size={15} />
+                <span>ส่งคำขอจองคิว</span>
+              </>
+            )}
+          </button>
+        </div>
 
       </form>
 
