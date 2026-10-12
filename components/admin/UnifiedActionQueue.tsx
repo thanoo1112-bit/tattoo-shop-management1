@@ -99,7 +99,10 @@ export default function UnifiedActionQueue() {
     }
     try {
       // 1. Fetch Artists
-      const { data: artData } = await supabase.from('artists').select('id, name, nickname');
+      const { data: artData, error: artErr } = await supabase.from('artists').select('id, name, nickname');
+      if (artErr) {
+        console.error('[UnifiedActionQueue] Error fetching artists:', artErr.message || artErr);
+      }
       if (artData) {
         setArtistsList(artData.map((a: any) => ({ id: a.id, name: a.name, nickname: a.nickname })));
       }
@@ -107,21 +110,30 @@ export default function UnifiedActionQueue() {
       (artData || []).forEach((a) => artMap.set(a.id, a.nickname ? `${a.name} (${a.nickname})` : a.name));
 
       // 2. Fetch Customers & Profiles
-      const { data: custData } = await supabase
+      const { data: custData, error: custErr } = await supabase
         .from('customers')
-        .select('id, user_id, display_name, first_name, last_name, phone, email, eligibility_confirmed_at, profile_completed_at, has_medical_condition, medical_condition_note, has_allergy, allergy_note, medical_conditions, allergies');
-      const { data: profData } = await supabase.from('profiles').select('user_id, display_name, phone, email');
-      const { data: allHealthEstData } = await supabase
+        .select('id, user_id, display_name, phone, email, avatar_url, date_of_birth, eligibility_confirmed_at, profile_completed_at, has_medical_condition, medical_condition_note, has_allergy, allergy_note, medical_conditions, allergies');
+      if (custErr) {
+        console.error('[UnifiedActionQueue] Error fetching customers:', custErr.message || custErr);
+      }
+
+      const { data: profData, error: profErr } = await supabase.from('profiles').select('user_id, display_name, phone, email');
+      if (profErr) {
+        console.error('[UnifiedActionQueue] Error fetching profiles:', profErr.message || profErr);
+      }
+
+      const { data: allHealthEstData, error: healthErr } = await supabase
         .from('estimate_requests')
         .select('customer_user_id, has_medical_condition, medical_condition_note, has_allergy, allergy_note, created_at')
         .order('created_at', { ascending: false });
+      if (healthErr) {
+        console.error('[UnifiedActionQueue] Error fetching health estimates:', healthErr.message || healthErr);
+      }
 
       const getCustomerInfo = (uid: string) => {
         const c = (custData || []).find((x) => x.user_id === uid);
         const p = (profData || []).find((x) => x.user_id === uid);
-        const nameCandidate = c?.first_name
-          ? `${c.first_name} ${c.last_name || ''}`.trim()
-          : c?.display_name && c.display_name !== 'ลูกค้าประจำ'
+        const nameCandidate = c?.display_name && c.display_name !== 'ลูกค้าประจำ'
           ? c.display_name
           : p?.display_name && p.display_name !== 'ลูกค้าประจำ'
           ? p.display_name
@@ -191,28 +203,37 @@ export default function UnifiedActionQueue() {
       const unifiedList: UnifiedQueueItem[] = [];
 
       // A. Custom Tattoo Requests (estimate_requests)
-      const { data: pendingEst } = await supabase
+      const { data: pendingEst, error: estErr } = await supabase
         .from('estimate_requests')
-        .select('id, customer_id, customer_user_id, artist_id, placement, description, width_cm, height_cm, style_preference, style, preferred_date, preferred_time, reference_images, artwork_title, status, request_type, work_type, color_technique, quoted_price, estimated_min_price, estimated_max_price, deposit_required, estimated_duration_minutes, quote_note, quoted_at, has_medical_condition, medical_condition_note, has_allergy, allergy_note, created_at, updated_at')
+        .select('id, customer_id, customer_user_id, artist_id, placement, description, width_cm, height_cm, style, preferred_date, preferred_time, reference_images, status, request_type, work_type, color_technique, quoted_price, estimated_min_price, estimated_max_price, deposit_required, estimated_duration_minutes, quote_note, quoted_at, has_medical_condition, medical_condition_note, has_allergy, allergy_note, created_at, updated_at')
         .eq('status', 'PENDING')
         .neq('request_type', 'DIRECT_BOOKING')
         .order('created_at', { ascending: false });
+      if (estErr) {
+        console.error('[UnifiedActionQueue] Error fetching pending estimate_requests:', estErr.message || estErr);
+      }
 
       if (pendingEst && pendingEst.length > 0) {
         const pendingEstIds = pendingEst.map((e: any) => e.id);
-        const { data: linkedBookingsData } = await supabase
+        const { data: linkedBookingsData, error: linkedBookingsErr } = await supabase
           .from('bookings')
           .select('*, artists(id, name, nickname), booking_sessions(id, session_number, start_at, end_at, status)')
           .in('estimate_request_id', pendingEstIds);
+        if (linkedBookingsErr) {
+          console.error('[UnifiedActionQueue] Error fetching linked bookings:', linkedBookingsErr.message || linkedBookingsErr);
+        }
 
         const linkedBookingIds = (linkedBookingsData || []).map((b: any) => b.id);
-        const { data: pendingSlipsData } = linkedBookingIds.length > 0
+        const { data: pendingSlipsData, error: slipsErr } = linkedBookingIds.length > 0
           ? await supabase
               .from('booking_payment_submissions')
-              .select('id, booking_id, customer_user_id, status, claimed_amount, payment_type, slip_path, reference_no, submitted_at, reviewer_id, reviewer_note, reviewed_at, created_at')
+              .select('id, booking_id, customer_user_id, status, claimed_amount, slip_path, reference_no, customer_note, submitted_at, reviewed_by, rejection_reason, reviewed_at, created_at')
               .in('booking_id', linkedBookingIds)
               .eq('status', 'PENDING')
-          : { data: [] };
+          : { data: [], error: null };
+        if (slipsErr) {
+          console.error('[UnifiedActionQueue] Error fetching linked pending slips:', slipsErr.message || slipsErr);
+        }
 
         (pendingEst || []).forEach((est: any) => {
           const custInfo = getCustomerInfo(est.customer_user_id);
@@ -237,6 +258,7 @@ export default function UnifiedActionQueue() {
             artistName: artistFormatted,
             estimateData: {
               ...est,
+              artwork_title: est.style ? `งานสัก ${est.style}` : 'งานสัก Custom',
               customer_name: custInfo.name,
               customer_phone: custInfo.phone,
               customer_email: custInfo.email,
@@ -247,8 +269,8 @@ export default function UnifiedActionQueue() {
               allergy_note: est.allergy_note || custInfo.allergyNote,
               artist_name: artistObj?.name || 'ยังไม่มอบหมายช่าง',
               artist_nickname: artistObj?.nickname || null,
-              style_preference: est.style || est.style_preference || null,
-              style: est.style || est.style_preference || null,
+              style_preference: est.style || null,
+              style: est.style || null,
               work_type: est.work_type || null,
               color_technique: est.color_technique || null,
               quoted_price: est.quoted_price ? Number(est.quoted_price) : null,
@@ -265,28 +287,40 @@ export default function UnifiedActionQueue() {
       }
 
       // B. Payment Reviews (booking_payment_submissions)
-      const { data: pendingSubs } = await supabase
+      const { data: pendingSubs, error: subsErr } = await supabase
         .from('booking_payment_submissions')
-        .select('id, booking_id, customer_user_id, status, claimed_amount, payment_type, slip_path, reference_no, submitted_at, reviewer_id, reviewer_note, reviewed_at, created_at')
+        .select('id, booking_id, customer_user_id, status, claimed_amount, slip_path, reference_no, customer_note, submitted_at, reviewed_by, rejection_reason, reviewed_at, created_at')
         .eq('status', 'PENDING')
         .order('submitted_at', { ascending: false });
+      if (subsErr) {
+        console.error('[UnifiedActionQueue] Error fetching pending payment submissions:', subsErr.message || subsErr);
+      }
 
       if (pendingSubs && pendingSubs.length > 0) {
         const bookingIds = Array.from(new Set(pendingSubs.map((s: any) => s.booking_id)));
-        const { data: rawBookings } = await supabase
+        const { data: rawBookings, error: rawBookingsErr } = await supabase
           .from('bookings')
           .select('*, artists(id, name, nickname), booking_sessions(id, session_number, start_at, end_at, status), flash_reservations(*, flash_designs(*))')
           .in('id', bookingIds);
+        if (rawBookingsErr) {
+          console.error('[UnifiedActionQueue] Error fetching raw bookings for payment submissions:', rawBookingsErr.message || rawBookingsErr);
+        }
 
         const estIds = Array.from(new Set((rawBookings || []).map((b: any) => b.estimate_request_id).filter(Boolean)));
-        const { data: rawEstimates } = estIds.length > 0
+        const { data: rawEstimates, error: rawEstErr } = estIds.length > 0
           ? await supabase.from('estimate_requests').select('*').in('id', estIds)
-          : { data: [] };
+          : { data: [], error: null };
+        if (rawEstErr) {
+          console.error('[UnifiedActionQueue] Error fetching raw estimates for payment submissions:', rawEstErr.message || rawEstErr);
+        }
 
-        const { data: rawFinancials } = await supabase
+        const { data: rawFinancials, error: rawFinErr } = await supabase
           .from('booking_payment_summary')
           .select('booking_id, estimate_request_id, customer_user_id, artist_id, quoted_price, deposit_required, paid_total, remaining_balance, deposit_paid, is_fully_paid')
           .in('booking_id', bookingIds);
+        if (rawFinErr) {
+          console.error('[UnifiedActionQueue] Error fetching raw financials for payment submissions:', rawFinErr.message || rawFinErr);
+        }
 
         pendingSubs.forEach((sub: any) => {
           const b = (rawBookings || []).find((x: any) => x.id === sub.booking_id);
@@ -456,15 +490,21 @@ export default function UnifiedActionQueue() {
       }
 
       // C. Flash Booking Requests (flash_reservations)
-      const { data: pendingFlash } = await supabase
+      const { data: pendingFlash, error: flashErr } = await supabase
         .from('flash_reservations')
         .select('*')
         .eq('status', 'PENDING')
         .order('created_at', { ascending: false });
+      if (flashErr) {
+        console.error('[UnifiedActionQueue] Error fetching pending flash reservations:', flashErr.message || flashErr);
+      }
 
       if (pendingFlash && pendingFlash.length > 0) {
         const flashIds = Array.from(new Set(pendingFlash.map((f: any) => f.flash_design_id)));
-        const { data: rawFlashDesigns } = await supabase.from('flash_designs').select('*').in('id', flashIds);
+        const { data: rawFlashDesigns, error: rawFlashErr } = await supabase.from('flash_designs').select('*').in('id', flashIds);
+        if (rawFlashErr) {
+          console.error('[UnifiedActionQueue] Error fetching flash designs for pending flash:', rawFlashErr.message || rawFlashErr);
+        }
 
         pendingFlash.forEach((fl: any) => {
           const design = (rawFlashDesigns || []).find((d: any) => d.id === fl.flash_design_id);
@@ -571,7 +611,7 @@ export default function UnifiedActionQueue() {
         day: '2-digit',
       }).format(new Date());
 
-      const { data: todaySessionsData } = await supabase
+      const { data: todaySessionsData, error: sessionsErr } = await supabase
         .from('booking_sessions')
         .select(`
           id,
@@ -587,26 +627,21 @@ export default function UnifiedActionQueue() {
             customer_user_id,
             artist_id,
             status,
-            artwork_title,
-            style_preference,
-            width_cm,
-            height_cm,
-            placement,
-            description,
-            has_medical_condition,
-            medical_condition_note,
-            has_allergy,
-            allergy_note,
-            booking_source,
+            customer_note,
+            admin_note,
+            quoted_price,
             estimate_request_id,
             flash_reservation_id,
             artists (id, name, nickname),
-            estimate_requests (id, request_type, reference_images, style, width_cm, height_cm, placement),
-            flash_reservations (id, flash_designs(id, title, image_url, style, price))
+            estimate_requests (id, request_type, reference_images, style, width_cm, height_cm, placement, description, has_medical_condition, medical_condition_note, has_allergy, allergy_note),
+            flash_reservations (id, placement, width_cm, height_cm, customer_note, flash_designs(id, title, image_url, style, price))
           )
         `)
         .neq('status', 'CANCELLED')
         .order('start_at', { ascending: true });
+      if (sessionsErr) {
+        console.error('[UnifiedActionQueue] Error fetching today booking sessions:', sessionsErr.message || sessionsErr);
+      }
 
       if (todaySessionsData && todaySessionsData.length > 0) {
         todaySessionsData.forEach((s: any) => {
@@ -630,8 +665,23 @@ export default function UnifiedActionQueue() {
             ? (artistObj.nickname ? `${artistObj.name} (${artistObj.nickname})` : artistObj.name)
             : 'ช่างสักประจำร้าน';
 
+          const est = b?.estimate_requests;
+          const fr = b?.flash_reservations;
+          const fd = fr?.flash_designs;
+
           const hydratedBooking = {
             ...b,
+            artwork_title: fd?.title || (est?.style ? `งานสัก ${est.style}` : 'งานสัก'),
+            style_preference: fd?.style ? `Flash (${fd.style})` : (est?.style || 'Custom'),
+            style: fd?.style ? `Flash (${fd.style})` : (est?.style || 'Custom'),
+            width_cm: fr?.width_cm ?? est?.width_cm ?? null,
+            height_cm: fr?.height_cm ?? est?.height_cm ?? null,
+            placement: fr?.placement || est?.placement || 'ไม่ระบุ',
+            description: fr?.customer_note || est?.description || b?.customer_note || '',
+            has_medical_condition: fr?.has_medical_condition ?? est?.has_medical_condition ?? custInfo.hasMedicalCondition,
+            medical_condition_note: fr?.medical_condition_note || est?.medical_condition_note || custInfo.medicalConditionNote,
+            has_allergy: fr?.has_allergy ?? est?.has_allergy ?? custInfo.hasAllergy,
+            allergy_note: fr?.allergy_note || est?.allergy_note || custInfo.allergyNote,
             customer_name: custInfo.name,
             customer_phone: custInfo.phone,
             customer_email: custInfo.email,
