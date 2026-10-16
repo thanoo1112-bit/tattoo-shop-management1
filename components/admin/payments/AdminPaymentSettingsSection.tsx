@@ -263,7 +263,7 @@ export default function AdminPaymentSettingsSection({
               </p>
             </div>
             {settingId && (
-              <span className="text-[10px] text-[#7A7265] font-mono">
+              <span className="text-[10px] text-[#B8B0A3] font-mono">
                 ID: {settingId.slice(0, 8)}
               </span>
             )}
@@ -353,7 +353,7 @@ export default function AdminPaymentSettingsSection({
 
               <div className="space-y-1">
                 <label className="text-xs font-semibold text-[#ECE4D3] block">
-                  พร้อมเพย์ (PromptPay ID) <span className="text-[10px] text-[#7A7265] font-normal">(ถ้ามี)</span>
+                  พร้อมเพย์ (PromptPay ID) <span className="text-[10px] text-[#B8B0A3] font-normal">(ถ้ามี)</span>
                 </label>
                 <input
                   type="text"
@@ -469,7 +469,7 @@ export default function AdminPaymentSettingsSection({
                 <QrCode size={13} className="text-[#9C2F2F]" /> ช่องทางการชำระเงินมัดจำ
               </span>
               <span className="text-[10px] text-[#7A7265]">
-                ยอดชำระ: <strong className="text-[#9C2F2F]">฿1,000</strong>
+                ยอดชำระ: <strong className="text-[#9C2F2F]">฿500</strong>
               </span>
             </div>
 
@@ -503,12 +503,12 @@ export default function AdminPaymentSettingsSection({
                         สแกน QR ด้วยแอปธนาคารของคุณ
                       </p>
                       <p className="text-[10px] text-[#9C2F2F] font-semibold">
-                        ยอดที่ต้องชำระ: ฿1,000 (ตัวอย่าง)
+                        ยอดที่ต้องชำระ: ฿500 (มัดจำ)
                       </p>
                     </div>
                   </div>
                 ) : (
-                  <div className="p-4 bg-[#1C1A17] rounded-[6px] border border-dashed border-[#4A443A] text-center text-[11px] text-[#7A7265]">
+                  <div className="p-4 bg-[#1C1A17] rounded-[6px] border border-dashed border-[#4A443A] text-center text-[11px] text-[#B8B0A3]">
                     ยังไม่ได้ตั้งค่ารูป QR Code
                   </div>
                 )}
@@ -538,7 +538,7 @@ export default function AdminPaymentSettingsSection({
                         <button
                           type="button"
                           onClick={() => handleCopy(accountNo, 'acc')}
-                          className="p-1 hover:bg-[#171512] rounded text-[#7A7265] hover:text-[#ECE4D3]"
+                          className="p-1 hover:bg-[#171512] rounded text-[#B8B0A3] hover:text-[#ECE4D3]"
                         >
                           {copiedKey === 'acc' ? <Check size={12} className="text-emerald-400" /> : <Copy size={12} />}
                         </button>
@@ -565,7 +565,7 @@ export default function AdminPaymentSettingsSection({
                         <button
                           type="button"
                           onClick={() => handleCopy(promptpayId, 'pp')}
-                          className="p-1 hover:bg-[#171512] rounded text-[#7A7265] hover:text-[#ECE4D3]"
+                          className="p-1 hover:bg-[#171512] rounded text-[#B8B0A3] hover:text-[#ECE4D3]"
                         >
                           {copiedKey === 'pp' ? <Check size={12} className="text-emerald-400" /> : <Copy size={12} />}
                         </button>

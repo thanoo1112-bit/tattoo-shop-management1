@@ -1,6 +1,10 @@
 import { SessionStatus, BookingStatus, CalendarSessionEvent } from './types';
 import { formatTattooSize } from '@/lib/utils/formatters';
 import { getDepositDeadlineInfo } from '@/components/portal/portalUtils';
+import {
+  getPendingRescheduleRequest,
+  isRescheduleRequestUiEnabled,
+} from '@/lib/reschedule/rescheduleRequestStore';
 
 export const TIMEZONE = 'Asia/Bangkok';
 
@@ -104,6 +108,21 @@ export function formatTimeBangkok(iso: string | null | undefined): string {
 }
 
 /**
+ * Formats ISO date to "14 ต.ค. 2569 16:32 น."
+ */
+export function formatDateTimeBangkok(iso: string | null | undefined): string {
+  if (!iso) return '-';
+  try {
+    const dateStr = formatDateBangkok(iso);
+    const timeStr = formatTimeBangkok(iso);
+    if (dateStr === '-' || timeStr === '-') return '-';
+    return `${dateStr} ${timeStr}`;
+  } catch {
+    return iso;
+  }
+}
+
+/**
  * Returns date in YYYY-MM-DD from an ISO timestamp in Bangkok timezone
  */
 export function getDateStrBangkok(iso: string): string {
@@ -170,13 +189,55 @@ export type EffectiveEventStatus =
   | 'EXPIRED'
   | 'COMPLETED'
   | 'IN_PROGRESS'
-  | 'WAITING_DEPOSIT'
   | 'PENDING'
   | 'CONFIRMED';
 
 /**
+ * Resolves the overall operational status for a Booking across all its tattoo sessions.
+ * Priority:
+ * 1. IN_PROGRESS -> If ANY active session is IN_PROGRESS -> 'IN_PROGRESS'
+ * 2. SCHEDULED   -> Else if ANY active session is SCHEDULED -> 'SCHEDULED' (นัดหมายแล้ว)
+ * 3. COMPLETED   -> Else if ALL active sessions are COMPLETED (and at least 1 exists) -> 'COMPLETED' (งานเสร็จสิ้น)
+ * 4. Terminal statuses from booking fallback (CANCELLED, REJECTED, EXPIRED)
+ */
+export function resolveBookingCalendarStatus(
+  sessions?: Array<{ status?: string | null }> | null,
+  fallbackStatus?: string | null
+): 'IN_PROGRESS' | 'SCHEDULED' | 'COMPLETED' | 'CANCELLED' | 'REJECTED' | 'EXPIRED' {
+  // If parent booking is terminal
+  if (fallbackStatus === 'CANCELLED') return 'CANCELLED';
+  if (fallbackStatus === 'REJECTED') return 'REJECTED';
+  if (fallbackStatus === 'EXPIRED') return 'EXPIRED';
+
+  const validSessions = (sessions || []).filter(
+    (s) => s.status !== 'CANCELLED' && s.status !== 'REJECTED' && s.status !== 'EXPIRED'
+  );
+
+  if (validSessions.length > 0) {
+    if (validSessions.some((s) => s.status === 'IN_PROGRESS')) {
+      return 'IN_PROGRESS';
+    }
+    if (validSessions.some((s) => s.status === 'SCHEDULED')) {
+      return 'SCHEDULED';
+    }
+    if (validSessions.every((s) => s.status === 'COMPLETED')) {
+      return 'COMPLETED';
+    }
+  }
+
+  // Fallback to booking-level status if no active sessions
+  if (fallbackStatus === 'IN_PROGRESS') return 'IN_PROGRESS';
+  if (fallbackStatus === 'COMPLETED') return 'COMPLETED';
+  if (fallbackStatus === 'SCHEDULED' || fallbackStatus === 'CONFIRMED' || fallbackStatus === 'APPROVED') {
+    return 'SCHEDULED';
+  }
+
+  return 'SCHEDULED';
+}
+
+/**
  * Derives the effective event status combining booking status and session status.
- * Order of precedence: EXPIRED > REJECTED > CANCELLED > COMPLETED > IN_PROGRESS > WAITING_DEPOSIT > PENDING > CONFIRMED
+ * Order of precedence: EXPIRED > REJECTED > CANCELLED > Session status (IN_PROGRESS, COMPLETED, SCHEDULED) > Booking fallback
  */
 export function getEffectiveEventStatus(ev: CalendarSessionEvent): EffectiveEventStatus {
   const status = ev.status;
@@ -187,21 +248,14 @@ export function getEffectiveEventStatus(ev: CalendarSessionEvent): EffectiveEven
   if (bookingStatus === 'REJECTED') return 'REJECTED';
   if (bookingStatus === 'CANCELLED' || status === 'CANCELLED') return 'CANCELLED';
 
-  // 2. Execution & Payment statuses (Booking status takes precedence over session)
-  if (bookingStatus === 'COMPLETED' || status === 'COMPLETED') return 'COMPLETED';
-  if (bookingStatus === 'IN_PROGRESS' || status === 'IN_PROGRESS') return 'IN_PROGRESS';
-  if (bookingStatus === 'WAITING_DEPOSIT') {
-    const deadlineInfo = getDepositDeadlineInfo(
-      ev.booking?.approved_at,
-      ev.booking?.created_at || ev.created_at,
-      ev.booking?.requested_date,
-      ev.booking?.requested_start_time
-    );
-    if (deadlineInfo?.isExpired) {
-      return 'EXPIRED';
-    }
-    return 'WAITING_DEPOSIT';
-  }
+  // 2. Individual session status takes precedence for its own event chip
+  if (status === 'IN_PROGRESS') return 'IN_PROGRESS';
+  if (status === 'COMPLETED') return 'COMPLETED';
+  if (status === 'SCHEDULED') return 'CONFIRMED';
+
+  // 3. Fallback to Booking status if session status is not explicit
+  if (bookingStatus === 'IN_PROGRESS') return 'IN_PROGRESS';
+  if (bookingStatus === 'COMPLETED') return 'COMPLETED';
   if (bookingStatus === 'PENDING') return 'PENDING';
 
   return 'CONFIRMED';
@@ -290,19 +344,7 @@ export function getEventStatusConfig(ev: CalendarSessionEvent): {
         dotClass: 'bg-[#D64545]',
         colorClass: 'text-[#D64545]',
       };
-    case 'WAITING_DEPOSIT':
-      return {
-        key: 'WAITING_DEPOSIT',
-        label: 'รอมัดจำ',
-        bg: 'bg-purple-950/25',
-        border: 'border-purple-800/50',
-        text: 'text-purple-300',
-        badgeBg: 'bg-purple-950/60',
-        badgeText: 'text-purple-400',
-        badgeBorder: 'border-purple-800/60',
-        dotClass: 'bg-purple-400',
-        colorClass: 'text-purple-400',
-      };
+
     case 'PENDING':
       return {
         key: 'PENDING',
@@ -318,33 +360,36 @@ export function getEventStatusConfig(ev: CalendarSessionEvent): {
       };
     case 'CONFIRMED':
     default: {
-      const bAny = ev.booking as any;
-      const totalSessionsCount = ev.total_sessions_count || bAny?.total_sessions_count || (Array.isArray(bAny?.sessions) ? bAny.sessions.length : 1) || (ev.session_number > 1 ? ev.session_number : 1);
-      if (totalSessionsCount > 1) {
+      const hasPendingReschedule = Boolean(
+        ev.booking_id &&
+        isRescheduleRequestUiEnabled() &&
+        getPendingRescheduleRequest(ev.booking_id)
+      );
+      if (hasPendingReschedule) {
         return {
           key: 'CONFIRMED',
-          label: 'รอบนัด',
-          bg: 'bg-teal-950/25',
-          border: 'border-teal-800/50',
-          text: 'text-teal-300',
-          badgeBg: 'bg-teal-950/60',
-          badgeText: 'text-teal-400',
-          badgeBorder: 'border-teal-800/60',
-          dotClass: 'bg-teal-400',
-          colorClass: 'text-teal-400',
+          label: 'ขอเลื่อนนัด',
+          bg: 'bg-amber-500/10',
+          border: 'border-amber-500/20',
+          text: 'text-amber-300',
+          badgeBg: 'bg-amber-500/15',
+          badgeText: 'text-amber-300',
+          badgeBorder: 'border-amber-400/40',
+          dotClass: 'bg-amber-400',
+          colorClass: 'text-amber-300',
         };
       }
       return {
         key: 'CONFIRMED',
         label: 'นัดหมายแล้ว',
-        bg: 'bg-emerald-950/25',
-        border: 'border-emerald-800/50',
-        text: 'text-emerald-300',
-        badgeBg: 'bg-emerald-950/60',
-        badgeText: 'text-emerald-400',
-        badgeBorder: 'border-emerald-800/60',
-        dotClass: 'bg-emerald-400',
-        colorClass: 'text-emerald-400',
+        bg: 'bg-sky-500/10',
+        border: 'border-sky-500/20',
+        text: 'text-sky-300',
+        badgeBg: 'bg-sky-500/15',
+        badgeText: 'text-sky-300',
+        badgeBorder: 'border-sky-400/40',
+        dotClass: 'bg-sky-400',
+        colorClass: 'text-sky-300',
       };
     }
   }
@@ -363,27 +408,17 @@ export function getSessionStatusConfig(status: SessionStatus, totalSessionsCount
 } {
   switch (status) {
     case 'SCHEDULED':
-      if (totalSessionsCount > 1) {
-        return {
-          label: 'รอบนัด',
-          bg: 'bg-teal-950/25',
-          border: 'border-teal-800/40',
-          text: 'text-teal-300',
-          badgeBg: 'bg-teal-950/60',
-          badgeText: 'text-teal-400',
-        };
-      }
       return {
         label: 'นัดหมายแล้ว',
-        bg: 'bg-emerald-950/25',
-        border: 'border-emerald-800/40',
-        text: 'text-emerald-300',
-        badgeBg: 'bg-emerald-950/60',
-        badgeText: 'text-emerald-400',
+        bg: 'bg-sky-500/10',
+        border: 'border-sky-500/20',
+        text: 'text-sky-300',
+        badgeBg: 'bg-sky-500/15',
+        badgeText: 'text-sky-300',
       };
     case 'IN_PROGRESS':
       return {
-        label: 'มีรอบสัก',
+        label: 'กำลังสัก',
         bg: 'bg-[#9C2F2F]/20',
         border: 'border-[#9C2F2F]/60',
         text: 'text-[#D64545]',
@@ -433,28 +468,21 @@ export function getBookingStatusConfig(status: BookingStatus, totalSessionsCount
     case 'WAITING_DEPOSIT':
       return {
         label: 'รอมัดจำ',
-        text: 'text-purple-400',
-        bg: 'bg-purple-950/60',
-        border: 'border-purple-800/60',
+        text: 'text-amber-300',
+        bg: 'bg-amber-500/15',
+        border: 'border-amber-400/40',
       };
+    case 'SCHEDULED' as any:
     case 'CONFIRMED':
-      if (totalSessionsCount > 1) {
-        return {
-          label: 'รอบนัด',
-          text: 'text-teal-400',
-          bg: 'bg-teal-950/60',
-          border: 'border-teal-800/60',
-        };
-      }
       return {
         label: 'นัดหมายแล้ว',
-        text: 'text-emerald-400',
-        bg: 'bg-emerald-950/60',
-        border: 'border-emerald-800/60',
+        text: 'text-sky-300',
+        bg: 'bg-sky-500/15',
+        border: 'border-sky-400/40',
       };
     case 'IN_PROGRESS':
       return {
-        label: 'มีรอบสัก',
+        label: 'กำลังสัก',
         text: 'text-[#D64545]',
         bg: 'bg-[#9C2F2F]/20',
         border: 'border-[#9C2F2F]/60',

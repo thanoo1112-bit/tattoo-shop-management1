@@ -59,12 +59,11 @@ export default function ArtistHeader() {
       <aside className="hidden md:flex flex-col fixed inset-y-0 left-0 w-64 z-40 bg-studio-card/95 border-r border-studio-border backdrop-blur-md font-prompt p-3.5 select-none">
         {/* TOP BRANDING SECTION */}
         <div className="pb-2.5 border-b border-studio-border/40 mb-2 px-1">
-          <Link href="/artist/dashboard" className="flex items-center justify-between group">
+          <Link href="/artist/dashboard" className="flex items-center gap-2 group">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/157-tattoo-logo.png" alt="157 TATTOO logo" className="h-8 w-auto object-contain shrink-0" />
             <span className="font-heading text-lg tracking-[0.1em] text-studio-primary font-bold group-hover:text-studio-red-bright transition-colors">
               157 <span className="text-studio-red">TATTOO</span>
-            </span>
-            <span className="text-[9px] bg-studio-red/15 text-studio-red-bright border border-studio-red/30 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">
-              ARTIST PORTAL
             </span>
           </Link>
         </div>
@@ -165,6 +164,8 @@ export default function ArtistHeader() {
       <header className="md:hidden border-b border-studio-border bg-studio-card/90 backdrop-blur-md sticky top-0 z-40 font-prompt">
         <div className="px-4 h-14 flex items-center justify-between">
           <Link href="/artist/dashboard" className="flex items-center space-x-2">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/157-tattoo-logo.png" alt="157 TATTOO logo" className="h-7 w-auto object-contain shrink-0" />
             <span className="font-heading text-base tracking-[0.1em] text-studio-primary font-bold">
               157 <span className="text-studio-red">TATTOO</span>
             </span>

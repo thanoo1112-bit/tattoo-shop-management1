@@ -25,7 +25,7 @@ import {
   Sparkles
 } from 'lucide-react';
 import { formatCustomerAgeDisplay } from '@/lib/customerUtils';
-import { getDepositDeadlineInfo } from '@/components/portal/portalUtils';
+import { getDepositDeadlineInfo, isConfirmedDepositBooking } from '@/components/portal/portalUtils';
 
 function isDepositExpired(booking?: any, estimate?: any): boolean {
   const status = booking?.status || estimate?.status;
@@ -169,12 +169,11 @@ export default function ArtistCustomersPage() {
     }
 
     try {
-      // 1. Fetch bookings for currentArtistId (excluding CANCELLED)
+      // 1. Fetch bookings for currentArtistId
       const { data: dbBookings, error: bErr } = await supabase
         .from('bookings')
-        .select('id, customer_user_id, customer_id, artist_id, status, deposit_required, is_deposit_paid, created_at, requested_date, requested_start_time, artwork_title, style_preference, customer_name, contact_name, customer_phone, customer_email, date_of_birth')
-        .eq('artist_id', currentArtistId)
-        .neq('status', 'CANCELLED');
+        .select('*')
+        .eq('artist_id', currentArtistId);
 
       if (bErr) console.error('Error fetching artist bookings for customers:', bErr);
 
@@ -187,20 +186,41 @@ export default function ArtistCustomersPage() {
 
       if (sErr) console.error('Error fetching artist sessions for customers:', sErr);
 
-      // 3. Fetch estimate_requests for currentArtistId (excluding CANCELLED)
+      // 3. Fetch estimate_requests for currentArtistId
       const { data: dbEstimates, error: eErr } = await supabase
         .from('estimate_requests')
-        .select('id, customer_user_id, customer_id, artist_id, status, deposit_required, request_type, style, created_at, customer_name, contact_name, phone, email, date_of_birth, medical_condition_note, allergy_note')
-        .eq('artist_id', currentArtistId)
-        .neq('status', 'CANCELLED');
+        .select('id, customer_user_id, customer_id, artist_id, status, deposit_required, request_type, style, created_at, width_cm, height_cm, placement, description, preferred_date, preferred_time, quoted_price, estimated_duration_minutes, quote_note, quoted_at, accepted_at, rejected_at, reference_images, medical_condition_note, allergy_note, is_date_proposed, proposed_date, proposed_time, proposed_price, proposed_artist_note')
+        .eq('artist_id', currentArtistId);
 
       if (eErr) console.error('Error fetching artist estimates for customers:', eErr);
 
-      // 3.1 Fetch approved payment submissions
-      const { data: dbSubmissions } = await supabase
+      // 3.1 Fetch booking_payment_summary
+      const { data: dbPaymentSummaries, error: psErr } = await supabase
+        .from('booking_payment_summary')
+        .select('*');
+
+      if (psErr) console.error('Error fetching payment summaries for artist customers:', psErr);
+
+      const paymentSummaryMap = new Map<string, any>();
+      (dbPaymentSummaries || []).forEach((ps: any) => {
+        paymentSummaryMap.set(ps.booking_id, ps);
+      });
+
+      // 3.2 Fetch booking_payment_submissions
+      const { data: dbSubmissions, error: subErr } = await supabase
         .from('booking_payment_submissions')
-        .select('id, booking_id, status')
-        .eq('status', 'APPROVED');
+        .select('id, booking_id, status, claimed_amount, customer_user_id');
+
+      if (subErr) console.error('Error fetching payment submissions for artist customers:', subErr);
+
+      const paymentSubmissions = dbSubmissions || [];
+
+      const pendingSubBookingIds = new Set(
+        paymentSubmissions
+          .filter((sub: any) => (sub.status || '').toUpperCase() === 'PENDING')
+          .map((sub: any) => sub.booking_id)
+          .filter(Boolean)
+      );
 
       // 3.3 Fetch valid booking payments
       const { data: dbPayments } = await supabase
@@ -231,20 +251,46 @@ export default function ArtistCustomersPage() {
           const { data: dbFlashRes } = await supabase
             .from('flash_reservations')
             .select('*, flash_designs(*)');
-          flashReservations = dbFlashRes || [];
+          flashReservations = (dbFlashRes || []).filter((fr: any) => {
+            const artId = fr.artist_id || fr.flash_designs?.artist_id;
+            return artId === currentArtistId;
+          });
         }
       } catch (e) {
         const { data: dbFlashRes } = await supabase
           .from('flash_reservations')
           .select('*, flash_designs(*)');
-        flashReservations = dbFlashRes || [];
+        flashReservations = (dbFlashRes || []).filter((fr: any) => {
+          const artId = fr.artist_id || fr.flash_designs?.artist_id;
+          return artId === currentArtistId;
+        });
       }
 
       const bookings = dbBookings || [];
       const sessions = dbSessions || [];
       const estimates = dbEstimates || [];
-      const paymentSubmissions = dbSubmissions || [];
       const payments = dbPayments || [];
+
+      // Determine strictly eligible jobs:
+      // Confirmed deposit queue jobs or completed jobs for the current artist
+      const isConfirmedOrCompletedJob = (b: any): boolean => {
+        if (!b || b.artist_id !== currentArtistId) return false;
+        const bStatus = String(b.status || '').toUpperCase();
+        if (['CANCELLED', 'REJECTED', 'EXPIRED', 'PENDING', 'WAITING_DEPOSIT'].includes(bStatus)) return false;
+        if (pendingSubBookingIds.has(b.id)) return false;
+        if (bStatus === 'COMPLETED') return true;
+        const estimate = b.estimate_request_id ? estimates.find((e: any) => e.id === b.estimate_request_id) : null;
+        const paymentSummary = paymentSummaryMap.get(b.id) || null;
+        return isConfirmedDepositBooking(b, estimate, undefined, paymentSummary);
+      };
+
+      const confirmedOrCompletedBookings = bookings.filter(isConfirmedOrCompletedJob);
+      const eligibleCustomerUserIds = new Set(
+        confirmedOrCompletedBookings.map((b: any) => b.customer_user_id).filter(Boolean)
+      );
+      const eligibleCustomerIds = new Set(
+        confirmedOrCompletedBookings.map((b: any) => b.customer_id).filter(Boolean)
+      );
 
       // 4. Fetch artist customers master list via RPC artist_list_customers()
       const { data: artistCustomers, error: acRpcErr } = await supabase
@@ -254,14 +300,80 @@ export default function ArtistCustomersPage() {
         console.error('Error fetching artist customers via artist_list_customers:', acRpcErr);
       }
 
-      const masterCustomers = (artistCustomers || []) as Array<{
+      let masterCustomers = ((artistCustomers || []) as Array<{
         customer_id: string;
         user_id: string | null;
         display_name: string;
         phone: string;
         email: string | null;
         date_of_birth: string | null;
-      }>;
+      }>).filter((c) => {
+        return (
+          (c.user_id && eligibleCustomerUserIds.has(c.user_id)) ||
+          (c.customer_id && eligibleCustomerIds.has(c.customer_id))
+        );
+      });
+
+      // Augment masterCustomers ONLY with customers from confirmedOrCompletedBookings
+      // who might be missing from RPC (e.g. guest bookings or recently assigned)
+      const knownUserIds = new Set(masterCustomers.map((c) => c.user_id).filter(Boolean));
+      const knownCustIds = new Set(masterCustomers.map((c) => c.customer_id).filter(Boolean));
+
+      const missingUserIds = new Set<string>();
+      const missingCustIds = new Set<string>();
+
+      confirmedOrCompletedBookings.forEach((item: any) => {
+        if (item.customer_user_id && !knownUserIds.has(item.customer_user_id)) {
+          missingUserIds.add(item.customer_user_id);
+        }
+        if (item.customer_id && !knownCustIds.has(item.customer_id)) {
+          missingCustIds.add(item.customer_id);
+        }
+      });
+
+      if (missingUserIds.size > 0 || missingCustIds.size > 0) {
+        const { data: extraCusts } = await supabase
+          .from('customers')
+          .select('id, user_id, display_name, phone, email, date_of_birth');
+
+        const { data: extraProfs } = await supabase
+          .from('profiles')
+          .select('user_id, display_name, phone, email');
+
+        extraCusts?.forEach((c: any) => {
+          if (
+            (c.user_id && missingUserIds.has(c.user_id)) ||
+            (c.id && missingCustIds.has(c.id))
+          ) {
+            if (!knownCustIds.has(c.id) && (!c.user_id || !knownUserIds.has(c.user_id))) {
+              masterCustomers.push({
+                customer_id: c.id,
+                user_id: c.user_id || null,
+                display_name: c.display_name || 'ลูกค้า',
+                phone: c.phone || '',
+                email: c.email || null,
+                date_of_birth: c.date_of_birth || null,
+              });
+              knownCustIds.add(c.id);
+              if (c.user_id) knownUserIds.add(c.user_id);
+            }
+          }
+        });
+
+        extraProfs?.forEach((p: any) => {
+          if (p.user_id && missingUserIds.has(p.user_id) && !knownUserIds.has(p.user_id)) {
+            masterCustomers.push({
+              customer_id: `prof-${p.user_id}`,
+              user_id: p.user_id,
+              display_name: p.display_name || 'ลูกค้า',
+              phone: p.phone || '',
+              email: p.email || null,
+              date_of_birth: null,
+            });
+            knownUserIds.add(p.user_id);
+          }
+        });
+      }
 
       if (masterCustomers.length === 0) {
         setCustomersList([]);
@@ -302,28 +414,19 @@ export default function ArtistCustomersPage() {
         // 5. Age / Health confirmation status
         const isAgeConfirmed = false;
 
-        // 5. Calculate confirmed/approved jobs matching Admin isConfirmedWork rule
-        const approvedBookingIds = new Set<string>();
-        paymentSubmissions.forEach((sub: any) => {
-          const subStatus = (sub.status || '').toUpperCase();
-          if (sub.booking_id && subStatus === 'APPROVED') {
-            approvedBookingIds.add(sub.booking_id);
-          }
-        });
-
-        const confirmedJobBookings = custBookings.filter((b: any) => {
-          const bStatus = (b.status || '').toUpperCase();
-          const isConfirmedStatus = bStatus === 'CONFIRMED' || bStatus === 'IN_PROGRESS' || bStatus === 'COMPLETED';
-          const hasApprovedSubmission = approvedBookingIds.has(b.id);
-          return isConfirmedStatus || hasApprovedSubmission;
-        });
+        // 5. Calculate confirmed/approved jobs strictly for this artist
+        const confirmedJobBookings = custBookings.filter(isConfirmedOrCompletedJob);
 
         // Calculate pending deposits (excluding expired deposits)
         const pendingDepositBookings = custBookings.filter((b: any) => {
-          const dep = Number(b.deposit_required || 0);
-          const isPaid = b.is_deposit_paid || b.status === 'CONFIRMED' || b.status === 'IN_PROGRESS' || b.status === 'COMPLETED';
+          const bStatus = (b.status || '').toUpperCase();
+          if (['CANCELLED', 'REJECTED', 'EXPIRED'].includes(bStatus)) return false;
+          const paymentSummary = paymentSummaryMap.get(b.id);
+          const estimate = b.estimate_request_id ? estimates.find((e: any) => e.id === b.estimate_request_id) : null;
+          const dep = Number(paymentSummary?.deposit_required ?? estimate?.deposit_required ?? b.deposit_required ?? 0);
+          const isPaid = paymentSummary?.deposit_paid || b.is_deposit_paid || bStatus === 'CONFIRMED' || bStatus === 'IN_PROGRESS' || bStatus === 'COMPLETED';
           if (isDepositExpired(b)) return false;
-          return (dep > 0 && !isPaid) || b.status === 'PENDING_DEPOSIT' || b.status === 'WAITING_DEPOSIT';
+          return (dep > 0 && !isPaid) || bStatus === 'PENDING_DEPOSIT' || bStatus === 'WAITING_DEPOSIT';
         });
         const pendingDepositEstimates = custEstimates.filter((e: any) => {
           const dep = Number(e.deposit_required || 0);
@@ -343,13 +446,11 @@ export default function ArtistCustomersPage() {
 
         let lastArtworkTitle = 'งานสัก';
         if (latestBooking) {
-          const rawWork = latestBooking.artwork_title || (latestEstimate?.request_type === 'FLASH' ? 'ลาย Flash' : 'งานสัก');
-          const style = latestBooking.style_preference || latestEstimate?.style || '';
-          if (style && !rawWork.toLowerCase().includes(style.toLowerCase())) {
-            lastArtworkTitle = `งานสไตล์ ${style}`;
-          } else {
-            lastArtworkTitle = rawWork;
-          }
+          const linkedEst = estimates.find((e: any) => e.id === latestBooking.estimate_request_id);
+          const flashRes = flashReservations.find((fr: any) => fr.id === latestBooking.flash_reservation_id);
+          const flashTitle = flashRes?.flash_designs?.title ? `ลาย Flash: ${flashRes.flash_designs.title}` : null;
+          const style = linkedEst?.style || '';
+          lastArtworkTitle = flashTitle || (style ? `งานสไตล์ ${style}` : ((latestBooking as any).artwork_title || 'งานสัก Custom'));
         } else if (latestEstimate) {
           lastArtworkTitle = latestEstimate.style ? `งานสไตล์ ${latestEstimate.style}` : 'งานสัก';
         }
@@ -363,10 +464,21 @@ export default function ArtistCustomersPage() {
         dates.sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
         const lastDate = dates[0] || '-';
 
-        // 7. Next Upcoming Appointment
-        const sortedSessions = [...custSessions].sort((a, b) => new Date(a.start_at).getTime() - new Date(b.start_at).getTime());
-        const upcomingSession = sortedSessions.find((s: any) => s.status === 'SCHEDULED' || s.status === 'IN_PROGRESS' || new Date(s.start_at).getTime() >= Date.now());
-        const upcomingBooking = sortedBookings.find((b: any) => b.status === 'CONFIRMED' || b.status === 'IN_PROGRESS');
+        // 7. Next Upcoming Appointment — คำนวณเฉพาะ booking ที่เป็นคิวจริงเท่านั้น (ผ่าน isConfirmedOrCompletedJob และไม่เป็น COMPLETED)
+        const validActiveQueueBookings = custBookings.filter((b: any) => 
+          (b.status || '').toUpperCase() !== 'COMPLETED' && isConfirmedOrCompletedJob(b)
+        );
+        const activeQueueBookingIds = new Set(validActiveQueueBookings.map((b: any) => b.id));
+
+        const validActiveSessions = custSessions.filter((s: any) => {
+          if (!activeQueueBookingIds.has(s.booking_id)) return false;
+          const sSt = (s.status || '').toUpperCase();
+          return sSt !== 'CANCELLED' && sSt !== 'COMPLETED';
+        });
+
+        const sortedSessions = [...validActiveSessions].sort((a, b) => new Date(a.start_at).getTime() - new Date(b.start_at).getTime());
+        const upcomingSession = sortedSessions.find((s: any) => (s.status === 'SCHEDULED' || s.status === 'IN_PROGRESS') && new Date(s.start_at).getTime() >= Date.now());
+        const upcomingBooking = validActiveQueueBookings.find((b: any) => (b.requested_date || '') >= new Date().toISOString().split('T')[0]);
 
         let nextAppointment: FormattedArtistCustomer['nextAppointment'] = null;
         if (upcomingSession) {
@@ -385,9 +497,13 @@ export default function ArtistCustomersPage() {
 
         // 8. Status Category
         let statusCategory: FormattedArtistCustomer['statusCategory'] = 'NO_APPOINTMENT';
-        if (nextAppointment) {
+        if (upcomingSession || upcomingBooking) {
           statusCategory = 'HAS_NEXT';
-        } else if (pendingDepositsCount > 0 || sortedEstimates.some((e: any) => e.status === 'QUOTED' || e.status === 'WAITING_DEPOSIT')) {
+        } else if (
+          sortedBookings.some((b: any) => ['WAITING_DEPOSIT', 'PENDING', 'PENDING_SLIP', 'PENDING_DEPOSIT'].includes(b.status) && !isDepositExpired(b)) ||
+          sortedEstimates.some((e: any) => ['PENDING', 'QUOTED', 'WAITING_DEPOSIT', 'PENDING_SLIP'].includes(e.status) && !isDepositExpired(null, e)) ||
+          pendingDepositsCount > 0
+        ) {
           statusCategory = 'HAS_PENDING';
         }
 
@@ -416,7 +532,12 @@ export default function ArtistCustomersPage() {
           bookings: custBookings,
           sessions: custSessions,
           estimates: custEstimates,
-          flashReservations: flashReservations.filter((fr: any) => (uid && fr.customer_user_id === uid) || (cid && fr.customer_id === cid)),
+          flashReservations: flashReservations.filter((fr: any) => {
+            const isCustMatch = (uid && fr.customer_user_id === uid) || (cid && fr.customer_id === cid);
+            const artId = fr.artist_id || fr.flash_designs?.artist_id;
+            const isArtistMatch = !artId || artId === currentArtistId;
+            return isCustMatch && isArtistMatch;
+          }),
           paymentSubmissions: paymentSubmissions.filter((sub: any) => custBookingIds.has(sub.booking_id) || (uid && sub.customer_user_id === uid)),
           payments: payments.filter((p: any) => custBookingIds.has(p.booking_id)),
           staffArtistName: currentArtistName,
@@ -538,18 +659,18 @@ export default function ArtistCustomersPage() {
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
           {/* Search input */}
           <div className="relative flex-1">
-            <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-studio-muted" />
+            <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#B8B0A3]" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="ค้นหาชื่อ อีเมล หรือเบอร์โทรศัพท์..."
-              className="w-full pl-10 pr-4 py-2 bg-studio-card border border-studio-border rounded-lg text-xs text-studio-primary placeholder-studio-muted focus:outline-none focus:border-studio-red/60 transition-colors font-prompt"
+              className="w-full pl-10 pr-4 py-2 bg-studio-card border border-studio-border rounded-lg text-xs text-studio-primary placeholder-[#B8B0A3] focus:outline-none focus:border-studio-red/60 transition-colors font-prompt"
             />
             {searchQuery && (
               <button
                 onClick={() => setSearchQuery('')}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-studio-muted hover:text-studio-primary bg-studio-sec px-2 py-0.5 rounded cursor-pointer"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-[#B8B0A3] hover:text-[#ECE4D3] bg-studio-sec px-2 py-0.5 rounded cursor-pointer"
               >
                 ล้าง
               </button>
@@ -668,7 +789,7 @@ export default function ArtistCustomersPage() {
             <p className="text-xs text-studio-muted max-w-md mx-auto">
               {searchQuery
                 ? `ไม่พบลำดับลูกค้าที่ตรงกับคำค้นหา "${searchQuery}"`
-                : 'เมื่อมีลูกค้าส่งคำขอประเมินราคา หรือ จองคิวสักระบุถึงคุณ ข้อมูลลูกค้าจะแสดงในหน้านี้'}
+                : 'เมื่อมีคิวงานสักที่ยืนยันมัดจำแล้ว หรือประวัติงานสักที่เสร็จสิ้นของคุณ ข้อมูลลูกค้าจะแสดงในหน้านี้'}
             </p>
           </div>
         ) : (
@@ -749,7 +870,7 @@ export default function ArtistCustomersPage() {
                                 </div>
                               </div>
                             ) : (
-                              <span className="text-studio-muted text-xs">ยังไม่มีนัดหมาย</span>
+                              <span className="text-studio-muted text-xs">-</span>
                             )}
                           </td>
 
@@ -799,7 +920,7 @@ export default function ArtistCustomersPage() {
                           <h4 className="text-sm font-semibold text-studio-primary truncate">
                             {cust.display_name}
                           </h4>
-                          <span className="text-[11px] text-studio-muted font-mono block">
+                          <span className="text-[11px] text-[#B8B0A3] font-mono block">
                             {phoneFormatted}
                           </span>
                         </div>
@@ -815,37 +936,33 @@ export default function ArtistCustomersPage() {
                     {/* 3. 2-Column Grid: Last Job & Last Artist */}
                     <div className="grid grid-cols-2 gap-2 text-xs text-studio-secondary">
                       <div>
-                        <span className="text-[10px] text-studio-muted block">งานล่าสุด:</span>
+                        <span className="text-[10px] text-[#B8B0A3] block">งานล่าสุด:</span>
                         <span className="text-studio-primary truncate block font-medium">
                           {cust.lastArtworkTitle}
                         </span>
                       </div>
                       <div>
-                        <span className="text-[10px] text-studio-muted block">ช่างล่าสุด:</span>
+                        <span className="text-[10px] text-[#B8B0A3] block">ช่างล่าสุด:</span>
                         <span className="text-studio-primary block font-medium">{cust.lastArtistName}</span>
                       </div>
                     </div>
 
                     {/* 4. Next Appointment Box */}
-                    <div className="p-2.5 bg-studio-main border-l-2 border-studio-red rounded-lg text-xs flex items-center justify-between">
-                      {cust.nextAppointment ? (
-                        <>
-                          <div>
-                            <span className="text-[9px] text-studio-red-bright font-bold block uppercase">
-                              นัดหมายถัดไป:
-                            </span>
-                            <span className="font-mono text-studio-primary text-xs font-semibold">
-                              {formatDateBangkok(cust.nextAppointment.date)} • {cust.nextAppointment.startTime}
-                            </span>
-                          </div>
-                          <span className="text-[10px] text-studio-secondary font-medium">
-                            {cust.nextAppointment.artistName}
+                    {cust.nextAppointment && (
+                      <div className="p-2.5 bg-studio-main border-l-2 border-studio-red rounded-lg text-xs flex items-center justify-between">
+                        <div>
+                          <span className="text-[9px] text-studio-red-bright font-bold block uppercase">
+                            นัดหมายถัดไป:
                           </span>
-                        </>
-                      ) : (
-                        <span className="text-studio-muted text-xs">ยังไม่มีนัดหมาย</span>
-                      )}
-                    </div>
+                          <span className="font-mono text-studio-primary text-xs font-semibold">
+                            {formatDateBangkok(cust.nextAppointment.date)} • {cust.nextAppointment.startTime}
+                          </span>
+                        </div>
+                        <span className="text-[10px] text-studio-secondary font-medium">
+                          {cust.nextAppointment.artistName}
+                        </span>
+                      </div>
+                    )}
 
                     {/* 5. Bottom Action Button */}
                     <div className="flex justify-end pt-1">

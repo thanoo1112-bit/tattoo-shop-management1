@@ -27,7 +27,10 @@ import {
 } from 'lucide-react';
 
 export default function AdminRevenueOverview() {
-  const { bookings, bookingPayments, artists } = useApp();
+  const { bookings, bookingPayments, artists, ensureArtistAvatars } = useApp();
+  useEffect(() => {
+    ensureArtistAvatars();
+  }, [ensureArtistAvatars]);
 
   // Date Range state ('today' | '7days' | 'this_month' | 'last_month' | 'this_year')
   const [dateRange, setDateRange] = useState<'today' | '7days' | 'this_month' | 'last_month' | 'this_year'>('this_month');

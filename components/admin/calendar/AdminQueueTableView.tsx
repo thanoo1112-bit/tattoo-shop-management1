@@ -1,13 +1,18 @@
 'use client';
 
-import React, { useMemo, useCallback } from 'react';
+import React, { useMemo, useCallback, useState, useEffect } from 'react';
 import { TriangleAlert, ChevronRight, Eye, Image as ImageIcon, Sparkles } from 'lucide-react';
 import { CalendarSessionEvent } from './types';
 import { BookingItem } from '@/components/admin/requests/types';
 import { getActiveQueueSessionDateTime } from '@/components/admin/requests/bookingHydration';
-import { formatDateBangkok, formatTimeBangkok } from './calendarUtils';
+import { formatDateBangkok, formatTimeBangkok, resolveBookingCalendarStatus } from './calendarUtils';
 import { formatTattooSize } from '@/lib/utils/formatters';
 import CustomerReferenceImage from '@/components/common/CustomerReferenceImage';
+import {
+  getPendingRescheduleRequest,
+  isRescheduleRequestUiEnabled,
+  subscribeRescheduleRequests,
+} from '@/lib/reschedule/rescheduleRequestStore';
 
 interface AdminQueueTableViewProps {
   events?: CalendarSessionEvent[];
@@ -15,6 +20,8 @@ interface AdminQueueTableViewProps {
   searchQuery?: string;
   selectedArtistId?: string;
   selectedStatus?: string;
+  selectedDateStr?: string;
+  onStatusChange?: (status: string) => void;
   onSelectEvent?: (ev: CalendarSessionEvent) => void;
   onOpenBookingDetail?: (bookingId: string) => void;
 }
@@ -25,12 +32,27 @@ export default function AdminQueueTableView({
   searchQuery = '',
   selectedArtistId = 'ALL',
   selectedStatus = 'ALL',
+  selectedDateStr,
+  onStatusChange,
   onSelectEvent,
   onOpenBookingDetail,
 }: AdminQueueTableViewProps) {
+  const [, setRescheduleTick] = useState(0);
+
+  useEffect(() => {
+    if (!isRescheduleRequestUiEnabled()) return;
+    return subscribeRescheduleRequests(() => {
+      setRescheduleTick((t) => t + 1);
+    });
+  }, []);
+
+  // Target YYYY-MM from selectedDateStr
+  const targetYearMonth = useMemo(() => {
+    return selectedDateStr ? selectedDateStr.slice(0, 7) : null;
+  }, [selectedDateStr]);
+
   // Synthesize booking items list for 1 Row per Booking requirement
-  const displayBookings = useMemo(() => {
-    // 1. If explicit bookings array is provided from AdminMasterCalendar (loaded via fetchWorkQueueBookings)
+  const rawBookings = useMemo(() => {
     let list: BookingItem[] = [];
 
     if (bookings && bookings.length > 0) {
@@ -90,10 +112,14 @@ export default function AdminQueueTableView({
       list = Array.from(map.values());
     }
 
-    // 2. Filter list based on top calendar filter states
-    return list.filter((b) => {
-      // Skip cancelled/rejected/expired from queue table by default unless explicitly filtered
-      if (selectedStatus !== 'CANCELLED' && (b.status === 'CANCELLED' || b.status === 'REJECTED' || b.status === 'EXPIRED')) {
+    return list;
+  }, [bookings, events]);
+
+  // Month Bookings: filtered by artist and active session month (before status & search query)
+  const monthBookings = useMemo(() => {
+    return rawBookings.filter((b) => {
+      // Skip rejected/expired from queue table by default
+      if (b.status === 'REJECTED' || b.status === 'EXPIRED') {
         return false;
       }
 
@@ -105,23 +131,63 @@ export default function AdminQueueTableView({
         if (!matchesArtist) return false;
       }
 
+      // Month Filter: based on active/relevant session date (or requested_date fallback)
+      if (targetYearMonth) {
+        const { displayDate } = getActiveQueueSessionDateTime(b);
+        if (!displayDate || !displayDate.startsWith(targetYearMonth)) {
+          return false;
+        }
+      }
+
+      return true;
+    });
+  }, [rawBookings, selectedArtistId, targetYearMonth]);
+
+  // Status counts for the selected month
+  const monthStatusCounts = useMemo(() => {
+    let all = monthBookings.length;
+    let scheduled = 0;
+    let completed = 0;
+    let cancelled = 0;
+
+    monthBookings.forEach((b) => {
+      const overallStatus = resolveBookingCalendarStatus(b.sessions, b.status);
+      const isCompleted = overallStatus === 'COMPLETED';
+      const isCancelled =
+        overallStatus === 'CANCELLED' ||
+        overallStatus === 'REJECTED' ||
+        overallStatus === 'EXPIRED' ||
+        b.status === 'CANCELLED' ||
+        b.operational_status?.key === 'CANCELLED';
+
+      if (isCompleted) {
+        completed++;
+      } else if (isCancelled) {
+        cancelled++;
+      } else if (overallStatus === 'SCHEDULED' || overallStatus === 'IN_PROGRESS') {
+        scheduled++;
+      }
+    });
+
+    return { all, scheduled, completed, cancelled };
+  }, [monthBookings]);
+
+  // Filter list based on top calendar status filter and search query
+  const displayBookings = useMemo(() => {
+    return monthBookings.filter((b) => {
       // Status Filter
       if (selectedStatus !== 'ALL') {
-        const isMultiSession = Boolean(
-          (b.sessions && b.sessions.length > 1) ||
-          (b.sessions && b.sessions.some((s) => (s.session_number || 1) >= 2))
-        );
-        const isCompleted = b.status === 'COMPLETED' || b.operational_status?.key === 'COMPLETED';
+        const overallStatus = resolveBookingCalendarStatus(b.sessions, b.status);
+        const isCompleted = overallStatus === 'COMPLETED';
         const isCancelled =
+          overallStatus === 'CANCELLED' ||
+          overallStatus === 'REJECTED' ||
+          overallStatus === 'EXPIRED' ||
           b.status === 'CANCELLED' ||
-          b.status === 'REJECTED' ||
-          b.status === 'EXPIRED' ||
           b.operational_status?.key === 'CANCELLED';
 
-        if (selectedStatus === 'SCHEDULED') {
-          if (isCancelled || isCompleted || isMultiSession) return false;
-        } else if (selectedStatus === 'SESSIONS') {
-          if (isCancelled || isCompleted || !isMultiSession) return false;
+        if (selectedStatus === 'SCHEDULED' || selectedStatus === 'SESSIONS') {
+          if (overallStatus !== 'SCHEDULED' && overallStatus !== 'IN_PROGRESS') return false;
         } else if (selectedStatus === 'COMPLETED') {
           if (!isCompleted) return false;
         } else if (selectedStatus === 'CANCELLED') {
@@ -144,7 +210,7 @@ export default function AdminQueueTableView({
 
       return true;
     });
-  }, [bookings, events, selectedArtistId, selectedStatus, searchQuery]);
+  }, [monthBookings, selectedStatus, searchQuery]);
 
   // Health Alert Renderer (matching Admin Requests Queue)
   const renderHealthAlertBadge = (b: BookingItem) => {
@@ -154,13 +220,34 @@ export default function AdminQueueTableView({
     const isAlert = hasMed === true || hasAll === true;
     const isHealthy = hasMed === false && hasAll === false;
 
+    const overallStatus = resolveBookingCalendarStatus(b.sessions, b.status);
+    const isTerminal = overallStatus === 'COMPLETED' || overallStatus === 'CANCELLED' || overallStatus === 'EXPIRED' || overallStatus === 'REJECTED' ||
+      b.status === 'COMPLETED' || b.status === 'CANCELLED' || b.status === 'EXPIRED' || b.status === 'REJECTED';
+
+    // CANCELLED queues: still render real health badge, but in Neutral Gray (display only)
+    const isCancelled = overallStatus === 'CANCELLED' || b.status === 'CANCELLED';
+    const cancelledNeutralClass = "bg-zinc-500/10 text-zinc-400 border border-zinc-500/30 px-2 py-0.5 rounded text-[10px] font-medium inline-flex items-center gap-1";
+
+    if (isCancelled) {
+      if (isAlert) {
+        return (
+          <span title="มีข้อมูลสุขภาพ (คิวถูกยกเลิก)" className={`${cancelledNeutralClass} cursor-help`}>
+            <TriangleAlert size={11} className="text-zinc-500 shrink-0" />
+            <span>มีข้อมูล</span>
+          </span>
+        );
+      }
+      return <span className={cancelledNeutralClass}>{isHealthy ? 'ปกติ' : 'ไม่ระบุ'}</span>;
+    }
+
     if (isAlert) {
+      // Health alert stays Amber for SCHEDULED / IN_PROGRESS / COMPLETED
       return (
         <span
           title="มีข้อมูลสุขภาพ กรุณาตรวจสอบรายละเอียดก่อนให้บริการ"
-          className="bg-[#2A1212] text-[#E8B4B4] border border-[#9C2F2F] px-2 py-0.5 rounded text-[10px] font-semibold inline-flex items-center gap-1 cursor-help"
+          className="bg-amber-500/15 text-amber-300 border border-amber-400/40 px-2 py-0.5 rounded text-[10px] font-semibold inline-flex items-center gap-1 cursor-help"
         >
-          <TriangleAlert size={11} className="text-[#E8B4B4] shrink-0" />
+          <TriangleAlert size={11} className="text-amber-400 shrink-0" />
           <span>มีข้อมูล</span>
         </span>
       );
@@ -168,14 +255,14 @@ export default function AdminQueueTableView({
 
     if (isHealthy) {
       return (
-        <span className="bg-emerald-950/60 text-emerald-400 border border-emerald-800/60 px-2 py-0.5 rounded text-[10px] font-medium inline-flex items-center">
+        <span className={isTerminal ? "bg-zinc-900/60 text-zinc-500 border border-zinc-800/80 px-2 py-0.5 rounded text-[10px] font-medium inline-flex items-center" : "bg-emerald-950/60 text-emerald-400 border border-emerald-800/60 px-2 py-0.5 rounded text-[10px] font-medium inline-flex items-center"}>
           ปกติ
         </span>
       );
     }
 
     return (
-      <span className="bg-[#1F1D1A] text-[#A89F91] border border-[#4A443A] px-2 py-0.5 rounded text-[10px] font-medium inline-flex items-center">
+      <span className={isTerminal ? "bg-zinc-900/60 text-zinc-500 border border-zinc-800/80 px-2 py-0.5 rounded text-[10px] font-medium inline-flex items-center" : "bg-[#1F1D1A] text-[#A89F91] border border-[#4A443A] px-2 py-0.5 rounded text-[10px] font-medium inline-flex items-center"}>
         ไม่ระบุ
       </span>
     );
@@ -203,30 +290,17 @@ export default function AdminQueueTableView({
       );
     }
 
-    const isMultiSession = Boolean(
-      (b.sessions && b.sessions.length > 1) ||
-      (b.sessions && b.sessions.some((s) => (s.session_number || 1) >= 2))
-    );
-    const isCompleted = b.status === 'COMPLETED' || b.operational_status?.key === 'COMPLETED';
-    const isCancelled = b.status === 'CANCELLED' || b.status === 'REJECTED' || b.status === 'EXPIRED' || b.operational_status?.key === 'CANCELLED';
+    const overallStatus = resolveBookingCalendarStatus(b.sessions, b.status);
 
-    if (isCompleted) {
-      return (
-        <span className="bg-emerald-950/80 text-emerald-300 border border-emerald-700/80 px-2 py-0.5 rounded text-[10px] font-semibold">
-          เสร็จสิ้น
-        </span>
-      );
-    }
-
-    if (isCancelled) {
+    if (overallStatus === 'CANCELLED' || overallStatus === 'REJECTED' || overallStatus === 'EXPIRED' || b.status === 'CANCELLED') {
       return (
         <span className="bg-[#1F1D1A] text-[#7A7265] border border-[#4A443A] px-2 py-0.5 rounded text-[10px] font-semibold">
-          ยกเลิก
+          {overallStatus === 'EXPIRED' || b.status === 'EXPIRED' ? 'หมดเวลาชำระมัดจำ' : overallStatus === 'REJECTED' || b.status === 'REJECTED' ? 'ปฏิเสธ' : 'ยกเลิก'}
         </span>
       );
     }
 
-    if (isMultiSession) {
+    if (overallStatus === 'IN_PROGRESS') {
       return (
         <div className="flex items-center gap-1">
           {isDirectBooking && (
@@ -234,8 +308,36 @@ export default function AdminQueueTableView({
               สร้างโดยแอดมิน
             </span>
           )}
-          <span className="bg-teal-950/60 text-teal-400 border border-teal-800/60 px-2 py-0.5 rounded text-[10px] font-semibold">
-            รอบนัด
+          <span className="bg-[#9C2F2F]/20 text-[#D64545] border border-[#9C2F2F]/60 px-2 py-0.5 rounded text-[10px] font-semibold inline-flex items-center gap-1 animate-pulse">
+            <span className="w-1.5 h-1.5 rounded-full bg-[#D64545] animate-pulse" />
+            กำลังสัก
+          </span>
+        </div>
+      );
+    }
+
+    if (overallStatus === 'COMPLETED') {
+      return (
+        <span className="bg-emerald-950/80 text-emerald-300 border border-emerald-700/80 px-2 py-0.5 rounded text-[10px] font-semibold">
+          งานเสร็จสิ้น
+        </span>
+      );
+    }
+
+    const hasPendingReschedule = Boolean(
+      b.id && isRescheduleRequestUiEnabled() && getPendingRescheduleRequest(b.id)
+    );
+
+    if (hasPendingReschedule) {
+      return (
+        <div className="flex items-center gap-1">
+          {isDirectBooking && (
+            <span className="bg-purple-950/80 text-purple-300 border border-purple-800/80 px-2 py-0.5 rounded text-[10px] font-semibold">
+              สร้างโดยแอดมิน
+            </span>
+          )}
+          <span className="bg-amber-500/15 text-amber-300 border border-amber-400/40 px-2 py-0.5 rounded text-[10px] font-semibold">
+            ขอเลื่อนนัด
           </span>
         </div>
       );
@@ -248,7 +350,7 @@ export default function AdminQueueTableView({
             สร้างโดยแอดมิน
           </span>
         )}
-        <span className="bg-emerald-950/60 text-emerald-400 border border-emerald-800/60 px-2 py-0.5 rounded text-[10px] font-semibold">
+        <span className="bg-sky-500/15 text-sky-300 border border-sky-400/40 px-2 py-0.5 rounded text-[10px] font-semibold">
           นัดหมายแล้ว
         </span>
       </div>
@@ -264,26 +366,50 @@ export default function AdminQueueTableView({
     }
   };
 
-  if (displayBookings.length === 0) {
-    return (
-      <div className="bg-[#171512] border border-[#4A443A] rounded-xl p-8 sm:p-12 text-center shadow-lg font-prompt space-y-3">
-        <div className="w-12 h-12 rounded-full bg-[#221F1B] border border-[#4A443A] flex items-center justify-center mx-auto text-[#7A7265]">
-          <Eye size={20} />
-        </div>
-        <h3 className="text-sm sm:text-base font-semibold text-[#ECE4D3]">ไม่พบคิวงานในตาราง</h3>
-        <p className="text-xs text-[#7A7265] max-w-sm mx-auto">
-          ลองปรับเปลี่ยนเงื่อนไขตัวกรองช่างสัก หรือข้อความค้นหาใหม่อีกครั้ง
-        </p>
-      </div>
-    );
-  }
-
   return (
     <div className="bg-[#171512] border border-[#4A443A] rounded-xl p-3 sm:p-5 shadow-lg space-y-4 font-prompt">
-      {/* Desktop & Tablet Table View */}
-      <div className="hidden md:block overflow-x-auto">
+      {/* Status Filter Tabs / Pills */}
+      <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 scrollbar-none">
+        {[
+          { id: 'ALL', label: `ทั้งหมด (${monthStatusCounts.all})` },
+          { id: 'SCHEDULED', label: `นัดหมายแล้ว (${monthStatusCounts.scheduled})` },
+          { id: 'COMPLETED', label: `งานเสร็จสิ้น (${monthStatusCounts.completed})` },
+          { id: 'CANCELLED', label: `ยกเลิก (${monthStatusCounts.cancelled})` },
+        ].map((pill) => {
+          const isSelected = selectedStatus === pill.id;
+          return (
+            <button
+              key={pill.id}
+              type="button"
+              onClick={() => onStatusChange && onStatusChange(pill.id)}
+              className={`px-3 py-1.5 text-xs rounded-md font-medium transition-colors border shrink-0 cursor-pointer ${
+                isSelected
+                  ? 'bg-[#ECE4D3] text-[#0E0D0C] border-[#ECE4D3] shadow'
+                  : 'bg-[#0E0D0C] text-[#A89F91] border-[#4A443A] hover:text-[#ECE4D3] hover:border-[#7A7265]'
+              }`}
+            >
+              {pill.label}
+            </button>
+          );
+        })}
+      </div>
+
+      {displayBookings.length === 0 ? (
+        <div className="bg-[#0E0D0C]/40 border border-dashed border-[#4A443A]/60 rounded-xl p-8 sm:p-12 text-center space-y-3">
+          <div className="w-12 h-12 rounded-full bg-[#221F1B] border border-[#4A443A] flex items-center justify-center mx-auto text-[#7A7265]">
+            <Eye size={20} />
+          </div>
+          <h3 className="text-sm sm:text-base font-semibold text-[#ECE4D3]">ไม่พบคิวงานในเดือนนี้</h3>
+          <p className="text-xs text-[#B8B0A3] max-w-sm mx-auto">
+            ลองเปลี่ยนเดือนด้วยปุ่มลูกศร &lt; &gt; หรือปรับเปลี่ยนเงื่อนไขตัวกรอง
+          </p>
+        </div>
+      ) : (
+        <>
+          {/* Desktop & Tablet Table View */}
+          <div className="hidden md:block overflow-x-auto">
         <table className="w-full text-left text-xs text-[#ECE4D3] border-collapse">
-          <thead className="bg-[#0E0D0C] text-[#7A7265] uppercase text-[10px] tracking-wider border-b border-[#4A443A]">
+          <thead className="bg-[#0E0D0C] text-[#B8B0A3] uppercase text-[10px] tracking-wider border-b border-[#4A443A]">
             <tr>
               <th className="py-3.5 px-4 font-medium">รหัส / ลูกค้า</th>
               <th className="py-3.5 px-4 font-medium">งานที่จองและขนาด</th>
@@ -343,7 +469,7 @@ export default function AdminQueueTableView({
                 >
                   {/* Column 1: รหัส / ลูกค้า */}
                   <td className="py-3.5 px-4 text-[#ECE4D3]">
-                    <span className="text-[10px] text-[#7A7265] font-mono block font-semibold">
+                    <span className="text-[10px] text-[#B8B0A3] font-mono block font-semibold">
                       #{b.id.slice(0, 8).toUpperCase()}
                     </span>
                     <div className="font-semibold text-xs text-[#ECE4D3] mt-0.5">
@@ -363,7 +489,7 @@ export default function AdminQueueTableView({
                           />
                         </div>
                       ) : (
-                        <div className="w-10 h-10 rounded-lg border border-[#4A443A] shrink-0 bg-[#0E0D0C] flex items-center justify-center text-[#7A7265]">
+                        <div className="w-10 h-10 rounded-lg border border-[#4A443A] shrink-0 bg-[#0E0D0C] flex items-center justify-center text-[#B8B0A3]">
                           {isFlash ? (
                             <Sparkles size={16} className="text-amber-400/80" />
                           ) : (
@@ -374,18 +500,18 @@ export default function AdminQueueTableView({
                       <div className="min-w-0 flex-1">
                         <div className="font-medium text-xs text-[#ECE4D3] truncate">{artworkTitle}</div>
                         {detailsText ? (
-                          <div className="text-[11px] text-[#A89F91] truncate mt-0.5">{detailsText}</div>
+                          <div className="text-[11px] text-[#B8B0A3] truncate mt-0.5">{detailsText}</div>
                         ) : (
-                          <div className="text-[11px] text-[#7A7265] truncate mt-0.5">ไม่ได้ระบุขนาด</div>
+                          <div className="text-[11px] text-[#B8B0A3] truncate mt-0.5">ไม่ได้ระบุขนาด</div>
                         )}
                       </div>
                     </div>
                   </td>
 
                   {/* Column 3: ช่างสัก / สไตล์ */}
-                  <td className="py-3.5 px-4 text-[#A89F91]">
+                  <td className="py-3.5 px-4 text-[#ECE4D3]">
                     <div className="font-medium text-xs text-[#ECE4D3]">{artistDisplayName}</div>
-                    <div className="text-[11px] text-[#7A7265] mt-0.5">{styleStr}</div>
+                    <div className="text-[11px] text-[#B8B0A3] mt-0.5">{styleStr}</div>
                   </td>
 
                   {/* Column 4: วันและเวลานัดหมาย */}
@@ -398,7 +524,7 @@ export default function AdminQueueTableView({
                         {timeFormatted} น.
                       </div>
                     ) : (
-                      <div className="text-[11px] text-[#7A7265] font-mono mt-0.5">
+                      <div className="text-[11px] text-[#B8B0A3] font-mono mt-0.5">
                         ไม่ได้ระบุเวลา
                       </div>
                     )}
@@ -425,7 +551,7 @@ export default function AdminQueueTableView({
                       className="px-3 py-1.5 text-xs bg-[#1F1D1A] group-hover:bg-[#2A2723] text-[#ECE4D3] border border-[#4A443A] hover:border-[#7A7265] rounded-lg transition-colors font-medium inline-flex items-center gap-1.5 shadow-sm"
                     >
                       <span>รายละเอียด</span>
-                      <ChevronRight size={13} className="text-[#A89F91]" />
+                      <ChevronRight size={13} className="text-[#B8B0A3]" />
                     </button>
                   </td>
                 </tr>
@@ -486,13 +612,13 @@ export default function AdminQueueTableView({
               {/* Info Row: Date & Customer */}
               <div className="flex items-center justify-between text-xs border-y border-[#4A443A]/40 py-2 my-1">
                 <div>
-                  <span className="text-[10px] text-[#7A7265] block font-medium">วัน/เวลานัดหมาย</span>
+                  <span className="text-[10px] text-[#B8B0A3] block font-medium">วัน/เวลานัดหมาย</span>
                   <span className="font-semibold text-[#ECE4D3]">
                     {dateDisplay} {timeDisplay}
                   </span>
                 </div>
                 <div className="text-right">
-                  <span className="text-[10px] text-[#7A7265] block font-medium">ลูกค้า</span>
+                  <span className="text-[10px] text-[#B8B0A3] block font-medium">ลูกค้า</span>
                   <span className="font-semibold text-[#ECE4D3]">{b.customer_name || 'ไม่ระบุชื่อ'}</span>
                 </div>
               </div>
@@ -500,11 +626,11 @@ export default function AdminQueueTableView({
               {/* Bottom Row: Artist/Style, Placement/Size & Action Button */}
               <div className="flex items-center justify-between text-xs gap-2">
                 <div className="min-w-0 flex-1">
-                  <span className="text-[10px] text-[#7A7265] block font-medium">ช่างสัก / สไตล์ • ตำแหน่งและขนาด</span>
+                  <span className="text-[10px] text-[#B8B0A3] block font-medium">ช่างสัก / สไตล์ • ตำแหน่งและขนาด</span>
                   <p className="font-medium text-[#ECE4D3] truncate">
                     {artistAndStyle}
                   </p>
-                  <p className="text-[11px] text-[#A89F91] truncate">
+                  <p className="text-[11px] text-[#B8B0A3] truncate">
                     {placementAndSize}
                   </p>
                 </div>
@@ -518,7 +644,7 @@ export default function AdminQueueTableView({
                     className={
                       isInactive
                         ? "text-xs font-medium text-zinc-400 hover:text-zinc-300 flex items-center gap-0.5 cursor-pointer"
-                        : "text-xs font-medium text-[#A89F91] hover:text-[#ECE4D3] flex items-center gap-0.5 cursor-pointer"
+                        : "text-xs font-medium text-[#B8B0A3] hover:text-[#ECE4D3] flex items-center gap-0.5 cursor-pointer"
                     }
                   >
                     <span>ดูรายละเอียด</span>
@@ -530,6 +656,8 @@ export default function AdminQueueTableView({
           );
         })}
       </div>
+      </>
+      )}
     </div>
   );
 }

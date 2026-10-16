@@ -107,13 +107,13 @@ export default function DayAgendaView({
         {/* Empty State */}
         {sortedEvents.length === 0 ? (
           <div className="py-12 text-center space-y-2">
-            <div className="w-12 h-12 rounded-full bg-[#171512] border border-[#4A443A]/40 flex items-center justify-center text-[#7A7265] mx-auto">
+            <div className="w-12 h-12 rounded-full bg-[#171512] border border-[#4A443A]/40 flex items-center justify-center text-[#B8B0A3] mx-auto">
               <CalendarIcon size={20} />
             </div>
             <p className="text-xs sm:text-sm font-medium text-[#A89F91]">
               ยังไม่มีคิวงานในวันที่เลือก
             </p>
-            <p className="text-[11px] text-[#7A7265]">
+            <p className="text-[11px] text-[#B8B0A3]">
               เมื่อมีการนัดหมายรอบสัก คิวจะแสดงตามลำดับเวลาในส่วนนี้
             </p>
           </div>
@@ -132,7 +132,7 @@ export default function DayAgendaView({
                   <div className="flex items-start gap-3.5">
                     {/* Time Box */}
                     <div className="bg-[#0E0D0C] border border-[#4A443A]/60 rounded-xl p-2 text-center min-w-[75px] shrink-0">
-                      <span className="text-[10px] text-[#7A7265] block font-medium">เวลานัด</span>
+                      <span className="text-[10px] text-[#B8B0A3] block font-medium">เวลานัด</span>
                       <span className="text-xs font-bold text-[#ECE4D3] block">
                         {formatTimeBangkok(ev.start_at)}
                       </span>
@@ -144,13 +144,13 @@ export default function DayAgendaView({
                         <span className="text-sm font-bold text-[#ECE4D3]">
                           {ev.customer?.display_name || 'ลูกค้า'}
                         </span>
-                        <span className="text-xs text-[#7A7265] font-light">
+                        <span className="text-xs text-[#B8B0A3] font-light">
                           (รอบ #{ev.session_number})
                         </span>
                       </div>
 
                       <div className="flex items-center gap-1.5 text-xs text-[#A89F91]">
-                        <User size={12} className="text-[#7A7265]" />
+                        <User size={12} className="text-[#B8B0A3]" />
                         <span>
                           ช่าง{ev.artist?.name}{' '}
                           {ev.artist?.nickname ? `(${ev.artist.nickname})` : ''}
@@ -158,7 +158,7 @@ export default function DayAgendaView({
                       </div>
 
                       {ev.note && (
-                        <p className="text-[11px] text-[#7A7265] italic font-light pt-0.5">
+                        <p className="text-[11px] text-[#B8B0A3] italic font-light pt-0.5">
                           &ldquo;{ev.note}&rdquo;
                         </p>
                       )}
@@ -178,7 +178,7 @@ export default function DayAgendaView({
                       </span>
                     </div>
 
-                    <ChevronRight size={16} className="text-[#7A7265] hidden sm:block" />
+                    <ChevronRight size={16} className="text-[#B8B0A3] hidden sm:block" />
                   </div>
                 </div>
               );

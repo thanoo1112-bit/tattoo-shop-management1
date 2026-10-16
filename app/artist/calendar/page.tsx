@@ -32,9 +32,16 @@ import {
   getDateStrBangkok, 
   formatDateBangkok, 
   formatTimeBangkok, 
-  THAI_MONTHS_FULL 
+  THAI_MONTHS_FULL,
+  resolveBookingCalendarStatus 
 } from '@/components/admin/calendar/calendarUtils';
-import { getDepositDeadlineInfo } from '@/components/portal/portalUtils';
+import { getDepositDeadlineInfo, isConfirmedDepositBooking } from '@/components/portal/portalUtils';
+import {
+  getPendingRescheduleRequest,
+  isRescheduleRequestUiEnabled,
+  readAll,
+  subscribeRescheduleRequests,
+} from '@/lib/reschedule/rescheduleRequestStore';
 
 function isDepositExpired(booking?: any, estimate?: any, session?: any): boolean {
   const status = booking?.status || estimate?.status || session?.status;
@@ -84,6 +91,7 @@ function ArtistCalendarPageContent() {
   // Loading & Data States
   const [loading, setLoading] = useState(true);
   const [sessions, setSessions] = useState<any[]>([]);
+  const [queueSessions, setQueueSessions] = useState<any[]>([]);
   const [bookingsMap, setBookingsMap] = useState<Map<string, any>>(new Map());
   const [customersMap, setCustomersMap] = useState<Map<string, any>>(new Map());
   const [profilesMap, setProfilesMap] = useState<Map<string, any>>(new Map());
@@ -99,13 +107,14 @@ function ArtistCalendarPageContent() {
   const [selectedDateStr, setSelectedDateStr] = useState<string>(() => getTodayBangkokStr());
 
   // Queue List Filter & Search State
-  const [queueFilter, setQueueFilter] = useState<'ALL' | 'SCHEDULED' | 'MULTIPLE_SESSIONS' | 'COMPLETED' | 'CANCELLED'>('ALL');
+  const [queueFilter, setQueueFilter] = useState<'ALL' | 'SCHEDULED' | 'COMPLETED' | 'CANCELLED'>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
 
   // Drawer & Lightbox States
   const [selectedSessionDetail, setSelectedSessionDetail] = useState<ArtistSessionDetail | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [activeLightboxSlipPath, setActiveLightboxSlipPath] = useState<string | null>(null);
+  const [, setRescheduleTick] = useState(0);
 
   const isAuthorized = Boolean(
     isStaffLoggedIn && (staffRole === 'ARTIST' || (staffRole === 'ADMIN' && staffArtistId))
@@ -149,28 +158,6 @@ function ArtistCalendarPageContent() {
       dbBookings.forEach((b: any) => bMap.set(b.id, b));
       setBookingsMap(bMap);
 
-      // Synthesize virtual sessions for active bookings missing from booking_sessions
-      const existingSessionBookingIds = new Set(sessionList.map((s: any) => s.booking_id));
-      dbBookings.forEach((b: any) => {
-        if (['CONFIRMED', 'IN_PROGRESS', 'COMPLETED'].includes(b.status) && !existingSessionBookingIds.has(b.id)) {
-          const reqDate = b.requested_date || getTodayBangkokStr();
-          const reqTime = b.requested_start_time || '10:00:00';
-          const startAtStr = reqDate.includes('T') ? reqDate : `${reqDate}T${reqTime.length === 5 ? reqTime + ':00' : reqTime}+07:00`;
-          sessionList.push({
-            id: `virtual-${b.id}`,
-            booking_id: b.id,
-            artist_id: b.artist_id,
-            session_number: 1,
-            start_at: startAtStr,
-            end_at: startAtStr,
-            status: b.status === 'COMPLETED' ? 'COMPLETED' : b.status === 'IN_PROGRESS' ? 'IN_PROGRESS' : 'SCHEDULED',
-            created_at: b.created_at,
-            updated_at: b.updated_at,
-            is_virtual: true
-          });
-        }
-      });
-      setSessions(sessionList);
 
       // 3. Query linked estimate requests
       const estimateIds = Array.from(new Set(dbBookings.map((b: any) => b.estimate_request_id).filter(Boolean)));
@@ -271,12 +258,13 @@ function ArtistCalendarPageContent() {
 
       // 5. Financial Summary & Submissions
       const dbBookingIds = dbBookings.map((b: any) => b.id);
+      const sumMap = new Map<string, any>();
+      let pendingSubs: any[] = [];
       if (dbBookingIds.length > 0) {
         const { data: sumData } = await supabase
           .from('booking_payment_summary')
           .select('*')
           .in('booking_id', dbBookingIds);
-        const sumMap = new Map<string, any>();
         (sumData || []).forEach((s: any) => sumMap.set(s.booking_id, s));
         setPaymentSummaryMap(sumMap);
 
@@ -285,8 +273,97 @@ function ArtistCalendarPageContent() {
           .select('*')
           .in('booking_id', dbBookingIds)
           .eq('status', 'PENDING');
-        setPendingSubmissions(subData || []);
+        pendingSubs = subData || [];
+        setPendingSubmissions(pendingSubs);
       }
+
+      // Filter sessions for Confirmed-Deposit queues only
+      const pendingSubBookingIds = new Set(
+        pendingSubs.map((sub: any) => sub.booking_id)
+      );
+      const confirmedSessions: any[] = [];
+      const queueSessionsList: any[] = [];
+
+      sessionList.forEach((s: any) => {
+        const b = bMap.get(s.booking_id);
+        if (!b) return;
+        // Strictly protect Artist Scope
+        if (b.artist_id !== staffArtistId && s.artist_id !== staffArtistId) return;
+
+        // Allow cancelled sessions of this artist's cancelled bookings for queue/table history
+        if (b.status === 'CANCELLED') {
+          queueSessionsList.push(s);
+        }
+
+        if (['CANCELLED', 'REJECTED', 'EXPIRED', 'PENDING', 'WAITING_DEPOSIT'].includes(b.status) || s.status === 'CANCELLED') return;
+        if (pendingSubBookingIds.has(b.id)) return;
+
+        const estimate = b.estimate_request_id ? estMap.get(b.estimate_request_id) : null;
+        const paymentSummary = sumMap.get(b.id) || null;
+
+        const isConfirmed = isConfirmedDepositBooking(b, estimate, s, paymentSummary);
+        if (isConfirmed || b.status === 'COMPLETED') {
+          confirmedSessions.push(s);
+          queueSessionsList.push(s);
+        }
+      });
+
+      // Synthesize virtual sessions ONLY for confirmed/completed/cancelled bookings without sessions
+      const existingSessionBookingIds = new Set(confirmedSessions.map((s: any) => s.booking_id));
+      const existingQueueBookingIds = new Set(queueSessionsList.map((s: any) => s.booking_id));
+      dbBookings.forEach((b: any) => {
+        // Strictly protect Artist Scope
+        if (b.artist_id !== staffArtistId) return;
+        if (pendingSubBookingIds.has(b.id)) return;
+
+        const estimate = b.estimate_request_id ? estMap.get(b.estimate_request_id) : null;
+        const paymentSummary = sumMap.get(b.id) || null;
+        const isConfirmed = isConfirmedDepositBooking(b, estimate, undefined, paymentSummary);
+
+        const reqDate = b.requested_date || getTodayBangkokStr();
+        const reqTime = b.requested_start_time || '10:00:00';
+        const startAtStr = reqDate.includes('T') ? reqDate : `${reqDate}T${reqTime.length === 5 ? reqTime + ':00' : reqTime}+07:00`;
+
+        if (['CONFIRMED', 'IN_PROGRESS', 'COMPLETED'].includes(b.status) && !existingSessionBookingIds.has(b.id)) {
+          if (isConfirmed || b.status === 'COMPLETED') {
+            const vSess = {
+              id: `virtual-${b.id}`,
+              booking_id: b.id,
+              artist_id: b.artist_id,
+              session_number: 1,
+              start_at: startAtStr,
+              end_at: startAtStr,
+              status: b.status === 'COMPLETED' ? 'COMPLETED' : b.status === 'IN_PROGRESS' ? 'IN_PROGRESS' : 'SCHEDULED',
+              created_at: b.created_at,
+              updated_at: b.updated_at,
+              is_virtual: true
+            };
+            confirmedSessions.push(vSess);
+            if (!existingQueueBookingIds.has(b.id)) {
+              queueSessionsList.push(vSess);
+            }
+          }
+        }
+
+        // For cancelled bookings without sessions in queueSessionsList:
+        if (b.status === 'CANCELLED' && !existingQueueBookingIds.has(b.id)) {
+          queueSessionsList.push({
+            id: `virtual-cancel-${b.id}`,
+            booking_id: b.id,
+            artist_id: b.artist_id,
+            session_number: 1,
+            start_at: startAtStr,
+            end_at: startAtStr,
+            status: 'CANCELLED',
+            created_at: b.created_at,
+            updated_at: b.updated_at,
+            is_virtual: true
+          });
+        }
+      });
+
+      setSessions(confirmedSessions);
+      setQueueSessions(queueSessionsList);
 
       // 6. Query artist_blocked_dates
       const { data: bDatesData } = await supabase
@@ -308,18 +385,51 @@ function ArtistCalendarPageContent() {
     }
   }, [isAuthorized, staffArtistId, fetchArtistData]);
 
+  useEffect(() => {
+    if (!isRescheduleRequestUiEnabled()) return;
+    const getApprovedSig = () =>
+      readAll()
+        .filter((r) => r.status === 'APPROVED')
+        .map((r) => `${r.id}:${r.reviewed_at || ''}`)
+        .sort()
+        .join('|');
+    let lastApprovedSig = getApprovedSig();
+
+    return subscribeRescheduleRequests(() => {
+      setRescheduleTick((t) => t + 1);
+      const nextApprovedSig = getApprovedSig();
+      if (nextApprovedSig !== lastApprovedSig) {
+        lastApprovedSig = nextApprovedSig;
+        if (isAuthorized && staffArtistId) {
+          fetchArtistData();
+        }
+      }
+    });
+  }, [isAuthorized, staffArtistId, fetchArtistData]);
+
   const todayStr = useMemo(() => getTodayBangkokStr(), []);
 
   // Map sessions by date string YYYY-MM-DD
   const sessionsByDate = useMemo(() => {
     const map = new Map<string, any[]>();
+    const pendingSubBookingIds = new Set(
+      (pendingSubmissions || []).map((sub: any) => sub.booking_id)
+    );
     sessions.forEach((s) => {
       const booking = bookingsMap.get(s.booking_id);
-      const estimate = booking?.estimate_request_id ? estimatesMap.get(booking.estimate_request_id) : null;
-      if (booking?.status === 'CANCELLED' || booking?.status === 'REJECTED' || s.status === 'CANCELLED') {
+      if (!booking) return;
+      if (['CANCELLED', 'REJECTED', 'EXPIRED', 'PENDING', 'WAITING_DEPOSIT'].includes(booking.status) || s.status === 'CANCELLED') {
         return;
       }
+      if (pendingSubBookingIds.has(booking.id)) {
+        return;
+      }
+      const estimate = booking.estimate_request_id ? estimatesMap.get(booking.estimate_request_id) : null;
       if (isDepositExpired(booking, estimate, s)) {
+        return;
+      }
+      const paymentSummary = paymentSummaryMap.get(booking.id);
+      if (!isConfirmedDepositBooking(booking, estimate, s, paymentSummary) && booking.status !== 'COMPLETED') {
         return;
       }
       const dStr = getDateStrBangkok(s.start_at);
@@ -327,7 +437,7 @@ function ArtistCalendarPageContent() {
       map.get(dStr)!.push(s);
     });
     return map;
-  }, [sessions, bookingsMap, estimatesMap]);
+  }, [sessions, bookingsMap, estimatesMap, paymentSummaryMap, pendingSubmissions]);
 
   const maxSessionNumberMap = useMemo(() => {
     const map = new Map<string, number>();
@@ -455,7 +565,11 @@ function ArtistCalendarPageContent() {
     return undefined;
   };
 
-  const getBookingStatusBadge = (bookingStatus?: string, totalSessionsCount: number = 1) => {
+  const getBookingStatusBadge = (
+    bookingStatus?: string,
+    totalSessionsCount: number = 1,
+    bookingId?: string
+  ) => {
     switch (bookingStatus) {
       case 'IN_PROGRESS':
         return {
@@ -466,16 +580,6 @@ function ArtistCalendarPageContent() {
         return {
           label: 'งานเสร็จสิ้น',
           className: 'bg-emerald-950/80 text-emerald-300 border border-emerald-700/80',
-        };
-      case 'WAITING_DEPOSIT':
-        return {
-          label: 'รอมัดจำ',
-          className: 'bg-purple-950/60 text-purple-400 border border-purple-800/60',
-        };
-      case 'PENDING_SLIP':
-        return {
-          label: 'สลิปรอตรวจ',
-          className: 'bg-amber-950/80 text-amber-300 border border-amber-800/80 animate-pulse',
         };
       case 'REJECTED':
         return {
@@ -493,17 +597,21 @@ function ArtistCalendarPageContent() {
           className: 'bg-[#1F1D1A] text-[#7A7265] border border-[#4A443A]',
         };
       case 'CONFIRMED':
-      default:
-        if (totalSessionsCount > 1) {
+      default: {
+        const hasPendingReschedule = Boolean(
+          bookingId && isRescheduleRequestUiEnabled() && getPendingRescheduleRequest(bookingId)
+        );
+        if (hasPendingReschedule) {
           return {
-            label: 'รอบนัด',
-            className: 'bg-teal-950/60 text-teal-400 border border-teal-800/60',
+            label: 'ขอเลื่อนนัด',
+            className: 'bg-amber-500/15 text-amber-300 border border-amber-400/40',
           };
         }
         return {
           label: 'นัดหมายแล้ว',
-          className: 'bg-emerald-950/60 text-emerald-400 border border-emerald-800/60',
+          className: 'bg-sky-500/15 text-sky-300 border border-sky-400/40',
         };
+      }
     }
   };
 
@@ -552,19 +660,41 @@ function ArtistCalendarPageContent() {
   };
 
   const validQueueSessions = useMemo(() => {
-    return sessions.filter((sess: any) => {
+    const pendingSubBookingIds = new Set(
+      (pendingSubmissions || []).map((sub: any) => sub.booking_id)
+    );
+    return queueSessions.filter((sess: any) => {
       const booking = bookingsMap.get(sess.booking_id);
       if (!booking) return false;
+      // Strictly protect Artist Scope
+      if (booking.artist_id !== staffArtistId) return false;
+
+      // Allow CANCELLED bookings belonging to this artist
+      if (booking.status === 'CANCELLED') {
+        return true;
+      }
+
+      // For non-cancelled bookings, skip individual cancelled sessions
+      if (sess.status === 'CANCELLED') {
+        return false;
+      }
+
+      if (['REJECTED', 'EXPIRED', 'PENDING', 'WAITING_DEPOSIT'].includes(booking.status)) {
+        return false;
+      }
+      if (pendingSubBookingIds.has(booking.id)) {
+        return false;
+      }
       const estimate = booking.estimate_request_id ? estimatesMap.get(booking.estimate_request_id) : null;
       if (isDepositExpired(booking, estimate, sess)) return false;
-      if (['PENDING', 'WAITING_DEPOSIT', 'EXPIRED'].includes(booking.status)) return false;
-      if (['CONFIRMED', 'IN_PROGRESS', 'COMPLETED'].includes(booking.status)) return true;
-      if (booking.status === 'CANCELLED' || sess.status === 'CANCELLED') {
-        return Boolean(booking.approved_at || !sess.is_virtual || sess.status === 'CANCELLED');
+      const paymentSummary = paymentSummaryMap.get(booking.id);
+      if (!isConfirmedDepositBooking(booking, estimate, sess, paymentSummary) && booking.status !== 'COMPLETED') {
+        return false;
       }
+      if (['CONFIRMED', 'IN_PROGRESS', 'COMPLETED'].includes(booking.status)) return true;
       return false;
     });
-  }, [sessions, bookingsMap, estimatesMap]);
+  }, [queueSessions, bookingsMap, estimatesMap, paymentSummaryMap, pendingSubmissions, staffArtistId]);
 
   const groupedQueueBookings = useMemo(() => {
     const map = new Map<string, any[]>();
@@ -577,17 +707,35 @@ function ArtistCalendarPageContent() {
     map.forEach((bSessions, bookingId) => {
       const booking = bookingsMap.get(bookingId);
       if (!booking) return;
+      if (booking.artist_id !== staffArtistId) return;
 
       const sortedSessions = [...bSessions].sort(
         (a, b) => (a.session_number || 0) - (b.session_number || 0)
       );
 
       const activeSessions = sortedSessions.filter((s) => s.status !== 'CANCELLED');
-      const displaySession = activeSessions.length > 0 
-        ? activeSessions[activeSessions.length - 1] 
-        : sortedSessions[sortedSessions.length - 1];
+      const scheduledSession = sortedSessions.find((s) => s.status === 'SCHEDULED');
+      const inProgressSession = sortedSessions.find((s) => s.status === 'IN_PROGRESS');
+      let displaySession = inProgressSession || scheduledSession || (activeSessions.length > 0 ? activeSessions[activeSessions.length - 1] : sortedSessions[sortedSessions.length - 1]);
 
-      const opStatus = resolveQueueOperationalStatus(displaySession.status, booking.status);
+      if (!displaySession || !displaySession.start_at) {
+        const reqDate = booking.requested_date || getTodayBangkokStr();
+        const reqTime = booking.requested_start_time || '10:00:00';
+        const startAtStr = reqDate.includes('T') ? reqDate : `${reqDate}T${reqTime.length === 5 ? reqTime + ':00' : reqTime}+07:00`;
+        displaySession = {
+          id: `fallback-${booking.id}`,
+          booking_id: booking.id,
+          artist_id: booking.artist_id,
+          session_number: 1,
+          start_at: startAtStr,
+          end_at: startAtStr,
+          status: booking.status,
+          created_at: booking.created_at,
+          updated_at: booking.updated_at,
+        };
+      }
+
+      const opStatus = resolveBookingCalendarStatus(sortedSessions, booking.status);
 
       result.push({
         booking_id: bookingId,
@@ -600,45 +748,46 @@ function ArtistCalendarPageContent() {
     });
 
     return result;
-  }, [validQueueSessions, bookingsMap]);
+  }, [validQueueSessions, bookingsMap, staffArtistId]);
 
-  const getArtistQueueCategory = useCallback((item: any) => {
-    const op = item.derived_op_status;
-    if (op === 'COMPLETED') return 'COMPLETED';
-    if (op === 'CANCELLED') return 'CANCELLED';
-    if ((item.totalSessionsCount || 1) > 1) return 'MULTIPLE_SESSIONS';
-    return 'SCHEDULED';
-  }, []);
+  // Selected Target YYYY-MM
+  const targetYearMonth = useMemo(() => {
+    return `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}`;
+  }, [currentYear, currentMonth]);
+
+  // Bookings with relevant session date in the selected month
+  const monthQueueBookings = useMemo(() => {
+    return groupedQueueBookings.filter((item: any) => {
+      const dateStr = item.displaySession?.start_at ? getDateStrBangkok(item.displaySession.start_at) : null;
+      return dateStr ? dateStr.startsWith(targetYearMonth) : false;
+    });
+  }, [groupedQueueBookings, targetYearMonth]);
 
   const queueCounts = useMemo(() => {
-    let all = groupedQueueBookings.length;
+    let all = monthQueueBookings.length;
     let scheduled = 0;
     let completed = 0;
     let cancelled = 0;
-    let multipleSessions = 0;
 
-    groupedQueueBookings.forEach((item: any) => {
-      const cat = getArtistQueueCategory(item);
-      if (cat === 'COMPLETED') completed++;
-      else if (cat === 'CANCELLED') cancelled++;
-      else if (cat === 'MULTIPLE_SESSIONS') multipleSessions++;
-      else if (cat === 'SCHEDULED') scheduled++;
+    monthQueueBookings.forEach((item: any) => {
+      const op = item.derived_op_status;
+      if (op === 'COMPLETED') completed++;
+      else if (op === 'CANCELLED') cancelled++;
+      else if (op === 'SCHEDULED' || op === 'IN_PROGRESS') scheduled++;
     });
 
-    return { all, scheduled, multipleSessions, completed, cancelled };
-  }, [groupedQueueBookings, getArtistQueueCategory]);
+    return { all, scheduled, completed, cancelled };
+  }, [monthQueueBookings]);
 
   const filteredQueueBookings = useMemo(() => {
-    let list = [...groupedQueueBookings];
+    let list = [...monthQueueBookings];
 
     if (queueFilter === 'SCHEDULED') {
-      list = list.filter((item) => getArtistQueueCategory(item) === 'SCHEDULED');
-    } else if (queueFilter === 'MULTIPLE_SESSIONS') {
-      list = list.filter((item) => getArtistQueueCategory(item) === 'MULTIPLE_SESSIONS');
+      list = list.filter((item) => item.derived_op_status === 'SCHEDULED' || item.derived_op_status === 'IN_PROGRESS');
     } else if (queueFilter === 'COMPLETED') {
-      list = list.filter((item) => getArtistQueueCategory(item) === 'COMPLETED');
+      list = list.filter((item) => item.derived_op_status === 'COMPLETED');
     } else if (queueFilter === 'CANCELLED') {
-      list = list.filter((item) => getArtistQueueCategory(item) === 'CANCELLED');
+      list = list.filter((item) => item.derived_op_status === 'CANCELLED');
     }
 
     if (searchQuery.trim()) {
@@ -655,29 +804,49 @@ function ArtistCalendarPageContent() {
       });
     }
 
-    if (queueFilter === 'SCHEDULED' || queueFilter === 'MULTIPLE_SESSIONS') {
-      list.sort((a, b) => new Date(a.displaySession.start_at).getTime() - new Date(b.displaySession.start_at).getTime());
+    if (queueFilter === 'SCHEDULED') {
+      list.sort((a, b) => (new Date(a.displaySession?.start_at || 0).getTime()) - (new Date(b.displaySession?.start_at || 0).getTime()));
     } else {
-      list.sort((a, b) => new Date(b.displaySession.start_at).getTime() - new Date(a.displaySession.start_at).getTime());
+      list.sort((a, b) => (new Date(b.displaySession?.start_at || 0).getTime()) - (new Date(a.displaySession?.start_at || 0).getTime()));
     }
 
     return list;
-  }, [groupedQueueBookings, queueFilter, searchQuery, estimatesMap, flashReservationsMap, customersMap, profilesMap, getArtistQueueCategory]);
+  }, [monthQueueBookings, queueFilter, searchQuery, estimatesMap, flashReservationsMap, customersMap, profilesMap]);
 
-  const renderHealthAlertBadge = (booking: any, estimate: any, customer: any) => {
+  const renderHealthAlertBadge = (booking: any, estimate: any, customer: any, opStatus?: string) => {
     const hasMed = estimate?.has_medical_condition ?? customer?.has_medical_condition;
     const hasAll = estimate?.has_allergy ?? customer?.has_allergy;
 
     const isAlert = hasMed === true || hasAll === true;
     const isHealthy = hasMed === false && hasAll === false;
 
+    const currentStatus = opStatus || booking?.status;
+    const isTerminal = currentStatus === 'COMPLETED' || currentStatus === 'CANCELLED' || currentStatus === 'EXPIRED' || currentStatus === 'REJECTED';
+
+    // CANCELLED queues: still render real health badge, but in Neutral Gray (display only)
+    const isCancelled = currentStatus === 'CANCELLED' || booking?.status === 'CANCELLED';
+    const cancelledNeutralClass = "bg-zinc-500/10 text-zinc-400 border border-zinc-500/30 px-2 py-0.5 rounded text-[10px] font-medium inline-flex items-center gap-1 shrink-0";
+
+    if (isCancelled) {
+      if (isAlert) {
+        return (
+          <span title="มีข้อมูลสุขภาพ (คิวถูกยกเลิก)" className={`${cancelledNeutralClass} cursor-help`}>
+            <TriangleAlert size={11} className="text-zinc-500 shrink-0" />
+            <span>มีข้อมูล</span>
+          </span>
+        );
+      }
+      return <span className={cancelledNeutralClass}>{isHealthy ? 'ปกติ' : 'ไม่ระบุ'}</span>;
+    }
+
     if (isAlert) {
+      // Health alert stays Amber for SCHEDULED / IN_PROGRESS / COMPLETED
       return (
         <span
           title="มีข้อมูลสุขภาพ กรุณาตรวจสอบรายละเอียดก่อนให้บริการ"
-          className="bg-[#2A1212] text-[#E8B4B4] border border-[#9C2F2F] px-2 py-0.5 rounded text-[10px] font-semibold inline-flex items-center gap-1 cursor-help shrink-0"
+          className="bg-amber-500/15 text-amber-300 border border-amber-400/40 px-2 py-0.5 rounded text-[10px] font-semibold inline-flex items-center gap-1 cursor-help shrink-0"
         >
-          <TriangleAlert size={11} className="text-[#E8B4B4] shrink-0" />
+          <TriangleAlert size={11} className="text-amber-400 shrink-0" />
           <span>มีข้อมูล</span>
         </span>
       );
@@ -685,20 +854,24 @@ function ArtistCalendarPageContent() {
 
     if (isHealthy) {
       return (
-        <span className="bg-emerald-950/60 text-emerald-400 border border-emerald-800/60 px-2 py-0.5 rounded text-[10px] font-medium inline-flex items-center shrink-0">
+        <span className={isTerminal ? "bg-zinc-900/60 text-zinc-500 border border-zinc-800/80 px-2 py-0.5 rounded text-[10px] font-medium inline-flex items-center shrink-0" : "bg-emerald-950/60 text-emerald-400 border border-emerald-800/60 px-2 py-0.5 rounded text-[10px] font-medium inline-flex items-center shrink-0"}>
           ปกติ
         </span>
       );
     }
 
     return (
-      <span className="bg-[#1F1D1A] text-[#A89F91] border border-[#4A443A] px-2 py-0.5 rounded text-[10px] font-medium inline-flex items-center shrink-0">
+      <span className={isTerminal ? "bg-zinc-900/60 text-zinc-500 border border-zinc-800/80 px-2 py-0.5 rounded text-[10px] font-medium inline-flex items-center shrink-0" : "bg-[#1F1D1A] text-[#A89F91] border border-[#4A443A] px-2 py-0.5 rounded text-[10px] font-medium inline-flex items-center shrink-0"}>
         ไม่ระบุ
       </span>
     );
   };
 
-  const renderStatusBadge = (derived_op_status: string, totalSessionsCount: number = 1) => {
+  const renderStatusBadge = (
+    derived_op_status: string,
+    totalSessionsCount: number = 1,
+    bookingId?: string
+  ) => {
     switch (derived_op_status) {
       case 'IN_PROGRESS':
         return (
@@ -720,19 +893,23 @@ function ArtistCalendarPageContent() {
           </span>
         );
       case 'SCHEDULED':
-      default:
-        if (totalSessionsCount > 1) {
+      default: {
+        const hasPendingReschedule = Boolean(
+          bookingId && isRescheduleRequestUiEnabled() && getPendingRescheduleRequest(bookingId)
+        );
+        if (hasPendingReschedule) {
           return (
-            <span className="bg-teal-950/60 text-teal-400 border border-teal-800/60 px-2 py-0.5 rounded text-[10px] font-semibold shrink-0 inline-flex items-center">
-              รอบนัด
+            <span className="bg-amber-500/15 text-amber-300 border border-amber-400/40 px-2 py-0.5 rounded text-[10px] font-semibold shrink-0 inline-flex items-center">
+              ขอเลื่อนนัด
             </span>
           );
         }
         return (
-          <span className="bg-emerald-950/60 text-emerald-400 border border-emerald-800/60 px-2 py-0.5 rounded text-[10px] font-semibold shrink-0 inline-flex items-center">
+          <span className="bg-sky-500/15 text-sky-300 border border-sky-400/40 px-2 py-0.5 rounded text-[10px] font-semibold shrink-0 inline-flex items-center">
             นัดหมายแล้ว
           </span>
         );
+      }
     }
   };
 
@@ -762,7 +939,10 @@ function ArtistCalendarPageContent() {
       depositStatus = 'ไม่ต้องมัดจำ';
     }
 
-    const siblingSessions = sessions
+    const pool = new Map<string, any>();
+    sessions.forEach((s: any) => pool.set(s.id, s));
+    queueSessions.forEach((s: any) => pool.set(s.id, s));
+    const siblingSessions = Array.from(pool.values())
       .filter((s: any) => s.booking_id === sess.booking_id)
       .map((s: any) => ({
         id: s.id,
@@ -1012,23 +1192,33 @@ function ArtistCalendarPageContent() {
                               <div className="hidden sm:block space-y-1 min-w-0">
                                 {activeSessions.slice(0, 2).map((s: any) => {
                                   const sessNum = s.session_number || 1;
-                                  const maxNum = maxSessionNumberMap.get(s.booking_id) || 1;
-                                  const isLatest = sessNum >= maxNum;
                                   const timeStr = formatTimeBangkok(s.start_at).replace(/\s*น\.?$/gi, '').trim();
-                                  const booking = bookingsMap.get(s.booking_id);
-                                  const bBadge = getBookingStatusBadge(booking?.status, maxNum);
+                                  const isCompleted = s.status === 'COMPLETED';
+                                  const isInProgress = s.status === 'IN_PROGRESS';
+                                  const hasPendingReschedule = Boolean(
+                                    !isCompleted &&
+                                    !isInProgress &&
+                                    s.booking_id &&
+                                    isRescheduleRequestUiEnabled() &&
+                                    getPendingRescheduleRequest(s.booking_id)
+                                  );
+                                  const pillClass = isInProgress
+                                    ? 'bg-[#9C2F2F]/20 text-[#D64545] border-[#9C2F2F]/60'
+                                    : isCompleted
+                                    ? 'bg-emerald-950/80 text-emerald-300 border-emerald-700/80'
+                                    : hasPendingReschedule
+                                    ? 'bg-amber-500/15 text-amber-300 border-amber-400/40'
+                                    : 'bg-sky-500/15 text-sky-300 border-sky-400/40';
 
                                   return (
                                     <div
                                       key={s.id}
-                                      className={`px-1.5 py-0.5 rounded text-[10px] font-medium border truncate flex items-center justify-between gap-1 ${
-                                        isLatest
-                                          ? `${bBadge.className}`
-                                          : 'bg-[#171512] text-[#A89F91] border-[#4A443A]/40'
-                                      }`}
-                                      title={`รอบที่ ${sessNum} • ${timeStr} น.`}
+                                      className={`px-1.5 py-0.5 rounded text-[10px] font-medium border truncate flex items-center justify-between gap-1 ${pillClass}`}
+                                      title={`${hasPendingReschedule ? 'ขอเลื่อนนัด • ' : ''}รอบที่ ${sessNum} • ${timeStr} น.`}
                                     >
-                                      <span className="truncate font-mono font-bold">รอบ {sessNum}</span>
+                                      <span className="truncate font-mono font-bold">
+                                        {hasPendingReschedule ? 'ขอเลื่อนนัด' : `รอบ ${sessNum}`}
+                                      </span>
                                       <span className="truncate text-[9.5px] opacity-90">{timeStr}</span>
                                     </div>
                                   );
@@ -1044,11 +1234,20 @@ function ArtistCalendarPageContent() {
                               {(() => {
                                 const sessionStatusInfos = activeSessions.map((s: any) => {
                                   const booking = bookingsMap.get(s.booking_id);
-                                  const statusKey = booking?.status || s.status || 'CONFIRMED';
-                                  let colorClass = 'text-emerald-400';
-                                  if (statusKey === 'WAITING_DEPOSIT') {
-                                    colorClass = 'text-purple-400';
-                                  } else if (statusKey === 'PENDING_SLIP') {
+                                  const rawStatusKey = booking?.status || s.status || 'CONFIRMED';
+                                  const hasPendingReschedule = Boolean(
+                                    rawStatusKey !== 'COMPLETED' &&
+                                    rawStatusKey !== 'IN_PROGRESS' &&
+                                    rawStatusKey !== 'CANCELLED' &&
+                                    rawStatusKey !== 'REJECTED' &&
+                                    rawStatusKey !== 'EXPIRED' &&
+                                    s.booking_id &&
+                                    isRescheduleRequestUiEnabled() &&
+                                    getPendingRescheduleRequest(s.booking_id)
+                                  );
+                                  const statusKey = hasPendingReschedule ? 'RESCHEDULE_PENDING' : rawStatusKey;
+                                  let colorClass = 'text-sky-300';
+                                  if (statusKey === 'RESCHEDULE_PENDING') {
                                     colorClass = 'text-amber-300';
                                   } else if (statusKey === 'COMPLETED') {
                                     colorClass = 'text-emerald-300';
@@ -1152,7 +1351,7 @@ function ArtistCalendarPageContent() {
                       const sessNum = sess.session_number || 1;
                       const maxNum = maxSessionNumberMap.get(sess.booking_id) || 1;
                       const isLatestSession = sessNum >= maxNum;
-                      const bBadge = getBookingStatusBadge(booking?.status, maxNum);
+                      const bBadge = getBookingStatusBadge(booking?.status, maxNum, sess.booking_id);
 
                       return (
                         <div
@@ -1166,11 +1365,27 @@ function ArtistCalendarPageContent() {
                               <span className="text-xs font-mono font-bold text-[#ECE4D3] bg-[#12100E] px-2.5 py-0.5 rounded border border-[#4A443A]/40">
                                 รอบที่ {sessNum}
                               </span>
-                              {isLatestSession && (
-                                <span className={`text-[10px] px-2 py-0.5 rounded-full border font-medium ${bBadge.className}`}>
-                                  {bBadge.label}
-                                </span>
-                              )}
+                              {(() => {
+                                const hasPendingReschedule = Boolean(
+                                  sess.status !== 'COMPLETED' &&
+                                  sess.status !== 'IN_PROGRESS' &&
+                                  sess.booking_id &&
+                                  isRescheduleRequestUiEnabled() &&
+                                  getPendingRescheduleRequest(sess.booking_id)
+                                );
+                                const sessBadge = sess.status === 'COMPLETED'
+                                  ? { label: 'งานเสร็จสิ้น', className: 'bg-emerald-950/80 text-emerald-300 border border-emerald-700/80' }
+                                  : sess.status === 'IN_PROGRESS'
+                                  ? { label: 'กำลังสัก', className: 'bg-[#9C2F2F]/20 text-[#D64545] border border-[#9C2F2F]/60 animate-pulse' }
+                                  : hasPendingReschedule
+                                  ? { label: 'ขอเลื่อนนัด', className: 'bg-amber-500/15 text-amber-300 border border-amber-400/40' }
+                                  : { label: 'นัดหมายแล้ว', className: 'bg-sky-500/15 text-sky-300 border border-sky-400/40' };
+                                return (
+                                  <span className={`text-[10px] px-2 py-0.5 rounded-full border font-medium ${sessBadge.className}`}>
+                                    {sessBadge.label}
+                                  </span>
+                                );
+                              })()}
                             </div>
 
                             {/* View Details Action */}
@@ -1223,7 +1438,41 @@ function ArtistCalendarPageContent() {
         {/* VIEW MODE 2: QUEUE LIST VIEW ("รายการคิว") */}
         {/* ========================================================================= */}
         {viewMode === 'queue' && (
-          <div className="bg-[#171512] border border-[#4A443A] rounded-xl p-4 sm:p-5 shadow-lg space-y-4 font-prompt">
+          <div className="space-y-4">
+            {/* Month Navigation Row */}
+            <div className="flex items-center justify-between bg-[#171512] border border-[#4A443A]/40 px-4 py-2.5 rounded-xl shadow-xs">
+              <div className="text-sm sm:text-base font-bold text-[#ECE4D3]">
+                {THAI_MONTHS_FULL[currentMonth]} {currentYear + 543}
+              </div>
+
+              <div className="flex items-center space-x-1 bg-[#12100E] border border-[#4A443A]/40 p-1 rounded-lg">
+                <button
+                  type="button"
+                  onClick={handlePrevMonth}
+                  className="p-1.5 rounded-md hover:bg-[#1A1815] text-[#A89F91] hover:text-[#ECE4D3] transition-colors cursor-pointer"
+                  title="เดือนก่อนหน้า"
+                >
+                  <ChevronLeft size={18} />
+                </button>
+                <button
+                  type="button"
+                  onClick={handleNextMonth}
+                  className="p-1.5 rounded-md hover:bg-[#1A1815] text-[#A89F91] hover:text-[#ECE4D3] transition-colors cursor-pointer"
+                  title="เดือนถัดไป"
+                >
+                  <ChevronRight size={18} />
+                </button>
+                <button
+                  type="button"
+                  onClick={handleGoToday}
+                  className="px-3 py-1 bg-red-950/80 hover:bg-red-900 border border-red-800/80 text-xs text-red-200 font-bold rounded-md transition-colors cursor-pointer ml-1"
+                >
+                  วันนี้
+                </button>
+              </div>
+            </div>
+
+            <div className="bg-[#171512] border border-[#4A443A] rounded-xl p-4 sm:p-5 shadow-lg space-y-4 font-prompt">
             {/* Filter Bar & Search */}
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
               {/* Status Filter Pills */}
@@ -1231,7 +1480,6 @@ function ArtistCalendarPageContent() {
                 {[
                   { id: 'ALL', label: `ทั้งหมด (${queueCounts.all})` },
                   { id: 'SCHEDULED', label: `นัดหมายแล้ว (${queueCounts.scheduled})` },
-                  { id: 'MULTIPLE_SESSIONS', label: `รอบนัด (${queueCounts.multipleSessions})` },
                   { id: 'COMPLETED', label: `งานเสร็จสิ้น (${queueCounts.completed})` },
                   { id: 'CANCELLED', label: `ยกเลิก (${queueCounts.cancelled})` },
                 ].map((pill) => {
@@ -1376,12 +1624,12 @@ function ArtistCalendarPageContent() {
 
                             {/* 5. แจ้งเตือนสุขภาพ */}
                             <td className="py-3 px-3 text-center">
-                              {renderHealthAlertBadge(booking, estimate, customer)}
+                              {renderHealthAlertBadge(booking, estimate, customer, derived_op_status)}
                             </td>
 
                             {/* 6. สถานะ */}
                             <td className="py-3 px-3">
-                              {renderStatusBadge(derived_op_status, item.totalSessionsCount)}
+                              {renderStatusBadge(derived_op_status, item.totalSessionsCount, booking.id)}
                             </td>
 
                             {/* 7. การจัดการ */}
@@ -1449,8 +1697,8 @@ function ArtistCalendarPageContent() {
                             </div>
                           </div>
                           <div className="flex items-center gap-1.5 shrink-0">
-                            {renderHealthAlertBadge(booking, estimate, customer)}
-                            {renderStatusBadge(derived_op_status, item.totalSessionsCount)}
+                            {renderHealthAlertBadge(booking, estimate, customer, derived_op_status)}
+                            {renderStatusBadge(derived_op_status, item.totalSessionsCount, booking.id)}
                           </div>
                         </div>
 
@@ -1495,6 +1743,7 @@ function ArtistCalendarPageContent() {
                 </div>
               </>
             )}
+          </div>
           </div>
         )}
       </main>

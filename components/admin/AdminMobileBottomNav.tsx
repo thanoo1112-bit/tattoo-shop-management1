@@ -133,15 +133,15 @@ export default function AdminMobileBottomNav() {
             href="/admin/dashboard"
             onClick={() => setIsFabOpen(false)}
             className={`relative flex flex-col items-center justify-center py-1 transition-colors cursor-pointer ${
-              pathname === '/admin/dashboard' || pathname === '/admin' ? 'text-[#ECE4D3]' : 'text-[#7A7265] hover:text-[#A89F91]'
+              pathname === '/admin/dashboard' || pathname === '/admin' ? 'text-[#ECE4D3]' : 'text-[#B8B0A3] hover:text-[#ECE4D3]'
             }`}
           >
             <LayoutDashboard
               size={19}
-              className={pathname === '/admin/dashboard' || pathname === '/admin' ? 'text-studio-red-bright' : 'text-[#7A7265]'}
+              className={pathname === '/admin/dashboard' || pathname === '/admin' ? 'text-studio-red-bright' : 'text-[#B8B0A3]'}
             />
             <span className={`text-[10px] mt-0.5 font-medium tracking-tight ${
-              pathname === '/admin/dashboard' || pathname === '/admin' ? 'text-[#ECE4D3] font-semibold' : 'text-[#7A7265]'
+              pathname === '/admin/dashboard' || pathname === '/admin' ? 'text-[#ECE4D3] font-semibold' : 'text-[#B8B0A3]'
             }`}>
               ภาพรวม
             </span>
@@ -155,13 +155,13 @@ export default function AdminMobileBottomNav() {
             href="/admin/requests"
             onClick={() => setIsFabOpen(false)}
             className={`relative flex flex-col items-center justify-center py-1 transition-colors cursor-pointer ${
-              pathname.startsWith('/admin/requests') ? 'text-[#ECE4D3]' : 'text-[#7A7265] hover:text-[#A89F91]'
+              pathname.startsWith('/admin/requests') ? 'text-[#ECE4D3]' : 'text-[#B8B0A3] hover:text-[#ECE4D3]'
             }`}
           >
             <div className="relative">
               <ClipboardList
                 size={19}
-                className={pathname.startsWith('/admin/requests') ? 'text-studio-red-bright' : 'text-[#7A7265]'}
+                className={pathname.startsWith('/admin/requests') ? 'text-studio-red-bright' : 'text-[#B8B0A3]'}
               />
               {pendingCount > 0 && (
                 <span className="absolute -top-1 -right-2 bg-[#9C2F2F] text-[#ECE4D3] text-[9px] font-bold w-4 h-4 rounded-full flex items-center justify-center ring-2 ring-[#171512]">
@@ -170,7 +170,7 @@ export default function AdminMobileBottomNav() {
               )}
             </div>
             <span className={`text-[10px] mt-0.5 font-medium tracking-tight ${
-              pathname.startsWith('/admin/requests') ? 'text-[#ECE4D3] font-semibold' : 'text-[#7A7265]'
+              pathname.startsWith('/admin/requests') ? 'text-[#ECE4D3] font-semibold' : 'text-[#B8B0A3]'
             }`}>
               คำขอ
             </span>
@@ -187,15 +187,15 @@ export default function AdminMobileBottomNav() {
             href="/admin/calendar"
             onClick={() => setIsFabOpen(false)}
             className={`relative flex flex-col items-center justify-center py-1 transition-colors cursor-pointer ${
-              pathname.startsWith('/admin/calendar') ? 'text-[#ECE4D3]' : 'text-[#7A7265] hover:text-[#A89F91]'
+              pathname.startsWith('/admin/calendar') ? 'text-[#ECE4D3]' : 'text-[#B8B0A3] hover:text-[#ECE4D3]'
             }`}
           >
             <CalendarDays
               size={19}
-              className={pathname.startsWith('/admin/calendar') ? 'text-studio-red-bright' : 'text-[#7A7265]'}
+              className={pathname.startsWith('/admin/calendar') ? 'text-studio-red-bright' : 'text-[#B8B0A3]'}
             />
             <span className={`text-[10px] mt-0.5 font-medium tracking-tight ${
-              pathname.startsWith('/admin/calendar') ? 'text-[#ECE4D3] font-semibold' : 'text-[#7A7265]'
+              pathname.startsWith('/admin/calendar') ? 'text-[#ECE4D3] font-semibold' : 'text-[#B8B0A3]'
             }`}>
               ปฏิทิน
             </span>
@@ -209,15 +209,15 @@ export default function AdminMobileBottomNav() {
             href="/admin/payments"
             onClick={() => setIsFabOpen(false)}
             className={`relative flex flex-col items-center justify-center py-1 transition-colors cursor-pointer ${
-              pathname.startsWith('/admin/payments') ? 'text-[#ECE4D3]' : 'text-[#7A7265] hover:text-[#A89F91]'
+              pathname.startsWith('/admin/payments') ? 'text-[#ECE4D3]' : 'text-[#B8B0A3] hover:text-[#ECE4D3]'
             }`}
           >
             <CreditCard
               size={19}
-              className={pathname.startsWith('/admin/payments') ? 'text-studio-red-bright' : 'text-[#7A7265]'}
+              className={pathname.startsWith('/admin/payments') ? 'text-studio-red-bright' : 'text-[#B8B0A3]'}
             />
             <span className={`text-[10px] mt-0.5 font-medium tracking-tight ${
-              pathname.startsWith('/admin/payments') ? 'text-[#ECE4D3] font-semibold' : 'text-[#7A7265]'
+              pathname.startsWith('/admin/payments') ? 'text-[#ECE4D3] font-semibold' : 'text-[#B8B0A3]'
             }`}>
               การเงิน
             </span>

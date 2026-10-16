@@ -94,6 +94,10 @@ export default function CustomerFlashReservations() {
           height_cm,
           customer_note,
           admin_note,
+          proposed_date,
+          proposed_time,
+          proposal_note,
+          date_proposed_at,
           approved_at,
           rejected_at,
           cancelled_at,
@@ -294,7 +298,7 @@ export default function CustomerFlashReservations() {
 
       {!loading && !error && reservations.length === 0 && (
         <div className="bg-studio-card border border-studio-border p-10 rounded-[6px] text-center space-y-3">
-          <Sparkles size={28} className="text-studio-muted mx-auto" />
+          <Sparkles size={28} className="text-[#B8B0A3] mx-auto" />
           <h4 className="text-sm font-bold text-studio-primary">ยังไม่มีรายการจองลายสัก Flash</h4>
           <p className="text-xs text-studio-secondary max-w-sm mx-auto font-light">
             ท่านสามารถเลือกชมแบบลายสักพร้อมจอง (Fixed Price) ลิขสิทธิ์เฉพาะของช่างประจำร้านได้ที่แกลเลอรี Flash
@@ -341,7 +345,7 @@ export default function CustomerFlashReservations() {
                     <span className="text-[10px] uppercase font-bold text-studio-red tracking-wider">
                       FLASH #{res.id.slice(0, 8)}
                     </span>
-                    <span className="text-[10px] text-studio-muted">
+                    <span className="text-[10px] text-[#B8B0A3]">
                       • ส่งเมื่อ: {formatThaiDate(res.created_at)}
                     </span>
                   </div>
@@ -499,7 +503,7 @@ export default function CustomerFlashReservations() {
 
                 {/* Status Notice & Customer Action */}
                 <div className="pt-2 border-t border-studio-border/40 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
-                  <div className="text-[11px] text-studio-muted font-light">
+                  <div className="text-[11px] text-[#B8B0A3] font-light">
                     {isPending && (
                       <span className="text-amber-300/80">
                         • ลายนี้ถูก Hold ไว้ชั่วคราว ร้านกำลังตรวจสอบคิวงาน

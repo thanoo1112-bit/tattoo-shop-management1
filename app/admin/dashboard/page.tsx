@@ -7,8 +7,9 @@ import AdminMobileBottomNav from '@/components/admin/AdminMobileBottomNav';
 import KPICard from '@/components/admin/KPICard';
 import ArtistTimeline from '@/components/admin/ArtistTimeline';
 import UnifiedActionQueue from '@/components/admin/UnifiedActionQueue';
-import { Calendar, User, DollarSign, FileText, Sparkles } from 'lucide-react';
+import { Calendar, User, FileText, Sparkles } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
+import { isConfirmedDepositBooking } from '@/components/portal/portalUtils';
 
 import Link from 'next/link';
 
@@ -120,19 +121,25 @@ export default function AdminDashboardPage() {
             status
           )
         `)
-        .neq('status', 'CANCELLED');
+        .in('status', ['SCHEDULED', 'IN_PROGRESS']);
 
       if (sessErr) console.warn('[Dashboard] Sessions fetch error:', sessErr);
 
-      // Filter sessions that occur today in Bangkok time and associated booking is not CANCELLED
+      // Filter sessions that occur today in Bangkok time and associated booking has confirmed deposit
       const todaySessions = (sessionsData || []).filter((s: any) => {
         if (!s.start_at) return false;
         const sBkkDate = toBangkokDate(s.start_at);
         if (sBkkDate !== todayBangkok) return false;
 
-        // Exclude if associated booking is CANCELLED
-        const bookingStatus = String(s.bookings?.status || '').toUpperCase();
-        if (bookingStatus === 'CANCELLED') return false;
+        // Must qualify as confirmed deposit queue (strictly excludes WAITING_DEPOSIT, PENDING, EXPIRED, CANCELLED, REJECTED)
+        if (!isConfirmedDepositBooking(s.bookings, undefined, s)) {
+          return false;
+        }
+
+        // Only active sessions of today
+        if (s.status !== 'SCHEDULED' && s.status !== 'IN_PROGRESS') {
+          return false;
+        }
 
         return true;
       });
@@ -235,24 +242,24 @@ export default function AdminDashboardPage() {
         {/* Title */}
         <div className="border-b border-studio-border pb-4 flex justify-between items-end">
           <div>
-            <div className="inline-flex items-center space-x-2 bg-studio-sec border border-studio-border px-2.5 py-0.5 sm:px-3 sm:py-1 rounded text-studio-paper text-[10px] uppercase font-heading tracking-widest mb-1">
+            <div className="inline-flex items-center space-x-2 bg-studio-sec border border-studio-border px-2.5 py-0.5 sm:px-3 sm:py-1 rounded text-[#AFA79A] text-[10px] uppercase font-heading tracking-widest mb-1">
               <Sparkles size={12} className="text-studio-red-bright" />
               <span>Studio Management</span>
             </div>
-            <h1 className="text-2xl sm:text-3xl md:text-4xl font-heading font-normal tracking-wide text-studio-primary">
+            <h1 className="text-2xl sm:text-3xl md:text-4xl font-heading font-normal tracking-wide text-[#ECE4D3]">
               157 TATTOO ADMIN DASHBOARD
             </h1>
-            <p className="text-xs text-studio-secondary mt-1 font-light">
+            <p className="text-xs text-[#CFC7BA] mt-1 font-light">
               ภาพรวมสตูดิโอ คิวงาน ช่างสัก และการตรวจสอบธุรกรรมเงินมัดจำ
             </p>
           </div>
-          <span className="text-xs text-studio-muted hidden sm:inline font-heading tracking-wider">
+          <span className="text-xs text-[#AFA79A] hidden sm:inline font-heading tracking-wider">
             157 TATTOO STUDIO • BANGKOK
           </span>
         </div>
 
-        {/* 1. TOP: 4 Primary Operational Dashboard KPI Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
+        {/* 1. TOP: 3 Primary Operational Dashboard KPI Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
           <Link href="/admin/requests?filter=PENDING" className="block transition-transform hover:scale-[1.01]">
             <KPICard
               title="คำขอที่รอดำเนินการ"
@@ -275,13 +282,6 @@ export default function AdminDashboardPage() {
             icon={User}
             change={isMetricsLoading ? 'กำลังโหลด...' : 'ช่างที่มีคิววันนี้ / ช่างทั้งหมด'}
             changeType={workingArtistsCount > 0 ? 'positive' : 'neutral'}
-          />
-          <KPICard
-            title="รายรับเดือนนี้"
-            value={isMetricsLoading ? '...' : formatCurrency(monthRevenue)}
-            icon={DollarSign}
-            change={isMetricsLoading ? 'กำลังโหลด...' : `${monthTransactionCount} รายการรับเงินจริง`}
-            changeType={monthRevenue > 0 ? 'positive' : 'neutral'}
           />
         </div>
 

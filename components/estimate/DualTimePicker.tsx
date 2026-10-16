@@ -85,7 +85,7 @@ export default function DualTimePicker({
             value={hour}
             disabled={disabled}
             onChange={(e) => handleHourChange(e.target.value)}
-            className="w-full min-h-[44px] bg-[#0E0D0C] border border-[#4A443A] focus:border-[#9C2F2F] text-xs text-[#ECE4D3] pl-3 pr-7 py-2 outline-none rounded-[4px] cursor-pointer font-prompt appearance-none [color-scheme:dark] disabled:opacity-50 transition-colors"
+            className="w-full min-h-[44px] bg-[#0E0D0C] border border-[#4A443A] focus:border-[#9C2F2F] text-xs text-[#F2EEE8] pl-3 pr-7 py-2 outline-none rounded-[4px] cursor-pointer font-prompt appearance-none [color-scheme:dark] disabled:opacity-50 transition-colors"
           >
             <option value="" className="bg-[#171512] text-[#A89F91]">
               ชั่วโมง
@@ -99,7 +99,7 @@ export default function DualTimePicker({
                   key={opt.value}
                   value={opt.value}
                   disabled={isFullyDisabled}
-                  className={isFullyDisabled ? 'bg-[#171512] text-[#666666] opacity-40' : 'bg-[#171512] text-[#ECE4D3]'}
+                  className={isFullyDisabled ? 'bg-[#171512] text-[#666666] opacity-40' : 'bg-[#171512] text-[#F2EEE8]'}
                 >
                   {opt.label}{isFullyDisabled ? ' (ไม่ว่าง)' : ''}
                 </option>
@@ -112,7 +112,7 @@ export default function DualTimePicker({
         </div>
 
         {/* Colon Separator */}
-        <span className="text-[#ECE4D3] font-bold text-sm shrink-0 px-0.5">:</span>
+        <span className="text-[#F2EEE8] font-bold text-sm shrink-0 px-0.5">:</span>
 
         {/* Minute Select Dropdown */}
         <div className="flex-1 relative">
@@ -120,7 +120,7 @@ export default function DualTimePicker({
             value={minute}
             disabled={disabled}
             onChange={(e) => handleMinuteChange(e.target.value)}
-            className="w-full min-h-[44px] bg-[#0E0D0C] border border-[#4A443A] focus:border-[#9C2F2F] text-xs text-[#ECE4D3] pl-3 pr-7 py-2 outline-none rounded-[4px] cursor-pointer font-prompt appearance-none [color-scheme:dark] disabled:opacity-50 transition-colors"
+            className="w-full min-h-[44px] bg-[#0E0D0C] border border-[#4A443A] focus:border-[#9C2F2F] text-xs text-[#F2EEE8] pl-3 pr-7 py-2 outline-none rounded-[4px] cursor-pointer font-prompt appearance-none [color-scheme:dark] disabled:opacity-50 transition-colors"
           >
             <option value="" className="bg-[#171512] text-[#A89F91]">
               นาที
@@ -132,7 +132,7 @@ export default function DualTimePicker({
                   key={opt.value}
                   value={opt.value}
                   disabled={isDisabled}
-                  className={isDisabled ? 'bg-[#171512] text-[#666666] opacity-40' : 'bg-[#171512] text-[#ECE4D3]'}
+                  className={isDisabled ? 'bg-[#171512] text-[#666666] opacity-40' : 'bg-[#171512] text-[#F2EEE8]'}
                 >
                   {opt.label}{isDisabled ? ' (ไม่ว่าง)' : ''}
                 </option>

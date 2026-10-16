@@ -191,7 +191,7 @@ export default function AdminWorkQueue({ embedded = false }: AdminWorkQueueProps
       );
     }
     return (
-      <span className="bg-blue-950/60 text-blue-400 border border-blue-800/60 px-2 py-0.5 rounded text-[10px] font-semibold">
+      <span className="bg-sky-500/15 text-sky-300 border border-sky-400/40 px-2 py-0.5 rounded text-[10px] font-semibold">
         นัดหมายแล้ว
       </span>
     );
@@ -394,10 +394,10 @@ export default function AdminWorkQueue({ embedded = false }: AdminWorkQueueProps
                                 className={
                                   isInactive
                                     ? "bg-zinc-900/90 text-zinc-400 border border-zinc-700/80 px-2 py-0.5 rounded text-[10px] font-medium inline-flex items-center gap-1 cursor-help"
-                                    : "bg-[#2A1212] text-[#E8B4B4] border border-[#9C2F2F] px-2 py-0.5 rounded text-[10px] font-semibold inline-flex items-center gap-1 cursor-help"
+                                    : "bg-amber-500/15 text-amber-300 border border-amber-400/40 px-2 py-0.5 rounded text-[10px] font-semibold inline-flex items-center gap-1 cursor-help"
                                 }
                               >
-                                <AlertTriangle size={11} className={isInactive ? "text-zinc-500 shrink-0" : "text-[#E8B4B4] shrink-0"} />
+                                <AlertTriangle size={11} className={isInactive ? "text-zinc-500 shrink-0" : "text-amber-400 shrink-0"} />
                                 <span>มีข้อมูล</span>
                               </span>
                             ) : (
@@ -477,10 +477,10 @@ export default function AdminWorkQueue({ embedded = false }: AdminWorkQueueProps
                               className={
                                 isInactive
                                   ? "bg-zinc-900/90 text-zinc-400 border border-zinc-700/80 px-2 py-0.5 rounded text-[10px] font-medium inline-flex items-center gap-1 cursor-help"
-                                  : "bg-[#2A1212] text-[#E8B4B4] border border-[#9C2F2F] px-2 py-0.5 rounded text-[10px] font-semibold inline-flex items-center gap-1 cursor-help"
+                                  : "bg-amber-500/15 text-amber-300 border border-amber-400/40 px-2 py-0.5 rounded text-[10px] font-semibold inline-flex items-center gap-1 cursor-help"
                               }
                             >
-                              <AlertTriangle size={11} className={isInactive ? "text-zinc-500 shrink-0" : "text-[#E8B4B4] shrink-0"} />
+                              <AlertTriangle size={11} className={isInactive ? "text-zinc-500 shrink-0" : "text-amber-400 shrink-0"} />
                               <span>มีข้อมูล</span>
                             </span>
                           ) : (
@@ -543,6 +543,7 @@ export default function AdminWorkQueue({ embedded = false }: AdminWorkQueueProps
           booking={selectedBooking}
           artists={artists}
           blockedDates={blockedDates}
+          isDashboard={true}
           onClose={() => setSelectedBooking(null)}
           onRefresh={loadWorkQueueData}
         />

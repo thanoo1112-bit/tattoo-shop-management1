@@ -138,7 +138,7 @@ export default function EstimateDetailPanel({
   onCheckSlip,
   onDeleteRequest,
 }: EstimateDetailPanelProps) {
-  if (!estimate) return null;
+  // early return moved below after hooks
 const { artists } = useApp();
 
   const [mounted, setMounted] = useState(false);
@@ -595,6 +595,7 @@ const { artists } = useApp();
   }, [estimate?.id, estimate?.customer_user_id, estimate?.linked_booking?.customer_user_id, estimate?.is_age_confirmed]);
 
   // Removed early return to keep hooks unconditional
+if (!estimate) return null;
 
   const linkedBooking = estimate.linked_booking;
   const hasBooking = Boolean(linkedBooking || estimate.status !== 'PENDING');
@@ -906,6 +907,7 @@ const { artists } = useApp();
 
 
   if (!mounted) return null;
+if (!estimate) return null;
 
   return createPortal(
     <>

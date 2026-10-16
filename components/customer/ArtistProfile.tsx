@@ -230,21 +230,6 @@ export default function ArtistProfile({
     }
   };
 
-  const getTypeBadge = (isRepeatable?: boolean) => {
-    if (isRepeatable) {
-      return (
-        <span className="text-[10px] bg-cyan-950/80 border border-cyan-600/40 text-cyan-300 px-2 py-0.5 rounded font-bold">
-          สักซ้ำได้
-        </span>
-      );
-    }
-    return (
-      <span className="text-[10px] bg-amber-950/80 border border-amber-600/40 text-amber-300 px-2 py-0.5 rounded font-bold">
-        ลายเดียว
-      </span>
-    );
-  };
-
   const artistTitleName = formatArtistTitle(artist.name);
 
   if (artist.is_active === false || artist.is_visible === false) {
@@ -254,7 +239,7 @@ export default function ArtistProfile({
         <h3 className="text-lg font-heading text-studio-primary">
           ช่างคนนี้ถูกปิดใช้งาน
         </h3>
-        <p className="text-xs text-studio-secondary leading-relaxed">
+        <p className="text-xs text-[#E2DDD4] leading-relaxed">
           ช่างสักที่คุณกำลังค้นหาไม่เปิดให้จองคิวในขณะนี้ คุณสามารถเลือกชมทีมช่างสักท่านอื่นของสตูดิโอ 157 TATTOO ได้
         </p>
         <button
@@ -272,7 +257,7 @@ export default function ArtistProfile({
       {/* Top Back Navigation Bar */}
       <button
         onClick={onBack}
-        className="flex items-center space-x-2 text-xs text-studio-secondary hover:text-studio-red-bright transition-colors uppercase tracking-wider font-semibold"
+        className="flex items-center space-x-2 text-xs text-[#E2DDD4] hover:text-studio-red-bright transition-colors uppercase tracking-wider font-semibold"
       >
         <ArrowLeft size={16} />
         <span>ย้อนกลับไปรายชื่อช่างสักทั้งหมด</span>
@@ -312,20 +297,20 @@ export default function ArtistProfile({
                 {artist.name}
               </h1>
               {artist.nickname && (
-                <p className="text-xs text-studio-secondary mt-0.5">
+                <p className="text-xs text-[#E2DDD4] mt-0.5">
                   ชื่อเล่น: <span className="text-studio-primary font-medium">{artist.nickname}</span>
                 </p>
               )}
             </div>
 
             {/* Bio */}
-            <p className="text-xs text-studio-secondary leading-relaxed font-light line-clamp-3">
+            <p className="text-xs text-[#E2DDD4] leading-relaxed font-light line-clamp-3">
               {artist.bio || 'ช่างสักมืออาชีพประจำสตูดิโอ 157 TATTOO พร้อมออกแบบและรังสรรค์ผลงานสักตรงตามโจทย์เฉพาะบุคคล'}
             </p>
 
             {/* Portfolio / Flash Count */}
             {(artistPortfolio.length > 0 || artistFlashDesigns.length > 0) && (
-              <div className="flex items-center gap-2 text-[11px] text-studio-muted font-medium pt-0.5">
+              <div className="flex items-center gap-2 text-[11px] text-[#F2EEE8] font-medium pt-0.5">
                 {artistPortfolio.length > 0 && (
                   <span>ผลงาน {artistPortfolio.length} ชิ้น</span>
                 )}
@@ -355,7 +340,7 @@ export default function ArtistProfile({
               <h3 className="text-xs md:text-sm font-bold text-studio-primary tracking-wide">
                 สนใจจองคิวกับช่างคนนี้?
               </h3>
-              <p className="text-[11px] text-studio-secondary leading-tight max-w-[170px] mx-auto">
+              <p className="text-[11px] text-[#E2DDD4] leading-tight max-w-[170px] mx-auto">
                 ส่งรายละเอียดงานและเลือกวันที่ต้องการ
               </p>
             </div>
@@ -536,7 +521,7 @@ export default function ArtistProfile({
                         <h4 className="text-xs font-bold text-studio-primary truncate group-hover:text-studio-red-bright transition-colors">
                           {item.title}
                         </h4>
-                        <p className="text-[10px] text-studio-secondary truncate">
+                        <p className="text-[10px] text-[#E2DDD4] truncate">
                           ช่าง: {artist.name}
                         </p>
                       </div>
@@ -565,7 +550,7 @@ export default function ArtistProfile({
                 <p className="text-xs font-semibold text-studio-primary">
                   {selectedStyle !== 'ALL' ? `ไม่พบผลงานสไตล์ "${selectedStyle}" ของช่างคนนี้` : 'ช่างคนนี้ยังไม่มีผลงานที่เผยแพร่'}
                 </p>
-                <p className="text-[11px] text-studio-secondary">ผลงานสักคัสตอมใหม่จะถูกเพิ่มในระบบเร็วๆ นี้</p>
+                <p className="text-[11px] text-[#E2DDD4]">ผลงานสักคัสตอมใหม่จะถูกเพิ่มในระบบเร็วๆ นี้</p>
               </div>
             )}
           </>
@@ -595,7 +580,7 @@ export default function ArtistProfile({
             {!loadingFlash && flashError && (
               <div className="bg-studio-card border border-studio-red/40 p-8 rounded-[8px] text-center space-y-2">
                 <AlertCircle size={24} className="text-studio-red mx-auto" />
-                <p className="text-xs text-studio-secondary">{flashError}</p>
+                <p className="text-xs text-[#E2DDD4]">{flashError}</p>
               </div>
             )}
 
@@ -623,7 +608,6 @@ export default function ArtistProfile({
                         />
                         <div className="absolute top-2.5 right-2.5 sm:top-3 sm:right-3 flex flex-col items-end gap-1.5 pointer-events-none">
                           {getStatusBadge(item.status)}
-                          {getTypeBadge(item.is_repeatable)}
                         </div>
                       </div>
 
@@ -636,7 +620,7 @@ export default function ArtistProfile({
                           <h4 className="text-xs font-bold text-studio-primary truncate group-hover:text-studio-red-bright transition-colors">
                             {item.title}
                           </h4>
-                          <p className="text-[10px] text-studio-secondary truncate">
+                          <p className="text-[10px] text-[#E2DDD4] truncate">
                             ช่าง: {artist.name || item.artist?.name || 'ช่างประจำร้าน'}
                           </p>
                         </div>
@@ -656,7 +640,7 @@ export default function ArtistProfile({
                             <ArrowRight size={12} className="transform group-hover/btn:translate-x-0.5 transition-transform shrink-0" />
                           </Link>
                         ) : (
-                          <span className="text-[10px] text-studio-muted font-medium">
+                          <span className="text-[10px] text-[#F2EEE8] font-medium">
                             {item.status === 'HELD' ? 'รอการยืนยัน' : item.status === 'RESERVED' ? 'จองแล้ว' : 'ปิดจอง'}
                           </span>
                         )}
@@ -675,7 +659,7 @@ export default function ArtistProfile({
                     ? `ไม่พบลายออกแบบ Flash สไตล์ "${selectedFlashStyle}" ของช่างคนนี้`
                     : 'ช่างคนนี้ยังไม่มีลายออกแบบ Flash ที่เผยแพร่'}
                 </p>
-                <p className="text-[11px] text-studio-secondary">
+                <p className="text-[11px] text-[#E2DDD4]">
                   ติดตามลายสักพร้อมจองใหม่ๆ ได้เร็วๆ นี้
                 </p>
               </div>

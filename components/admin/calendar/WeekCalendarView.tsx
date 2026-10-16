@@ -333,9 +333,8 @@ export default function WeekCalendarView({
     const total = weekEvents.length;
     const completed = weekEvents.filter((e) => getEffectiveEventStatus(e) === 'COMPLETED').length;
     const inProgress = weekEvents.filter((e) => getEffectiveEventStatus(e) === 'IN_PROGRESS').length;
-    const waitingDeposit = weekEvents.filter((e) => getEffectiveEventStatus(e) === 'WAITING_DEPOSIT').length;
     const confirmed = weekEvents.filter((e) => getEffectiveEventStatus(e) === 'CONFIRMED').length;
-    return { total, confirmed, waitingDeposit, inProgress, completed };
+    return { total, confirmed, inProgress, completed };
   }, [weekEvents]);
 
   const currentLineTop =
@@ -683,31 +682,31 @@ export default function WeekCalendarView({
               {/* Financial Summary */}
               {selectedEvent.financial && (
                 <div className="bg-[#171512] border border-[#4A443A]/40 rounded-lg p-2.5 space-y-2 text-xs">
-                  <span className="text-[9px] text-[#7A7265] uppercase tracking-wider flex items-center gap-1">
+                  <span className="text-[9px] text-[#B8B0A3] uppercase tracking-wider flex items-center gap-1">
                     <BadgeDollarSign size={11} />
                     <span>สรุปการเงิน</span>
                   </span>
                   <div className="grid grid-cols-2 gap-1.5 text-[11px]">
                     <div className="bg-[#0E0D0C] p-1.5 rounded border border-[#4A443A]/30">
-                      <span className="text-[9px] text-[#7A7265] block">ราคาประเมิน</span>
+                      <span className="text-[9px] text-[#B8B0A3] block">ราคาประเมิน</span>
                       <span className="font-bold text-[#ECE4D3]">
                         ฿{formatCurrency(selectedEvent.financial.quoted_price)}
                       </span>
                     </div>
                     <div className="bg-[#0E0D0C] p-1.5 rounded border border-[#4A443A]/30">
-                      <span className="text-[9px] text-[#7A7265] block">มัดจำที่ต้องชำระ</span>
+                      <span className="text-[9px] text-[#B8B0A3] block">มัดจำที่ต้องชำระ</span>
                       <span className="font-bold text-[#ECE4D3]">
                         ฿{formatCurrency(selectedEvent.financial.deposit_required)}
                       </span>
                     </div>
                     <div className="bg-[#0E0D0C] p-1.5 rounded border border-[#4A443A]/30">
-                      <span className="text-[9px] text-[#7A7265] block">ชำระแล้ว</span>
+                      <span className="text-[9px] text-[#B8B0A3] block">ชำระแล้ว</span>
                       <span className="font-bold text-emerald-400">
                         ฿{formatCurrency(selectedEvent.financial.paid_total)}
                       </span>
                     </div>
                     <div className="bg-[#0E0D0C] p-1.5 rounded border border-[#4A443A]/30">
-                      <span className="text-[9px] text-[#7A7265] block">คงเหลือ</span>
+                      <span className="text-[9px] text-[#B8B0A3] block">คงเหลือ</span>
                       <span
                         className={`font-bold ${
                           selectedEvent.financial.remaining_balance > 0
@@ -757,25 +756,25 @@ export default function WeekCalendarView({
                 <div className="bg-[#171512] border border-[#4A443A]/40 rounded-lg p-2.5">
                   <span className="text-[9px] text-[#A89F91] block">คิวงานสัปดาห์นี้</span>
                   <span className="text-lg font-bold text-[#ECE4D3] mt-0.5 block">
-                    {metrics.total} <span className="text-[10px] text-[#7A7265] font-normal">งาน</span>
+                    {metrics.total} <span className="text-[10px] text-[#B8B0A3] font-normal">งาน</span>
                   </span>
                 </div>
                 <div className="bg-[#171512] border border-[#4A443A]/40 rounded-lg p-2.5">
                   <span className="text-[9px] text-[#A89F91] block">นัดหมายแล้ว</span>
                   <span className="text-lg font-bold text-blue-400 mt-0.5 block">
-                    {metrics.confirmed} <span className="text-[10px] text-[#7A7265] font-normal">งาน</span>
+                    {metrics.confirmed} <span className="text-[10px] text-[#B8B0A3] font-normal">งาน</span>
                   </span>
                 </div>
                 <div className="bg-[#171512] border border-[#4A443A]/40 rounded-lg p-2.5">
-                  <span className="text-[9px] text-[#A89F91] block">รอมัดจำ</span>
-                  <span className="text-lg font-bold text-purple-400 mt-0.5 block">
-                    {metrics.waitingDeposit} <span className="text-[10px] text-[#7A7265] font-normal">งาน</span>
+                  <span className="text-[9px] text-[#A89F91] block">กำลังสัก</span>
+                  <span className="text-lg font-bold text-[#D64545] mt-0.5 block">
+                    {metrics.inProgress} <span className="text-[10px] text-[#B8B0A3] font-normal">งาน</span>
                   </span>
                 </div>
                 <div className="bg-[#171512] border border-[#4A443A]/40 rounded-lg p-2.5">
                   <span className="text-[9px] text-[#A89F91] block">งานเสร็จสิ้น</span>
                   <span className="text-lg font-bold text-emerald-400 mt-0.5 block">
-                    {metrics.completed} <span className="text-[10px] text-[#7A7265] font-normal">งาน</span>
+                    {metrics.completed} <span className="text-[10px] text-[#B8B0A3] font-normal">งาน</span>
                   </span>
                 </div>
               </div>
@@ -1042,31 +1041,31 @@ export default function WeekCalendarView({
             {/* Financial Summary */}
             {selectedEvent.financial && (
               <div className="bg-[#171512] border border-[#4A443A]/40 rounded-xl p-3 space-y-2 text-xs">
-                <span className="text-[10px] text-[#7A7265] uppercase tracking-wider flex items-center gap-1 font-semibold">
+                <span className="text-[10px] text-[#B8B0A3] uppercase tracking-wider flex items-center gap-1 font-semibold">
                   <BadgeDollarSign size={13} />
                   <span>สรุปการเงิน</span>
                 </span>
                 <div className="grid grid-cols-2 gap-2 text-xs">
                   <div className="bg-[#0E0D0C] p-2 rounded-lg border border-[#4A443A]/30">
-                    <span className="text-[10px] text-[#7A7265] block">ราคาประเมิน</span>
+                    <span className="text-[10px] text-[#B8B0A3] block">ราคาประเมิน</span>
                     <span className="font-bold text-[#ECE4D3] text-xs">
                       ฿{formatCurrency(selectedEvent.financial.quoted_price)}
                     </span>
                   </div>
                   <div className="bg-[#0E0D0C] p-2 rounded-lg border border-[#4A443A]/30">
-                    <span className="text-[10px] text-[#7A7265] block">มัดจำที่ต้องชำระ</span>
+                    <span className="text-[10px] text-[#B8B0A3] block">มัดจำที่ต้องชำระ</span>
                     <span className="font-bold text-[#ECE4D3] text-xs">
                       ฿{formatCurrency(selectedEvent.financial.deposit_required)}
                     </span>
                   </div>
                   <div className="bg-[#0E0D0C] p-2 rounded-lg border border-[#4A443A]/30">
-                    <span className="text-[10px] text-[#7A7265] block">ชำระแล้ว</span>
+                    <span className="text-[10px] text-[#B8B0A3] block">ชำระแล้ว</span>
                     <span className="font-bold text-emerald-400 text-xs">
                       ฿{formatCurrency(selectedEvent.financial.paid_total)}
                     </span>
                   </div>
                   <div className="bg-[#0E0D0C] p-2 rounded-lg border border-[#4A443A]/30">
-                    <span className="text-[10px] text-[#7A7265] block">คงเหลือ</span>
+                    <span className="text-[10px] text-[#B8B0A3] block">คงเหลือ</span>
                     <span
                       className={`font-bold text-xs ${
                         selectedEvent.financial.remaining_balance > 0
@@ -1119,25 +1118,25 @@ export default function WeekCalendarView({
                 <div className="bg-[#171512] border border-[#4A443A]/40 rounded-lg p-2.5">
                   <span className="text-[9px] text-[#A89F91] block">คิวงานสัปดาห์นี้</span>
                   <span className="text-lg font-bold text-[#ECE4D3] mt-0.5 block">
-                    {metrics.total} <span className="text-[10px] text-[#7A7265] font-normal">งาน</span>
+                    {metrics.total} <span className="text-[10px] text-[#B8B0A3] font-normal">งาน</span>
                   </span>
                 </div>
                 <div className="bg-[#171512] border border-[#4A443A]/40 rounded-lg p-2.5">
                   <span className="text-[9px] text-[#A89F91] block">นัดหมายแล้ว</span>
                   <span className="text-lg font-bold text-blue-400 mt-0.5 block">
-                    {metrics.confirmed} <span className="text-[10px] text-[#7A7265] font-normal">งาน</span>
+                    {metrics.confirmed} <span className="text-[10px] text-[#B8B0A3] font-normal">งาน</span>
                   </span>
                 </div>
                 <div className="bg-[#171512] border border-[#4A443A]/40 rounded-lg p-2.5">
-                  <span className="text-[9px] text-[#A89F91] block">รอมัดจำ</span>
-                  <span className="text-lg font-bold text-purple-400 mt-0.5 block">
-                    {metrics.waitingDeposit} <span className="text-[10px] text-[#7A7265] font-normal">งาน</span>
+                  <span className="text-[9px] text-[#A89F91] block">กำลังสัก</span>
+                  <span className="text-lg font-bold text-[#D64545] mt-0.5 block">
+                    {metrics.inProgress} <span className="text-[10px] text-[#B8B0A3] font-normal">งาน</span>
                   </span>
                 </div>
                 <div className="bg-[#171512] border border-[#4A443A]/40 rounded-lg p-2.5">
                   <span className="text-[9px] text-[#A89F91] block">งานเสร็จสิ้น</span>
                   <span className="text-lg font-bold text-emerald-400 mt-0.5 block">
-                    {metrics.completed} <span className="text-[10px] text-[#7A7265] font-normal">งาน</span>
+                    {metrics.completed} <span className="text-[10px] text-[#B8B0A3] font-normal">งาน</span>
                   </span>
                 </div>
               </div>

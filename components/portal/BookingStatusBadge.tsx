@@ -4,7 +4,7 @@ import React from 'react';
 
 type StatusType = 
   | 'PENDING' | 'SLIP_REVIEW' | 'APPROVED' | 'WAITING_DEPOSIT' | 'CONFIRMED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED'
-  | 'QUOTED' | 'ACCEPTED' | 'REJECTED' | 'EXPIRED';
+  | 'QUOTED' | 'ACCEPTED' | 'REJECTED' | 'EXPIRED' | 'PROPOSED_NEW_DATE' | 'PROPOSED_DATE';
 
 interface BookingStatusBadgeProps {
   status: StatusType;
@@ -33,7 +33,7 @@ export default function BookingStatusBadge({ status, type = 'booking' }: Booking
       text: 'text-[#ECE4D3]',
     },
     ACCEPTED: {
-      label: 'รอชำระมัดจำ',
+      label: 'รอมัดจำ',
       dot: 'bg-[#D9A441]',
       container: 'bg-[#171512] border-[#D9A441]/45',
       text: 'text-[#D9A441]',
@@ -51,7 +51,7 @@ export default function BookingStatusBadge({ status, type = 'booking' }: Booking
       text: 'text-[#ECE4D3]',
     },
     WAITING_DEPOSIT: {
-      label: 'รอชำระมัดจำ',
+      label: 'รอมัดจำ',
       dot: 'bg-[#D9A441]',
       container: 'bg-[#171512] border-[#D9A441]/45',
       text: 'text-[#D9A441]',
@@ -85,6 +85,18 @@ export default function BookingStatusBadge({ status, type = 'booking' }: Booking
       dot: 'bg-zinc-500',
       container: 'bg-zinc-900/90 border-zinc-700/80',
       text: 'text-zinc-400',
+    },
+    PROPOSED_NEW_DATE: {
+      label: 'รอมัดจำ',
+      dot: 'bg-[#D9A441]',
+      container: 'bg-[#171512] border-[#D9A441]/45',
+      text: 'text-[#D9A441]',
+    },
+    PROPOSED_DATE: {
+      label: 'รอมัดจำ',
+      dot: 'bg-[#D9A441]',
+      container: 'bg-[#171512] border-[#D9A441]/45',
+      text: 'text-[#D9A441]',
     },
   };
 

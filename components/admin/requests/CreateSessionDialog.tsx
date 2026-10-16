@@ -1,10 +1,10 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
-import { Calendar, Plus, X, AlertCircle, AlertTriangle } from 'lucide-react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { Calendar, Plus, X, AlertCircle, AlertTriangle, CheckCircle2 } from 'lucide-react';
 import { BookingItem, toBangkokDateString } from './types';
 import { createClient } from '@/lib/supabase/client';
-import { BlockedDateRecord, checkDateAvailability } from '@/lib/availabilityUtils';
+import { BlockedDateRecord, checkDateAvailability, validateArtistSessionCapacity, SessionCapacityValidationResult } from '@/lib/availabilityUtils';
 
 interface CreateSessionDialogProps {
   booking: BookingItem;
@@ -173,6 +173,8 @@ export default function CreateSessionDialog({
   const [sessionNote, setSessionNote] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [capacityStatus, setCapacityStatus] = useState<SessionCapacityValidationResult | null>(null);
+  const [isValidating, setIsValidating] = useState<boolean>(false);
 
   // Resolve authoritative duration from booking context
   const durationInfo = useMemo(() => resolveBookingDuration(booking), [booking]);
@@ -184,6 +186,43 @@ export default function CreateSessionDialog({
     }
     return calculateEndTimeAndIso(sessionDate, startTime, durationInfo.durationMinutes);
   }, [sessionDate, startTime, durationInfo.durationMinutes]);
+
+  // Real-time capacity (Max 3 distinct jobs/day) and time overlap validation
+  useEffect(() => {
+    let isCancelled = false;
+    async function runCheck() {
+      if (!sessionDate || !startTime || !computedTiming.endTimeStr || computedTiming.endTimeStr === '--:--' || !booking.artist_id) {
+        setCapacityStatus(null);
+        return;
+      }
+      setIsValidating(true);
+      try {
+        const supabase = createClient();
+        const res = await validateArtistSessionCapacity(
+          supabase,
+          booking.artist_id,
+          booking.id,
+          sessionDate,
+          startTime,
+          computedTiming.endTimeStr
+        );
+        if (!isCancelled) {
+          setCapacityStatus(res);
+        }
+      } catch (err) {
+        console.error('Real-time session capacity check failed:', err);
+      } finally {
+        if (!isCancelled) {
+          setIsValidating(false);
+        }
+      }
+    }
+
+    runCheck();
+    return () => {
+      isCancelled = true;
+    };
+  }, [sessionDate, startTime, computedTiming.endTimeStr, booking.artist_id, booking.id]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -204,6 +243,7 @@ export default function CreateSessionDialog({
       return;
     }
 
+    // 1. Check Studio / Artist manual blocked dates (closures / leaves)
     const availCheck = checkDateAvailability(
       sessionDate,
       booking.artist_id,
@@ -217,8 +257,26 @@ export default function CreateSessionDialog({
     }
 
     setIsSubmitting(true);
+    const supabase = createClient();
+
+    // 2. Authoritative Frontend Capacity & Overlap Validation
+    const capCheck = await validateArtistSessionCapacity(
+      supabase,
+      booking.artist_id,
+      booking.id,
+      sessionDate,
+      startTime,
+      computedTiming.endTimeStr
+    );
+
+    if (!capCheck.valid) {
+      setErrorMessage(capCheck.errorMessage || 'ไม่สามารถสร้างรอบสักได้ตามเงื่อนไขความจุและเวลาของช่าง');
+      setIsSubmitting(false);
+      return;
+    }
+
+    // 3. Submit to backend
     try {
-      const supabase = createClient();
       const { data, error } = await supabase.rpc('add_booking_session', {
         p_booking_id: booking.id,
         p_session_date: sessionDate,
@@ -228,15 +286,18 @@ export default function CreateSessionDialog({
       });
 
       if (error) {
+        // If error is time overlap exclusion or constraint error:
         if (
           error.code === '23P01' ||
           error.message?.includes('overlap') ||
           error.message?.includes('exclusion') ||
           error.message?.includes('booking_sessions_artist_no_overlap') ||
-          error.message?.includes('ช่างมีคิวในวันที่เลือกแล้ว')
+          error.message?.includes('ช่วงเวลานี้ช่างมีคิวอยู่แล้ว') ||
+          error.message?.includes('ช่างมีคิวอยู่แล้ว')
         ) {
-          throw new Error(error.message || 'ช่วงเวลานี้ช่างมีคิวอยู่แล้ว กรุณาเลือกเวลาอื่น');
+          throw new Error(`เวลา ${startTime} น. ช่างมีคิวอยู่แล้ว กรุณาเลือกเวลาอื่น`);
         }
+
         throw error;
       }
 
@@ -266,14 +327,14 @@ export default function CreateSessionDialog({
               <h3 className="text-sm font-heading font-semibold text-[#ECE4D3]">
                 เพิ่มรอบการสัก (รอบที่ {existingSessionCount + 1})
               </h3>
-              <p className="text-[11px] text-[#A89F91]">
+              <p className="text-[11px] text-[#B8B0A3]">
                 ช่าง: {booking.artist_name} • คิว #{booking.id.slice(0, 8)}
               </p>
             </div>
           </div>
           <button
             onClick={onCancel}
-            className="text-[#7A7265] hover:text-[#ECE4D3] p-1 rounded cursor-pointer"
+            className="text-[#B8B0A3] hover:text-[#ECE4D3] p-1 rounded cursor-pointer"
           >
             <X size={16} />
           </button>
@@ -344,18 +405,45 @@ export default function CreateSessionDialog({
             />
           </div>
 
+          {/* Live Capacity and Overlap Status Indicator */}
+          {capacityStatus && (
+            <div className="pt-0.5 animate-in fade-in">
+              {capacityStatus.isCapacityFull ? (
+                <div className="p-2.5 bg-red-950/40 border border-red-800/60 rounded-lg text-xs text-red-300 flex items-center gap-1.5">
+                  <AlertCircle size={14} className="shrink-0 text-red-400" />
+                  <span>ช่างรับงานครบ 3 งานในวันที่เลือกแล้ว (เต็มโควตารายวัน)</span>
+                </div>
+              ) : capacityStatus.hasTimeOverlap ? (
+                <div className="p-2.5 bg-red-950/40 border border-red-800/60 rounded-lg text-xs text-red-300 flex items-center gap-1.5">
+                  <AlertCircle size={14} className="shrink-0 text-red-400" />
+                  <span>{capacityStatus.errorMessage}</span>
+                </div>
+              ) : (
+                <div className="flex items-center justify-between text-[11px] text-[#B8B0A3] px-2 py-1.5 rounded-lg bg-[#0E0D0C]/70 border border-[#4A443A]/40">
+                  <span className="flex items-center gap-1.5">
+                    <CheckCircle2 size={13} className="text-emerald-400 shrink-0" />
+                    <span>โควตางานของช่างในวันที่เลือก:</span>
+                  </span>
+                  <span className="font-semibold text-emerald-400">
+                    {capacityStatus.distinctJobsCount}/3 งาน {capacityStatus.isCurrentBookingOnDate ? '(งานเดิมในวันเดียวกัน)' : ''}
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
+
           <div className="flex items-center justify-end gap-2 pt-2 border-t border-[#4A443A]/50">
             <button
               type="button"
               onClick={onCancel}
-              className="px-3 py-1.5 bg-[#0E0D0C] border border-[#4A443A] hover:border-[#7A7265] text-xs text-[#A89F91] hover:text-[#ECE4D3] rounded-md transition-colors cursor-pointer"
+              className="px-3 py-1.5 bg-[#0E0D0C] border border-[#4A443A] hover:border-[#7A7265] text-xs text-[#B8B0A3] hover:text-[#ECE4D3] rounded-md transition-colors cursor-pointer"
             >
               ยกเลิก
             </button>
             <button
               id="btn-confirm-create-session"
               type="submit"
-              disabled={isSubmitting || !durationInfo.durationMinutes}
+              disabled={isSubmitting || !durationInfo.durationMinutes || (capacityStatus !== null && !capacityStatus.valid)}
               className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 disabled:hover:bg-emerald-600 text-xs font-semibold text-white rounded-md transition-colors flex items-center gap-1.5 shadow cursor-pointer"
             >
               <Plus size={13} />

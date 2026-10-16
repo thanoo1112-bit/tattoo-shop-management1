@@ -58,6 +58,8 @@ export default function AdminHeader() {
         {/* Top: Brand Header & Notification */}
         <div className="p-5 border-b border-[#4A443A]/60 flex items-center justify-between shrink-0">
           <Link href="/admin/dashboard" className="flex items-center space-x-2">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/157-tattoo-logo.png" alt="157 TATTOO logo" className="h-8 w-auto object-contain shrink-0" />
             <span className="text-xl font-heading tracking-[0.1em] text-[#ECE4D3]">157</span>
             <span className="text-xl font-heading tracking-[0.1em] text-[#9C2F2F]">TATTOO</span>
           </Link>
@@ -90,7 +92,7 @@ export default function AdminHeader() {
                     : 'border-l-4 border-transparent text-[#A89F91] hover:text-[#ECE4D3] hover:bg-[#171512]/60 font-medium'
                 }`}
               >
-                <Icon size={18} className={active ? 'text-studio-red-bright' : 'text-[#7A7265]'} />
+                <Icon size={18} className={active ? 'text-studio-red-bright' : 'text-[#B8B0A3]'} />
                 <span>{item.name}</span>
                 {item.name === 'คำขอ' && pendingDepositsCount > 0 && (
                   <span className="ml-auto bg-[#9C2F2F] text-[#ECE4D3] text-[10px] font-bold px-2 py-0.5 rounded-full">
@@ -113,7 +115,7 @@ export default function AdminHeader() {
               <p className="text-xs font-semibold text-[#ECE4D3] truncate">
                 {staffRole === 'ADMIN' ? 'เจ้าของร้าน (Admin)' : 'ช่างสักประจำร้าน'}
               </p>
-              <p className="text-[10px] text-[#7A7265]">ผู้ดูแลระบบ</p>
+              <p className="text-[10px] text-[#B8B0A3]">ผู้ดูแลระบบ</p>
             </div>
           </div>
 
@@ -121,7 +123,7 @@ export default function AdminHeader() {
           <button
             type="button"
             onClick={logoutStaff}
-            className="w-full flex items-center space-x-2.5 text-xs text-[#7A7265] hover:text-studio-red-bright py-2 px-2 rounded hover:bg-[#9C2F2F]/10 transition-colors font-medium text-left"
+            className="w-full flex items-center space-x-2.5 text-xs text-[#B8B0A3] hover:text-studio-red-bright py-2 px-2 rounded hover:bg-[#9C2F2F]/10 transition-colors font-medium text-left"
             title="ออกจากระบบ"
           >
             <LogOut size={16} />
@@ -135,6 +137,8 @@ export default function AdminHeader() {
       {/* ========================================================================= */}
       <header className="md:hidden sticky top-0 z-40 bg-[#171512]/95 backdrop-blur-md border-b border-[#4A443A] h-14 px-4 flex items-center justify-between font-prompt">
         <Link href="/admin/dashboard" className="flex items-center space-x-2">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/157-tattoo-logo.png" alt="157 TATTOO logo" className="h-7 w-auto object-contain shrink-0" />
           <span className="text-lg font-heading tracking-[0.1em] text-[#ECE4D3]">157</span>
           <span className="text-lg font-heading tracking-[0.1em] text-[#9C2F2F]">TATTOO</span>
           <span className="text-[9px] bg-[#9C2F2F]/15 text-studio-red-bright border border-[#9C2F2F]/30 px-1.5 py-0.5 rounded font-bold uppercase tracking-widest">

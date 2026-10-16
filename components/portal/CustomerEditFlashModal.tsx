@@ -130,6 +130,7 @@ export default function CustomerEditFlashModal({
 
   const [disabledDates, setDisabledDates] = useState<string[]>([]);
   const [busyIntervals, setBusyIntervals] = useState<{ startMins: number; endMins: number }[]>([]);
+  const [artistBusyRanges, setArtistBusyRanges] = useState<any[]>([]);
 
   const artistName = flash?.artist?.name
     ? `${flash.artist.name}${flash.artist.nickname ? ` (${flash.artist.nickname})` : ''}`
@@ -165,6 +166,7 @@ export default function CustomerEditFlashModal({
 
         const rawBusyDates = new Set<string>();
         if (!rpcErr && Array.isArray(busyData)) {
+          setArtistBusyRanges(busyData);
           for (const r of busyData) {
             try {
               const startD = new Date(r.start_at);
@@ -413,17 +415,6 @@ export default function CustomerEditFlashModal({
       return;
     }
 
-    if (requestedDate && targetArtistId) {
-      if (disabledDates.includes(requestedDate)) {
-        setError('วันที่เลือกมีคิวงานที่ยืนยันแล้วของช่างสักท่านนี้ กรุณาเลือกวันอื่น');
-        return;
-      }
-      if (isTimeDisabled(requestedTime)) {
-        setError('เวลาที่เลือกไม่ว่างเนื่องจากมีคิวงานอื่นหรือเกินเวลาทำการของร้าน กรุณาเลือกเวลาอื่น');
-        return;
-      }
-    }
-
     setLoading(true);
     try {
       const supabase = createClient();
@@ -460,7 +451,7 @@ export default function CustomerEditFlashModal({
         <button
           type="button"
           onClick={onClose}
-          className="absolute top-4 right-4 text-xs text-studio-muted hover:text-studio-red font-bold p-1 transition-colors z-10"
+          className="absolute top-4 right-4 text-xs text-[#B8B0A3] hover:text-studio-red font-bold p-1 transition-colors z-10"
         >
           ✕ ปิดหน้าต่าง
         </button>
@@ -501,7 +492,7 @@ export default function CustomerEditFlashModal({
                 <User size={13} className="text-studio-red" />
                 <span>1. ช่างสักประจำลาย (Artist)</span>
               </label>
-              <span className="text-[10px] bg-studio-main border border-studio-border text-studio-muted px-2 py-0.5 rounded flex items-center gap-1">
+              <span className="text-[10px] bg-studio-main border border-studio-border text-[#B8B0A3] px-2 py-0.5 rounded flex items-center gap-1">
                 <Lock size={10} /> ล็อกช่างสักเจ้าของลาย
               </span>
             </div>
@@ -531,7 +522,7 @@ export default function CustomerEditFlashModal({
                 <ImageIcon size={13} className="text-studio-red" />
                 <span>2. รูปภาพอ้างอิงงานสัก (Reference Image)</span>
               </label>
-              <span className="text-[10px] text-studio-muted flex items-center gap-1">
+              <span className="text-[10px] text-[#B8B0A3] flex items-center gap-1">
                 <Lock size={10} strokeWidth={2} /> รูปต้นแบบ Flash ของร้าน (ห้ามแก้ไข)
               </span>
             </div>
@@ -558,7 +549,7 @@ export default function CustomerEditFlashModal({
                   <h4 className="font-bold text-studio-primary text-sm truncate">{flash?.title}</h4>
                   <div className="text-xs text-studio-secondary space-y-0.5">
                     <p>สไตล์: <strong className="text-studio-primary">{flash?.style || '-'}</strong></p>
-                    <p className="text-[11px] text-studio-muted font-light">
+                    <p className="text-[11px] text-[#B8B0A3] font-light">
                       • รูปอ้างอิงต้นแบบสงวนลิขสิทธิ์ของช่างประจำร้าน (ล็อกตามแบบ)
                     </p>
                   </div>
@@ -585,7 +576,7 @@ export default function CustomerEditFlashModal({
                 <span className="px-3 py-1.5 rounded-[4px] text-xs bg-studio-red border border-studio-red text-white font-semibold shadow-md inline-block">
                   {flash?.style || '-'}
                 </span>
-                <span className="text-[11px] text-studio-muted font-light">
+                <span className="text-[11px] text-[#B8B0A3] font-light">
                   (สไตล์ตามแบบลาย Flash)
                 </span>
               </div>
@@ -664,15 +655,20 @@ export default function CustomerEditFlashModal({
                     setError('');
                   }}
                   artistId={targetArtistId}
-                  disabledDates={disabledDates}
+                  busyRanges={artistBusyRanges}
                   placeholder="-- เลือกวันนัดหมายเข้ารับบริการ --"
                 />
               </div>
 
               <div className="space-y-1">
-                <label className="block text-studio-secondary font-medium flex items-center gap-1">
-                  <Clock size={12} className="text-studio-red" />
-                  <span>เวลาที่สะดวกเริ่มสัก <span className="text-studio-red">*</span></span>
+                <label className="block text-studio-secondary font-medium flex items-center justify-between">
+                  <span className="flex items-center gap-1">
+                    <Clock size={12} className="text-studio-red" />
+                    <span>เวลาที่สะดวกเริ่มสัก <span className="text-studio-red">*</span></span>
+                  </span>
+                  <span className="text-[10px] text-[#E2DDD4] font-normal">
+                    (10:00 - 23:00 น.)
+                  </span>
                 </label>
                 <DualTimePicker
                   value={requestedTime}
@@ -680,7 +676,7 @@ export default function CustomerEditFlashModal({
                     setRequestedTime(t);
                     setError('');
                   }}
-                  isTimeDisabled={isTimeDisabled}
+                  disabled={!targetArtistId || !requestedDate}
                 />
               </div>
             </div>

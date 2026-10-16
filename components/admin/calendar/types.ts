@@ -25,10 +25,16 @@ export interface CalendarArtist {
 }
 
 export interface CalendarCustomer {
+  id?: string | null;
   user_id?: string | null;
   display_name: string;
   phone: string | null;
   email?: string | null;
+  date_of_birth?: string | null;
+  has_medical_condition?: boolean | null;
+  medical_condition_note?: string | null;
+  has_allergy?: boolean | null;
+  allergy_note?: string | null;
 }
 
 export interface CalendarFinancialSummary {
@@ -56,6 +62,7 @@ export interface CalendarSessionEvent {
   artist?: CalendarArtist | null;
   booking?: {
     id: string;
+    customer_id?: string | null;
     status: BookingStatus;
     customer_user_id?: string | null;
     requested_date: string;
@@ -68,6 +75,19 @@ export interface CalendarSessionEvent {
     approved_at?: string | null;
     estimate_request_id?: string | null;
     style_preference?: string | null;
+    placement?: string | null;
+    width_cm?: number | null;
+    height_cm?: number | null;
+    work_type?: string | null;
+    description?: string | null;
+    reference_images?: string[] | null;
+    sessions?: Array<{
+      id?: string;
+      session_number?: number;
+      status?: string | null;
+      start_at?: string | null;
+      end_at?: string | null;
+    }> | null;
   } | null;
   estimate?: {
     id: string;
@@ -88,6 +108,7 @@ export interface CalendarSessionEvent {
 export interface CalendarSummaryMetrics {
   todaySessionsCount: number;
   inProgressCount: number;
-  waitingDepositCount: number;
+  confirmedCount?: number;
+  waitingDepositCount?: number;
   activeArtistsCount: number;
 }

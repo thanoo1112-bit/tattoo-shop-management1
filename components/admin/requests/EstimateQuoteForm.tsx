@@ -336,7 +336,7 @@ export default function EstimateQuoteForm({
             return (
               <p className="text-[10px] text-studio-muted mt-1 flex flex-wrap gap-x-3">
                 {estimate.preferred_date && (
-                  <span>วันที่ลูกค้าสะดวก: <span className="text-studio-primary">{estimate.preferred_date}</span></span>
+                  <span>วันที่ลูกค้าเลือก: <span className="text-studio-primary">{estimate.preferred_date}</span></span>
                 )}
                 {displayTime && (
                   <span>เวลาที่สะดวก: <span className="text-studio-primary">{displayTime}</span></span>

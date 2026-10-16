@@ -210,6 +210,10 @@ export interface CustomerFlashReservationRecord {
   height_cm?: number | null;
   customer_note?: string | null;
   admin_note?: string | null;
+  proposed_date?: string | null;
+  proposed_time?: string | null;
+  proposal_note?: string | null;
+  date_proposed_at?: string | null;
   approved_at?: string | null;
   rejected_at?: string | null;
   cancelled_at?: string | null;

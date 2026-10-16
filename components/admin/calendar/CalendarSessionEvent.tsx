@@ -3,7 +3,7 @@
 import React from 'react';
 import { CalendarSessionEvent as EventType } from './types';
 import { formatTimeBangkok, getEventStatusConfig } from './calendarUtils';
-import { AlertCircle, PlayCircle, CheckCircle2, User } from 'lucide-react';
+import { User } from 'lucide-react';
 
 interface CalendarSessionEventProps {
   event: EventType;
@@ -17,7 +17,6 @@ export default function CalendarSessionEvent({
   compact = false,
 }: CalendarSessionEventProps) {
   const statusCfg = getEventStatusConfig(event);
-  const isWaitingDeposit = event.booking?.status === 'WAITING_DEPOSIT';
   const startStr = formatTimeBangkok(event.start_at).replace(' น.', '');
   const timeLabel = `เวลานัด ${startStr}`;
 
@@ -38,9 +37,6 @@ export default function CalendarSessionEvent({
         </div>
         <div className="text-[10px] text-[#A89F91] truncate flex items-center justify-between">
           <span>{event.customer?.display_name || 'ลูกค้า'}</span>
-          {isWaitingDeposit && (
-            <span className="text-purple-300 text-[9px] font-bold">⚠</span>
-          )}
         </div>
       </button>
     );
@@ -82,14 +78,6 @@ export default function CalendarSessionEvent({
           </span>
         </div>
       </div>
-
-      {/* Bottom: Warning if Parent Booking is WAITING_DEPOSIT */}
-      {isWaitingDeposit && (
-        <div className="bg-purple-950/80 border border-purple-800/80 rounded px-1.5 py-0.5 text-[10px] font-semibold text-purple-300 flex items-center gap-1 mt-0.5">
-          <AlertCircle size={10} className="shrink-0" />
-          <span>รอมัดจำ</span>
-        </div>
-      )}
     </button>
   );
 }

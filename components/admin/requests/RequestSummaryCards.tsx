@@ -37,7 +37,7 @@ export default function RequestSummaryCards({
           <p className="text-xl sm:text-2xl lg:text-3xl font-heading font-semibold text-blue-400 tracking-tight">
             {counts.pendingEvaluationCount}
           </p>
-          <p className="text-[10px] sm:text-[11px] text-[#7A7265] mt-1">
+          <p className="text-[10px] sm:text-[11px] text-[#B8B0A3] mt-1">
             รอช่างตรวจสอบรายละเอียดงาน
           </p>
         </div>
@@ -53,19 +53,19 @@ export default function RequestSummaryCards({
         }`}
       >
         <div className="flex items-center justify-between">
-          <span className="text-[11px] sm:text-xs text-purple-300/90 font-medium tracking-wide">
+          <span className="text-[11px] sm:text-xs text-amber-300/90 font-medium tracking-wide">
             รอมัดจำ
           </span>
-          <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-purple-950/40 border border-purple-800/40 flex items-center justify-center text-purple-400">
+          <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-amber-950/40 border border-amber-800/40 flex items-center justify-center text-amber-400">
             <CreditCard size={15} />
           </div>
         </div>
 
         <div className="mt-2.5">
-          <p className="text-xl sm:text-2xl lg:text-3xl font-heading font-semibold text-purple-400 tracking-tight">
+          <p className="text-xl sm:text-2xl lg:text-3xl font-heading font-semibold text-amber-400 tracking-tight">
             {counts.waitingDepositCount}
           </p>
-          <p className="text-[10px] sm:text-[11px] text-[#7A7265] mt-1">
+          <p className="text-[10px] sm:text-[11px] text-[#B8B0A3] mt-1">
             ผ่านการตรวจสอบแล้ว รอลูกค้าชำระมัดจำ
           </p>
         </div>
@@ -93,7 +93,7 @@ export default function RequestSummaryCards({
           <p className="text-xl sm:text-2xl lg:text-3xl font-heading font-semibold text-amber-400 tracking-tight">
             {counts.pendingSlipsCount}
           </p>
-          <p className="text-[10px] sm:text-[11px] text-[#7A7265] mt-1">
+          <p className="text-[10px] sm:text-[11px] text-[#B8B0A3] mt-1">
             สลิปโอนมัดจำที่รอการตรวจสอบ
           </p>
         </div>
@@ -121,7 +121,7 @@ export default function RequestSummaryCards({
           <p className="text-xl sm:text-2xl lg:text-3xl font-heading font-semibold text-red-400 tracking-tight">
             {counts.confirmedCount}
           </p>
-          <p className="text-[10px] sm:text-[11px] text-[#7A7265] mt-1">
+          <p className="text-[10px] sm:text-[11px] text-[#B8B0A3] mt-1">
             ปฏิเสธ / ยกเลิก / หมดอายุ
           </p>
         </div>

@@ -13,8 +13,6 @@ import {
   SlidersHorizontal,
   Edit2,
   Trash2,
-  Eye,
-  EyeOff,
   User,
   X,
   AlertCircle,
@@ -53,7 +51,6 @@ export default function ArtistPortfolioManagement() {
   // Search & Filter
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStyle, setFilterStyle] = useState('ALL');
-  const [filterVisibility, setFilterVisibility] = useState<'ALL' | 'VISIBLE' | 'HIDDEN'>('ALL');
 
   // Modal State for Create / Edit
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -350,10 +347,6 @@ export default function ArtistPortfolioManagement() {
       // Style Filter
       if (filterStyle !== 'ALL' && item.style !== filterStyle) return false;
 
-      // Visibility Filter
-      if (filterVisibility === 'VISIBLE' && !item.is_visible) return false;
-      if (filterVisibility === 'HIDDEN' && item.is_visible) return false;
-
       // Search Query Filter
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase().trim();
@@ -365,7 +358,7 @@ export default function ArtistPortfolioManagement() {
 
       return true;
     });
-  }, [artworks, filterStyle, filterVisibility, searchQuery]);
+  }, [artworks, filterStyle, searchQuery]);
 
   return (
     <div className="space-y-6 font-prompt">
@@ -438,19 +431,19 @@ export default function ArtistPortfolioManagement() {
       <div className="bg-studio-card border border-studio-border p-4 rounded-xl space-y-3 shadow-md">
         <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
           {/* Search Box */}
-          <div className="md:col-span-6 relative">
-            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-studio-muted" />
+          <div className="md:col-span-8 relative">
+            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#B8B0A3]" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="ค้นหาชื่อผลงาน คำอธิบาย หรือสไตล์..."
-              className="w-full bg-studio-main border border-studio-border focus:border-studio-red/60 text-studio-primary placeholder-studio-muted pl-9 pr-4 py-2 rounded-lg text-xs focus:outline-none transition-colors"
+              className="w-full bg-studio-main border border-studio-border focus:border-studio-red/60 text-studio-primary placeholder-[#B8B0A3] pl-9 pr-4 py-2 rounded-lg text-xs focus:outline-none transition-colors"
             />
             {searchQuery && (
               <button
                 onClick={() => setSearchQuery('')}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-studio-muted hover:text-studio-primary"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-[#B8B0A3] hover:text-studio-primary"
               >
                 <X size={14} />
               </button>
@@ -458,7 +451,7 @@ export default function ArtistPortfolioManagement() {
           </div>
 
           {/* Filter Style */}
-          <div className="md:col-span-3">
+          <div className="md:col-span-4">
             <select
               value={filterStyle}
               onChange={(e) => setFilterStyle(e.target.value)}
@@ -472,19 +465,6 @@ export default function ArtistPortfolioManagement() {
               ))}
             </select>
           </div>
-
-          {/* Filter Visibility */}
-          <div className="md:col-span-3">
-            <select
-              value={filterVisibility}
-              onChange={(e) => setFilterVisibility(e.target.value as any)}
-              className="w-full bg-studio-main border border-studio-border focus:border-studio-red/60 text-studio-primary px-3 py-2 rounded-lg text-xs focus:outline-none transition-colors cursor-pointer"
-            >
-              <option value="ALL">ทุกสถานะการแสดงผล</option>
-              <option value="VISIBLE">เฉพาะแสดงผลบนเว็บ (Public)</option>
-              <option value="HIDDEN">เฉพาะถูกซ่อน (Hidden)</option>
-            </select>
-          </div>
         </div>
 
         {/* Counter Summary */}
@@ -492,11 +472,10 @@ export default function ArtistPortfolioManagement() {
           <div>
             แสดง <strong className="text-studio-primary font-bold">{filteredArtworks.length}</strong> จากทั้งหมด {artworks.length} รายการ
           </div>
-          {(filterStyle !== 'ALL' || filterVisibility !== 'ALL' || searchQuery) && (
+          {(filterStyle !== 'ALL' || searchQuery) && (
             <button
               onClick={() => {
                 setFilterStyle('ALL');
-                setFilterVisibility('ALL');
                 setSearchQuery('');
               }}
               className="text-studio-red-bright hover:underline text-[11px]"
@@ -558,18 +537,6 @@ export default function ArtistPortfolioManagement() {
                   decoding="async"
                 />
 
-                {/* Visibility Badge */}
-                <div className="absolute top-2 left-2 flex items-center gap-1.5">
-                  <span
-                    className={`text-[9px] sm:text-[10px] font-medium px-1.5 sm:px-2 py-0.5 rounded-full border backdrop-blur-md ${
-                      artwork.is_visible
-                        ? 'bg-emerald-950/80 text-emerald-300 border-emerald-700/60'
-                        : 'bg-zinc-900/90 text-zinc-400 border-zinc-700/60'
-                    }`}
-                  >
-                    {artwork.is_visible ? 'แสดงบนเว็บ' : 'ถูกซ่อน'}
-                  </span>
-                </div>
 
                 {/* Style Badge */}
                 <div className="absolute top-2 right-2">
@@ -593,39 +560,26 @@ export default function ArtistPortfolioManagement() {
                 </div>
 
                 {/* Action Buttons */}
-                <div className="pt-2 sm:pt-3 border-t border-studio-border/60 flex items-center justify-between gap-1.5">
-                  {/* Visibility Toggle Button */}
+                <div className="pt-2 sm:pt-3 border-t border-studio-border/60 flex items-center justify-end gap-1 sm:gap-1.5">
+                  {/* Edit Button */}
                   <button
-                    onClick={() => handleToggleVisibility(artwork)}
-                    className={`p-1.5 sm:p-2 rounded-lg border text-xs font-medium transition-colors flex items-center justify-center cursor-pointer ${
-                      artwork.is_visible
-                        ? 'bg-studio-sec border-studio-border text-studio-secondary hover:text-studio-primary hover:border-amber-500/50'
-                        : 'bg-emerald-950/40 border-emerald-800/40 text-emerald-400 hover:bg-emerald-900/60'
-                    }`}
-                    title={artwork.is_visible ? 'ซ่อนจากหน้าเว็บ' : 'แสดงบนหน้าเว็บ'}
+                    type="button"
+                    onClick={() => handleOpenEditModal(artwork)}
+                    className="px-2.5 sm:px-3 py-1.5 bg-studio-sec hover:bg-studio-border border border-studio-border text-[11px] sm:text-xs text-studio-primary font-medium rounded-lg transition-colors flex items-center space-x-1 cursor-pointer"
                   >
-                    {artwork.is_visible ? <EyeOff size={14} /> : <Eye size={14} />}
+                    <Edit2 size={12} />
+                    <span>แก้ไข</span>
                   </button>
 
-                  <div className="flex items-center space-x-1 sm:space-x-1.5">
-                    {/* Edit Button */}
-                    <button
-                      onClick={() => handleOpenEditModal(artwork)}
-                      className="px-2.5 sm:px-3 py-1.5 bg-studio-sec hover:bg-studio-border border border-studio-border text-[11px] sm:text-xs text-studio-primary font-medium rounded-lg transition-colors flex items-center space-x-1 cursor-pointer"
-                    >
-                      <Edit2 size={12} />
-                      <span>แก้ไข</span>
-                    </button>
-
-                    {/* Delete Button */}
-                    <button
-                      onClick={() => setDeleteTarget(artwork)}
-                      className="p-1.5 bg-studio-sec hover:bg-red-950/60 text-studio-muted hover:text-red-400 border border-studio-border hover:border-red-800/60 rounded-lg transition-colors cursor-pointer"
-                      title="ลบผลงาน"
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                  </div>
+                  {/* Delete Button */}
+                  <button
+                    type="button"
+                    onClick={() => setDeleteTarget(artwork)}
+                    className="p-1.5 bg-studio-sec hover:bg-red-950/60 text-studio-muted hover:text-red-400 border border-studio-border hover:border-red-800/60 rounded-lg transition-colors cursor-pointer"
+                    title="ลบผลงาน"
+                  >
+                    <Trash2 size={14} />
+                  </button>
                 </div>
               </div>
             </div>
@@ -772,23 +726,6 @@ export default function ArtistPortfolioManagement() {
                   />
                 </div>
 
-                {/* Visibility Option */}
-                <div className="pt-2 flex items-center justify-between border-t border-studio-border/60">
-                  <div>
-                    <span className="text-xs font-medium text-studio-primary block">
-                      แสดงผลงานบนเว็บไซต์ร้าน
-                    </span>
-                    <span className="text-[11px] text-studio-muted">
-                      หากปิด ลูกค้าจะไม่เห็นผลงานชิ้นนี้ในหน้าแกลเลอรี
-                    </span>
-                  </div>
-                  <input
-                    type="checkbox"
-                    checked={formData.is_visible}
-                    onChange={(e) => setFormData((prev) => ({ ...prev, is_visible: e.target.checked }))}
-                    className="w-4 h-4 accent-studio-red cursor-pointer rounded"
-                  />
-                </div>
 
                 {/* Submit Buttons */}
                 <div className="pt-4 flex items-center justify-end space-x-2 border-t border-studio-border">

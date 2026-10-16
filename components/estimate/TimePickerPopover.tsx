@@ -97,7 +97,7 @@ export default function TimePickerPopover({
     <div ref={containerRef} className="relative w-full font-prompt">
       {/* Label */}
       {label && (
-        <label className="text-[11px] uppercase tracking-wider text-studio-secondary block mb-1.5 font-semibold flex items-center gap-1">
+        <label className="text-[11px] uppercase tracking-wider text-[#F2EEE8] block mb-1.5 font-semibold flex items-center gap-1">
           <Clock size={12} className="text-studio-red shrink-0" />
           <span className="truncate">{label}</span>
         </label>

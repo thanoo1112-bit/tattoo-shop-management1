@@ -83,7 +83,7 @@ export default function DatePickerPopover({
   return (
     <div ref={containerRef} className="relative w-full font-prompt">
       {label && (
-        <label className="text-[11px] uppercase tracking-wider text-studio-secondary block mb-1.5 font-semibold flex items-center gap-1.5">
+        <label className="text-[11px] uppercase tracking-wider text-[#F2EEE8] block mb-1.5 font-semibold flex items-center gap-1.5">
           <Calendar size={13} className="text-studio-red" />
           <span>{label}</span>
           {required && <span className="text-studio-red">*</span>}
@@ -102,7 +102,7 @@ export default function DatePickerPopover({
               : 'border-[#4A443A] hover:border-amber-500/50'
           } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
         >
-          <span className={value ? 'text-[#ECE4D3] font-mono font-semibold' : 'text-[#7A7265]'}>
+          <span className={value ? 'text-[#ECE4D3] font-mono font-semibold' : 'text-[#E2DDD4]'}>
             {value ? formattedDisplayDate : placeholder}
           </span>
 

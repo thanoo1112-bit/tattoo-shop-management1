@@ -468,42 +468,45 @@ export default function AdminPaymentPage() {
     });
   }, [filteredPayments]);
 
-  // Revenue by Artist Data (Bar Chart)
+  // Jobs by Artist Data
   const artistRevenueData: ArtistRevenueItemDetail[] = useMemo(() => {
-    const amountMap = new Map<string, number>();
+    const bookingSetMap = new Map<string, Set<string>>();
 
     filteredPayments.forEach((p) => {
       const aid = p.artist_id || 'UNKNOWN';
-      const curr = amountMap.get(aid) || 0;
-      amountMap.set(aid, curr + p.amount);
+      if (!bookingSetMap.has(aid)) {
+        bookingSetMap.set(aid, new Set<string>());
+      }
+      bookingSetMap.get(aid)!.add(p.booking_id);
     });
 
     const items: ArtistRevenueItemDetail[] = artists.map((art) => {
-      const amount = amountMap.get(art.id) || 0;
-      const percentage = periodRevenueTotal > 0 ? (amount / periodRevenueTotal) * 100 : 0;
+      const bSet = bookingSetMap.get(art.id);
+      const job_count = bSet ? bSet.size : 0;
       return {
         artist_id: art.id,
         name: art.name,
         nickname: art.nickname,
-        amount,
-        percentage,
+        job_count,
+        amount: job_count,
+        percentage: 0,
       };
     });
 
-    const unknownAmount = amountMap.get('UNKNOWN') || 0;
-    if (unknownAmount > 0) {
-      const percentage = periodRevenueTotal > 0 ? (unknownAmount / periodRevenueTotal) * 100 : 0;
+    const unknownSet = bookingSetMap.get('UNKNOWN');
+    if (unknownSet && unknownSet.size > 0) {
       items.push({
         artist_id: 'UNKNOWN',
         name: 'ช่างประจำร้าน / ไม่ระบุ',
         nickname: null,
-        amount: unknownAmount,
-        percentage,
+        job_count: unknownSet.size,
+        amount: unknownSet.size,
+        percentage: 0,
       });
     }
 
-    return items.sort((a, b) => b.amount - a.amount);
-  }, [artists, filteredPayments, periodRevenueTotal]);
+    return items.sort((a, b) => (b.job_count ?? 0) - (a.job_count ?? 0));
+  }, [artists, filteredPayments]);
 
   // KPI Calculations for Top Summary Cards
   const kpiData = useMemo(() => {

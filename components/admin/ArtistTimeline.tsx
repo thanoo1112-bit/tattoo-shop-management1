@@ -4,6 +4,7 @@ import React, { useState, useMemo } from 'react';
 import { useApp } from '../AppContext';
 import { formatTattooSize } from '@/lib/utils/formatters';
 import { getBookingStatusConfig } from './calendar/calendarUtils';
+import { isConfirmedDepositBooking } from '@/components/portal/portalUtils';
 import { Calendar, User, Clock, CheckCircle, Clock3, AlertCircle, ChevronLeft, ChevronRight, Sparkles } from 'lucide-react';
 
 interface ArtistTimelineProps {
@@ -11,7 +12,10 @@ interface ArtistTimelineProps {
 }
 
 export default function ArtistTimeline({ singleArtistId = null }: ArtistTimelineProps) {
-  const { artists, bookings } = useApp();
+  const { artists, bookings, ensureArtistAvatars } = useApp();
+  React.useEffect(() => {
+    ensureArtistAvatars();
+  }, [ensureArtistAvatars]);
 
   const startDayHour = 10; // 10:00
   const endDayHour = 23;  // 23:00
@@ -109,8 +113,8 @@ export default function ArtistTimeline({ singleArtistId = null }: ArtistTimeline
       const events: ScheduleEvent[] = [];
 
       bookings.forEach((b) => {
-        // Skip cancelled or rejected bookings
-        if (['CANCELLED', 'REJECTED'].includes(b.status)) return;
+        // Enforce Target Business Rule: only confirmed deposit bookings qualify as real queue on Master Schedule
+        if (!isConfirmedDepositBooking(b)) return;
 
         const sessions = b.sessions || [];
 
@@ -227,22 +231,22 @@ export default function ArtistTimeline({ singleArtistId = null }: ArtistTimeline
       <div className="p-4 sm:p-5 border-b border-studio-border bg-studio-sec/40 flex flex-wrap justify-between items-center gap-3">
         <div className="flex items-center space-x-2">
           <Calendar size={16} className="text-studio-red-bright" />
-          <h3 className="text-xs md:text-sm font-heading font-normal uppercase tracking-wider text-studio-primary">
+          <h3 className="text-xs md:text-sm font-heading font-normal uppercase tracking-wider text-[#ECE4D3]">
             {singleArtistId ? 'SCHEDULE AGENDA • ตารางงานประจำวันของช่าง' : 'MASTER SCHEDULE • ตารางเวลาปฏิบัติงานช่างสัก'}
           </h3>
         </div>
 
         <div className="flex items-center space-x-3 w-full sm:w-auto justify-between sm:justify-end">
-          <div className="flex items-center space-x-2 text-xs text-studio-secondary bg-studio-main px-3 py-1.5 rounded border border-studio-border">
+          <div className="flex items-center space-x-2 text-xs text-[#CFC7BA] bg-studio-main px-3 py-1.5 rounded border border-studio-border">
             <span className="text-[11px] font-semibold">วันที่:</span>
             <input
               type="date"
               value={selectedDate}
               onChange={(e) => setSelectedDate(e.target.value)}
-              className="bg-transparent text-studio-primary text-xs focus:border-studio-red outline-none [color-scheme:dark]"
+              className="bg-transparent text-[#ECE4D3] text-xs focus:border-studio-red outline-none [color-scheme:dark]"
             />
           </div>
-          <span className="text-[11px] text-studio-muted hidden sm:inline">
+          <span className="text-[11px] text-[#AFA79A] hidden sm:inline">
             10:00 — 23:00 น.
           </span>
         </div>
@@ -265,19 +269,19 @@ export default function ArtistTimeline({ singleArtistId = null }: ArtistTimeline
                   className="w-10 h-10 rounded-full object-cover border border-studio-border shrink-0"
                 />
                 <div>
-                  <h4 className="text-xs sm:text-sm font-bold text-studio-primary">{artist.name}</h4>
-                  <span className="text-[10px] text-studio-muted font-normal block">ช่างสักประจำร้าน</span>
+                  <h4 className="text-xs sm:text-sm font-bold text-[#ECE4D3]">{artist.name}</h4>
+                  <span className="text-[10px] text-[#AFA79A] font-normal block">ช่างสักประจำร้าน</span>
                 </div>
               </div>
 
               {/* Sessions Agenda List */}
               <div className="space-y-2.5">
-                <span className="text-[10px] uppercase font-bold text-studio-muted tracking-wider block">
+                <span className="text-[10px] uppercase font-bold text-[#AFA79A] tracking-wider block">
                   คิวนัดหมายวันนี้ ({artistBookingsToday.length} คิว):
                 </span>
 
                 {artistBookingsToday.length === 0 ? (
-                  <p className="text-xs text-studio-muted py-3 px-3 bg-studio-card border border-studio-border/50 rounded text-center">
+                  <p className="text-xs text-[#AFA79A] py-3 px-3 bg-studio-card border border-studio-border/50 rounded text-center">
                     ไม่มีคิวนัดหมายในวันที่เลือก
                   </p>
                 ) : (
@@ -285,15 +289,18 @@ export default function ArtistTimeline({ singleArtistId = null }: ArtistTimeline
                     const statusKey = (booking.bookingStatus || booking.status) as any;
                     const statusConfig = getBookingStatusConfig(statusKey);
                     
-                    let badgeLabel = statusConfig.label;
-                    let badgeClass = `${statusConfig.bg} ${statusConfig.border} ${statusConfig.text}`;
+                    let badgeLabel = 'นัดหมายแล้ว';
+                    let badgeClass = 'bg-sky-500/15 border-sky-400/40 text-sky-300';
 
                     if (booking.status === 'IN_PROGRESS') {
                       badgeLabel = 'กำลังสัก';
                       badgeClass = 'bg-[#9C2F2F]/20 border-[#9C2F2F] text-[#9C2F2F] animate-pulse';
-                    } else if (booking.status === 'COMPLETED') {
-                      badgeLabel = 'เสร็จแล้ว';
-                      badgeClass = 'bg-[#171512] border-[#4A443A] text-[#A89F91]';
+                    } else if (booking.status === 'COMPLETED' || statusKey === 'COMPLETED') {
+                      badgeLabel = 'งานเสร็จสิ้น';
+                      badgeClass = 'bg-emerald-500/15 border-emerald-400/40 text-emerald-300';
+                    } else if (statusConfig && statusKey !== 'CONFIRMED' && statusKey !== 'SCHEDULED') {
+                      badgeLabel = statusConfig.label;
+                      badgeClass = `${statusConfig.bg} ${statusConfig.border} ${statusConfig.text}`;
                     }
 
                     const startTimeDisplay = booking.startTime.endsWith('น.') || booking.startTime.endsWith('น')
@@ -306,7 +313,7 @@ export default function ArtistTimeline({ singleArtistId = null }: ArtistTimeline
                         className="bg-studio-card border border-studio-border p-3 rounded-[4px] space-y-1 text-xs"
                       >
                         <div className="flex justify-between items-center gap-1">
-                          <span className="font-bold text-studio-primary text-xs truncate">
+                          <span className="font-bold text-[#ECE4D3] text-xs truncate">
                             {getEventTitle(booking)}
                           </span>
                           <span className={`text-[10px] px-2 py-0.5 rounded font-bold border shrink-0 ${badgeClass}`}>
@@ -315,17 +322,17 @@ export default function ArtistTimeline({ singleArtistId = null }: ArtistTimeline
                         </div>
 
                         {booking.placement && (
-                          <div className="text-[11px] text-studio-muted truncate">
+                          <div className="text-[11px] text-[#AFA79A] truncate">
                             ตำแหน่ง: {booking.placement}
                           </div>
                         )}
 
-                        <div className="flex items-center justify-between text-[11px] text-studio-secondary pt-0.5">
+                        <div className="flex items-center justify-between text-[11px] text-[#CFC7BA] pt-0.5">
                           <span className="flex items-center gap-1">
                             <Clock size={12} className="text-studio-red-bright" />
                             <span>เวลานัด {startTimeDisplay}</span>
                           </span>
-                          <span className="text-studio-muted font-medium truncate max-w-[120px]">
+                          <span className="text-[#AFA79A] font-medium truncate max-w-[120px]">
                             • {booking.customerName || booking.customerEmail}
                           </span>
                         </div>
@@ -346,8 +353,8 @@ export default function ArtistTimeline({ singleArtistId = null }: ArtistTimeline
         <div className="min-w-[760px]">
           
           {/* Time Header Grid */}
-          <div className="flex border-b border-studio-border bg-studio-main/80 text-[11px] text-studio-secondary font-semibold">
-            <div className="w-[220px] shrink-0 p-3.5 border-r border-studio-border flex items-center text-studio-muted">
+          <div className="flex border-b border-studio-border bg-studio-main/80 text-[11px] text-[#CFC7BA] font-semibold">
+            <div className="w-[220px] shrink-0 p-3.5 border-r border-studio-border flex items-center text-[#AFA79A]">
               ช่างสักประจำร้าน (Artist)
             </div>
             <div className="flex-1 min-w-0 relative py-3 select-none">
@@ -359,7 +366,7 @@ export default function ArtistTimeline({ singleArtistId = null }: ArtistTimeline
               </div>
 
               {/* Hour Labels aligned to vertical grid lines */}
-              <div className="relative w-full text-[10px] font-mono text-studio-secondary">
+              <div className="relative w-full text-[10px] font-mono text-[#AFA79A]">
                 {Array.from({ length: totalHours + 1 }).map((_, i) => {
                   const hour = startDayHour + i;
                   const percent = (i / totalHours) * 100;
@@ -402,8 +409,8 @@ export default function ArtistTimeline({ singleArtistId = null }: ArtistTimeline
                         className="w-9 h-9 rounded-full object-cover border border-studio-border shrink-0"
                       />
                       <div className="min-w-0">
-                        <h4 className="text-xs sm:text-sm font-bold text-studio-primary truncate">{artist.name}</h4>
-                        <span className="text-[10px] text-studio-muted block truncate font-normal">ช่างสักประจำร้าน</span>
+                        <h4 className="text-xs sm:text-sm font-bold text-[#ECE4D3] truncate">{artist.name}</h4>
+                        <span className="text-[10px] text-[#AFA79A] block truncate font-normal">ช่างสักประจำร้าน</span>
                       </div>
                     </div>
                   </div>
@@ -425,18 +432,22 @@ export default function ArtistTimeline({ singleArtistId = null }: ArtistTimeline
                       const statusKey = (booking.bookingStatus || booking.status) as any;
                       const statusConfig = getBookingStatusConfig(statusKey);
 
-                      let badgeLabel = statusConfig.label;
-                      let badgeStyle = `${statusConfig.bg} ${statusConfig.border} ${statusConfig.text}`;
-                      let cardStyle = `${statusConfig.bg} ${statusConfig.border} text-studio-primary`;
+                      let badgeLabel = 'นัดหมายแล้ว';
+                      let badgeStyle = 'bg-sky-500/15 border-sky-400/40 text-sky-300';
+                      let cardStyle = 'bg-sky-500/10 border-sky-400/30 text-[#ECE4D3]';
 
                       if (booking.status === 'IN_PROGRESS') {
                         badgeLabel = 'กำลังสัก';
                         badgeStyle = 'bg-[#9C2F2F]/20 border-[#9C2F2F] text-[#9C2F2F] animate-pulse';
                         cardStyle = 'bg-[#9c2f2f]/20 border-[#9c2f2f] text-rose-200 ring-1 ring-[#9c2f2f]/40';
-                      } else if (booking.status === 'COMPLETED') {
-                        badgeLabel = 'เสร็จแล้ว';
-                        badgeStyle = 'bg-[#171512] border-[#4A443A] text-[#A89F91]';
-                        cardStyle = 'bg-[#171512] border-[#4A443A] text-[#A89F91] opacity-75';
+                      } else if (booking.status === 'COMPLETED' || statusKey === 'COMPLETED') {
+                        badgeLabel = 'งานเสร็จสิ้น';
+                        badgeStyle = 'bg-emerald-500/15 border-emerald-400/40 text-emerald-300';
+                        cardStyle = 'bg-emerald-950/30 border-emerald-800/50 text-[#ECE4D3]';
+                      } else if (statusConfig && statusKey !== 'CONFIRMED' && statusKey !== 'SCHEDULED') {
+                        badgeLabel = statusConfig.label;
+                        badgeStyle = `${statusConfig.bg} ${statusConfig.border} ${statusConfig.text}`;
+                        cardStyle = `${statusConfig.bg} ${statusConfig.border} text-[#ECE4D3]`;
                       }
 
                       const titleLabel = getEventTitle(booking);
@@ -463,15 +474,15 @@ export default function ArtistTimeline({ singleArtistId = null }: ArtistTimeline
 
                           {/* Row 2: Placement (if present) */}
                           {booking.placement && (
-                            <div className="text-[10px] text-studio-muted truncate leading-tight">
+                            <div className="text-[10px] text-[#AFA79A] truncate leading-tight">
                               {booking.placement}
                             </div>
                           )}
 
                           {/* Row 3: Time & Customer Name */}
-                          <div className="flex justify-between items-center text-[10px] text-studio-secondary gap-1 truncate min-w-0">
+                          <div className="flex justify-between items-center text-[10px] text-[#CFC7BA] gap-1 truncate min-w-0">
                             <span className="truncate shrink-0 font-mono font-medium text-[#ECE4D3]">เวลานัด {startTimeDisplay}</span>
-                            <span className="truncate text-studio-muted font-medium">• {customerDisplayName}</span>
+                            <span className="truncate text-[#AFA79A] font-medium">• {customerDisplayName}</span>
                           </div>
                         </div>
                       );
@@ -479,7 +490,7 @@ export default function ArtistTimeline({ singleArtistId = null }: ArtistTimeline
 
                     {artistBookings.length === 0 && (
                       <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                        <span className="text-[10px] text-studio-muted tracking-widest uppercase">
+                        <span className="text-[10px] text-[#AFA79A] tracking-widest uppercase">
                           — ไม่มีคิวนัดหมาย —
                         </span>
                       </div>

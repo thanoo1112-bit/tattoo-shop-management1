@@ -204,16 +204,16 @@ export default function HomePage() {
   }, [supabase]);
 
   const styleCards = [
-    { title: 'CHICANO', desc: 'ลายเส้นเข้ม รายละเอียดสูง โทนขาวดำ และองค์ประกอบแบบ Chicano', icon: TattooMachineIcon },
-    { title: 'PORTRAIT', desc: 'งานภาพบุคคล เน้นสัดส่วน แสงเงา และรายละเอียดใบหน้า', icon: UserRound },
-    { title: 'BLACKWORK', desc: 'งานสีดำเข้ม เส้นคม น้ำหนักชัด และองค์ประกอบทรงพลัง', icon: Droplet },
-    { title: 'DARKWORK', desc: 'งานโทนมืด บรรยากาศหนัก ดุดัน และรายละเอียดเชิงแฟนตาซี/สยอง', icon: Skull },
+    { title: 'CHICANO', styleQuery: 'Chicano', desc: 'ลายเส้นเข้ม รายละเอียดสูง โทนขาวดำ และองค์ประกอบแบบ Chicano', icon: TattooMachineIcon },
+    { title: 'PORTRAIT', styleQuery: 'Portrait', desc: 'งานภาพบุคคล เน้นสัดส่วน แสงเงา และรายละเอียดใบหน้า', icon: UserRound },
+    { title: 'BLACKWORK', styleQuery: 'Blackwork', desc: 'งานสีดำเข้ม เส้นคม น้ำหนักชัด และองค์ประกอบทรงพลัง', icon: Droplet },
+    { title: 'DARKWORK', styleQuery: 'Darkwork', desc: 'งานโทนมืด บรรยากาศหนัก ดุดัน และรายละเอียดเชิงแฟนตาซี/สยอง', icon: Skull },
   ];
 
   return (
     <div className="min-h-screen bg-studio-main pb-28 md:pb-16 text-studio-primary font-prompt">
       {/* Top Header Navigation */}
-      <CustomerHeader />
+      <CustomerHeader showLogo />
 
       {/* Hero Section */}
       <HeroSection />
@@ -234,22 +234,24 @@ export default function HomePage() {
             {styleCards.map((style, idx) => {
               const Icon = style.icon;
               return (
-                <div
+                <Link
                   key={idx}
-                  className="bg-studio-card border border-studio-border p-4 sm:p-6 lg:p-8 rounded-[8px] hover:border-studio-red/50 transition-colors group flex flex-col justify-between"
+                  href={`/portfolio?style=${style.styleQuery}`}
+                  className="bg-studio-card border border-studio-border p-4 sm:p-6 lg:p-8 rounded-[8px] hover:border-studio-red/60 hover:shadow-lg transition-all group flex flex-col justify-between cursor-pointer"
+                  title={`ดูผลงานสไตล์ ${style.styleQuery}`}
                 >
                   <div>
-                    <div className="w-9 h-9 sm:w-11 sm:h-11 bg-studio-main border border-studio-border text-studio-red rounded-[4px] flex items-center justify-center mb-3 sm:mb-5">
-                      <Icon size={18} className="sm:w-5 sm:h-5" />
+                    <div className="w-9 h-9 sm:w-11 sm:h-11 bg-studio-main border border-studio-border text-studio-red group-hover:border-studio-red/50 rounded-[4px] flex items-center justify-center mb-3 sm:mb-5 transition-colors">
+                      <Icon size={18} className="sm:w-5 sm:h-5 group-hover:scale-110 transition-transform" />
                     </div>
-                    <h3 className="text-base sm:text-lg lg:text-xl font-heading tracking-wide text-studio-primary uppercase">
+                    <h3 className="text-base sm:text-lg lg:text-xl font-heading tracking-wide text-studio-primary uppercase group-hover:text-studio-red-bright transition-colors">
                       {style.title}
                     </h3>
-                    <p className="text-[11px] sm:text-xs lg:text-sm text-studio-secondary mt-1.5 leading-relaxed font-light">
+                    <p className="text-[11px] sm:text-xs lg:text-sm text-[#E2DDD4] mt-1.5 leading-relaxed font-light">
                       {style.desc}
                     </p>
                   </div>
-                </div>
+                </Link>
               );
             })}
           </div>
@@ -335,7 +337,7 @@ export default function HomePage() {
               {!portfolioLoading && livePortfolio.length === 0 && (
                 <div className="bg-studio-card border border-studio-border p-10 rounded-[6px] text-center space-y-2">
                   <p className="text-sm font-semibold text-studio-primary">ยังไม่มีผลงานที่เผยแพร่</p>
-                  <p className="text-xs text-studio-secondary">ผลงานสักคัสตอมใหม่จะถูกเพิ่มในหน้านี้เร็วๆ นี้</p>
+                  <p className="text-xs text-[#E2DDD4]">ผลงานสักคัสตอมใหม่จะถูกเพิ่มในหน้านี้เร็วๆ นี้</p>
                   <Link
                     href="/portfolio"
                     className="inline-block text-xs text-studio-red-bright hover:underline pt-2 font-medium"
@@ -351,7 +353,7 @@ export default function HomePage() {
                   {livePortfolio.slice(0, 4).map((item) => (
                     <div
                       key={item.id}
-                      className="w-[78vw] max-w-[300px] shrink-0 snap-center lg:w-auto bg-studio-card border border-studio-border hover:border-studio-red/60 rounded-[6px] overflow-hidden group relative transition-all duration-300 flex flex-col justify-between shadow-md"
+                      className="w-[72vw] max-w-[300px] shrink-0 snap-center lg:w-auto bg-studio-card border border-studio-border hover:border-studio-red/60 rounded-[6px] overflow-hidden group relative transition-all duration-300 flex flex-col justify-between shadow-md"
                     >
                       {/* Image Container - Click to open Lightbox (aspect-square to match Flash) */}
                       <div
@@ -389,7 +391,7 @@ export default function HomePage() {
                           >
                             {item.title}
                           </Link>
-                          <p className="text-xs text-studio-secondary truncate">
+                          <p className="text-xs text-[#E2DDD4] truncate">
                             ช่าง: <strong className="text-studio-primary font-medium">{item.artistName}</strong>
                           </p>
                         </div>
@@ -416,7 +418,7 @@ export default function HomePage() {
               {liveFlash.map((item) => (
                 <div
                   key={item.id}
-                  className="w-[78vw] max-w-[300px] shrink-0 snap-center lg:w-auto bg-studio-card border border-studio-border hover:border-studio-red/50 rounded-[6px] overflow-hidden flex flex-col justify-between group transition-all duration-300 shadow-md"
+                  className="w-[72vw] max-w-[300px] shrink-0 snap-center lg:w-auto bg-studio-card border border-studio-border hover:border-studio-red/50 rounded-[6px] overflow-hidden flex flex-col justify-between group transition-all duration-300 shadow-md"
                 >
                   {/* Image Container with Top-Right Badge Stack - Click to open Lightbox */}
                   <div
@@ -457,17 +459,6 @@ export default function HomePage() {
                           ✕ ปิดจอง
                         </span>
                       )}
-
-                      {/* 2. Repeatability Badge */}
-                      {item.is_repeatable ? (
-                        <span className="text-[9px] bg-cyan-950/80 border border-cyan-600/40 text-cyan-300 px-2 py-0.5 rounded font-bold shadow">
-                          สักซ้ำได้
-                        </span>
-                      ) : (
-                        <span className="text-[9px] bg-amber-950/80 border border-amber-600/40 text-amber-300 px-2 py-0.5 rounded font-bold shadow">
-                          ลายเดียว
-                        </span>
-                      )}
                     </div>
                   </div>
 
@@ -488,7 +479,7 @@ export default function HomePage() {
                       </Link>
 
                       {/* Artist */}
-                      <p className="text-xs text-studio-secondary truncate">
+                      <p className="text-xs text-[#E2DDD4] truncate">
                         ช่าง: <strong className="text-studio-primary font-medium">{item.artistName}</strong>
                       </p>
                     </div>
@@ -517,7 +508,7 @@ export default function HomePage() {
                 </div>
               ))}
               {liveFlash.length === 0 && (
-                <div className="col-span-4 py-8 text-center text-xs text-studio-muted bg-studio-card border border-studio-border rounded-[6px]">
+                <div className="col-span-4 py-8 text-center text-xs text-[#E2DDD4] bg-studio-card border border-studio-border rounded-[6px]">
                   ไม่มีรายการลาย Flash ที่พร้อมจองในขณะนี้
                 </div>
               )}
@@ -553,7 +544,7 @@ export default function HomePage() {
               <h3 className="text-base font-heading text-studio-primary">
                 กำลังอัปเดตข้อมูลรายชื่อช่างสักประจำสตูดิโอ
               </h3>
-              <p className="text-xs text-studio-secondary">
+              <p className="text-xs text-[#E2DDD4]">
                 กรุณาติดตามข้อมูลช่างสักและผลงานล่าสุดผ่านทางสตูดิโอ
               </p>
               <div className="pt-2">
@@ -589,18 +580,18 @@ export default function HomePage() {
                           <h3 className="text-base sm:text-lg font-heading tracking-wide text-studio-primary mt-0.5 truncate">
                             {artist.name}
                           </h3>
-                          <span className="text-[10px] text-studio-muted">ช่างประจำสตูดิโอ 157 TATTOO</span>
+                          <span className="text-[10px] text-[#F2EEE8]">ช่างประจำสตูดิโอ 157 TATTOO</span>
                         </div>
                       </div>
 
-                      <p className="text-xs text-studio-secondary font-light leading-relaxed line-clamp-2">
+                      <p className="text-xs text-[#E2DDD4] font-light leading-relaxed line-clamp-2">
                         {artist.bio || 'ช่างสักมืออาชีพประจำ 157 TATTOO'}
                       </p>
 
                       {/* Mini portfolio preview strip (fits exactly 3 per row) */}
                       {artistWorks.length > 0 && (
                         <div className="pt-1">
-                          <span className="text-[9px] uppercase tracking-wider text-studio-muted block mb-1.5">ตัวอย่างผลงาน:</span>
+                          <span className="text-[9px] uppercase tracking-wider text-[#F2EEE8] block mb-1.5">ตัวอย่างผลงาน:</span>
                           <div className="grid grid-cols-3 gap-2 w-full">
                             {artistWorks.map((w) => (
                               <div key={w.id} className="w-full aspect-square bg-studio-main rounded overflow-hidden border border-studio-border/60">
@@ -642,7 +633,7 @@ export default function HomePage() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 sm:gap-8 text-xs sm:text-sm text-studio-secondary">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 sm:gap-8 text-xs sm:text-sm text-[#E2DDD4]">
             <div className="space-y-1.5">
               <div className="flex items-center space-x-1.5 text-studio-primary font-semibold text-xs sm:text-sm">
                 <MapPin size={15} className="text-studio-red" />

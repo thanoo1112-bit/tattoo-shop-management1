@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import CustomerReferenceImage from '@/components/common/CustomerReferenceImage';
 import { formatTattooSize } from '@/lib/utils/formatters';
 import { CalendarSessionEvent, CalendarArtist } from './types';
@@ -14,6 +14,10 @@ import {
   getEffectiveEventStatus,
   getEventSpecs,
 } from './calendarUtils';
+import {
+  isRescheduleRequestUiEnabled,
+  subscribeRescheduleRequests,
+} from '@/lib/reschedule/rescheduleRequestStore';
 import {
   User,
   Calendar as CalendarIcon,
@@ -55,7 +59,7 @@ const THAI_DAYS_MON_FIRST_SHORT = ['จ.', 'อ.', 'พ.', 'พฤ.', 'ศ.', '�
 
 // Helper for exact status mapping per prompt requirements
 export function getResolvedStatus(ev: CalendarSessionEvent): {
-  key: 'CONFIRMED' | 'COMPLETED' | 'IN_PROGRESS' | 'WAITING_DEPOSIT' | 'CANCELLED' | 'OTHER';
+  key: 'CONFIRMED' | 'COMPLETED' | 'IN_PROGRESS' | 'CANCELLED' | 'OTHER';
   label: string;
   colorClass: string;
   dotClass: string;
@@ -85,6 +89,15 @@ export default function MonthCalendarView({
   onSelectEvent,
   todayStr,
 }: MonthCalendarViewProps) {
+  const [, setRescheduleTick] = useState(0);
+
+  useEffect(() => {
+    if (!isRescheduleRequestUiEnabled()) return;
+    return subscribeRescheduleRequests(() => {
+      setRescheduleTick((t) => t + 1);
+    });
+  }, []);
+
   // 1. Parse Year & Month from currentDateStr
   const { year, month } = useMemo(() => {
     const [y, m] = currentDateStr.split('-').map(Number);
@@ -187,14 +200,12 @@ export default function MonthCalendarView({
     let confirmed = 0;
     let completed = 0;
     let inProgress = 0;
-    let waitingDeposit = 0;
 
     selectedDateEvents.forEach((e) => {
       const st = getResolvedStatus(e);
       if (st.key === 'CONFIRMED') confirmed++;
       else if (st.key === 'COMPLETED') completed++;
       else if (st.key === 'IN_PROGRESS') inProgress++;
-      else if (st.key === 'WAITING_DEPOSIT') waitingDeposit++;
     });
 
     // Deduplicated Busy Artist IDs for currentDateStr
@@ -218,7 +229,7 @@ export default function MonthCalendarView({
 
     const availableArtists = Math.max(0, activeArtists.length - busyArtistIds.size);
 
-    return { total, confirmed, completed, inProgress, waitingDeposit, availableArtists };
+    return { total, confirmed, completed, inProgress, availableArtists };
   }, [selectedDateEvents, blockedDates, activeArtists, currentDateStr]);
 
 
@@ -234,7 +245,7 @@ export default function MonthCalendarView({
           {THAI_DAYS_MON_FIRST_FULL.map((dName, idx) => (
             <div
               key={dName}
-              className="py-2.5 text-xs font-bold text-[#A89F91] uppercase tracking-wider border-r border-[#4A443A]/20 last:border-r-0"
+              className="py-2.5 text-xs font-bold text-[#ECE4D3] uppercase tracking-wider border-r border-[#4A443A]/20 last:border-r-0"
             >
               <span className="hidden sm:inline">{dName}</span>
               <span className="sm:hidden">{THAI_DAYS_MON_FIRST_SHORT[idx]}</span>
@@ -251,14 +262,12 @@ export default function MonthCalendarView({
             let confirmedCount = 0;
             let completedCount = 0;
             let inProgressCount = 0;
-            let waitingDepositCount = 0;
 
             activeEvents.forEach((ev) => {
               const st = getResolvedStatus(ev);
               if (st.key === 'CONFIRMED') confirmedCount++;
               else if (st.key === 'COMPLETED') completedCount++;
               else if (st.key === 'IN_PROGRESS') inProgressCount++;
-              else if (st.key === 'WAITING_DEPOSIT') waitingDepositCount++;
             });
 
             const cellBlocks = blockedDates.filter((b) => b.blocked_date === cell.dateStr);
@@ -332,19 +341,22 @@ export default function MonthCalendarView({
                           const rawName = ev.artist?.nickname || ev.artist?.name || '';
                           const artistName = rawName ? (rawName.startsWith('ช่าง') ? rawName : `ช่าง${rawName}`) : 'ช่างประจำงาน';
                           const stCfg = getEventStatusConfig(ev);
+                          const isReschedulePending = stCfg.label === 'ขอเลื่อนนัด';
                           return (
                             <div
                               key={ev.id}
-                              className={`px-1.5 py-0.5 rounded text-[10px] font-medium border truncate flex items-center justify-between gap-1 ${stCfg.badgeBg} ${stCfg.badgeText} border-white/10`}
-                              title={`${timeStr} น. • ${artistName}`}
+                              className={`px-1.5 py-0.5 rounded text-[10px] font-medium border truncate flex items-center justify-between gap-1 ${stCfg.badgeBg} ${stCfg.badgeText} ${stCfg.badgeBorder || 'border-sky-400/40'}`}
+                              title={`${isReschedulePending ? 'ขอเลื่อนนัด • ' : ''}${timeStr} น. • ${artistName}`}
                             >
                               <span className="truncate font-mono font-bold text-[10px]">{timeStr}</span>
-                              <span className="truncate text-[9.5px] opacity-90">{artistName}</span>
+                              <span className="truncate text-[9.5px] opacity-90">
+                                {isReschedulePending ? 'ขอเลื่อนนัด' : artistName}
+                              </span>
                             </div>
                           );
                         })}
                         {totalCount > 2 && (
-                          <span className="text-[9.5px] text-[#A89F91] font-semibold block px-1 truncate">
+                          <span className="text-[9.5px] text-[#B8B0A3] font-semibold block px-1 truncate">
                             +{totalCount - 2} คิวเพิ่มเติม
                           </span>
                         )}
@@ -354,7 +366,7 @@ export default function MonthCalendarView({
                       {(() => {
                         const statusCfgs = activeEvents.map((ev) => getEventStatusConfig(ev));
                         const uniqueCfgs = Array.from(
-                          new Map(statusCfgs.map((c) => [c.key, c])).values()
+                          new Map(statusCfgs.map((c) => [`${c.key}:${c.label}`, c])).values()
                         );
 
                         if (uniqueCfgs.length === 1) {
@@ -373,7 +385,7 @@ export default function MonthCalendarView({
                           <div className="flex sm:hidden items-center gap-1 mt-1">
                             <div className="flex items-center gap-0.5 shrink-0 text-[9px]">
                               {uniqueCfgs.map((c) => (
-                                <span key={c.key} className={c.colorClass}>●</span>
+                                <span key={`${c.key}:${c.label}`} className={c.colorClass}>●</span>
                               ))}
                             </div>
                             <span className="text-[9px] font-bold text-[#ECE4D3] truncate">
@@ -398,7 +410,7 @@ export default function MonthCalendarView({
         {/* Panel Header */}
         <div className="p-3.5 border-b border-[#4A443A]/40 bg-[#171512] flex items-center justify-between">
           <div>
-            <span className="text-[9px] text-[#A89F91] uppercase tracking-wider block">
+            <span className="text-[9px] text-[#B8B0A3] uppercase tracking-wider block">
               ตารางคิวนัดหมายรายวัน
             </span>
             <h3 className="text-xs font-bold text-[#ECE4D3] flex items-center gap-1.5 mt-0.5">
@@ -412,13 +424,13 @@ export default function MonthCalendarView({
         <div className="p-3.5 space-y-4 max-h-[calc(100vh-210px)] overflow-y-auto">
           {/* Appointments List for Selected Day */}
           <div className="space-y-2">
-            <span className="text-[10px] font-bold text-[#A89F91] uppercase tracking-wider block">
+            <span className="text-[10px] font-bold text-[#ECE4D3] uppercase tracking-wider block">
               รายการคิวนัดหมาย ({selectedDateEvents.length})
             </span>
 
             {selectedDateEvents.length === 0 ? (
               <div className="p-4 text-center bg-[#171512] rounded-lg border border-[#4A443A]/30">
-                <span className="text-xs text-[#7A7265] italic">ไม่มีคิวนัดหมายในวันนี้</span>
+                <span className="text-xs text-[#B8B0A3] italic">ไม่มีคิวนัดหมายในวันนี้</span>
               </div>
             ) : (
               selectedDateEvents.map((ev) => {
@@ -451,15 +463,15 @@ export default function MonthCalendarView({
 
                     {/* Line 2: Customer Name */}
                     <div className="text-xs font-semibold text-[#ECE4D3] flex items-center gap-1.5">
-                      <User size={11} className="text-[#A89F91] shrink-0" />
+                      <User size={11} className="text-[#B8B0A3] shrink-0" />
                       <span className="truncate">
                         {ev.customer?.display_name || 'ลูกค้า'}
                       </span>
                     </div>
 
                     {/* Line 3: Style & Size */}
-                    <div className="text-[11px] text-[#A89F91] flex items-center gap-1 font-mono">
-                      <Palette size={11} className="text-[#7A7265] shrink-0" />
+                    <div className="text-[11px] text-[#B8B0A3] flex items-center gap-1 font-mono">
+                      <Palette size={11} className="text-[#B8B0A3] shrink-0" />
                       <span className="truncate">{style !== 'ไม่ระบุ' ? style : 'งานสัก'}</span>
                       {size !== 'ไม่ระบุขนาด' && (
                         <>
@@ -470,15 +482,15 @@ export default function MonthCalendarView({
                     </div>
 
                     {/* Line 4: Artist Name */}
-                    <div className="text-[10px] text-[#ECE4D3]/80 flex items-center gap-1 pt-1 border-t border-[#4A443A]/30">
-                      <Users size={10} className="text-[#7A7265] shrink-0" />
+                    <div className="text-[10px] text-[#ECE4D3] flex items-center gap-1 pt-1 border-t border-[#4A443A]/30">
+                      <Users size={10} className="text-[#B8B0A3] shrink-0" />
                       <span className="truncate font-medium">
                         ช่าง: {ev.artist?.name}{' '}
                         {ev.artist?.nickname ? `(${ev.artist.nickname})` : ''}
                       </span>
                       <ChevronRight
                         size={13}
-                        className="text-[#7A7265] group-hover:text-[#ECE4D3] ml-auto transition-colors shrink-0"
+                        className="text-[#B8B0A3] group-hover:text-[#ECE4D3] ml-auto transition-colors shrink-0"
                       />
                     </div>
                   </div>
@@ -490,7 +502,7 @@ export default function MonthCalendarView({
 
         {/* Panel Footer */}
         <div className="p-3 border-t border-[#4A443A]/40 bg-[#171512] text-center">
-          <span className="text-[10px] text-[#7A7265]">
+          <span className="text-[10px] text-[#B8B0A3]">
             คลิกรายการคิวเพื่อเปิดดูรายละเอียดเชิงลึก
           </span>
         </div>

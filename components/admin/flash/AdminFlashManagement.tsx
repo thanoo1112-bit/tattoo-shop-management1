@@ -16,12 +16,12 @@ import {
   AlertTriangle,
   CheckCircle2,
   RefreshCw,
-  Eye,
   EyeOff,
   Upload,
   Camera,
   Loader2,
   AlertCircle,
+  Lock,
 } from 'lucide-react';
 
 export interface AdminFlashDesign {
@@ -65,7 +65,6 @@ export default function AdminFlashManagement() {
   // Search & Filter State
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStyle, setFilterStyle] = useState('ALL');
-  const [filterVisibility, setFilterVisibility] = useState<'ALL' | 'VISIBLE' | 'HIDDEN'>('ALL');
   const [filterArtist, setFilterArtist] = useState('ALL');
 
   // Active Artists List
@@ -115,9 +114,6 @@ export default function AdminFlashManagement() {
       if (filterStyle !== 'ALL' && item.style.toLowerCase() !== filterStyle.toLowerCase()) {
         return false;
       }
-      // Visibility Filter
-      if (filterVisibility === 'VISIBLE' && !item.is_visible) return false;
-      if (filterVisibility === 'HIDDEN' && item.is_visible) return false;
 
       // Artist Filter
       if (filterArtist !== 'ALL' && item.artist_id !== filterArtist) return false;
@@ -136,7 +132,7 @@ export default function AdminFlashManagement() {
       }
       return true;
     });
-  }, [designs, filterStyle, filterVisibility, filterArtist, searchQuery]);
+  }, [designs, filterStyle, filterArtist, searchQuery]);
 
   // Modal / Form States
   const [isFormModalOpen, setIsFormModalOpen] = useState(false);
@@ -165,6 +161,15 @@ export default function AdminFlashManagement() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [actionNotice, setActionNotice] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
+  const [reopeningId, setReopeningId] = useState<string | null>(null);
+
+  // Auto clear actionNotice after 4s
+  useEffect(() => {
+    if (actionNotice) {
+      const timer = setTimeout(() => setActionNotice(null), 4000);
+      return () => clearTimeout(timer);
+    }
+  }, [actionNotice]);
 
   // File Upload Handler for Flash Image (studio-assets/flash)
   const handleImageFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -290,7 +295,7 @@ export default function AdminFlashManagement() {
     setFormStyle(d.style);
     setFormImageUrl(d.image_url || '');
     setFormIsVisible(d.is_visible);
-    setFormIsRepeatable(Boolean(d.is_repeatable));
+    setFormIsRepeatable(false);
     setFormSortOrder(d.sort_order);
     setFormError('');
     setImageUploadError('');
@@ -331,7 +336,7 @@ export default function AdminFlashManagement() {
         image_url: formImageUrl.trim(),
         image_url_2: null,
         is_visible: formIsVisible,
-        is_repeatable: formIsRepeatable,
+        is_repeatable: false,
         sort_order: Number(formSortOrder) || 0,
       };
 
@@ -445,6 +450,168 @@ export default function AdminFlashManagement() {
     }
   };
 
+  // Safety Guard & Reopen Flash (SOLD -> AVAILABLE)
+  const handleReopenFlash = async (design: AdminFlashDesign) => {
+    try {
+      setReopeningId(design.id);
+      const supabase = createClient();
+
+      // Safety Guard 1: Check active flash_reservations
+      const { data: activeReservations, error: resErr } = await supabase
+        .from('flash_reservations')
+        .select('id, status')
+        .eq('flash_design_id', design.id)
+        .not('status', 'in', '("CANCELLED","REJECTED","EXPIRED","COMPLETED")');
+
+      if (resErr) {
+        console.error('[AdminFlash] Error checking active reservations:', resErr);
+      }
+
+      if (activeReservations && activeReservations.length > 0) {
+        setActionNotice({
+          text: 'ไม่สามารถเปิดจองได้เนื่องจากมีรายการจองที่ยังดำเนินการอยู่',
+          type: 'error',
+        });
+        setReopeningId(null);
+        return;
+      }
+
+      // Safety Guard 2: Check active bookings linked to any reservation of this flash design
+      const { data: allReservations } = await supabase
+        .from('flash_reservations')
+        .select('id')
+        .eq('flash_design_id', design.id);
+
+      if (allReservations && allReservations.length > 0) {
+        const resIds = allReservations.map((r: any) => r.id);
+        const { data: activeBookings, error: bErr } = await supabase
+          .from('bookings')
+          .select('id, status')
+          .in('flash_reservation_id', resIds)
+          .not('status', 'in', '("CANCELLED","REJECTED","EXPIRED","COMPLETED")');
+
+        if (bErr) {
+          console.error('[AdminFlash] Error checking active bookings:', bErr);
+        }
+
+        if (activeBookings && activeBookings.length > 0) {
+          setActionNotice({
+            text: 'ไม่สามารถเปิดจองได้เนื่องจากมีรายการจองที่ยังดำเนินการอยู่',
+            type: 'error',
+          });
+          setReopeningId(null);
+          return;
+        }
+      }
+
+      // Reopen: Update flash_designs status to AVAILABLE
+      const { error: updateErr } = await supabase
+        .from('flash_designs')
+        .update({ status: 'AVAILABLE' })
+        .eq('id', design.id);
+
+      if (updateErr) throw updateErr;
+
+      setDesigns((prev) =>
+        prev.map((d) => (d.id === design.id ? { ...d, status: 'AVAILABLE' } : d))
+      );
+
+      setActionNotice({
+        text: `เปิดจองลาย Flash "${design.title}" อีกครั้งเรียบร้อยแล้ว`,
+        type: 'success',
+      });
+    } catch (err: any) {
+      console.error('[AdminFlash] Reopen error:', err);
+      setActionNotice({
+        text: 'ไม่สามารถเปิดจองได้: ' + (err?.message || 'ข้อผิดพลาดระบบ'),
+        type: 'error',
+      });
+    } finally {
+      setReopeningId(null);
+    }
+  };
+
+  // Safety Guard & Close Flash Booking (AVAILABLE -> SOLD)
+  const handleCloseFlash = async (design: AdminFlashDesign) => {
+    try {
+      setReopeningId(design.id);
+      const supabase = createClient();
+
+      // Safety check: Check if there is an active reservation
+      const { data: activeReservations, error: resErr } = await supabase
+        .from('flash_reservations')
+        .select('id, status')
+        .eq('flash_design_id', design.id)
+        .not('status', 'in', '("CANCELLED","REJECTED","EXPIRED","COMPLETED")');
+
+      if (resErr) {
+        console.error('[AdminFlash] Error checking active reservations:', resErr);
+      }
+
+      if (activeReservations && activeReservations.length > 0) {
+        setActionNotice({
+          text: 'ไม่สามารถปิดรับจองได้เนื่องจากมีรายการจองที่ยังดำเนินการอยู่',
+          type: 'error',
+        });
+        setReopeningId(null);
+        return;
+      }
+
+      // Safety check: Check active bookings linked to any reservation of this flash design
+      const { data: allReservations } = await supabase
+        .from('flash_reservations')
+        .select('id')
+        .eq('flash_design_id', design.id);
+
+      if (allReservations && allReservations.length > 0) {
+        const resIds = allReservations.map((r: any) => r.id);
+        const { data: activeBookings, error: bErr } = await supabase
+          .from('bookings')
+          .select('id, status')
+          .in('flash_reservation_id', resIds)
+          .not('status', 'in', '("CANCELLED","REJECTED","EXPIRED","COMPLETED")');
+
+        if (bErr) {
+          console.error('[AdminFlash] Error checking active bookings:', bErr);
+        }
+
+        if (activeBookings && activeBookings.length > 0) {
+          setActionNotice({
+            text: 'ไม่สามารถปิดรับจองได้เนื่องจากมีรายการจองที่ยังดำเนินการอยู่',
+            type: 'error',
+          });
+          setReopeningId(null);
+          return;
+        }
+      }
+
+      // Close: Update flash_designs status to SOLD
+      const { error: updateErr } = await supabase
+        .from('flash_designs')
+        .update({ status: 'SOLD' })
+        .eq('id', design.id);
+
+      if (updateErr) throw updateErr;
+
+      setDesigns((prev) =>
+        prev.map((d) => (d.id === design.id ? { ...d, status: 'SOLD' } : d))
+      );
+
+      setActionNotice({
+        text: `ปิดรับจองลาย Flash "${design.title}" เรียบร้อยแล้ว`,
+        type: 'success',
+      });
+    } catch (err: any) {
+      console.error('[AdminFlash] Close error:', err);
+      setActionNotice({
+        text: 'ไม่สามารถปิดรับจองได้: ' + (err?.message || 'ข้อผิดพลาดระบบ'),
+        type: 'error',
+      });
+    } finally {
+      setReopeningId(null);
+    }
+  };
+
   // Stats
   const availableCount = designs.filter((d) => d.status === 'AVAILABLE').length;
   const heldCount = designs.filter((d) => d.status === 'HELD').length;
@@ -525,17 +692,6 @@ export default function AdminFlashManagement() {
             ))}
           </select>
 
-          {/* Visibility Filter */}
-          <select
-            value={filterVisibility}
-            onChange={(e: any) => setFilterVisibility(e.target.value)}
-            className="bg-[#0E0D0C] border border-[#3E372C] rounded-[4px] px-3 py-2 text-xs text-[#ECE4D3] focus:outline-none focus:border-[#9C2F2F] cursor-pointer"
-          >
-            <option value="ALL">สถานะทั้งหมด</option>
-            <option value="VISIBLE">แสดงบนเว็บ (Visible)</option>
-            <option value="HIDDEN">ซ่อนจากเว็บ (Hidden)</option>
-          </select>
-
           {/* Artist Filter */}
           <select
             value={filterArtist}
@@ -556,11 +712,10 @@ export default function AdminFlashManagement() {
           <div>
             ผลงาน <strong className="text-[#ECE4D3] font-bold">{filteredDesigns.length}</strong> / {designs.length} รายการ
           </div>
-          {(filterStyle !== 'ALL' || filterVisibility !== 'ALL' || filterArtist !== 'ALL' || searchQuery) && (
+          {(filterStyle !== 'ALL' || filterArtist !== 'ALL' || searchQuery) && (
             <button
               onClick={() => {
                 setFilterStyle('ALL');
-                setFilterVisibility('ALL');
                 setFilterArtist('ALL');
                 setSearchQuery('');
               }}
@@ -666,16 +821,6 @@ export default function AdminFlashManagement() {
                           ✕ SOLD
                         </span>
                       )}
-
-                      {d.is_repeatable ? (
-                        <span className="bg-cyan-950/80 border border-cyan-600/50 text-cyan-300 text-[9px] font-bold px-1.5 py-0.5 rounded">
-                          สักซ้ำได้
-                        </span>
-                      ) : (
-                        <span className="bg-amber-950/80 border border-amber-600/50 text-amber-300 text-[9px] font-bold px-1.5 py-0.5 rounded">
-                          ลายเดียว
-                        </span>
-                      )}
                     </div>
                   </div>
 
@@ -694,34 +839,56 @@ export default function AdminFlashManagement() {
                       </div>
                     </div>
 
-                    <div className="pt-2 border-t border-studio-border/50 flex justify-between items-center gap-1 min-w-0">
-                      <button
-                        type="button"
-                        onClick={() => handleToggleVisibility(d)}
-                        className={`text-[10px] sm:text-[11px] flex items-center gap-1 font-medium px-1.5 sm:px-2 py-1 rounded border transition-colors shrink-0 ${
-                          d.is_visible
-                            ? 'bg-studio-main border-studio-border text-studio-primary hover:border-studio-red/40'
-                            : 'bg-red-950/20 border-red-900/40 text-red-400'
-                        }`}
-                      >
-                        {d.is_visible ? <Eye size={12} className="text-emerald-400 shrink-0" /> : <EyeOff size={12} className="shrink-0" />}
-                        <span>{d.is_visible ? 'แสดงบนเว็บ' : 'ซ่อนจากเว็บ'}</span>
-                      </button>
+                    <div className="pt-2 border-t border-studio-border/50 flex justify-between items-center gap-1.5 min-w-0">
+                      <div>
+                        {d.status === 'SOLD' ? (
+                          <button
+                            type="button"
+                            onClick={() => handleReopenFlash(d)}
+                            disabled={reopeningId === d.id}
+                            className="px-2 py-1 bg-emerald-950/40 hover:bg-emerald-900/60 border border-emerald-800/60 text-emerald-400 text-[11px] font-medium rounded transition-colors flex items-center gap-1 cursor-pointer disabled:opacity-50"
+                            title="เปิดจองอีกครั้ง"
+                          >
+                            {reopeningId === d.id ? (
+                              <Loader2 size={12} className="animate-spin" />
+                            ) : (
+                              <RefreshCw size={12} />
+                            )}
+                            <span>เปิดจองอีกครั้ง</span>
+                          </button>
+                        ) : d.status === 'AVAILABLE' ? (
+                          <button
+                            type="button"
+                            onClick={() => handleCloseFlash(d)}
+                            disabled={reopeningId === d.id}
+                            className="px-2 py-1 bg-red-950/40 hover:bg-red-900/60 border border-red-800/60 text-red-400 text-[11px] font-medium rounded transition-colors flex items-center gap-1 cursor-pointer disabled:opacity-50"
+                            title="ปิดรับจอง"
+                          >
+                            {reopeningId === d.id ? (
+                              <Loader2 size={12} className="animate-spin" />
+                            ) : (
+                              <Lock size={12} />
+                            )}
+                            <span>ปิดรับจอง</span>
+                          </button>
+                        ) : null}
+                      </div>
 
-                      <div className="flex items-center gap-1 shrink-0">
+                      <div className="flex items-center gap-1.5">
                         <button
                           type="button"
                           onClick={() => handleOpenEdit(d)}
-                          className="p-1.5 text-studio-secondary hover:text-studio-primary hover:bg-studio-sec rounded border border-transparent hover:border-studio-border transition-colors"
+                          className="px-2.5 py-1 text-xs text-studio-primary hover:text-white bg-studio-sec hover:bg-studio-border rounded border border-studio-border transition-colors flex items-center gap-1 cursor-pointer"
                           title="แก้ไขแบบลายสัก"
                         >
                           <Edit3 size={13} />
+                          <span>แก้ไข</span>
                         </button>
 
                         <button
                           type="button"
                           onClick={() => handleRequestDelete(d)}
-                          className="p-1.5 text-red-400/80 hover:text-red-400 hover:bg-red-950/30 rounded border border-transparent hover:border-red-900/40 transition-colors"
+                          className="p-1.5 text-red-400/80 hover:text-red-400 hover:bg-red-950/30 rounded border border-transparent hover:border-red-900/40 transition-colors cursor-pointer"
                           title="ลบลายสัก Flash"
                         >
                           <Trash2 size={13} />
@@ -917,57 +1084,6 @@ export default function AdminFlashManagement() {
                         className="w-full bg-[#0E0D0C] border border-[#3E372C] rounded-[4px] px-3 py-2 text-xs text-[#ECE4D3] placeholder:text-[#7A7162] focus:outline-none focus:border-[#9C2F2F]"
                       />
                     </div>
-
-                    <div className="space-y-1.5 pt-1">
-                      <label className="text-xs font-semibold text-[#ECE4D3] block">
-                        ประเภทลาย Flash <span className="text-red-400">*</span>
-                      </label>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                        <label
-                          className={`flex items-start gap-2.5 p-2.5 rounded border cursor-pointer transition-all ${
-                            !formIsRepeatable
-                              ? 'bg-[#1C1814] border-[#9C2F2F] text-[#ECE4D3]'
-                              : 'bg-[#0E0D0C] border-[#2D2820] text-[#7A7162] hover:border-[#3E372C]'
-                          }`}
-                        >
-                          <input
-                            type="radio"
-                            name="flashRepeatableMobile"
-                            checked={!formIsRepeatable}
-                            onChange={() => setFormIsRepeatable(false)}
-                            className="mt-0.5 w-3.5 h-3.5 text-[#9C2F2F] focus:ring-0 cursor-pointer"
-                          />
-                          <div>
-                            <span className="text-xs font-bold block text-[#ECE4D3]">ลายเดียว</span>
-                            <span className="text-[10px] text-[#A89F91] leading-tight block mt-0.5">
-                              สักได้เพียง 1 คน เมื่อมีผู้จอง/อนุมัติแล้วจะปิดรับการจอง
-                            </span>
-                          </div>
-                        </label>
-
-                        <label
-                          className={`flex items-start gap-2.5 p-2.5 rounded border cursor-pointer transition-all ${
-                            formIsRepeatable
-                              ? 'bg-[#1C1814] border-cyan-600/70 text-[#ECE4D3]'
-                              : 'bg-[#0E0D0C] border-[#2D2820] text-[#7A7162] hover:border-[#3E372C]'
-                          }`}
-                        >
-                          <input
-                            type="radio"
-                            name="flashRepeatableMobile"
-                            checked={formIsRepeatable}
-                            onChange={() => setFormIsRepeatable(true)}
-                            className="mt-0.5 w-3.5 h-3.5 text-cyan-500 focus:ring-0 cursor-pointer"
-                          />
-                          <div>
-                            <span className="text-xs font-bold block text-[#ECE4D3]">สักซ้ำได้</span>
-                            <span className="text-[10px] text-[#A89F91] leading-tight block mt-0.5">
-                              ลูกค้าหลายคนจองลายนี้ได้ ลายยังคงสถานะว่างตลอด
-                            </span>
-                          </div>
-                        </label>
-                      </div>
-                    </div>
                   </div>
 
                   <div className="bg-[#171512] border border-[#2D2820] rounded-lg p-3 sm:p-4 space-y-3">
@@ -1158,56 +1274,7 @@ export default function AdminFlashManagement() {
                       />
                     </div>
 
-                    <div className="space-y-1.5 pt-1">
-                      <label className="text-xs font-semibold text-[#ECE4D3] block">
-                        ประเภทลาย Flash <span className="text-red-400">*</span>
-                      </label>
-                      <div className="grid grid-cols-2 gap-3">
-                        <label
-                          className={`flex items-start gap-2.5 p-3 rounded-lg border cursor-pointer transition-all ${
-                            !formIsRepeatable
-                              ? 'bg-[#1C1814] border-[#9C2F2F] text-[#ECE4D3]'
-                              : 'bg-[#0E0D0C] border-[#2D2820] text-[#7A7162] hover:border-[#3E372C]'
-                          }`}
-                        >
-                          <input
-                            type="radio"
-                            name="flashRepeatableDesktop"
-                            checked={!formIsRepeatable}
-                            onChange={() => setFormIsRepeatable(false)}
-                            className="mt-0.5 w-3.5 h-3.5 text-[#9C2F2F] focus:ring-0 cursor-pointer"
-                          />
-                          <div>
-                            <span className="text-xs font-bold block text-[#ECE4D3]">ลายเดียว</span>
-                            <span className="text-[10px] text-[#A89F91] leading-tight block mt-0.5">
-                              สักได้เพียง 1 คน เมื่อมีผู้จอง/อนุมัติแล้วจะปิดรับการจอง
-                            </span>
-                          </div>
-                        </label>
 
-                        <label
-                          className={`flex items-start gap-2.5 p-3 rounded-lg border cursor-pointer transition-all ${
-                            formIsRepeatable
-                              ? 'bg-[#1C1814] border-cyan-600/70 text-[#ECE4D3]'
-                              : 'bg-[#0E0D0C] border-[#2D2820] text-[#7A7162] hover:border-[#3E372C]'
-                          }`}
-                        >
-                          <input
-                            type="radio"
-                            name="flashRepeatableDesktop"
-                            checked={formIsRepeatable}
-                            onChange={() => setFormIsRepeatable(true)}
-                            className="mt-0.5 w-3.5 h-3.5 text-cyan-500 focus:ring-0 cursor-pointer"
-                          />
-                          <div>
-                            <span className="text-xs font-bold block text-[#ECE4D3]">สักซ้ำได้</span>
-                            <span className="text-[10px] text-[#A89F91] leading-tight block mt-0.5">
-                              ลูกค้าหลายคนจองลายนี้ได้ ลายยังคงสถานะว่างตลอด
-                            </span>
-                          </div>
-                        </label>
-                      </div>
-                    </div>
 
                     <div className="space-y-1">
                       <label className="text-xs font-semibold text-[#ECE4D3] block">คำอธิบายรายละเอียด</label>

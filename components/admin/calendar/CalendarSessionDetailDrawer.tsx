@@ -8,6 +8,7 @@ import {
   calculateDurationText,
   getEventStatusConfig,
   getBookingStatusConfig,
+  resolveBookingCalendarStatus,
   getEventSpecs,
 } from './calendarUtils';
 import {
@@ -52,7 +53,7 @@ export default function CalendarSessionDetailDrawer({
           <div className="p-4 sm:p-5 border-b border-[#4A443A]/40 flex items-center justify-between bg-[#171512]">
             <div>
               <span className="text-[10px] text-[#A89F91] uppercase tracking-wider block">
-                รายละเอียดรอบนัดหมาย
+                รายละเอียดการนัดหมาย
               </span>
               <h3 className="text-base font-bold text-[#ECE4D3] flex items-center gap-2">
                 <span>รอบสัก #{event.session_number}</span>
@@ -154,7 +155,11 @@ export default function CalendarSessionDetailDrawer({
 
             {/* 3. Parent Booking Status */}
             {event.booking && (() => {
-              const bCfg = getBookingStatusConfig(event.booking.status);
+              const bOverall = resolveBookingCalendarStatus(
+                event.booking.sessions || (event.booking as any).sessions,
+                event.booking.status
+              );
+              const bCfg = getBookingStatusConfig(bOverall as any);
               return (
                 <div className="bg-[#171512] border border-[#4A443A]/40 rounded-xl p-3.5 space-y-1.5">
                   <span className="text-[10px] text-[#7A7265] uppercase tracking-wider block">

@@ -8,6 +8,8 @@ import { calculateBlockingEndTime } from '@/lib/utils/tattooDuration';
 import { 
   X, 
   Calendar, 
+  CalendarClock,
+  XCircle,
   User, 
   Phone, 
   Mail, 
@@ -25,12 +27,34 @@ import {
   Sparkles
 } from 'lucide-react';
 import { formatDateBangkok } from '@/components/admin/calendar/calendarUtils';
+import { formatDateTimeBangkok, hasEstimateProposalHistory } from '@/components/admin/requests/types';
 import { parseNoteWithPreferredTime, extractHHMM, getInitialStartTime } from '@/lib/noteUtils';
 import CustomerReferenceImage from '@/components/common/CustomerReferenceImage';
 import { formatCustomerAgeDisplay } from '@/lib/customerUtils';
 import { useApp } from '@/components/AppContext';
 import EstimateQuoteForm from '@/components/admin/requests/EstimateQuoteForm';
 import { BlockedDateRecord, checkDateAvailability } from '@/lib/availabilityUtils';
+import ProposeMultiDatesModal from '@/components/common/ProposeMultiDatesModal';
+import { getDepositDeadlineInfo } from '@/components/portal/portalUtils';
+
+export function isDepositExpired(booking?: any, estimate?: any, session?: any): boolean {
+  const status = booking?.status || estimate?.status || session?.status;
+  if (!status) return false;
+
+  if (status === 'EXPIRED') return true;
+
+  if (status === 'WAITING_DEPOSIT' || status === 'PENDING_DEPOSIT') {
+    const approvedAt = booking?.approved_at || estimate?.accepted_at || estimate?.quoted_at;
+    const createdAt = booking?.created_at || estimate?.created_at || session?.created_at;
+    const requestedDate = booking?.requested_date || estimate?.preferred_date || (session?.start_at ? session.start_at.slice(0, 10) : null);
+    const requestedStartTime = booking?.requested_start_time || estimate?.preferred_time || (session?.start_at ? session.start_at.slice(11, 19) : null);
+
+    const dlInfo = getDepositDeadlineInfo(approvedAt, createdAt, requestedDate, requestedStartTime);
+    return dlInfo?.isExpired ?? false;
+  }
+
+  return false;
+}
 
 export interface ArtistPendingEstimateDetail {
   id: string;
@@ -63,9 +87,15 @@ export interface ArtistPendingEstimateDetail {
   proposed_price?: number | null;
   proposed_artist_note?: string | null;
   is_date_proposed?: boolean;
+  date_options?: any[] | null;
+  estimate_request_date_options?: any[] | null;
   quoted_price?: number | null;
   status: string;
+  derived_operational_status?: string | null;
   created_at?: string | null;
+  submitted_at?: string | null;
+  accepted_at?: string | null;
+  quoted_at?: string | null;
   is_age_confirmed?: boolean;
   is_flash?: boolean;
   item_type?: string;
@@ -166,15 +196,98 @@ export default function ArtistRequestDetailDrawer({ estimate, isOpen, onClose, o
     };
   }, [estimate]);
 
-  // Accept / Reject Modal State
+  // Accept / Reject / Propose Modal State
   const [showAcceptModal, setShowAcceptModal] = useState(false);
   const [showRejectModal, setShowRejectModal] = useState(false);
+  const [isProposingDates, setIsProposingDates] = useState(false);
+  const [latestProposedDate, setLatestProposedDate] = useState<string | null>(null);
+  const [latestProposedTime, setLatestProposedTime] = useState<string | null>(null);
+
+  useEffect(() => {
+    let isMounted = true;
+    async function loadLatestProposedOption() {
+      if (estimate?.id && estimate?.is_date_proposed) {
+        // Priority 1: Check in-memory date_options from estimate_request_date_options (status = 'PENDING')
+        const inMemoryOptions = Array.isArray((estimate as any).date_options)
+          ? (estimate as any).date_options.filter((opt: any) => opt.status === 'PENDING')
+          : Array.isArray((estimate as any).estimate_request_date_options)
+          ? (estimate as any).estimate_request_date_options.filter((opt: any) => opt.status === 'PENDING')
+          : [];
+
+        if (inMemoryOptions.length > 0) {
+          const latest = [...inMemoryOptions].sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0];
+          if (latest?.proposed_date) {
+            setLatestProposedDate(latest.proposed_date);
+            setLatestProposedTime(latest.proposed_time || null);
+            return;
+          }
+        }
+
+        // Priority 2: Check mapped proposed_date / proposed_time
+        if (estimate.proposed_date) {
+          setLatestProposedDate(estimate.proposed_date);
+          setLatestProposedTime(estimate.proposed_time || null);
+          return;
+        }
+
+        // Priority 3 (remote fallback): If not present in props, query database
+        try {
+          const { data, error } = await supabase
+            .from('estimate_request_date_options')
+            .select('proposed_date, proposed_time, status, created_at')
+            .eq('estimate_request_id', estimate.id)
+            .eq('status', 'PENDING')
+            .order('created_at', { ascending: false })
+            .limit(1);
+
+          if (!error && data && data.length > 0 && isMounted) {
+            setLatestProposedDate(data[0].proposed_date);
+            setLatestProposedTime(data[0].proposed_time);
+            return;
+          }
+        } catch (err) {
+          console.error('Failed to load proposed date options in artist drawer:', err);
+        }
+      } else {
+        setLatestProposedDate(null);
+        setLatestProposedTime(null);
+      }
+    }
+
+    loadLatestProposedOption();
+    return () => {
+      isMounted = false;
+    };
+  }, [estimate?.id, estimate?.is_date_proposed, estimate?.proposed_date, estimate?.proposed_time, (estimate as any)?.date_options, supabase]);
 
   const [rejectReason, setRejectReason] = useState<string>('');
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const resolvedOpStatus = (() => {
+    if (!estimate) return 'NEW';
+    if (estimate.derived_operational_status === 'EXPIRED' || estimate.status === 'EXPIRED') {
+      return 'EXPIRED';
+    }
+    if (isDepositExpired(null, estimate)) {
+      return 'EXPIRED';
+    }
+    if (estimate.derived_operational_status) {
+      return estimate.derived_operational_status;
+    }
+    if (estimate.status === 'CANCELLED') {
+      return hasEstimateProposalHistory(estimate) ? 'CANCELLED_CUSTOMER' : 'CANCELLED';
+    }
+    if (estimate.status === 'REJECTED') {
+      return 'REJECTED';
+    }
+    if (estimate.is_date_proposed || Boolean(estimate.proposed_date)) {
+      return 'WAITING_DEPOSIT';
+    }
+    return estimate.status || 'NEW';
+  })();
 
-  const isPending = estimate?.status === 'PENDING';
+  const isTerminal = ['EXPIRED', 'CANCELLED', 'CANCELLED_CUSTOMER', 'REJECTED', 'CONFIRMED'].includes(resolvedOpStatus);
+  const isPending = !isTerminal && estimate?.status === 'PENDING';
 
   const resetRejectState = () => {
     setRejectReason('');
@@ -521,6 +634,32 @@ export default function ArtistRequestDetailDrawer({ estimate, isOpen, onClose, o
   const isFlash = Boolean(estimate.is_flash || estimate.sourceType === 'FLASH' || estimate.item_type === 'FLASH');
   const requestCode = isFlash ? `FLASH-${estimate.id.slice(0, 8).toUpperCase()}` : `REQ-${estimate.id.slice(0, 8).toUpperCase()}`;
 
+  const resolvedProposedDate = latestProposedDate || (() => {
+    const inMemoryOptions = Array.isArray((estimate as any).date_options)
+      ? (estimate as any).date_options.filter((opt: any) => opt.status === 'PENDING')
+      : Array.isArray((estimate as any).estimate_request_date_options)
+      ? (estimate as any).estimate_request_date_options.filter((opt: any) => opt.status === 'PENDING')
+      : [];
+    if (inMemoryOptions.length > 0) {
+      const latest = [...inMemoryOptions].sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0];
+      if (latest?.proposed_date) return latest.proposed_date;
+    }
+    return estimate.proposed_date || null;
+  })();
+
+  const resolvedProposedTime = latestProposedTime || (() => {
+    const inMemoryOptions = Array.isArray((estimate as any).date_options)
+      ? (estimate as any).date_options.filter((opt: any) => opt.status === 'PENDING')
+      : Array.isArray((estimate as any).estimate_request_date_options)
+      ? (estimate as any).estimate_request_date_options.filter((opt: any) => opt.status === 'PENDING')
+      : [];
+    if (inMemoryOptions.length > 0) {
+      const latest = [...inMemoryOptions].sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0];
+      if (latest?.proposed_time) return latest.proposed_time;
+    }
+    return estimate.proposed_time || null;
+  })();
+
   return (
     <div className="fixed inset-0 z-50 flex justify-end font-prompt bg-black/70 backdrop-blur-xs animate-in fade-in duration-200">
       {/* Backdrop click to close */}
@@ -528,20 +667,65 @@ export default function ArtistRequestDetailDrawer({ estimate, isOpen, onClose, o
 
       {/* Drawer Body */}
       <div className="relative w-full max-w-lg bg-studio-card border-l border-studio-border h-full flex flex-col shadow-2xl z-10 overflow-hidden">
-        {/* Drawer Header */}
-        <div className="p-4 sm:p-5 border-b border-studio-border flex items-center justify-between bg-studio-card">
+        {/* Drawer Header (shrink-0) */}
+        <div className="p-4 sm:p-5 border-b border-studio-border flex items-center justify-between bg-studio-card shrink-0">
           <div className="flex items-center space-x-2.5">
             <span className="text-xs font-mono font-bold text-studio-primary bg-studio-sec px-2.5 py-1 rounded border border-studio-border">
               {requestCode}
             </span>
-            <span className={`text-xs px-2.5 py-0.5 rounded-full border font-medium ${estimate.status === 'REJECTED' ? 'bg-red-950/50 text-red-400 border-red-900/60' : 'bg-blue-950/60 text-blue-400 border-blue-800/60'}`}>
-              {estimate.status === 'REJECTED' ? 'ปฏิเสธ' : 'คำขอใหม่'}
-            </span>
-            {isFlash && (
-              <span className="text-xs px-2.5 py-0.5 rounded-full border bg-amber-500/20 text-amber-300 border-amber-500/40 font-medium flex items-center gap-1">
-                <Sparkles size={12} /> Flash
-              </span>
-            )}
+            {(() => {
+              switch (resolvedOpStatus) {
+                case 'EXPIRED':
+                  return (
+                    <span className="text-xs px-2.5 py-0.5 rounded-full border font-medium bg-zinc-900/90 text-zinc-400 border border-zinc-700/80">
+                      หมดอายุ
+                    </span>
+                  );
+                case 'CANCELLED_CUSTOMER':
+                  return (
+                    <span className="text-xs px-2.5 py-0.5 rounded-full border font-medium bg-[#1F1D1A] text-[#7A7265] border-[#4A443A]">
+                      ลูกค้ายกเลิก
+                    </span>
+                  );
+                case 'CANCELLED':
+                  return (
+                    <span className="text-xs px-2.5 py-0.5 rounded-full border font-medium bg-[#1F1D1A] text-[#7A7265] border-[#4A443A]">
+                      ยกเลิก
+                    </span>
+                  );
+                case 'REJECTED':
+                  return (
+                    <span className="text-xs px-2.5 py-0.5 rounded-full border font-medium bg-red-950/50 text-red-400 border-red-900/60">
+                      ปฏิเสธ
+                    </span>
+                  );
+                case 'WAITING_DEPOSIT':
+                  return (
+                    <span className="text-xs px-2.5 py-0.5 rounded-full border font-medium bg-amber-500/15 text-amber-300 border-amber-400/40">
+                      รอมัดจำ
+                    </span>
+                  );
+                case 'PENDING_SLIP':
+                  return (
+                    <span className="text-xs px-2.5 py-0.5 rounded-full border font-medium bg-amber-500/15 text-amber-300 border-amber-400/40 animate-pulse">
+                      สลิปรอตรวจ
+                    </span>
+                  );
+                case 'CONFIRMED':
+                  return (
+                    <span className="text-xs px-2.5 py-0.5 rounded-full border font-medium bg-sky-500/15 text-sky-300 border-sky-400/40">
+                      นัดหมายแล้ว
+                    </span>
+                  );
+                case 'NEW':
+                default:
+                  return (
+                    <span className="text-xs px-2.5 py-0.5 rounded-full border font-medium bg-blue-500/15 text-blue-300 border-blue-400/40">
+                      รอตรวจสอบ
+                    </span>
+                  );
+              }
+            })()}
           </div>
           <button
             onClick={onClose}
@@ -551,8 +735,40 @@ export default function ArtistRequestDetailDrawer({ estimate, isOpen, onClose, o
           </button>
         </div>
 
-        {/* Scrollable Content */}
-        <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-5 pb-24 text-xs">
+        {/* Scrollable Content (flex-1 overflow-y-auto) */}
+        <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-5 pb-6 text-xs">
+          {/* Status Banner */}
+          {resolvedOpStatus === 'EXPIRED' && (
+            <div className="p-3 bg-zinc-900/90 border border-zinc-700/80 rounded-xl flex items-center space-x-2.5 text-zinc-300">
+              <span className="text-xs px-2.5 py-0.5 rounded-full font-semibold bg-zinc-800 text-zinc-400 border border-zinc-700 shrink-0">
+                หมดอายุ
+              </span>
+              <span className="text-xs text-zinc-400">
+                คำขอนี้หมดอายุแล้วเนื่องจากพ้นกำหนดเวลาชำระมัดจำหรือเลยวันนัดหมาย
+              </span>
+            </div>
+          )}
+          {resolvedOpStatus === 'CANCELLED_CUSTOMER' && (
+            <div className="p-3 bg-[#1F1D1A] border border-[#4A443A] rounded-xl flex items-center space-x-2.5 text-[#ECE4D3]">
+              <span className="text-xs px-2.5 py-0.5 rounded-full font-semibold bg-[#2A2723] text-[#A89F91] border border-[#4A443A] shrink-0">
+                ลูกค้ายกเลิก
+              </span>
+              <span className="text-xs text-[#A89F91]">
+                ลูกค้ายกเลิกคำขอนี้แล้ว
+              </span>
+            </div>
+          )}
+          {resolvedOpStatus === 'CANCELLED' && (
+            <div className="p-3 bg-[#1F1D1A] border border-[#4A443A] rounded-xl flex items-center space-x-2.5 text-[#ECE4D3]">
+              <span className="text-xs px-2.5 py-0.5 rounded-full font-semibold bg-[#2A2723] text-[#A89F91] border border-[#4A443A] shrink-0">
+                ยกเลิก
+              </span>
+              <span className="text-xs text-[#A89F91]">
+                คำขอนี้ถูกยกเลิกแล้ว
+              </span>
+            </div>
+          )}
+
           {/* Read-only Notice */}
           <div className="p-3.5 bg-studio-sec/80 border border-studio-border rounded-xl flex items-start space-x-3 text-studio-secondary">
             <ShieldCheck size={16} className="text-studio-red-bright shrink-0 mt-0.5" />
@@ -561,26 +777,28 @@ export default function ArtistRequestDetailDrawer({ estimate, isOpen, onClose, o
                 {isFlash ? 'รายละเอียดคำขอ Flash (Artist View)' : 'รายละเอียดคำขอจองงานสัก (Artist View)'}
               </span>
               <p className="text-[11px] text-studio-muted leading-relaxed">
-                {isFlash
+                {isTerminal
+                  ? 'ประวัติคำขอที่สิ้นสุดแล้ว ท่านสามารถตรวจสอบข้อมูลลูกค้า รายละเอียดงานสัก และบันทึกสุขภาพได้'
+                  : isFlash
                   ? 'คำขอจองลาย Flash ที่ลูกค้าระบุเข้าหาช่างโดยตรง ท่านสามารถตรวจสอบรายละเอียด ขนาด วันนัดหมาย และรูปภาพลาย Flash ได้ทันที'
-                  : 'คำขอใหม่ที่ลูกค้าระบุช่างสักเข้ามาโดยตรง ท่านสามารถเปิดดูรายละเอียด ภาพอ้างอิง และเตรียมความพร้อมสำหรับคิวนัดหมายได้ทันที'}
+                  : 'คำขอที่ลูกค้าระบุช่างสักเข้ามาโดยตรง ท่านสามารถเปิดดูรายละเอียด ภาพอ้างอิง และเตรียมความพร้อมสำหรับคิวนัดหมายได้ทันที'}
               </p>
             </div>
           </div>
 
           {/* Customer Info */}
           <div className="bg-studio-card border border-studio-border rounded-xl p-4 space-y-3">
-            <div className="flex items-center space-x-2 text-studio-secondary text-[11px] uppercase tracking-wider font-semibold">
+            <div className="flex items-center space-x-2 text-[#ECE4D3] text-[11px] uppercase tracking-wider font-semibold">
               <User size={14} className="text-studio-red-bright" />
               <span>ข้อมูลลูกค้าที่ติดต่อ</span>
             </div>
             <div className="space-y-2.5 pt-1 divide-y divide-studio-border/50">
               <div className="flex justify-between items-center pb-2">
-                <span className="text-studio-muted">ชื่อลูกค้า:</span>
+                <span className="text-[#B8B0A3]">ชื่อลูกค้า:</span>
                 <span className="text-studio-primary font-medium">{estimate.customer_name ?? 'ลูกค้า (ไม่ระบุชื่อ)'}</span>
               </div>
               <div className="flex justify-between items-center py-2">
-                <span className="text-studio-muted">เบอร์โทรศัพท์:</span>
+                <span className="text-[#B8B0A3]">เบอร์โทรศัพท์:</span>
                 {estimate.customer_phone ? (
                   <a
                     href={`tel:${estimate.customer_phone}`}
@@ -590,17 +808,17 @@ export default function ArtistRequestDetailDrawer({ estimate, isOpen, onClose, o
                     <span>{estimate.customer_phone}</span>
                   </a>
                 ) : (
-                  <span className="text-studio-muted text-xs">ไม่ระบุเบอร์โทร</span>
+                  <span className="text-[#B8B0A3] text-xs">ไม่ระบุเบอร์โทร</span>
                 )}
               </div>
               {estimate.customer_email && (
                 <div className="flex justify-between items-center py-2">
-                  <span className="text-studio-muted">อีเมล:</span>
+                  <span className="text-[#B8B0A3]">อีเมล:</span>
                   <span className="text-studio-secondary font-mono truncate max-w-[200px]">{estimate.customer_email}</span>
                 </div>
               )}
               <div className="flex justify-between items-center pt-2">
-                <span className="text-studio-muted">อายุลูกค้า:</span>
+                <span className="text-[#B8B0A3]">อายุลูกค้า:</span>
                 <span className="text-studio-primary font-mono text-xs font-semibold">
                   {formatCustomerAgeDisplay(estimate.customer_dob ?? estimate.date_of_birth)}
                 </span>
@@ -668,15 +886,15 @@ export default function ArtistRequestDetailDrawer({ estimate, isOpen, onClose, o
                       </div>
                     ) : hasMed === false ? (
                       <div className="flex items-center justify-between text-xs py-0.5">
-                        <span className="text-studio-muted">โรคประจำตัว:</span>
+                        <span className="text-[#B8B0A3]">โรคประจำตัว:</span>
                         <span className="text-emerald-400 font-medium flex items-center gap-1 text-[11px]">
                           <CheckCircle2 size={12} /> ไม่มีโรคประจำตัว
                         </span>
                       </div>
                     ) : (
                       <div className="flex items-center justify-between text-xs py-0.5">
-                        <span className="text-studio-muted">โรคประจำตัว:</span>
-                        <span className="text-studio-muted text-[11px]">ไม่พบข้อมูล</span>
+                        <span className="text-[#B8B0A3]">โรคประจำตัว:</span>
+                        <span className="text-[#B8B0A3] text-[11px]">ไม่พบข้อมูล</span>
                       </div>
                     )}
 
@@ -699,15 +917,15 @@ export default function ArtistRequestDetailDrawer({ estimate, isOpen, onClose, o
                       </div>
                     ) : hasAll === false ? (
                       <div className={`flex items-center justify-between text-xs py-0.5 ${hasMed !== undefined && hasMed !== null ? 'pt-2.5 border-t border-[#4A443A]/40' : ''}`}>
-                        <span className="text-studio-muted">ประวัติภูมิแพ้ / แพ้ยา:</span>
+                        <span className="text-[#B8B0A3]">ประวัติภูมิแพ้ / แพ้ยา:</span>
                         <span className="text-emerald-400 font-medium flex items-center gap-1 text-[11px]">
                           <CheckCircle2 size={12} /> ไม่มีอาการแพ้
                         </span>
                       </div>
                     ) : (
                       <div className={`flex items-center justify-between text-xs py-0.5 ${hasMed !== undefined && hasMed !== null ? 'pt-2.5 border-t border-[#4A443A]/40' : ''}`}>
-                        <span className="text-studio-muted">ประวัติภูมิแพ้ / แพ้ยา:</span>
-                        <span className="text-studio-muted text-[11px]">ไม่พบข้อมูล</span>
+                        <span className="text-[#B8B0A3]">ประวัติภูมิแพ้ / แพ้ยา:</span>
+                        <span className="text-[#B8B0A3] text-[11px]">ไม่พบข้อมูล</span>
                       </div>
                     )}
                   </div>
@@ -754,7 +972,7 @@ export default function ArtistRequestDetailDrawer({ estimate, isOpen, onClose, o
                       <Calendar size={14} className="text-studio-red-bright" />
                       <span>วันที่ต้องการสัก & วันที่ส่งคำขอ</span>
                     </div>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 pt-1">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
                       <div>
                         <span className="text-studio-muted text-[10px] block">วันที่ต้องการสัก</span>
                         <span className="text-sm font-semibold text-studio-primary">
@@ -770,42 +988,73 @@ export default function ArtistRequestDetailDrawer({ estimate, isOpen, onClose, o
                       <div>
                         <span className="text-studio-muted text-[10px] block">วันที่ส่งคำขอ</span>
                         <span className="text-xs font-medium text-studio-secondary">
-                          {estimate.created_at ? formatDateBangkok(estimate.created_at, true) : '-'}
+                          {(() => {
+                            const submitTime = estimate.submitted_at || estimate.created_at;
+                            return submitTime ? formatDateTimeBangkok(submitTime) : '-';
+                          })()}
                         </span>
                       </div>
                     </div>
+                    {(estimate.is_date_proposed || Boolean(estimate.proposed_date)) && (
+                      <div className="w-full p-3 bg-amber-950/40 border border-amber-600/50 rounded-xl space-y-1.5 mt-2">
+                        <div className="flex items-center gap-1.5 text-amber-300 font-semibold text-xs">
+                          <CalendarClock size={15} className="shrink-0" />
+                          <span>
+                            {resolvedOpStatus === 'EXPIRED'
+                              ? 'วันใหม่ที่เคยเสนอ (หมดอายุแล้ว)'
+                              : resolvedOpStatus === 'CANCELLED_CUSTOMER'
+                              ? 'วันใหม่ที่เคยเสนอ (ลูกค้ายกเลิก)'
+                              : 'เสนอวันใหม่แล้ว — รอลูกค้ายืนยัน'}
+                          </span>
+                        </div>
+                        {(resolvedProposedDate || estimate.proposed_date) && (
+                          <div className="text-xs text-studio-secondary">
+                            <span>วันและเวลาที่เสนอ: </span>
+                            <span className="text-amber-200 font-semibold">
+                              {formatDateBangkok(resolvedProposedDate || estimate.proposed_date)}
+                              {(resolvedProposedTime || estimate.proposed_time) ? ` เวลา ${extractHHMM((resolvedProposedTime || estimate.proposed_time)!) || (resolvedProposedTime || estimate.proposed_time)} น.` : ''}
+                            </span>
+                          </div>
+                        )}
+                        {(estimate.proposed_artist_note || (estimate as any).proposal_note) && (
+                          <p className="text-xs text-studio-secondary leading-relaxed">
+                            ข้อความถึงลูกค้า: <span className="text-studio-primary font-medium">{estimate.proposed_artist_note || (estimate as any).proposal_note}</span>
+                          </p>
+                        )}
+                      </div>
+                    )}
                   </div>
 
                   {/* รายละเอียดคำขอจอง FLASH */}
                   <div className="bg-studio-card border border-studio-border rounded-xl p-4 space-y-3 font-prompt">
-                    <div className="flex items-center space-x-2 text-studio-secondary text-[11px] uppercase tracking-wider font-semibold">
+                    <div className="flex items-center space-x-2 text-[#ECE4D3] text-[11px] uppercase tracking-wider font-semibold">
                       <Layers size={14} className="text-studio-red-bright" />
                       <span>รายละเอียดคำขอจอง FLASH</span>
                     </div>
                     <div className="space-y-2 pt-1 divide-y divide-studio-border/50">
                       {flashTitleDisplay && (
                         <div className="flex justify-between items-center pb-2">
-                          <span className="text-studio-muted">ชื่อลาย Flash:</span>
+                          <span className="text-[#B8B0A3]">ชื่อลาย Flash:</span>
                           <span className="text-studio-primary font-medium">{flashTitleDisplay}</span>
                         </div>
                       )}
                       <div className="flex justify-between items-center py-2">
-                        <span className="text-studio-muted">สไตล์ลายสัก:</span>
+                        <span className="text-[#B8B0A3]">สไตล์ลายสัก:</span>
                         <span className="text-studio-primary font-medium">{flashStyleDisplay}</span>
                       </div>
                       <div className="flex justify-between items-center py-2">
-                        <span className="text-studio-muted">ตำแหน่งที่สัก:</span>
+                        <span className="text-[#B8B0A3]">ตำแหน่งที่สัก:</span>
                         <span className="text-studio-primary font-medium">{estimate.placement ?? 'ไม่ระบุ'}</span>
                       </div>
                       <div className="flex justify-between items-center py-2">
-                        <span className="text-studio-muted">ขนาดประมาณ:</span>
+                        <span className="text-[#B8B0A3]">ขนาดประมาณ:</span>
                         <span className="text-studio-primary font-mono">{flashSizeDisplay}</span>
                       </div>
                     </div>
 
                     {cleanNote && (
                       <div className="pt-2 border-t border-studio-border/60">
-                        <span className="text-studio-muted text-[10px] block mb-1">รายละเอียดหรือหมายเหตุจากลูกค้า:</span>
+                        <span className="text-[#B8B0A3] text-[10px] block mb-1">รายละเอียดหรือหมายเหตุจากลูกค้า:</span>
                         <p className="text-studio-primary text-xs bg-studio-sec p-3 rounded-lg border border-studio-border whitespace-pre-wrap leading-relaxed">
                           {cleanNote}
                         </p>
@@ -819,46 +1068,77 @@ export default function ArtistRequestDetailDrawer({ estimate, isOpen, onClose, o
             return (
               <>
                 <div className="bg-studio-card border border-studio-border rounded-xl p-4 space-y-3">
-                  <div className="flex items-center space-x-2 text-studio-secondary text-[11px] uppercase tracking-wider font-semibold">
+                  <div className="flex items-center space-x-2 text-[#ECE4D3] text-[11px] uppercase tracking-wider font-semibold">
                     <Calendar size={14} className="text-studio-red-bright" />
                     <span>วันที่ต้องการสัก & วันที่ส่งคำขอ</span>
                   </div>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 pt-1">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
                     <div>
-                      <span className="text-studio-muted text-[10px] block">วันที่ลูกค้าสะดวก</span>
+                      <span className="text-[#B8B0A3] text-[10px] block">วันที่ลูกค้าสะดวก</span>
                       <span className="text-sm font-semibold text-studio-primary">
                         {estimate.preferred_date ? formatDateBangkok(estimate.preferred_date) : 'ไม่ระบุ'}
                       </span>
                     </div>
                     <div>
-                      <span className="text-studio-muted text-[10px] block">เวลาที่สะดวก</span>
+                      <span className="text-[#B8B0A3] text-[10px] block">เวลาที่สะดวก</span>
                       <span className="text-sm font-semibold text-studio-primary">
                         {timeDisplay}
                       </span>
                     </div>
                     <div>
-                      <span className="text-studio-muted text-[10px] block">วันที่ส่งคำขอ</span>
+                      <span className="text-[#B8B0A3] text-[10px] block">วันที่ส่งคำขอ</span>
                       <span className="text-xs font-medium text-studio-secondary">
-                        {estimate.created_at ? formatDateBangkok(estimate.created_at, true) : '-'}
+                        {(() => {
+                          const submitTime = estimate.submitted_at || estimate.created_at;
+                          return submitTime ? formatDateTimeBangkok(submitTime) : '-';
+                        })()}
                       </span>
                     </div>
                   </div>
+                  {estimate.is_date_proposed && (
+                    <div className="w-full p-3 bg-amber-950/40 border border-amber-600/50 rounded-xl space-y-1.5 mt-2">
+                      <div className="flex items-center gap-1.5 text-amber-300 font-semibold text-xs">
+                        <CalendarClock size={15} className="shrink-0" />
+                        <span>
+                          {resolvedOpStatus === 'EXPIRED'
+                            ? 'วันใหม่ที่เคยเสนอ (หมดอายุแล้ว)'
+                            : resolvedOpStatus === 'CANCELLED_CUSTOMER'
+                            ? 'วันใหม่ที่เคยเสนอ (ลูกค้ายกเลิก)'
+                            : 'เสนอวันใหม่แล้ว — รอลูกค้ายืนยัน'}
+                        </span>
+                      </div>
+                      {resolvedProposedDate && (
+                        <div className="text-xs text-studio-secondary">
+                          <span>วันและเวลาที่เสนอ: </span>
+                          <span className="text-amber-200 font-semibold">
+                            {formatDateBangkok(resolvedProposedDate)}
+                            {resolvedProposedTime ? ` เวลา ${extractHHMM(resolvedProposedTime) || resolvedProposedTime} น.` : ''}
+                          </span>
+                        </div>
+                      )}
+                      {estimate.proposed_artist_note && (
+                        <p className="text-xs text-studio-secondary leading-relaxed">
+                          ข้อความถึงลูกค้า: <span className="text-studio-primary font-medium">{estimate.proposed_artist_note}</span>
+                        </p>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 {/* Tattoo Specs */}
                 <div className="bg-studio-card border border-studio-border rounded-xl p-4 space-y-3">
-                  <div className="flex items-center space-x-2 text-studio-secondary text-[11px] uppercase tracking-wider font-semibold">
+                  <div className="flex items-center space-x-2 text-[#ECE4D3] text-[11px] uppercase tracking-wider font-semibold">
                     <Layers size={14} className="text-studio-red-bright" />
                     <span>รายละเอียดงานสักที่ต้องการ</span>
                   </div>
                   <div className="space-y-2 pt-1 divide-y divide-studio-border/50">
                     <div className="flex justify-between items-center pb-2">
-                      <span className="text-studio-muted">ตำแหน่งที่สัก:</span>
+                      <span className="text-[#B8B0A3]">ตำแหน่งที่สัก:</span>
                       <span className="text-studio-primary font-medium">{estimate.placement ?? 'ไม่ระบุ'}</span>
                     </div>
                     {(estimate.width_cm || estimate.height_cm) && (
                       <div className="flex justify-between items-center py-2">
-                        <span className="text-studio-muted">ขนาดประมาณ:</span>
+                        <span className="text-[#B8B0A3]">ขนาดประมาณ:</span>
                         <span className="text-studio-primary font-mono">
                           {formatTattooSize(estimate.width_cm, estimate.height_cm)}
                         </span>
@@ -866,7 +1146,7 @@ export default function ArtistRequestDetailDrawer({ estimate, isOpen, onClose, o
                     )}
                     {(estimate.style_preference || (estimate as any).style) && (
                       <div className="flex justify-between items-center py-2">
-                        <span className="text-studio-muted">สไตล์ลายสัก:</span>
+                        <span className="text-[#B8B0A3]">สไตล์ลายสัก:</span>
                         <span className="text-studio-primary font-medium">{estimate.style_preference ?? (estimate as any).style}</span>
                       </div>
                     )}
@@ -874,7 +1154,7 @@ export default function ArtistRequestDetailDrawer({ estimate, isOpen, onClose, o
 
                   {cleanNote && (
                     <div className="pt-2 border-t border-studio-border/60">
-                      <span className="text-studio-muted text-[10px] block mb-1">รายละเอียดเพิ่มเติมจากลูกค้า:</span>
+                      <span className="text-[#B8B0A3] text-[10px] block mb-1">รายละเอียดเพิ่มเติมจากลูกค้า:</span>
                       <p className="text-studio-primary text-xs bg-studio-sec p-3 rounded-lg border border-studio-border whitespace-pre-wrap leading-relaxed">
                         {cleanNote}
                       </p>
@@ -947,7 +1227,7 @@ export default function ArtistRequestDetailDrawer({ estimate, isOpen, onClose, o
           )}
 
           {/* Rejection Reason (Artist View) */}
-          {estimate.status === 'REJECTED' && (
+          {(resolvedOpStatus === 'REJECTED' || estimate.status === 'REJECTED') && (
             <div className="bg-red-950/30 border border-red-900/50 rounded-xl p-4 space-y-2 font-prompt">
               <div className="flex items-center space-x-2 text-red-400 text-[11px] uppercase tracking-wider font-semibold">
                 <AlertTriangle size={14} className="shrink-0" />
@@ -961,15 +1241,26 @@ export default function ArtistRequestDetailDrawer({ estimate, isOpen, onClose, o
         </div>
 
         {/* Drawer Footer with Operational Actions */}
-        <div className="p-4 border-t border-studio-border bg-studio-card space-y-2">
+        <div className="shrink-0 p-4 border-t border-studio-border bg-studio-card space-y-2">
           {isPending ? (
-            <div className="grid grid-cols-2 gap-2">
+            <div className="flex flex-col gap-2">
               <button
                 type="button"
                 onClick={handleOpenAccept}
-                className="py-2.5 px-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-semibold text-xs shadow transition-colors cursor-pointer text-center"
+                disabled={submitting}
+                className="w-full py-2.5 px-4 bg-emerald-700 hover:bg-emerald-600 border border-emerald-600 hover:border-emerald-500 text-white rounded-xl font-semibold text-xs transition-colors duration-150 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
               >
-                รับคำขอ
+                <Calendar size={14} className="shrink-0 text-white" />
+                <span>รับคำขอ</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsProposingDates(true)}
+                disabled={submitting}
+                className="w-full py-2.5 px-4 bg-amber-700 hover:bg-amber-600 border border-amber-600 hover:border-amber-500 text-white rounded-xl font-semibold text-xs transition-colors duration-150 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                <CalendarClock size={14} className="shrink-0 text-white" />
+                <span>{(estimate.is_date_proposed || Boolean(estimate.proposed_date)) ? 'เสนอวันใหม่อีกครั้ง' : 'เสนอวันใหม่'}</span>
               </button>
               <button
                 type="button"
@@ -978,9 +1269,11 @@ export default function ArtistRequestDetailDrawer({ estimate, isOpen, onClose, o
                   resetRejectState();
                   setShowRejectModal(true);
                 }}
-                className="py-2.5 px-2 bg-red-950/80 hover:bg-red-900 text-red-200 border border-red-800 rounded-xl font-semibold text-xs transition-colors cursor-pointer text-center"
+                disabled={submitting}
+                className="w-full py-2.5 px-4 bg-red-800 hover:bg-red-700 border border-red-700 hover:border-red-600 text-white rounded-xl font-semibold text-xs transition-colors duration-150 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
               >
-                ปฏิเสธคำขอ
+                <XCircle size={14} className="shrink-0 text-white" />
+                <span>ปฏิเสธคำขอ</span>
               </button>
             </div>
           ) : (
@@ -1178,6 +1471,28 @@ export default function ArtistRequestDetailDrawer({ estimate, isOpen, onClose, o
           </div>
         </div>,
         document.body
+      )}
+
+      {/* Artist Propose Multi Dates Modal Overlay */}
+      {isProposingDates && estimate && (
+        <ProposeMultiDatesModal
+          isOpen={isProposingDates}
+          estimateRequestId={isFlash ? null : estimate.id}
+          flashReservationId={isFlash ? estimate.id : null}
+          requestCode={requestCode}
+          customerName={estimate.customer_name}
+          tattooSize={isFlash ? (estimate.flash_size_label || (estimate as any).size_label || formatTattooSize(estimate.width_cm, estimate.height_cm)) : formatTattooSize(estimate.width_cm, estimate.height_cm)}
+          preferredDate={estimate.preferred_date || (estimate as any).requested_date}
+          preferredTime={estimate.preferred_time || (estimate as any).requested_start_time || (estimate as any).preferredTime || null}
+          defaultDate={(estimate.is_date_proposed || Boolean(estimate.proposed_date)) ? (resolvedProposedDate || latestProposedDate || estimate.proposed_date || null) : null}
+          defaultTime={(estimate.is_date_proposed || Boolean(estimate.proposed_date)) ? (resolvedProposedTime || latestProposedTime || estimate.proposed_time || null) : null}
+          onClose={() => setIsProposingDates(false)}
+          onSuccess={() => {
+            setIsProposingDates(false);
+            if (onSuccess) onSuccess();
+            onClose();
+          }}
+        />
       )}
     </div>
   );

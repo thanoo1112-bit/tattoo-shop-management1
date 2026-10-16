@@ -55,7 +55,7 @@ export default function CalendarToolbar({
             type="button"
             onClick={onPrev}
             aria-label="ก่อนหน้า"
-            className="p-1.5 text-[#A89F91] hover:text-[#ECE4D3] hover:bg-[#1A1815] transition-colors"
+            className="p-1.5 text-[#B8B0A3] hover:text-[#ECE4D3] hover:bg-[#1A1815] transition-colors"
           >
             <ChevronLeft size={16} />
           </button>
@@ -65,7 +65,7 @@ export default function CalendarToolbar({
             type="button"
             onClick={onNext}
             aria-label="ถัดไป"
-            className="p-1.5 text-[#A89F91] hover:text-[#ECE4D3] hover:bg-[#1A1815] transition-colors"
+            className="p-1.5 text-[#B8B0A3] hover:text-[#ECE4D3] hover:bg-[#1A1815] transition-colors"
           >
             <ChevronRight size={16} />
           </button>
@@ -102,7 +102,7 @@ export default function CalendarToolbar({
             className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
               viewMode === 'MONTH'
                 ? 'bg-[#171512] text-[#ECE4D3] shadow-sm font-semibold border border-[#4A443A]/60'
-                : 'text-[#A89F91] hover:text-[#ECE4D3]'
+                : 'text-[#B8B0A3] hover:text-[#ECE4D3]'
             }`}
           >
             เดือน
@@ -114,7 +114,7 @@ export default function CalendarToolbar({
             className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
               viewMode === 'QUEUE'
                 ? 'bg-[#171512] text-[#ECE4D3] shadow-sm font-semibold border border-[#4A443A]/60'
-                : 'text-[#A89F91] hover:text-[#ECE4D3]'
+                : 'text-[#B8B0A3] hover:text-[#ECE4D3]'
             }`}
           >
             ตารางคิวงาน
@@ -127,7 +127,7 @@ export default function CalendarToolbar({
           onClick={onRefresh}
           disabled={isLoading}
           aria-label="รีเฟรช"
-          className="p-2 bg-[#0E0D0C] hover:bg-[#1A1815] text-[#A89F91] hover:text-[#ECE4D3] border border-[#4A443A] rounded-lg transition-colors shrink-0"
+          className="p-2 bg-[#0E0D0C] hover:bg-[#1A1815] text-[#B8B0A3] hover:text-[#ECE4D3] border border-[#4A443A] rounded-lg transition-colors shrink-0"
         >
           <RotateCw size={14} className={isLoading ? 'animate-spin' : ''} />
         </button>

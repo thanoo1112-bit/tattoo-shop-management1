@@ -3,7 +3,7 @@
 import React from 'react';
 import { CustomerPortalBooking, CustomerPortalEstimate, CustomerFlashReservationRecord } from './types';
 import BookingStatusBadge from './BookingStatusBadge';
-import { Calendar, CalendarClock, ChevronRight, Layers } from 'lucide-react';
+import { Calendar, ChevronRight, Layers } from 'lucide-react';
 import { formatThaiDate, formatTimeBangkok, resolveCustomerDisplayStatus, getDepositDeadlineInfo, parseFlashCustomerNote } from './portalUtils';
 import { formatTattooSize } from '@/lib/utils/formatters';
 import CustomerReferenceImage from '@/components/common/CustomerReferenceImage';
@@ -38,8 +38,9 @@ export default function CustomerBookingCard({
 
   let displayStatus = '';
   if (isFlash) {
+    const isFlashDateProposed = Boolean(flashRes.proposed_date || (item as any)?.proposed_date);
     const s = (item.status || flashRes.status || '').toUpperCase();
-    if (s === 'PENDING' || s === 'PENDING_REVIEW') displayStatus = 'PENDING';
+    if (s === 'PENDING' || s === 'PENDING_REVIEW') displayStatus = isFlashDateProposed ? 'WAITING_DEPOSIT' : 'PENDING';
     else if (s === 'WAITING_DEPOSIT' || s === 'PENDING_PAYMENT') displayStatus = hasPendingSlip ? 'SLIP_REVIEW' : 'WAITING_DEPOSIT';
     else if (s === 'SLIP_REVIEW' || s === 'VERIFICATION_PENDING') displayStatus = 'SLIP_REVIEW';
     else if (s === 'APPROVED' || s === 'CONFIRMED' || s === 'IN_PROGRESS') displayStatus = 'CONFIRMED';
@@ -49,7 +50,8 @@ export default function CustomerBookingCard({
     else if (s === 'EXPIRED') displayStatus = 'EXPIRED';
     else displayStatus = s;
   } else {
-    const rawDisplayStatus = resolveCustomerDisplayStatus(item.status, hasPendingSlip);
+    const isDateProposed = Boolean((item as any)?.is_date_proposed);
+    const rawDisplayStatus = resolveCustomerDisplayStatus(item.status, hasPendingSlip, isDateProposed);
     displayStatus = (rawDisplayStatus === 'WAITING_DEPOSIT' && isExpired) ? 'EXPIRED' : rawDisplayStatus;
   }
 
@@ -80,7 +82,7 @@ export default function CustomerBookingCard({
   // 3. Resolve Tattoo Style & Main Title
   let mainTitle = '';
   if (isFlash) {
-    mainTitle = flashDesignObj?.title || booking.artwork_title || 'แบบลายสัก Flash';
+    mainTitle = flashDesignObj?.style || booking.style || (item as any)?.style || 'Flash';
   } else {
     const rawStyle = isBooking ? (booking.style || matchingEst?.style) : estimate.style;
     const realStyle = (rawStyle && rawStyle !== 'Custom' && rawStyle !== 'CUSTOM') ? rawStyle : null;
@@ -130,7 +132,12 @@ export default function CustomerBookingCard({
   // 6. Resolve Appointment Date & Time
   let appointmentDisplay = '';
   if (isFlash) {
-    if (flashRes.requested_date) {
+    if (flashRes.proposed_date) {
+      const pTimeStr = flashRes.proposed_time ? `${flashRes.proposed_time.slice(0, 5)} น.` : '';
+      appointmentDisplay = pTimeStr
+        ? `${formatThaiDate(flashRes.proposed_date)} · ${pTimeStr}`
+        : formatThaiDate(flashRes.proposed_date);
+    } else if (flashRes.requested_date) {
       const timeStr = flashRes.requested_start_time ? `${flashRes.requested_start_time.slice(0, 5)} น.` : '';
       appointmentDisplay = timeStr
         ? `${formatThaiDate(flashRes.requested_date)} · ${timeStr}`
@@ -200,27 +207,17 @@ export default function CustomerBookingCard({
           {/* Row 1: Main Title + ID + Status Badge (+ Deposit Badge) */}
           <div className="flex items-center space-x-2 flex-wrap gap-y-1">
             {isFlash && (
-              <span className={
-                isInactive
-                  ? "text-[10px] bg-zinc-900 text-zinc-400 border border-zinc-800 px-1.5 py-0.5 rounded font-medium shrink-0"
-                  : "text-[10px] bg-studio-red/20 text-studio-red border border-studio-red/50 px-1.5 py-0.5 rounded font-bold shrink-0"
-              }>
-                จองลาย Flash
+              <span className={isInactive ? "text-xs font-semibold text-zinc-400 shrink-0" : "text-xs font-semibold text-[#ECE4D3] shrink-0"}>
+                งานสัก
               </span>
             )}
-            <h4 className={isInactive ? "text-xs font-semibold text-zinc-300 truncate" : "text-xs font-bold text-studio-primary truncate"}>
+            <h4 className={isInactive ? "text-xs font-semibold text-zinc-300 truncate" : "text-xs font-bold text-[#ECE4D3] truncate"}>
               {mainTitle}
             </h4>
-            <span className={isInactive ? "text-[10px] text-zinc-500 font-mono" : "text-[10px] text-studio-muted font-mono"}>
+            <span className={isInactive ? "text-[10px] text-zinc-400 font-mono" : "text-[10px] text-[#F2EEE8] font-mono"}>
               #{item.id.slice(0, 8)}
             </span>
             <BookingStatusBadge status={displayStatus as any} type={type === 'flash' ? 'booking' : type} />
-            {Boolean((item as any).is_date_proposed) && (
-              <span className="text-[10px] bg-amber-950/80 text-amber-300 border border-amber-700/80 px-2 py-0.5 rounded-full font-semibold flex items-center gap-1 shrink-0 animate-pulse">
-                <CalendarClock size={11} />
-                <span>เลือกรอบนัดหมาย</span>
-              </span>
-            )}
             {displayStatus === 'WAITING_DEPOSIT' && deadlineInfo && !deadlineInfo.isExpired && (
               <span className="text-[10px] bg-[#D9A441]/10 border border-[#D9A441]/45 text-[#D9A441] px-1.5 py-0.2 rounded font-semibold font-mono">
                 เหลือ {deadlineInfo.remainingText}
@@ -229,7 +226,7 @@ export default function CustomerBookingCard({
           </div>
 
           {/* Row 2: Job Summary (Artist · Placement · Size) */}
-          <div className={isInactive ? "text-[11px] text-zinc-400 truncate" : "text-[11px] text-studio-secondary truncate"}>
+          <div className={isInactive ? "text-[11px] text-zinc-400 truncate" : "text-[11px] text-[#E2DDD4] truncate"}>
             {isFlash
               ? [artistDisplayName, flashPlacementStr, flashSizeStr].filter(Boolean).join(' · ')
               : `${artistDisplayName} · ${placementDisplay} · ${sizeDisplay}`}
@@ -237,9 +234,9 @@ export default function CustomerBookingCard({
 
 
           {/* Row 3: Appointment (Date · Time) */}
-          <div className={isInactive ? "flex items-center space-x-1.5 text-[11px] text-zinc-400" : "flex items-center space-x-1.5 text-[11px] text-studio-secondary"}>
+          <div className={isInactive ? "flex items-center space-x-1.5 text-[11px] text-zinc-400" : "flex items-center space-x-1.5 text-[11px] text-[#F2EEE8]"}>
             <Calendar size={12} className={isInactive ? "text-zinc-500 shrink-0" : "text-studio-red shrink-0"} />
-            <span className="truncate">{appointmentDisplay}</span>
+            <span className="truncate text-[#F2EEE8]">{appointmentDisplay}</span>
             {isBooking && booking.sessions && booking.sessions.length > 1 && (
               <span className={isInactive ? "flex items-center space-x-1 text-zinc-500 ml-1.5 shrink-0" : "flex items-center space-x-1 text-[#C9A86A] ml-1.5 shrink-0"}>
                 <Layers size={11} />
@@ -251,7 +248,7 @@ export default function CustomerBookingCard({
       </div>
 
       {/* Chevron Right Icon */}
-      <ChevronRight size={16} className={isInactive ? "text-zinc-600 group-hover:text-zinc-400 transition-colors ml-4 shrink-0" : "text-studio-muted group-hover:text-studio-red transition-colors ml-4 shrink-0"} />
+      <ChevronRight size={16} className={isInactive ? "text-zinc-600 group-hover:text-zinc-400 transition-colors ml-4 shrink-0" : "text-[#E2DDD4] group-hover:text-studio-red transition-colors ml-4 shrink-0"} />
     </div>
   );
 }

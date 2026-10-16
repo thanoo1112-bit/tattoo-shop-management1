@@ -18,6 +18,8 @@ import {
   ZoomIn,
 } from 'lucide-react';
 import { formatCustomerAgeDisplay, formatCustomerHealthInfo } from '@/lib/customerUtils';
+import { isConfirmedDepositBooking, isDepositExpired, getDepositDeadlineInfo } from '@/components/portal/portalUtils';
+import { hasEstimateProposalHistory } from '@/components/admin/requests/types';
 
 export interface ArtistCustomerDetail {
   customer_id?: string;
@@ -99,32 +101,107 @@ function formatStartTime(timeStr?: string | null, dateStr?: string | null): stri
   return 'ไม่ระบุเวลา';
 }
 
-// Status Config matching Admin Customer Archive badge styles
-function getBookingStatusBadge(status?: string | null) {
-  const st = (status || '').toUpperCase();
+// Status Badge Presentation synced with Admin Requests & Admin Customer Archive
+function getArtistCustomerArchiveStatusInfo(statusKey?: string | null) {
+  const st = (statusKey || '').toUpperCase();
   switch (st) {
     case 'CONFIRMED':
-    case 'SCHEDULED':
-      return { label: 'นัดหมายแล้ว', dot: 'bg-blue-500', badge: 'text-blue-400 bg-blue-950/60 border-blue-800' };
+    case 'APPROVED':
+      return {
+        key: 'CONFIRMED',
+        label: 'ยืนยันคิว',
+        dot: 'bg-emerald-400',
+        badge: 'text-emerald-300 bg-emerald-950/60 border border-emerald-800/80',
+        isTerminal: false,
+      };
     case 'IN_PROGRESS':
-    case 'HAS_SESSION':
-      return { label: 'มีรอบสัก', dot: 'bg-purple-500 animate-pulse', badge: 'text-purple-400 bg-purple-950/60 border-purple-800' };
+      return {
+        key: 'IN_PROGRESS',
+        label: 'กำลังสัก',
+        dot: 'bg-[#9C2F2F]',
+        badge: 'bg-[#9C2F2F]/20 text-[#D64545] border border-[#9C2F2F]/60 animate-pulse',
+        isTerminal: false,
+      };
     case 'WAITING_DEPOSIT':
     case 'PENDING_DEPOSIT':
-      return { label: 'รอมัดจำ', dot: 'bg-amber-400', badge: 'text-amber-300 bg-amber-950/60 border-amber-800' };
+      return {
+        key: 'WAITING_DEPOSIT',
+        label: 'รอมัดจำ',
+        dot: 'bg-amber-400',
+        badge: 'text-amber-300 bg-amber-500/15 border border-amber-400/40',
+        isTerminal: false,
+      };
+    case 'PENDING_SLIP':
+    case 'WAITING_SLIP_VERIFICATION':
+      return {
+        key: 'PENDING_SLIP',
+        label: 'สลิปรอตรวจ',
+        dot: 'bg-amber-400 animate-pulse',
+        badge: 'text-amber-300 bg-amber-500/15 border border-amber-400/40 animate-pulse',
+        isTerminal: false,
+      };
     case 'PENDING':
     case 'QUOTED':
-      return { label: 'รอตรวจสอบ', dot: 'bg-studio-red-bright animate-pulse', badge: 'text-studio-red-bright bg-[#9C2F2F]/20 border-studio-red-base' };
+      return {
+        key: 'PENDING',
+        label: 'รอตรวจสอบ',
+        dot: 'bg-blue-400 animate-pulse',
+        badge: 'text-blue-300 bg-blue-500/15 border border-blue-400/40',
+        isTerminal: false,
+      };
     case 'COMPLETED':
-      return { label: 'งานเสร็จสิ้น', dot: 'bg-emerald-500', badge: 'text-emerald-400 bg-emerald-950/60 border-emerald-800' };
-    case 'EXPIRED':
-      return { label: 'หมดเวลาชำระมัดจำ', dot: 'bg-zinc-500', badge: 'text-zinc-400 bg-zinc-900/90 border-zinc-700' };
+      return {
+        key: 'COMPLETED',
+        label: 'เสร็จสิ้น',
+        dot: 'bg-emerald-500',
+        badge: 'text-emerald-400 bg-emerald-950/60 border border-emerald-800',
+        isTerminal: true,
+      };
+    case 'CANCELLED_CUSTOMER':
+      return {
+        key: 'CANCELLED_CUSTOMER',
+        label: 'ลูกค้ายกเลิก',
+        dot: 'bg-zinc-500',
+        badge: 'text-zinc-400 bg-zinc-900/90 border border-zinc-700/80',
+        isTerminal: true,
+      };
     case 'CANCELLED':
+      return {
+        key: 'CANCELLED',
+        label: 'ยกเลิก',
+        dot: 'bg-zinc-500',
+        badge: 'text-zinc-400 bg-zinc-900/90 border border-zinc-700/80',
+        isTerminal: true,
+      };
     case 'REJECTED':
-      return { label: 'ยกเลิก', dot: 'bg-red-500', badge: 'text-red-400 bg-red-950/60 border-red-800' };
+      return {
+        key: 'REJECTED',
+        label: 'ปฏิเสธ',
+        dot: 'bg-zinc-500',
+        badge: 'text-zinc-400 bg-zinc-900/90 border border-zinc-700/80',
+        isTerminal: true,
+      };
+    case 'EXPIRED':
+      return {
+        key: 'EXPIRED',
+        label: 'หมดอายุ',
+        dot: 'bg-zinc-500',
+        badge: 'text-zinc-400 bg-zinc-900/90 border border-zinc-700/80',
+        isTerminal: true,
+      };
     default:
-      return { label: status || 'ไม่ระบุ', dot: 'bg-[#7A7265]', badge: 'text-[#A89F91] bg-[#171512] border-[#4A443A]' };
+      return {
+        key: st,
+        label: statusKey || '-',
+        dot: 'bg-[#7A7265]',
+        badge: 'text-[#A89F91] bg-[#171512] border border-[#4A443A]',
+        isTerminal: false,
+      };
   }
+}
+
+function getBookingStatusBadge(status?: string | null) {
+  return getArtistCustomerArchiveStatusInfo(status);
 }
 
 // Avatar initials fallback matching Admin Customer Archive
@@ -141,10 +218,12 @@ function CustomerAvatar({ name, sizeClass = 'w-16 h-16', textClass = 'text-2xl' 
 function ReferenceGallery({
   images,
   singleFallback,
+  isTerminal = false,
   onOpenLightbox,
 }: {
   images?: string[] | null;
   singleFallback?: string | null;
+  isTerminal?: boolean;
   onOpenLightbox: (imgs: string[], index: number) => void;
 }) {
   const gallery: string[] = (images && images.length > 0)
@@ -154,8 +233,14 @@ function ReferenceGallery({
   if (gallery.length === 0) {
     return (
       <div className="pt-2 border-t border-[#4A443A]/30">
-        <span className="text-[10px] text-[#7A7265] italic bg-[#171512] border border-[#38332E] px-2.5 py-1 rounded-[4px] inline-flex items-center gap-1.5 font-prompt">
-          <Sparkles size={11} className="text-studio-red-bright/80" />
+        <span
+          className={`text-[10px] italic px-2.5 py-1 rounded-[4px] inline-flex items-center gap-1.5 font-prompt ${
+            isTerminal
+              ? 'text-zinc-500 bg-zinc-900/60 border border-zinc-800'
+              : 'text-[#7A7265] bg-[#171512] border border-[#38332E]'
+          }`}
+        >
+          <Sparkles size={11} className={isTerminal ? 'text-zinc-500' : 'text-studio-red-bright/80'} />
           <span>ไม่มีรูปอ้างอิง</span>
         </span>
       </div>
@@ -164,7 +249,7 @@ function ReferenceGallery({
 
   return (
     <div className="pt-2 border-t border-[#4A443A]/40 space-y-1.5">
-      <span className="text-[10px] uppercase font-bold text-[#7A7265] tracking-wider block">
+      <span className={`text-[10px] uppercase font-bold tracking-wider block ${isTerminal ? 'text-zinc-500' : 'text-[#7A7265]'}`}>
         รูปภาพอ้างอิง ({gallery.length} รูป):
       </span>
       <div className="flex flex-wrap items-center gap-2 overflow-x-auto pb-1 max-w-full">
@@ -172,13 +257,17 @@ function ReferenceGallery({
           <div
             key={idx}
             onClick={() => onOpenLightbox(gallery, idx)}
-            className="relative w-16 h-16 sm:w-20 sm:h-20 rounded-[6px] border border-[#4A443A] hover:border-[#9C2F2F] bg-[#0E0D0C] overflow-hidden shrink-0 cursor-pointer group shadow-sm transition-all"
+            className={`relative w-16 h-16 sm:w-20 sm:h-20 rounded-[6px] border ${
+              isTerminal
+                ? 'border-zinc-800 hover:border-zinc-700 bg-zinc-900/60'
+                : 'border-[#4A443A] hover:border-[#9C2F2F] bg-[#0E0D0C]'
+            } overflow-hidden shrink-0 cursor-pointer group shadow-sm transition-all`}
             title={`คลิกเพื่อดูรูปที่ ${idx + 1}`}
           >
             <CustomerReferenceImage
               src={imgSrc}
               alt={`Ref image ${idx + 1}`}
-              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+              className={`w-full h-full object-cover transition-transform group-hover:scale-105 duration-200 ${isTerminal ? 'opacity-70' : ''}`}
             />
             <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
               <ZoomIn size={14} className="text-white" />
@@ -237,10 +326,17 @@ export default function ArtistCustomerDetailDrawer({
   const ageDisplay = formatCustomerAgeDisplay(resolvedDob);
 
   // 3. Tab Categorization (Rule 1)
-  // Active Queue = ONLY SCHEDULED, CONFIRMED, IN_PROGRESS
+  // Active Queue = ONLY SCHEDULED, CONFIRMED, IN_PROGRESS with confirmed deposit
+  const pendingSubBookingIds = new Set(
+    paymentSubmissions
+      .filter((s: any) => (s.status || '').toUpperCase() === 'PENDING')
+      .map((s: any) => s.booking_id)
+      .filter(Boolean)
+  );
+
   const activeQueueBookings = allBookings.filter((b: any) => {
-    const st = (b.status || '').toUpperCase();
-    return st === 'SCHEDULED' || st === 'CONFIRMED' || st === 'IN_PROGRESS';
+    if (pendingSubBookingIds.has(b.id)) return false;
+    return isConfirmedDepositBooking(b) && (b.status || '').toUpperCase() !== 'COMPLETED';
   });
 
   // Completed Tattoos = ONLY COMPLETED
@@ -281,45 +377,44 @@ export default function ArtistCustomerDetailDrawer({
     };
   };
 
-  // Request Bookings (WAITING_DEPOSIT, PENDING_DEPOSIT, PENDING, EXPIRED, QUOTED)
-  const requestBookings = allBookings.filter((b: any) => {
-    const st = (b.status || '').toUpperCase();
-    return (
-      st === 'WAITING_DEPOSIT' ||
-      st === 'PENDING_DEPOSIT' ||
-      st === 'PENDING' ||
-      st === 'EXPIRED' ||
-      st === 'QUOTED'
-    );
-  });
-
   // Unified Booking Requests (Deduplication of Estimates and Request Bookings)
   const handledBookingIds = new Set<string>();
   const unifiedRequests: any[] = [];
 
-  // Add Estimates (excluding active queue, completed, or cancelled/rejected items)
+  // 1. Add Estimates (excluding active queue or completed items)
   allEstimates.forEach((e: any) => {
-    const eStatus = (e.status || '').toUpperCase();
-
-    // Skip estimates linked to active queue / completed bookings, or already confirmed/completed/cancelled/rejected
-    if (
-      activeOrCompletedEstIds.has(e.id) ||
-      eStatus === 'CONFIRMED' ||
-      eStatus === 'COMPLETED' ||
-      eStatus === 'SCHEDULED' ||
-      eStatus === 'IN_PROGRESS' ||
-      eStatus === 'CANCELLED' ||
-      eStatus === 'REJECTED'
-    ) {
+    // Skip estimates linked to active queue / completed bookings
+    if (activeOrCompletedEstIds.has(e.id)) {
       return;
     }
 
-    const matchingBooking = requestBookings.find(
-      (b: any) => b.estimate_request_id === e.id
+    const matchingBooking = allBookings.find(
+      (b: any) => b.estimate_request_id === e.id || b.id === e.id
     );
 
     if (matchingBooking) {
       handledBookingIds.add(matchingBooking.id);
+      const bStatus = (matchingBooking.status || '').toUpperCase();
+      let effectiveStatus = bStatus || (e.status || 'PENDING').toUpperCase();
+
+      // Check dynamic expired
+      if (['WAITING_DEPOSIT', 'PENDING_DEPOSIT', 'ACCEPTED', 'QUOTED', 'PENDING'].includes(effectiveStatus)) {
+        if (isDepositExpired(matchingBooking, e)) {
+          effectiveStatus = 'EXPIRED';
+        }
+      }
+
+      // Proposal history check for CANCELLED
+      if (effectiveStatus === 'CANCELLED' && hasEstimateProposalHistory(e as any)) {
+        effectiveStatus = 'CANCELLED_CUSTOMER';
+      }
+
+      // If the request has become a CONFIRMED, IN_PROGRESS, or COMPLETED job,
+      // it belongs in the Queue or History tabs, NOT the Requests tab!
+      if (['CONFIRMED', 'IN_PROGRESS', 'COMPLETED', 'SCHEDULED'].includes(effectiveStatus)) {
+        return;
+      }
+
       const flashDetails = getFlashDetails(matchingBooking.flash_reservation_id);
       unifiedRequests.push({
         id: `unified-${e.id}-${matchingBooking.id}`,
@@ -330,8 +425,10 @@ export default function ArtistCustomerDetailDrawer({
         width_cm: matchingBooking.width_cm ?? flashDetails?.width_cm ?? e.width_cm,
         height_cm: matchingBooking.height_cm ?? flashDetails?.height_cm ?? e.height_cm,
         created_at: matchingBooking.created_at ?? e.created_at,
-        status: matchingBooking.status ?? e.status ?? 'WAITING_DEPOSIT',
+        status: effectiveStatus,
         deposit_required: matchingBooking.deposit_required ?? flashDetails?.deposit_required ?? e.deposit_required ?? 500,
+        quoted_price: e.quoted_price ?? matchingBooking.quoted_price,
+        quoted_deposit: e.deposit_required ?? matchingBooking.deposit_required,
         reference_images: e.reference_images?.length
           ? e.reference_images
           : (matchingBooking.reference_images?.length ? matchingBooking.reference_images : (flashDetails?.image_url ? [flashDetails.image_url] : (e.reference_image ? [e.reference_image] : []))),
@@ -340,6 +437,24 @@ export default function ArtistCustomerDetailDrawer({
         estimate: e,
       });
     } else {
+      let effectiveStatus = (e.status || 'PENDING').toUpperCase();
+
+      // Check dynamic expired
+      if (['WAITING_DEPOSIT', 'PENDING_DEPOSIT', 'ACCEPTED', 'QUOTED', 'PENDING'].includes(effectiveStatus)) {
+        if (isDepositExpired(null, e)) {
+          effectiveStatus = 'EXPIRED';
+        }
+      }
+
+      // Proposal history check for CANCELLED
+      if (effectiveStatus === 'CANCELLED' && hasEstimateProposalHistory(e as any)) {
+        effectiveStatus = 'CANCELLED_CUSTOMER';
+      }
+
+      if (['CONFIRMED', 'IN_PROGRESS', 'COMPLETED', 'SCHEDULED'].includes(effectiveStatus)) {
+        return;
+      }
+
       unifiedRequests.push({
         id: `est-${e.id}`,
         estimate_id: e.id,
@@ -349,8 +464,10 @@ export default function ArtistCustomerDetailDrawer({
         width_cm: e.width_cm,
         height_cm: e.height_cm,
         created_at: e.created_at,
-        status: e.status ?? 'PENDING',
+        status: effectiveStatus,
         deposit_required: e.deposit_required ?? 500,
+        quoted_price: e.quoted_price,
+        quoted_deposit: e.deposit_required,
         reference_images: e.reference_images?.length
           ? e.reference_images
           : (e.reference_image ? [e.reference_image] : []),
@@ -360,18 +477,17 @@ export default function ArtistCustomerDetailDrawer({
     }
   });
 
-  // Add standalone request bookings (without linked estimate, e.g. Flash reservation bookings or direct bookings)
-  requestBookings.forEach((b: any) => {
-    const bStatus = (b.status || '').toUpperCase();
-    if (
-      !handledBookingIds.has(b.id) &&
-      bStatus !== 'CONFIRMED' &&
-      bStatus !== 'SCHEDULED' &&
-      bStatus !== 'IN_PROGRESS' &&
-      bStatus !== 'COMPLETED' &&
-      bStatus !== 'CANCELLED' &&
-      bStatus !== 'REJECTED'
-    ) {
+  // 2. Add standalone request bookings (without linked estimate, e.g. Flash reservation bookings or direct bookings)
+  allBookings.forEach((b: any) => {
+    if (handledBookingIds.has(b.id)) return;
+    let bStatus = (b.status || '').toUpperCase();
+    if (['WAITING_DEPOSIT', 'PENDING_DEPOSIT', 'ACCEPTED', 'PENDING'].includes(bStatus)) {
+      if (isDepositExpired(b)) {
+        bStatus = 'EXPIRED';
+      }
+    }
+
+    if (['EXPIRED', 'WAITING_DEPOSIT', 'PENDING_DEPOSIT', 'PENDING_SLIP', 'WAITING_SLIP_VERIFICATION', 'PENDING', 'REJECTED', 'CANCELLED', 'CANCELLED_CUSTOMER'].includes(bStatus)) {
       const flashDetails = getFlashDetails(b.flash_reservation_id);
       const style = flashDetails?.title ?? (b.style_preference ? `งานสไตล์ ${b.style_preference}` : (b.artwork_title ?? 'Custom Tattoo'));
 
@@ -384,13 +500,47 @@ export default function ArtistCustomerDetailDrawer({
         width_cm: b.width_cm ?? flashDetails?.width_cm,
         height_cm: b.height_cm ?? flashDetails?.height_cm,
         created_at: b.created_at,
-        status: b.status ?? 'WAITING_DEPOSIT',
+        status: bStatus,
         deposit_required: b.deposit_required ?? flashDetails?.deposit_required ?? 500,
         reference_images: b.reference_images?.length
           ? b.reference_images
           : (flashDetails?.image_url ? [flashDetails.image_url] : (b.artwork_image_url ? [b.artwork_image_url] : [])),
         artist_name: artistName,
         booking: b,
+      });
+    }
+  });
+
+  // 3. Add standalone Flash reservations (not linked to any booking)
+  const linkedFlashIds = new Set(
+    allBookings.map((b: any) => b.flash_reservation_id).filter(Boolean)
+  );
+
+  allFlashRes.forEach((fr: any) => {
+    // Dedupe: Skip if linked to any booking
+    if (linkedFlashIds.has(fr.id)) return;
+
+    let frStatus = (fr.status || '').toUpperCase();
+    if (['EXPIRED', 'WAITING_DEPOSIT', 'PENDING_DEPOSIT', 'PENDING_SLIP', 'WAITING_SLIP_VERIFICATION', 'PENDING', 'REJECTED', 'CANCELLED', 'CANCELLED_CUSTOMER'].includes(frStatus)) {
+      const fd = fr.flash_designs || fr.flash_design;
+      const title = fd?.title ? `ลาย Flash: ${fd.title}` : (fr.flash_design_title ? `ลาย Flash: ${fr.flash_design_title}` : 'ลาย Flash');
+      const img = fd?.image_url || fr.flash_design_image_url;
+
+      unifiedRequests.push({
+        id: `flash-${fr.id}`,
+        estimate_id: null,
+        booking_id: null,
+        flash_reservation_id: fr.id,
+        style: title,
+        placement: fr.placement || fd?.placement || 'ตามที่ตกลง',
+        width_cm: fr.width_cm || fd?.width_cm,
+        height_cm: fr.height_cm || fd?.height_cm,
+        created_at: fr.requested_date || fr.created_at,
+        status: frStatus,
+        deposit_required: fr.deposit_required || fd?.deposit_amount || 500,
+        reference_images: img ? [img] : [],
+        artist_name: artistName,
+        flash_reservation: fr,
       });
     }
   });
@@ -469,10 +619,10 @@ export default function ArtistCustomerDetailDrawer({
   // 6. Next Appointment Resolution (Strictly IN THE FUTURE)
   const nowMs = Date.now();
 
-  // Active Queue Bookings: ONLY SCHEDULED, CONFIRMED, IN_PROGRESS
+  // Active Queue Bookings: ONLY SCHEDULED, CONFIRMED, IN_PROGRESS with confirmed deposit
   const validActiveQueueBookings = allBookings.filter((b: any) => {
-    const st = (b.status || '').toUpperCase();
-    return st === 'SCHEDULED' || st === 'CONFIRMED' || st === 'IN_PROGRESS';
+    if (pendingSubBookingIds.has(b.id)) return false;
+    return isConfirmedDepositBooking(b) && (b.status || '').toUpperCase() !== 'COMPLETED';
   });
 
   const activeQueueBookingIds = new Set(validActiveQueueBookings.map((b: any) => b.id));
@@ -596,15 +746,15 @@ export default function ArtistCustomerDetailDrawer({
               </h2>
               <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-[#A89F91] mt-0.5">
                 <span className="flex items-center space-x-1">
-                  <Mail size={11} className="text-[#7A7265]" />
+                  <Mail size={11} className="text-[#B8B0A3]" />
                   <span className="font-mono">{emailDisplay}</span>
                 </span>
                 <span className="flex items-center space-x-1">
-                  <Phone size={11} className="text-[#7A7265]" />
+                  <Phone size={11} className="text-[#B8B0A3]" />
                   <span className="font-mono">{phoneFormatted}</span>
                 </span>
                 <span className="flex items-center space-x-1">
-                  <Calendar size={11} className="text-[#7A7265]" />
+                  <Calendar size={11} className="text-[#B8B0A3]" />
                   <span className="font-mono">
                     {`อายุ: ${ageDisplay}`}
                   </span>
@@ -703,25 +853,25 @@ export default function ArtistCustomerDetailDrawer({
 
                   <div className="grid grid-cols-2 gap-2 text-xs text-[#A89F91]">
                     <div>
-                      <span className="text-[10px] text-[#7A7265] block">ผลงาน / ลายสัก:</span>
+                      <span className="text-[10px] text-[#B8B0A3] block">ผลงาน / ลายสัก:</span>
                       <strong className="text-[#ECE4D3]">
                         {nextAppointment.artworkTitle}
                       </strong>
                     </div>
                     <div>
-                      <span className="text-[10px] text-[#7A7265] block">ช่างสัก:</span>
+                      <span className="text-[10px] text-[#B8B0A3] block">ช่างสัก:</span>
                       <strong className="text-[#ECE4D3]">
                         {nextAppointment.artistName}
                       </strong>
                     </div>
                     <div>
-                      <span className="text-[10px] text-[#7A7265] block">วันและเวลา:</span>
+                      <span className="text-[10px] text-[#B8B0A3] block">วันและเวลา:</span>
                       <span className="font-mono text-[#ECE4D3]">
                         {formatThaiDate(nextAppointment.date)} • {nextAppointment.startTime}
                       </span>
                     </div>
                     <div>
-                      <span className="text-[10px] text-[#7A7265] block">ตำแหน่งและขนาด:</span>
+                      <span className="text-[10px] text-[#B8B0A3] block">ตำแหน่งและขนาด:</span>
                       <span className="text-[#ECE4D3]">
                         {nextAppointment.placement}
                         {formatTattooSize(nextAppointment.width_cm, nextAppointment.height_cm)
@@ -733,9 +883,50 @@ export default function ArtistCustomerDetailDrawer({
 
                   <div className="pt-2 border-t border-[#4A443A]/40 flex justify-between items-center text-xs">
                     <span className="text-[#A89F91]">สถานะการชำระ:</span>
-                    <span className="font-mono font-bold text-emerald-400 bg-emerald-950/60 border border-emerald-800 px-2.5 py-1 rounded">
-                      มัดจำแล้ว ({nextAppointment.depositDisplay})
-                    </span>
+                    {(() => {
+                      const st = (nextAppointment?.status || '').toUpperCase();
+                      const isConfirmed = targetBookingForNext ? isConfirmedDepositBooking(targetBookingForNext) : false;
+                      if (isConfirmed) {
+                        return (
+                          <span className="font-mono font-bold text-emerald-400 bg-emerald-950/60 border border-emerald-800 px-2.5 py-1 rounded">
+                            มัดจำแล้ว ({nextAppointment.depositDisplay})
+                          </span>
+                        );
+                      }
+                      if (targetBookingForNext && isDepositExpired(targetBookingForNext)) {
+                        return (
+                          <span className="text-[10px] text-zinc-400 bg-zinc-900/90 border border-zinc-700/80 px-2.5 py-1 rounded font-medium">
+                            หมดเวลาชำระมัดจำ
+                          </span>
+                        );
+                      }
+                      if (st === 'PENDING_SLIP') {
+                        return (
+                          <span className="text-[10px] text-amber-300 bg-amber-500/15 border border-amber-400/40 px-2.5 py-1 rounded font-medium animate-pulse">
+                            รอตรวจสลิป
+                          </span>
+                        );
+                      }
+                      if (st === 'WAITING_DEPOSIT' || st === 'PENDING_DEPOSIT') {
+                        return (
+                          <span className="text-[10px] text-amber-300 bg-amber-500/15 border border-amber-400/40 px-2.5 py-1 rounded font-medium">
+                            ยังไม่ชำระมัดจำ
+                          </span>
+                        );
+                      }
+                      if (st === 'PENDING' || st === 'QUOTED') {
+                        return (
+                          <span className="text-[10px] text-blue-300 bg-blue-500/15 border border-blue-400/40 px-2.5 py-1 rounded font-medium">
+                            รอตรวจสอบ
+                          </span>
+                        );
+                      }
+                      return (
+                        <span className="text-[10px] text-[#A89F91] bg-[#0E0D0C] border border-[#4A443A] px-2.5 py-1 rounded">
+                          ยังไม่ชำระมัดจำ
+                        </span>
+                      );
+                    })()}
                   </div>
                 </div>
               ) : (
@@ -746,24 +937,24 @@ export default function ArtistCustomerDetailDrawer({
 
               {/* Client Service Specs (Strictly Completed Services) */}
               <div className="bg-[#0E0D0C] border border-[#4A443A] p-4 rounded-[6px] space-y-2.5">
-                <span className="text-[10px] uppercase font-bold text-[#7A7265] tracking-wider block">
+                <span className="text-[10px] uppercase font-bold text-[#B8B0A3] tracking-wider block">
                   ข้อมูลสรุปการใช้บริการ (COMPLETED SERVICES):
                 </span>
                 <div className="grid grid-cols-3 gap-3 text-xs">
                   <div>
-                    <span className="text-[#7A7265] text-[10px] block">ช่างที่เคยดูแล:</span>
+                    <span className="text-[#B8B0A3] text-[10px] block">ช่างที่เคยดูแล:</span>
                     <span className="text-[#ECE4D3] font-medium block truncate">
                       {lastArtistName}
                     </span>
                   </div>
                   <div>
-                    <span className="text-[#7A7265] text-[10px] block">งานที่ทำเสร็จล่าสุด:</span>
+                    <span className="text-[#B8B0A3] text-[10px] block">งานที่ทำเสร็จล่าสุด:</span>
                     <span className="text-[#ECE4D3] font-medium truncate block">
                       {lastArtworkTitle}
                     </span>
                   </div>
                   <div>
-                    <span className="text-[#7A7265] text-[10px] block">
+                    <span className="text-[#B8B0A3] text-[10px] block">
                       วันที่ใช้บริการล่าสุด:
                     </span>
                     <span className="text-[#ECE4D3] font-mono block">
@@ -773,18 +964,18 @@ export default function ArtistCustomerDetailDrawer({
                 </div>
 
                 <div className="pt-2 border-t border-[#4A443A]/40 space-y-2">
-                  <span className="text-[#7A7265] text-[10px] uppercase font-bold tracking-wider block">
+                  <span className="text-[#B8B0A3] text-[10px] uppercase font-bold tracking-wider block">
                     ข้อมูลสุขภาพ (สำหรับ Admin/ช่างเท่านั้น):
                   </span>
                   <div className="grid grid-cols-2 gap-2 text-xs">
                     <div className="p-2 bg-[#171512] rounded border border-[#4A443A]/50 space-y-0.5">
-                      <span className="text-[10px] text-[#7A7265] block font-medium">โรคประจำตัว:</span>
+                      <span className="text-[10px] text-[#B8B0A3] block font-medium">โรคประจำตัว:</span>
                       <span className="text-[#ECE4D3] font-medium block">
                         {healthInfo.medicalCondition}
                       </span>
                     </div>
                     <div className="p-2 bg-[#171512] rounded border border-[#4A443A]/50 space-y-0.5">
-                      <span className="text-[10px] text-[#7A7265] block font-medium">อาการแพ้ (เช่น ยา, โลหะ, ยาชา):</span>
+                      <span className="text-[10px] text-[#B8B0A3] block font-medium">อาการแพ้ (เช่น ยา, โลหะ, ยาชา):</span>
                       <span className="text-[#ECE4D3] font-medium block">
                         {healthInfo.allergy}
                       </span>
@@ -815,27 +1006,34 @@ export default function ArtistCustomerDetailDrawer({
               ) : (
                 unifiedRequests.map((req: any) => {
                   const statusInfo = getBookingStatusBadge(req.status);
+                  const isTerminal = statusInfo.isTerminal;
                   const refImages: string[] = req.reference_images || [];
                   const sizeText = formatTattooSize(req.width_cm, req.height_cm);
-                  const linkedEst = req.estimate;
-                  const linkedBook = req.booking;
-                  const pd = getPaymentDetails(linkedBook, linkedEst);
 
                   return (
                     <div
                       key={req.id}
-                      className="p-3.5 bg-[#0E0D0C] border border-[#4A443A] rounded-[6px] space-y-2.5"
+                      className={`p-3.5 rounded-[6px] space-y-2.5 transition-colors ${
+                        isTerminal
+                          ? 'bg-zinc-950/40 border border-zinc-800'
+                          : 'bg-[#0E0D0C] border border-[#4A443A]'
+                      }`}
                     >
                       <div className="flex items-center justify-between">
                         <div className="min-w-0 flex-1 pr-2">
-                          <strong className="text-xs text-[#ECE4D3] block">
-                            สไตล์ {req.style || 'Custom'}{sizeText ? ` • ${sizeText}` : ''}
+                          <strong className={`text-xs block ${isTerminal ? 'text-zinc-400' : 'text-[#ECE4D3]'}`}>
+                            {req.style?.startsWith('ลาย Flash') || req.style?.startsWith('งานสไตล์') || req.style?.startsWith('สไตล์')
+                              ? req.style
+                              : `สไตล์ ${req.style || 'Custom'}`}
+                            {sizeText ? ` • ${sizeText}` : ''}
                           </strong>
-                          <span className="text-[10px] text-[#A89F91] block mt-0.5">
+                          <span className={`text-[10px] block mt-0.5 ${isTerminal ? 'text-zinc-500' : 'text-[#A89F91]'}`}>
                             ตำแหน่ง: {req.placement || 'ตามที่ตกลง'} • ช่าง: {artistName}
                           </span>
-                          <span className="text-[10px] text-[#7A7265] font-mono block mt-0.5">
-                            ส่งคำขอเมื่อ: {formatThaiDate(req.created_at)}
+                          <span className="text-[10px] text-zinc-500 font-mono block mt-0.5">
+                            {req.status === 'EXPIRED'
+                              ? `วันที่จอง: ${formatThaiDate(req.created_at)}`
+                              : `ส่งคำขอเมื่อ: ${formatThaiDate(req.created_at)}`}
                           </span>
                         </div>
                         <span
@@ -845,89 +1043,79 @@ export default function ArtistCustomerDetailDrawer({
                         </span>
                       </div>
 
-                      {/* Single deposit status box according to shop policy */}
-                      {(() => {
-                        const reqStatus = (req.status || '').toUpperCase();
-
-                        if (reqStatus === 'EXPIRED') {
-                          return (
-                            <div className="p-2 bg-[#171512] rounded border border-zinc-800/60 text-[11px] flex justify-between items-center">
-                              <span className="text-[#A89F91] font-medium">มัดจำที่กำหนด</span>
-                              <span className="font-mono font-bold text-[#A89F91]">฿{Number(req.deposit_required ?? 500).toLocaleString()}</span>
-                            </div>
-                          );
-                        }
-
-                        if (reqStatus === 'PENDING') {
-                          return (
-                            <div className="p-2 bg-[#171512] rounded border border-[#38332E] text-[11px] flex justify-between items-center">
-                              <span className="text-[#7A7265]">ข้อมูลการเงิน:</span>
-                              <span className="text-[#7A7265] italic text-[10px]">ยังไม่แสดงข้อมูลการเงิน (รอช่างตรวจสอบคำขอ)</span>
-                            </div>
-                          );
-                        }
-
-                        const bookingId = req.booking_id;
-                        const estimateId = req.estimate_id;
-
-                        const approvedSub = paymentSubmissions.find(
-                          (sub: any) =>
-                            sub.status === 'APPROVED' &&
-                            ((bookingId && sub.booking_id === bookingId) || (estimateId && sub.estimate_request_id === estimateId))
-                        );
-                        const validDepositPay = payments.find(
-                          (p: any) =>
-                            p.status !== 'VOIDED' &&
-                            (p.payment_type || '').toUpperCase() === 'DEPOSIT' &&
-                            bookingId &&
-                            p.booking_id === bookingId
-                        );
-
-                        if (approvedSub || validDepositPay) {
-                          const approvedAmount = validDepositPay?.amount ?? approvedSub?.claimed_amount ?? approvedSub?.amount ?? req.deposit_required ?? 500;
-                          return (
-                            <div className="p-2 bg-[#171512] rounded border border-emerald-900/60 text-[11px] flex justify-between items-center">
-                              <span className="text-emerald-400 font-medium">ชำระมัดจำแล้ว</span>
-                              <span className="font-mono font-bold text-emerald-400">฿{Number(approvedAmount).toLocaleString()}</span>
-                            </div>
-                          );
-                        }
-
-                        const pendingSub = paymentSubmissions.find(
-                          (sub: any) =>
-                            (sub.status === 'PENDING' || sub.status === 'SUBMITTED' || sub.status === 'UNDER_REVIEW') &&
-                            ((bookingId && sub.booking_id === bookingId) || (estimateId && sub.estimate_request_id === estimateId))
-                        );
-
-                        if (pendingSub) {
-                          return (
-                            <div className="p-2 bg-[#171512] rounded border border-amber-800/60 text-[11px] flex justify-between items-center">
-                              <div>
-                                <span className="text-[#ECE4D3] font-medium block">มัดจำ ฿{Number(req.deposit_required ?? 500).toLocaleString()}</span>
-                                <span className="text-amber-400 text-[10px] block">สถานะ: รอตรวจสอบสลิปมัดจำ</span>
-                              </div>
-                              <span className="text-[10px] text-amber-300 bg-amber-950/80 border border-amber-800 px-2 py-0.5 rounded font-medium">
-                                รอตรวจสอบสลิป
-                              </span>
-                            </div>
-                          );
-                        }
-
-                        return (
-                          <div className="p-2 bg-[#171512] rounded border border-amber-800/40 text-[11px] flex justify-between items-center">
-                            <div>
-                              <span className="text-[#ECE4D3] font-medium block">มัดจำที่ต้องชำระ ฿{Number(req.deposit_required ?? 500).toLocaleString()}</span>
-                              <span className="text-[#A89F91] text-[10px] block">สถานะ: รอชำระมัดจำ</span>
-                            </div>
-                            <span className="text-[10px] text-amber-400 bg-amber-950/60 border border-amber-800 px-2 py-0.5 rounded font-medium">
-                              รอชำระมัดจำ
+                      {/* DEPOSIT SUMMARY / DETAILS BOX */}
+                      {req.status === 'EXPIRED' ? (
+                        <div className="p-2 bg-zinc-900/60 rounded border border-zinc-800 text-[11px] flex justify-between items-center">
+                          <div>
+                            <span className="text-zinc-400 font-medium block">
+                              มัดจำที่กำหนด: ฿{(Number(req.deposit_required) || 500).toLocaleString()}
+                            </span>
+                            <span className="text-zinc-500 text-[10px] block">
+                              สถานะ: หมดเวลาชำระมัดจำ
                             </span>
                           </div>
-                        );
-                      })()}
+                          <span className="text-[10px] text-zinc-400 bg-zinc-900/90 border border-zinc-700/80 px-2 py-0.5 rounded font-medium">
+                            หมดเวลาชำระมัดจำ
+                          </span>
+                        </div>
+                      ) : req.status === 'CANCELLED' || req.status === 'CANCELLED_CUSTOMER' || req.status === 'REJECTED' ? (
+                        <div className="p-2 bg-zinc-900/60 rounded border border-zinc-800 text-[11px] flex justify-between items-center">
+                          <div>
+                            <span className="text-zinc-400 font-medium block">
+                              {req.status === 'REJECTED' ? 'ปฏิเสธคำขอ' : 'ยกเลิกคำขอแล้ว'}
+                            </span>
+                            <span className="text-zinc-500 text-[10px] block">
+                              มัดจำที่กำหนด: ฿{(Number(req.deposit_required) || 500).toLocaleString()}
+                            </span>
+                          </div>
+                          <span className="text-[10px] text-zinc-400 bg-zinc-900/90 border border-zinc-700/80 px-2 py-0.5 rounded font-medium">
+                            {statusInfo.label}
+                          </span>
+                        </div>
+                      ) : req.status === 'PENDING_SLIP' || req.status === 'WAITING_SLIP_VERIFICATION' ? (
+                        <div className="p-2 bg-[#171512] rounded border border-amber-400/40 text-[11px] flex justify-between items-center">
+                          <div>
+                            <span className="text-[#ECE4D3] font-medium block">
+                              มัดจำ ฿{(Number(req.deposit_required) || 500).toLocaleString()}
+                            </span>
+                            <span className="text-amber-300 text-[10px] block">สถานะ: รอตรวจสลิป</span>
+                          </div>
+                          <span className="text-[10px] text-amber-300 bg-amber-500/15 border border-amber-400/40 px-2 py-0.5 rounded font-medium animate-pulse">
+                            รอตรวจสลิป
+                          </span>
+                        </div>
+                      ) : req.status === 'WAITING_DEPOSIT' || req.status === 'PENDING_DEPOSIT' ? (
+                        <div className="p-2 bg-[#171512] rounded border border-amber-400/40 text-[11px] flex justify-between items-center">
+                          <div>
+                            <span className="text-[#ECE4D3] font-medium block">
+                              มัดจำที่กำหนด: ฿{(Number(req.deposit_required) || 500).toLocaleString()}
+                            </span>
+                            <span className="text-amber-300 text-[10px] block">สถานะ: ยังไม่ชำระมัดจำ</span>
+                          </div>
+                          <span className="text-[10px] text-amber-300 bg-amber-500/15 border border-amber-400/40 px-2 py-0.5 rounded font-medium">
+                            ยังไม่ชำระมัดจำ
+                          </span>
+                        </div>
+                      ) : req.status === 'CONFIRMED' || req.status === 'ACCEPTED' ? (
+                        <div className="p-2 bg-emerald-950/40 rounded border border-emerald-800/60 text-[11px] flex justify-between items-center">
+                          <span className="text-emerald-300 font-medium">มัดจำแล้ว ฿{(Number(req.deposit_required) || 500).toLocaleString()}</span>
+                          <span className="font-mono font-bold text-emerald-400 bg-emerald-950/60 border border-emerald-800 px-2 py-0.5 rounded text-[10px]">
+                            ชำระแล้ว
+                          </span>
+                        </div>
+                      ) : req.quoted_price ? (
+                        <div className="p-2 bg-[#171512] rounded border border-blue-400/40 text-[11px] flex justify-between items-center">
+                          <span className="text-[#A89F91]">ราคาที่เสนอ:</span>
+                          <span className="font-mono font-semibold text-[#ECE4D3]">
+                            ฿{Number(req.quoted_price).toLocaleString()} (มัดจำ ฿
+                            {(Number(req.deposit_required) || 500).toLocaleString()})
+                          </span>
+                        </div>
+                      ) : null}
 
                       <ReferenceGallery
                         images={refImages}
+                        isTerminal={isTerminal}
                         onOpenLightbox={(imgs, idx) => setLightboxGallery({ images: imgs, index: idx })}
                       />
                     </div>

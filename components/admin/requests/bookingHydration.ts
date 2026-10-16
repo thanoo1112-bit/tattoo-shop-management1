@@ -152,6 +152,7 @@ export async function fetchWorkQueueBookings(supabase: SupabaseClient): Promise<
 
     const bItem: BookingItem = {
       id: b.id,
+      customer_id: b.customer_id || customer?.id || null,
       customer_user_id: b.customer_user_id,
       artist_id: b.artist_id,
       estimate_request_id: b.estimate_request_id,
@@ -176,6 +177,8 @@ export async function fetchWorkQueueBookings(supabase: SupabaseClient): Promise<
       description: b.description || flashRes?.customer_note || est?.description || b.customer_note || null,
       reference_images: flashImgUrl ? [flashImgUrl] : ((Array.isArray(b.reference_images) && b.reference_images.length > 0) ? b.reference_images : (est?.reference_images || null)),
       created_at: b.created_at,
+      submitted_at: (est as any)?.submitted_at || est?.created_at || (flashRes as any)?.submitted_at || flashRes?.created_at || null,
+      request_submitted_at: (est as any)?.submitted_at || est?.created_at || (flashRes as any)?.submitted_at || flashRes?.created_at || null,
       updated_at: b.updated_at,
       customer_name: getCleanCustomerName(customer, profile),
       customer_phone: customer?.phone || profile?.phone || undefined,
@@ -186,7 +189,10 @@ export async function fetchWorkQueueBookings(supabase: SupabaseClient): Promise<
       artist_name: artist?.name || 'ยังไม่มอบหมายช่าง',
       artist_nickname: artist?.nickname || null,
       has_medical_condition: hasMedVal,
+      medical_condition_note: customer?.medical_condition_note || customer?.medical_conditions || est?.medical_condition_note || flashRes?.medical_condition_note || null,
       has_allergy: hasAllVal,
+      allergy_note: customer?.allergy_note || customer?.allergies || est?.allergy_note || flashRes?.allergy_note || null,
+      eligibility_confirmed_at: customer?.eligibility_confirmed_at || null,
       estimated_min_price: est?.estimated_min_price ? Number(est.estimated_min_price) : null,
       estimated_max_price: est?.estimated_max_price ? Number(est.estimated_max_price) : null,
       price_estimated_at: est?.price_estimated_at || null,
@@ -339,6 +345,22 @@ export function getActiveQueueSessionDateTime(b: {
         return {
           displayDate: parsed.dateStr || b.requested_date || null,
           displayTime: parsed.timeStr || b.requested_start_time || b.requested_time || null,
+        };
+      }
+    }
+
+    // 4. Fallback if all sessions were cancelled: use earliest session with start_at
+    const anySession = sessions.filter((s) => s.start_at);
+    if (anySession.length > 0) {
+      const sorted = [...anySession].sort((a, b) =>
+        new Date(a.start_at!).getTime() - new Date(b.start_at!).getTime()
+      );
+      const target = sorted[0];
+      if (target.start_at) {
+        const parsed = parseBangkokDateTime(target.start_at);
+        return {
+          displayDate: b.requested_date || parsed.dateStr || null,
+          displayTime: (b.requested_start_time || b.requested_time) ? String(b.requested_start_time || b.requested_time).slice(0, 5) : parsed.timeStr || null,
         };
       }
     }

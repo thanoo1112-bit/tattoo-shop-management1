@@ -32,7 +32,7 @@ export default function ArtistCard({ artist, onSelect }: ArtistCardProps) {
           <h3 className="text-xl font-heading font-normal tracking-wide text-studio-primary mt-1 mb-2">
             {artist.name}
           </h3>
-          <p className="text-xs text-studio-secondary line-clamp-2 mb-4 leading-relaxed font-light">
+          <p className="text-xs text-[#E2DDD4] line-clamp-2 mb-4 leading-relaxed font-light">
             {artist.bio}
           </p>
 

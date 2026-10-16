@@ -73,9 +73,16 @@ interface Props {
   isOpen: boolean;
   onClose: () => void;
   onRefresh?: () => Promise<void> | void;
+  isDashboard?: boolean;
 }
 
-export default function ArtistAppointmentDetailDrawer({ session, isOpen, onClose, onRefresh }: Props) {
+export default function ArtistAppointmentDetailDrawer({
+  session,
+  isOpen,
+  onClose,
+  onRefresh,
+  isDashboard = true,
+}: Props) {
   const supabase = createClient();
   const { staffArtistId } = useApp();
 
@@ -84,9 +91,11 @@ export default function ArtistAppointmentDetailDrawer({ session, isOpen, onClose
   const [loading, setLoading] = useState(true);
   const [accessDenied, setAccessDenied] = useState(false);
 
-  const fetchBookingData = useCallback(async () => {
+  const fetchBookingData = useCallback(async (isSilentRefresh: boolean = false) => {
     if (!session?.booking_id) return;
-    setLoading(true);
+    if (!isSilentRefresh) {
+      setLoading(true);
+    }
     setAccessDenied(false);
 
     try {
@@ -364,9 +373,10 @@ export default function ArtistAppointmentDetailDrawer({ session, isOpen, onClose
       artists={artists}
       blockedDates={[]}
       isArtistView={true}
+      isDashboard={isDashboard}
       onClose={onClose}
       onRefresh={async () => {
-        await fetchBookingData();
+        await fetchBookingData(true);
         if (onRefresh) await onRefresh();
       }}
     />

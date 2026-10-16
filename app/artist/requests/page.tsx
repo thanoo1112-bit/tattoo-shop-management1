@@ -19,14 +19,17 @@ import {
   RefreshCw, 
   Eye, 
   Sparkles, 
-  TriangleAlert
+  TriangleAlert,
+  ChevronRight
 } from 'lucide-react';
 import { 
   getTodayBangkokStr, 
   formatDateBangkok, 
-  formatTimeBangkok 
+  formatTimeBangkok,
+  formatDateTimeBangkok 
 } from '@/components/admin/calendar/calendarUtils';
 import { getDepositDeadlineInfo } from '@/components/portal/portalUtils';
+import { hasEstimateProposalHistory } from '@/components/admin/requests/types';
 
 function isDepositExpired(booking?: any, estimate?: any, session?: any): boolean {
   const status = booking?.status || estimate?.status || session?.status;
@@ -52,7 +55,7 @@ export default function ArtistRequestsPage() {
   const supabase = createClient();
 
   const [loading, setLoading] = useState(true);
-  const [requestFilter, setRequestFilter] = useState<'ALL' | 'PENDING_SLIP' | 'NEW' | 'WAITING_DEPOSIT' | 'REJECTED'>('ALL');
+  const [requestFilter, setRequestFilter] = useState<'ALL' | 'PENDING_SLIP' | 'NEW' | 'WAITING_DEPOSIT' | 'REJECTED' | 'CANCELLED_CUSTOMER' | 'EXPIRED'>('ALL');
   const [allArtistRequests, setAllArtistRequests] = useState<any[]>([]);
   const [bookingsMap, setBookingsMap] = useState<Map<string, any>>(new Map());
   const [customersMap, setCustomersMap] = useState<Map<string, any>>(new Map());
@@ -114,11 +117,25 @@ export default function ArtistRequestsPage() {
       // 3. Fetch ALL estimate_requests assigned to staffArtistId
       const { data: allEstData, error: pEstErr } = await supabase
         .from('estimate_requests')
-        .select('id, customer_user_id, artist_id, reference_images, width_cm, height_cm, placement, style, description, preferred_date, preferred_time, status, request_type, quoted_price, estimated_duration_minutes, deposit_required, quote_note, quoted_at, accepted_at, rejected_at, created_at, updated_at, has_medical_condition, medical_condition_note, has_allergy, allergy_note, work_type, proposed_date, proposed_time, proposed_price, proposed_artist_note, is_date_proposed')
+        .select(`
+          id, customer_user_id, artist_id, reference_images, width_cm, height_cm, placement, style, description, preferred_date, preferred_time, status, request_type, quoted_price, estimated_duration_minutes, deposit_required, quote_note, quoted_at, accepted_at, rejected_at, created_at, updated_at, has_medical_condition, medical_condition_note, has_allergy, allergy_note, work_type, proposed_date, proposed_time, proposed_price, proposed_artist_note, is_date_proposed,
+          estimate_request_date_options (
+            id,
+            proposed_date,
+            proposed_time,
+            status,
+            created_at
+          )
+        `)
         .eq('artist_id', staffArtistId)
         .order('created_at', { ascending: false });
 
       if (pEstErr) console.error('Error fetching estimate requests:', pEstErr);
+
+      (allEstData || []).forEach((e: any) => {
+        if (!estMap.has(e.id)) estMap.set(e.id, e);
+      });
+      setEstimatesMap(estMap);
 
       // 4. Fetch flash_reservations via RPC
       const { data: flashRpcData, error: fErr } = await supabase
@@ -178,18 +195,20 @@ export default function ArtistRequestsPage() {
           ? pSubmissions.some((s: any) => s.booking_id === linkedBooking.id && s.status === 'PENDING')
           : false;
 
-        let opStatus: 'NEW' | 'WAITING_DEPOSIT' | 'PENDING_SLIP' | 'REJECTED' | 'EXPIRED' | 'CANCELLED' | 'CONFIRMED' | 'OTHER' = 'NEW';
+        let opStatus: 'NEW' | 'WAITING_DEPOSIT' | 'PENDING_SLIP' | 'REJECTED' | 'EXPIRED' | 'CANCELLED' | 'CANCELLED_CUSTOMER' | 'CONFIRMED' | 'OTHER' = 'NEW';
 
         if (est.status === 'CONFIRMED' || linkedBooking?.status === 'CONFIRMED' || linkedBooking?.status === 'IN_PROGRESS' || linkedBooking?.status === 'COMPLETED') {
           opStatus = 'CONFIRMED';
         } else if (est.status === 'EXPIRED' || linkedBooking?.status === 'EXPIRED') {
           opStatus = 'EXPIRED';
         } else if (est.status === 'CANCELLED' || linkedBooking?.status === 'CANCELLED') {
-          opStatus = 'CANCELLED';
+          opStatus = hasEstimateProposalHistory(est) ? 'CANCELLED_CUSTOMER' : 'CANCELLED';
         } else if (est.status === 'REJECTED' || linkedBooking?.status === 'REJECTED') {
           opStatus = 'REJECTED';
         } else if (hasPendingSlip || est.status === 'SLIP_SUBMITTED' || est.status === 'PENDING_SLIP') {
           opStatus = 'PENDING_SLIP';
+        } else if (est.status === 'PENDING' && est.is_date_proposed) {
+          opStatus = 'WAITING_DEPOSIT';
         } else if (est.status === 'PENDING') {
           opStatus = 'NEW';
         } else if (['ACCEPTED', 'QUOTED', 'APPROVED', 'WAITING_DEPOSIT', 'DEPOSIT_PENDING'].includes(est.status) || linkedBooking?.status === 'WAITING_DEPOSIT') {
@@ -202,11 +221,26 @@ export default function ArtistRequestsPage() {
           opStatus = 'NEW';
         }
 
+        const activeDateOptions = Array.isArray(est.estimate_request_date_options)
+          ? est.estimate_request_date_options.filter((o: any) => o.status === 'PENDING')
+          : [];
+        const latestOption = activeDateOptions.length > 0
+          ? [...activeDateOptions].sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0]
+          : null;
+
         return {
           ...est,
           id: est.id,
           item_type: 'ESTIMATE',
           requestCode: `REQ-${est.id.slice(0, 8).toUpperCase()}`,
+          is_date_proposed: Boolean(est.is_date_proposed),
+          proposed_artist_note: est.proposed_artist_note || null,
+          proposed_date: latestOption?.proposed_date ?? est.proposed_date ?? null,
+          proposed_time: latestOption?.proposed_time ?? est.proposed_time ?? null,
+          date_options: est.estimate_request_date_options || null,
+          estimate_request_date_options: est.estimate_request_date_options || null,
+          created_at: est.created_at,
+          submitted_at: est.submitted_at || est.created_at,
           derived_operational_status: opStatus,
           style_display: est.style || est.style_preference || 'งานสัก Custom',
           ref_image: est.reference_images?.[0] || null,
@@ -224,18 +258,20 @@ export default function ArtistRequestsPage() {
           ? pSubmissions.some((s: any) => s.booking_id === linkedBooking.id && s.status === 'PENDING')
           : false;
 
-        let opStatus: 'NEW' | 'WAITING_DEPOSIT' | 'PENDING_SLIP' | 'REJECTED' | 'EXPIRED' | 'CANCELLED' | 'CONFIRMED' | 'OTHER' = 'NEW';
+        let opStatus: 'NEW' | 'WAITING_DEPOSIT' | 'PENDING_SLIP' | 'REJECTED' | 'EXPIRED' | 'CANCELLED' | 'CANCELLED_CUSTOMER' | 'CONFIRMED' | 'OTHER' = 'NEW';
 
         if (res.status === 'CONFIRMED' || res.status === 'COMPLETED' || linkedBooking?.status === 'CONFIRMED' || linkedBooking?.status === 'COMPLETED') {
           opStatus = 'CONFIRMED';
         } else if (res.status === 'EXPIRED' || linkedBooking?.status === 'EXPIRED') {
           opStatus = 'EXPIRED';
         } else if (res.status === 'CANCELLED' || linkedBooking?.status === 'CANCELLED') {
-          opStatus = 'CANCELLED';
+          opStatus = hasEstimateProposalHistory(res) ? 'CANCELLED_CUSTOMER' : 'CANCELLED';
         } else if (res.status === 'REJECTED' || linkedBooking?.status === 'REJECTED') {
           opStatus = 'REJECTED';
         } else if (hasPendingSlip || res.status === 'SLIP_SUBMITTED' || res.status === 'PENDING_SLIP') {
           opStatus = 'PENDING_SLIP';
+        } else if (res.status === 'PENDING' && res.proposed_date) {
+          opStatus = 'WAITING_DEPOSIT';
         } else if (res.status === 'PENDING') {
           opStatus = 'NEW';
         } else if (['ACCEPTED', 'QUOTED', 'APPROVED', 'WAITING_DEPOSIT', 'DEPOSIT_PENDING'].includes(res.status) || linkedBooking?.status === 'WAITING_DEPOSIT') {
@@ -267,6 +303,8 @@ export default function ArtistRequestsPage() {
           flash_title: flashTitle,
           flash_style: flashStyle,
           flash_size_label: flashSizeLabel,
+          preferred_date: res.requested_date,
+          preferred_time: res.requested_start_time,
           date_display: res.requested_date,
           time_display: res.requested_start_time,
           placement_display: res.placement ?? 'ไม่ระบุตำแหน่ง',
@@ -274,7 +312,14 @@ export default function ArtistRequestsPage() {
           width_cm: res.width_cm ?? null,
           height_cm: res.height_cm ?? null,
           size_label: flashSizeLabel,
+          is_date_proposed: Boolean(res.proposed_date),
+          proposed_date: res.proposed_date ?? null,
+          proposed_time: res.proposed_time ?? null,
+          proposed_artist_note: res.proposal_note ?? null,
+          proposal_note: res.proposal_note ?? null,
+          date_proposed_at: res.date_proposed_at ?? null,
           created_at: res.created_at,
+          submitted_at: res.submitted_at || res.created_at,
           has_medical_condition: res.has_medical_condition ?? null,
           medical_condition_note: res.medical_condition_note ?? null,
           has_allergy: res.has_allergy ?? null,
@@ -283,8 +328,14 @@ export default function ArtistRequestsPage() {
       });
 
       const combinedRequests = [...estItems, ...flashItems]
-        .filter((r: any) => r.derived_operational_status !== 'CONFIRMED' && r.derived_operational_status !== 'OTHER')
-        .sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
+        .filter(
+          (r: any) =>
+            r.derived_operational_status !== 'CONFIRMED' &&
+            r.derived_operational_status !== 'OTHER' &&
+            r.derived_operational_status !== 'CANCELLED' &&
+            (r.status !== 'CANCELLED' || r.derived_operational_status === 'CANCELLED_CUSTOMER')
+        )
+        .sort((a, b) => new Date(b.submitted_at || b.created_at || 0).getTime() - new Date(a.submitted_at || a.created_at || 0).getTime());
 
       setAllArtistRequests(combinedRequests);
 
@@ -355,6 +406,7 @@ export default function ArtistRequestsPage() {
     let rejected = 0;
     let expired = 0;
     let cancelled = 0;
+    let cancelledCustomer = 0;
 
     allArtistRequests.forEach((req) => {
       const op = req.derived_operational_status;
@@ -363,9 +415,10 @@ export default function ArtistRequestsPage() {
       else if (op === 'REJECTED') rejected++;
       else if (op === 'EXPIRED') expired++;
       else if (op === 'CANCELLED') cancelled++;
+      else if (op === 'CANCELLED_CUSTOMER') cancelledCustomer++;
     });
 
-    const all = pendingSlip + newReq + waitingDeposit;
+    const all = pendingSlip + newReq + waitingDeposit + rejected + cancelledCustomer + expired;
 
     return {
       all,
@@ -375,37 +428,50 @@ export default function ArtistRequestsPage() {
       rejected,
       expired,
       cancelled,
+      cancelledCustomer,
     };
   }, [allArtistRequests, pendingSubmissions]);
 
   const filteredRequests = useMemo(() => {
     if (requestFilter === 'ALL') {
       return allArtistRequests.filter(
-        (req) => req.derived_operational_status !== 'EXPIRED' && req.derived_operational_status !== 'CANCELLED'
+        (req) => req.derived_operational_status !== 'CANCELLED'
       );
     }
     if (requestFilter === 'REJECTED') {
       return allArtistRequests.filter((req) => req.derived_operational_status === 'REJECTED');
     }
+    if (requestFilter === 'CANCELLED_CUSTOMER') {
+      return allArtistRequests.filter((req) => req.derived_operational_status === 'CANCELLED_CUSTOMER');
+    }
+    if (requestFilter === 'EXPIRED') {
+      return allArtistRequests.filter((req) => req.derived_operational_status === 'EXPIRED');
+    }
     return allArtistRequests.filter((req) => req.derived_operational_status === requestFilter);
   }, [allArtistRequests, requestFilter]);
 
-  const getStatusBadgeConfig = (opStatus: string) => {
+  const getStatusBadgeConfig = (opStatus: string, isDateProposed?: boolean) => {
+    if (opStatus === 'CANCELLED_CUSTOMER') {
+      return { label: 'ลูกค้ายกเลิก', className: 'bg-[#1F1D1A] text-[#7A7265] border border-[#4A443A]' };
+    }
+    if (isDateProposed && (opStatus === 'WAITING_DEPOSIT' || opStatus === 'NEW')) {
+      return { label: 'รอมัดจำ', className: 'bg-amber-500/15 text-amber-300 border border-amber-400/40' };
+    }
     switch (opStatus) {
       case 'NEW':
-        return { label: 'รอตรวจสอบ', className: 'bg-blue-950/60 text-blue-400 border border-blue-800/60' };
+        return { label: 'รอตรวจสอบ', className: 'bg-blue-500/15 text-blue-300 border border-blue-400/40' };
       case 'WAITING_DEPOSIT':
-        return { label: 'รอมัดจำ', className: 'bg-purple-950/60 text-purple-400 border border-purple-800/60' };
+        return { label: 'รอมัดจำ', className: 'bg-amber-500/15 text-amber-300 border border-amber-400/40' };
       case 'PENDING_SLIP':
-        return { label: 'สลิปรอตรวจ', className: 'bg-amber-950/80 text-amber-300 border border-amber-800/80 animate-pulse' };
+        return { label: 'สลิปรอตรวจ', className: 'bg-amber-500/15 text-amber-300 border border-amber-400/40 animate-pulse' };
       case 'REJECTED':
         return { label: 'ปฏิเสธ', className: 'bg-red-950/50 text-red-400 border border-red-900/60' };
       case 'EXPIRED':
-        return { label: 'หมดเวลาชำระมัดจำ', className: 'bg-zinc-900/90 text-zinc-400 border border-zinc-700/80' };
+        return { label: 'หมดอายุ', className: 'bg-zinc-900/90 text-zinc-400 border border-zinc-700/80' };
       case 'CANCELLED':
         return { label: 'ยกเลิก', className: 'bg-[#1F1D1A] text-[#7A7265] border border-[#4A443A]' };
       default:
-        return { label: 'รอตรวจสอบ', className: 'bg-blue-950/60 text-blue-400 border border-blue-800/60' };
+        return { label: 'รอตรวจสอบ', className: 'bg-blue-500/15 text-blue-300 border border-blue-400/40' };
     }
   };
 
@@ -476,14 +542,36 @@ export default function ArtistRequestsPage() {
       medical_condition_note: est.medical_condition_note ?? (customer as any)?.medical_condition_note ?? null,
       has_allergy: est.has_allergy ?? (customer as any)?.has_allergy ?? null,
       allergy_note: est.allergy_note ?? (customer as any)?.allergy_note ?? null,
-      proposed_date: est.proposed_date ?? null,
-      proposed_time: est.proposed_time ?? null,
+      proposed_date: (() => {
+        const activeDateOptions = Array.isArray(est.estimate_request_date_options)
+          ? est.estimate_request_date_options.filter((o: any) => o.status === 'PENDING')
+          : [];
+        const latestOption = activeDateOptions.length > 0
+          ? [...activeDateOptions].sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0]
+          : null;
+        return latestOption?.proposed_date ?? est.proposed_date ?? null;
+      })(),
+      proposed_time: (() => {
+        const activeDateOptions = Array.isArray(est.estimate_request_date_options)
+          ? est.estimate_request_date_options.filter((o: any) => o.status === 'PENDING')
+          : [];
+        const latestOption = activeDateOptions.length > 0
+          ? [...activeDateOptions].sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0]
+          : null;
+        return latestOption?.proposed_time ?? est.proposed_time ?? null;
+      })(),
       proposed_price: est.proposed_price ?? null,
       proposed_artist_note: est.proposed_artist_note ?? null,
       is_date_proposed: est.is_date_proposed ?? false,
+      date_options: est.estimate_request_date_options ?? (est as any).date_options ?? null,
+      estimate_request_date_options: est.estimate_request_date_options ?? null,
       quoted_price: est.quoted_price ?? null,
       status: est.status,
-      created_at: est.created_at,
+      derived_operational_status: est.derived_operational_status,
+      created_at: (est as any).submitted_at || est.created_at,
+      submitted_at: (est as any).submitted_at || est.created_at,
+      accepted_at: est.accepted_at ?? null,
+      quoted_at: est.quoted_at ?? null,
       is_flash: isFlash,
       sourceType: isFlash ? 'FLASH' : 'CUSTOM',
     };
@@ -516,7 +604,7 @@ export default function ArtistRequestsPage() {
               </span>
               <span className="text-studio-muted text-xs">•</span>
               <span className="text-xs text-studio-secondary">
-                คำขอประเมินราคา & จองคิว
+                คำขอจากลูกค้า
               </span>
             </div>
             <h1 className="text-xl sm:text-2xl font-heading font-semibold text-studio-primary mt-1">
@@ -542,6 +630,8 @@ export default function ArtistRequestsPage() {
             { id: 'WAITING_DEPOSIT', label: `รอมัดจำ (${statusCounts.waitingDeposit})` },
             { id: 'PENDING_SLIP', label: `สลิปรอตรวจ (${statusCounts.pendingSlip})` },
             { id: 'REJECTED', label: `ปฏิเสธ (${statusCounts.rejected})` },
+            { id: 'CANCELLED_CUSTOMER', label: `ยกเลิก (${statusCounts.cancelledCustomer})` },
+            { id: 'EXPIRED', label: `หมดอายุ (${statusCounts.expired})` },
           ].map((tab) => {
             const isActive = requestFilter === tab.id;
             return (
@@ -549,7 +639,7 @@ export default function ArtistRequestsPage() {
                 key={tab.id}
                 type="button"
                 onClick={() => setRequestFilter(tab.id as any)}
-                className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all cursor-pointer border ${
+                className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all cursor-pointer border shrink-0 ${
                   isActive
                     ? 'bg-[#ECE4D3] text-[#0E0D0C] border-[#ECE4D3] shadow-xs'
                     : 'bg-studio-card hover:bg-studio-sec text-studio-secondary hover:text-studio-primary border-studio-border'
@@ -598,11 +688,11 @@ export default function ArtistRequestsPage() {
                     <thead className="bg-studio-sec/80 text-studio-muted uppercase text-[10px] tracking-wider border-b border-studio-border">
                       <tr>
                         <th className="py-3 px-4 font-semibold">รหัส / ลูกค้า</th>
+                        <th className="py-3 px-4 font-semibold">ยื่นคำขอเมื่อ</th>
                         <th className="py-3 px-4 font-semibold">งานและขนาด</th>
                         <th className="py-3 px-4 font-semibold">สไตล์</th>
-                        <th className="py-3 px-4 font-semibold">วันและเวลานัด</th>
                         <th className="py-3 px-4 font-semibold text-center font-prompt">ข้อมูลสุขภาพ</th>
-                        <th className="py-3 px-4 font-semibold">ยื่นคำขอเมื่อ</th>
+                        <th className="py-3 px-4 font-semibold">วันที่ลูกค้าเลือก</th>
                         <th className="py-3 px-4 font-semibold text-center">สถานะ</th>
                         <th className="py-3 px-4 font-semibold text-center">ดูรายละเอียด</th>
                       </tr>
@@ -624,15 +714,26 @@ export default function ArtistRequestsPage() {
                             ''
                           );
                           const cleanStyle = rawSubStyle.replace(/\s*custom\s*/gi, '').trim();
-                          const baseTitle = isFlashSub ? 'ลาย Flash' : 'งานสัก';
+                          const baseTitle = isFlashSub ? 'ลาย Flash' : 'งานสัก Custom';
+                          const rawBookingTitle = booking?.artwork_title?.trim();
                           const tattooTitle = cleanStyle
                             ? (cleanStyle.toLowerCase() === baseTitle.toLowerCase() ? baseTitle : `${baseTitle} (${cleanStyle})`)
-                            : (booking?.artwork_title?.replace(/\s*custom\s*/gi, '').trim() || baseTitle);
+                            : (rawBookingTitle && rawBookingTitle !== 'งานสัก' ? rawBookingTitle : baseTitle);
 
                           const depositRequired = Number(booking?.deposit_required ?? estimate?.deposit_required ?? 0);
                           const claimedAmount = Number(sub.claimed_amount || 0);
                           const isAgeConfirmed = getIsAgeConfirmed(sub.customer_user_id);
                           const hasHealthData = Boolean((estimate as any)?.has_medical_condition || (estimate as any)?.has_allergy);
+
+                          const flashRes = booking?.flash_reservation_id ? flashReservationsMap.get(booking.flash_reservation_id) : null;
+                          const requestSubmittedAt =
+                            (estimate as any)?.submitted_at ||
+                            estimate?.created_at ||
+                            (flashRes as any)?.submitted_at ||
+                            flashRes?.created_at ||
+                            booking?.created_at ||
+                            sub.submitted_at ||
+                            sub.created_at;
 
                           return (
                             <tr key={`SLIP-ROW-${sub.id}`} className="hover:bg-studio-sec/40 transition-colors">
@@ -641,6 +742,21 @@ export default function ArtistRequestsPage() {
                                   #{sub.id.slice(0, 8).toUpperCase()}
                                 </span>
                                 <div className="font-semibold text-studio-primary mt-0.5">{customerName}</div>
+                              </td>
+
+                              <td className="py-3 px-4">
+                                {requestSubmittedAt ? (
+                                  <>
+                                    <div className="font-mono text-studio-primary">
+                                      {formatDateBangkok(requestSubmittedAt)}
+                                    </div>
+                                    <div className="text-[11px] text-studio-muted font-mono">
+                                      {formatTimeBangkok(requestSubmittedAt)}
+                                    </div>
+                                  </>
+                                ) : (
+                                  <span className="text-studio-muted">-</span>
+                                )}
                               </td>
 
                               <td className="py-3 px-4">
@@ -663,21 +779,10 @@ export default function ArtistRequestsPage() {
                                 </div>
                               </td>
 
-                              <td className="py-3 px-4">
-                                <div className="font-mono text-studio-primary">
-                                  {booking?.booking_date ? formatDateBangkok(booking.booking_date) : (booking?.requested_date ? formatDateBangkok(booking.requested_date) : 'ไม่ระบุวัน')}
-                                </div>
-                                {booking?.requested_start_time && (
-                                  <div className="text-[11px] text-studio-muted font-mono">
-                                    {extractHHMM(booking.requested_start_time)} น.
-                                  </div>
-                                )}
-                              </td>
-
                               <td className="py-3 px-4 text-center">
                                 {hasHealthData ? (
-                                  <span className="bg-amber-950/60 text-amber-400 border border-amber-800/60 px-2 py-0.5 rounded text-[10px] font-medium inline-flex items-center gap-1">
-                                    <TriangleAlert size={10} /> มีข้อมูล
+                                  <span className="bg-amber-500/15 text-amber-300 border border-amber-400/40 px-2 py-0.5 rounded text-[10px] font-semibold inline-flex items-center gap-1">
+                                    <TriangleAlert size={10} className="text-amber-400 shrink-0" /> มีข้อมูล
                                   </span>
                                 ) : isAgeConfirmed ? (
                                   <span className="bg-emerald-950/60 text-emerald-400 border border-emerald-800/60 px-2 py-0.5 rounded text-[10px] font-medium">
@@ -692,11 +797,11 @@ export default function ArtistRequestsPage() {
 
                               <td className="py-3 px-4">
                                 <div className="font-mono text-studio-primary">
-                                  {sub.submitted_at ? formatDateBangkok(sub.submitted_at) : (sub.created_at ? formatDateBangkok(sub.created_at) : '-')}
+                                  {booking?.booking_date ? formatDateBangkok(booking.booking_date) : (booking?.requested_date ? formatDateBangkok(booking.requested_date) : 'ไม่ระบุวัน')}
                                 </div>
-                                {(sub.submitted_at || sub.created_at) && (
+                                {booking?.requested_start_time && (
                                   <div className="text-[11px] text-studio-muted font-mono">
-                                    {formatTimeBangkok(sub.submitted_at || sub.created_at)}
+                                    {extractHHMM(booking.requested_start_time)} น.
                                   </div>
                                 )}
                               </td>
@@ -729,10 +834,10 @@ export default function ArtistRequestsPage() {
                       {requestsToRender.map((item: any) => {
                         const customerName = getCleanCustomerName(item.customer_user_id);
                         const requestCode = item.requestCode || `REQ-${item.id.slice(0, 8).toUpperCase()}`;
-                        const statusBadge = getStatusBadgeConfig(item.derived_operational_status);
+                        const statusBadge = getStatusBadgeConfig(item.derived_operational_status, Boolean(item.is_date_proposed));
                         const refImageSrc = item.ref_image || item.reference_images?.[0] || item.flash_designs?.image_url || null;
                         const isFlash = Boolean(item.is_flash || item.item_type === 'FLASH' || item.sourceType === 'FLASH' || item.flash_design_id);
-                        const isInactive = ['EXPIRED', 'CANCELLED', 'REJECTED'].includes(item.derived_operational_status);
+                        const isInactive = ['EXPIRED', 'CANCELLED', 'CANCELLED_CUSTOMER', 'REJECTED'].includes(item.derived_operational_status);
                         const sizeCategory = getTattooSizeCategory(item.estimated_size_tier, item.width_cm, item.height_cm, item.size_text);
                         const rawSizeText = item.estimated_size_tier || item.size_tier || item.size_text || (sizeCategory ? `Size ${sizeCategory}` : null);
                         const sizeDisplay = (item.width_cm || item.height_cm || item.estimated_size_tier || item.size_text || sizeCategory)
@@ -745,8 +850,10 @@ export default function ArtistRequestsPage() {
 
                         const rawWorkTitle = isFlash
                           ? (item.flash_title || item.flash_designs?.title || item.title || item.artwork_title || 'ลาย Flash')
-                          : (item.artwork_title || item.title || 'งานสัก');
-                        const workTitle = rawWorkTitle.replace(/\s*custom\s*/gi, '').trim() || (isFlash ? 'ลาย Flash' : 'งานสัก');
+                          : (item.artwork_title || item.title || 'งานสัก Custom');
+                        const workTitle = isFlash
+                          ? (rawWorkTitle || 'ลาย Flash')
+                          : (rawWorkTitle && rawWorkTitle.trim() !== 'งานสัก' ? rawWorkTitle : 'งานสัก Custom');
                         const rawStyle = isFlash
                           ? (item.flash_style || item.flash_designs?.style || item.style || item.style_preference || '')
                           : (item.style || item.style_preference || item.style_display || '');
@@ -769,15 +876,29 @@ export default function ArtistRequestsPage() {
                                 <span className="text-[10px] text-[#7A7265] font-mono font-semibold">
                                   #{item.id.slice(0, 8).toUpperCase()}
                                 </span>
-                                {isFlash && (
-                                  <span className="text-[9px] px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 font-medium inline-flex items-center gap-0.5">
-                                    <Sparkles size={9} /> Flash
-                                  </span>
-                                )}
                               </div>
                               <div className={isInactive ? "font-semibold text-zinc-300 mt-0.5" : "font-semibold text-studio-primary mt-0.5"}>
                                 {customerName}
                               </div>
+                            </td>
+
+                            <td className="py-3 px-4">
+                              {(() => {
+                                const submitTime = item.submitted_at || item.created_at;
+                                if (!submitTime) {
+                                  return <span className="text-studio-muted">-</span>;
+                                }
+                                return (
+                                  <>
+                                    <div className="font-mono text-studio-primary">
+                                      {formatDateBangkok(submitTime)}
+                                    </div>
+                                    <div className="text-[11px] text-studio-muted font-mono">
+                                      {formatTimeBangkok(submitTime)}
+                                    </div>
+                                  </>
+                                );
+                              })()}
                             </td>
 
                             <td className="py-3 px-4 max-w-[220px]">
@@ -808,22 +929,14 @@ export default function ArtistRequestsPage() {
                               </div>
                             </td>
 
-                            <td className="py-3 px-4">
-                              <div className={`font-mono ${isInactive ? 'text-zinc-300' : 'text-studio-primary'}`}>
-                                {targetDate ? formatDateBangkok(targetDate) : 'ไม่ระบุวัน'}
-                              </div>
-                              {formattedTime && (
-                                <div className="text-[11px] text-studio-muted font-mono">{formattedTime}</div>
-                              )}
-                            </td>
-
                             <td className="py-3 px-4 text-center">
                               {hasHealthData ? (
-                                <span className="bg-amber-950/60 text-amber-400 border border-amber-800/60 px-2 py-0.5 rounded text-[10px] font-medium inline-flex items-center gap-1">
-                                  <TriangleAlert size={10} /> มีข้อมูล
+                                <span className={isInactive ? "bg-zinc-900/90 text-zinc-400 border border-zinc-700/80 px-2 py-0.5 rounded text-[10px] font-medium inline-flex items-center gap-1" : "bg-amber-500/15 text-amber-300 border border-amber-400/40 px-2 py-0.5 rounded text-[10px] font-semibold inline-flex items-center gap-1"}>
+                                  <TriangleAlert size={10} className={isInactive ? "text-zinc-500 shrink-0" : "text-amber-400 shrink-0"} />
+                                  <span>มีข้อมูล</span>
                                 </span>
                               ) : isAgeConfirmed ? (
-                                <span className="bg-emerald-950/60 text-emerald-400 border border-emerald-800/60 px-2 py-0.5 rounded text-[10px] font-medium">
+                                <span className={isInactive ? "bg-zinc-900/60 text-zinc-500 border border-zinc-800/80 px-2 py-0.5 rounded text-[10px] font-medium" : "bg-emerald-950/60 text-emerald-400 border border-emerald-800/60 px-2 py-0.5 rounded text-[10px] font-medium"}>
                                   ยืนยันอายุแล้ว
                                 </span>
                               ) : (
@@ -834,13 +947,11 @@ export default function ArtistRequestsPage() {
                             </td>
 
                             <td className="py-3 px-4">
-                              <div className="font-mono text-studio-primary">
-                                {item.created_at ? formatDateBangkok(item.created_at) : (item.submitted_at ? formatDateBangkok(item.submitted_at) : '-')}
+                              <div className={`font-mono ${isInactive ? 'text-zinc-300' : 'text-studio-primary'}`}>
+                                {targetDate ? formatDateBangkok(targetDate) : 'ไม่ระบุวัน'}
                               </div>
-                              {(item.created_at || item.submitted_at) && (
-                                <div className="text-[11px] text-studio-muted font-mono">
-                                  {formatTimeBangkok(item.created_at || item.submitted_at)}
-                                </div>
+                              {formattedTime && (
+                                <div className="text-[11px] text-studio-muted font-mono">{formattedTime}</div>
                               )}
                             </td>
 
@@ -920,10 +1031,9 @@ export default function ArtistRequestsPage() {
 
                   {requestsToRender.map((item: any) => {
                     const customerName = getCleanCustomerName(item.customer_user_id);
-                    const statusBadge = getStatusBadgeConfig(item.derived_operational_status);
-                    const refImageSrc = item.ref_image || item.reference_images?.[0] || item.flash_designs?.image_url || null;
+                    const statusBadge = getStatusBadgeConfig(item.derived_operational_status, Boolean(item.is_date_proposed));
                     const isFlash = Boolean(item.is_flash || item.item_type === 'FLASH' || item.sourceType === 'FLASH' || item.flash_design_id);
-                    const isInactive = ['EXPIRED', 'CANCELLED', 'REJECTED'].includes(item.derived_operational_status);
+                    const isInactive = ['EXPIRED', 'CANCELLED', 'CANCELLED_CUSTOMER', 'REJECTED'].includes(item.derived_operational_status);
                     const sizeCategory = getTattooSizeCategory(item.estimated_size_tier, item.width_cm, item.height_cm, item.size_text);
                     const rawSizeText = item.estimated_size_tier || item.size_tier || item.size_text || (sizeCategory ? `Size ${sizeCategory}` : null);
                     const sizeDisplay = (item.width_cm || item.height_cm || item.estimated_size_tier || item.size_text || sizeCategory)
@@ -931,65 +1041,115 @@ export default function ArtistRequestsPage() {
                       : null;
                     const targetDate = item.date_display || item.preferred_date || item.requested_date;
 
-                    const rawWorkTitle = isFlash
-                      ? (item.flash_title || item.flash_designs?.title || item.title || item.artwork_title || 'ลาย Flash')
-                      : (item.artwork_title || item.title || 'งานสัก');
-                    const workTitle = rawWorkTitle.replace(/\s*custom\s*/gi, '').trim() || (isFlash ? 'ลาย Flash' : 'งานสัก');
+                    const { extractedTime } = parseNoteWithPreferredTime(item.description);
+                    const rawTime = item.time_display ? extractHHMM(item.time_display) : item.preferred_time ? extractHHMM(item.preferred_time) : extractedTime;
+                    const formattedTime = rawTime ? (rawTime.endsWith('น.') || rawTime.endsWith('น') ? rawTime : `${rawTime} น.`) : null;
+
                     const rawStyle = isFlash
                       ? (item.flash_style || item.flash_designs?.style || item.style || item.style_preference || '')
                       : (item.style || item.style_preference || item.style_display || '');
                     const styleName = rawStyle.toLowerCase() === 'custom' ? '' : rawStyle;
-                    const placement = item.placement || 'ไม่ระบุตำแหน่ง';
+                    const styleDisplay = styleName || (isFlash ? 'Flash' : 'ไม่ระบุสไตล์');
+                    const artistDisplay = item.artist_name || artistName;
+                    const artistAndStyle = `${artistDisplay} · ${styleDisplay}`;
 
+                    const placement = item.placement || 'ไม่ระบุตำแหน่ง';
                     const placementAndSize = placement !== 'ไม่ระบุตำแหน่ง'
-                      ? (sizeDisplay && sizeDisplay !== 'ไม่ระบุขนาด' ? `${placement} · ${sizeDisplay}` : placement)
+                      ? (sizeDisplay && sizeDisplay !== 'ไม่ระบุขนาด' ? `${placement} (${sizeDisplay})` : placement)
                       : (sizeDisplay && sizeDisplay !== 'ไม่ระบุขนาด' ? sizeDisplay : 'ไม่ระบุตำแหน่ง');
+
+                    const isAgeConfirmed = getIsAgeConfirmed(item.customer_user_id);
+                    const hasHealthData = Boolean(item.has_medical_condition || item.has_allergy);
+
+                    const rawWorkTitle = isFlash
+                      ? (item.flash_title || item.flash_designs?.title || item.title || item.artwork_title || 'งานสัก Flash')
+                      : (item.artwork_title || item.title || 'งานสัก Custom');
+                    const workTitle = isFlash ? (rawWorkTitle || 'งานสัก Flash') : (rawWorkTitle || 'งานสัก Custom');
 
                     return (
                       <div
                         key={`MOB-${item.item_type || 'REQ'}-${item.id}`}
+                        onClick={() => handleOpenRequestDetail(item.rawItem || item)}
                         className={
                           isInactive
-                            ? "bg-zinc-950/40 border border-zinc-800/80 p-3.5 rounded-xl shadow-xs flex flex-col justify-between gap-3.5 font-prompt opacity-85"
-                            : "bg-studio-card border border-studio-border p-3.5 rounded-xl shadow-md flex flex-col justify-between gap-3.5 font-prompt"
+                            ? "bg-zinc-950/40 border border-zinc-800/70 rounded-xl p-3.5 sm:p-4 space-y-2.5 shadow-xs opacity-85 cursor-pointer font-prompt"
+                            : "bg-studio-card border border-studio-border hover:border-[#7A7265] rounded-xl p-3.5 sm:p-4 space-y-2.5 shadow-md cursor-pointer active:scale-[0.99] transition-all font-prompt"
                         }
                       >
-                        <div className="flex items-center gap-3.5 min-w-0 w-full">
-                          <div className="w-14 h-14 shrink-0 rounded-lg overflow-hidden border border-studio-border/80 bg-studio-sec flex items-center justify-center relative">
-                            <CustomerReferenceImage src={refImageSrc} alt="งานสักอ้างอิง" className="w-full h-full object-cover" />
+                        {/* 1. แถวบน: รหัสคำขอด้านซ้าย และสถานะคำขอด้านขวา */}
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span className={`text-xs font-mono font-bold ${isInactive ? 'text-zinc-500' : 'text-[#9C2F2F]'}`}>
+                              #{item.id.slice(0, 8)}
+                            </span>
                           </div>
-                          <div className="flex-1 min-w-0 space-y-1">
-                            <div className="flex items-center space-x-1.5 flex-wrap gap-y-1">
-                              <span className="text-[10px] font-mono text-[#7A7265] font-semibold">
-                                #{item.id.slice(0, 8).toUpperCase()}
+                          <div className="flex items-center gap-1.5 shrink-0 flex-wrap justify-end">
+                            {hasHealthData ? (
+                              <span className={isInactive ? "bg-zinc-900/90 text-zinc-400 border border-zinc-700/80 px-2 py-0.5 rounded text-[10px] font-medium inline-flex items-center gap-1" : "bg-amber-500/15 text-amber-300 border border-amber-400/40 px-2 py-0.5 rounded text-[10px] font-semibold inline-flex items-center gap-1"}>
+                                <TriangleAlert size={10} className={isInactive ? "text-zinc-500 shrink-0" : "text-amber-400 shrink-0"} />
+                                <span>มีข้อมูล</span>
                               </span>
-                              <span className={`text-[10px] px-2 py-0.5 rounded border font-medium inline-flex items-center ${statusBadge.className}`}>
-                                {statusBadge.label}
+                            ) : isAgeConfirmed ? (
+                              <span className={isInactive ? "bg-zinc-900/60 text-zinc-500 border border-zinc-800/80 px-2 py-0.5 rounded text-[10px] font-medium" : "bg-emerald-950/60 text-emerald-400 border border-emerald-800/60 px-2 py-0.5 rounded text-[10px] font-medium"}>
+                                ยืนยันอายุแล้ว
                               </span>
-                              {isFlash && (
-                                <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 font-medium inline-flex items-center gap-0.5">
-                                  <Sparkles size={9} /> Flash
-                                </span>
-                              )}
-                            </div>
-                            <h4 className="text-sm font-semibold text-studio-primary truncate">{customerName}</h4>
-                            <div className="text-xs text-[#A89F91] truncate">
-                              {workTitle} · {placementAndSize}
-                            </div>
-                            <div className="text-[11px] text-[#7A7265] truncate">
-                              วันสะดวก: {targetDate ? formatDateBangkok(targetDate) : 'ไม่ระบุ'} • สไตล์: <span className="text-[#A89F91]">{styleName || (isFlash ? 'Flash' : 'ไม่ระบุสไตล์')}</span>
-                            </div>
+                            ) : (
+                              <span className="bg-studio-sec text-studio-muted border border-studio-border px-2 py-0.5 rounded text-[10px] font-medium">
+                                รอตรวจสอบ
+                              </span>
+                            )}
+                            <span className={`text-[10px] px-2 py-0.5 rounded border font-medium inline-flex items-center ${statusBadge.className}`}>
+                              {statusBadge.label}
+                            </span>
                           </div>
                         </div>
 
-                        <button
-                          type="button"
-                          onClick={() => handleOpenRequestDetail(item.rawItem || item)}
-                          className="w-full px-4 py-2 bg-studio-sec text-studio-primary border border-studio-border text-xs font-semibold rounded-lg flex items-center justify-center space-x-1"
-                        >
-                          <Eye size={14} />
-                          <span>ดูรายละเอียด</span>
-                        </button>
+                        {/* 2. แถวถัดมา: วันที่ลูกค้าเลือกและชื่อลูกค้า */}
+                        <div className="flex items-center justify-between text-xs border-y border-studio-border/50 py-2 my-1">
+                          <div>
+                            <span className="text-[10px] text-[#CFC7BA] block">วันที่ลูกค้าเลือก</span>
+                            <span className="font-semibold text-[#ECE4D3]">
+                              {targetDate ? formatDateBangkok(targetDate) : 'ไม่ได้ระบุ'}
+                              {formattedTime ? ` · ${formattedTime}` : ''}
+                            </span>
+                          </div>
+                          <div className="text-right">
+                            <span className="text-[10px] text-[#CFC7BA] block">ลูกค้า</span>
+                            <span className="font-semibold text-[#ECE4D3] truncate block max-w-[140px] sm:max-w-[180px]">
+                              {customerName}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* 3. แถวล่าง: ช่างสักและสไตล์งาน พร้อมตำแหน่งและขนาดในรูปแบบกระชับ */}
+                        <div className="flex items-center justify-between text-xs gap-2">
+                          <div className="min-w-0 flex-1">
+                            <span className="text-[10px] text-[#CFC7BA] block">{workTitle}</span>
+                            <p className="font-medium text-[#ECE4D3] truncate">
+                              {artistAndStyle}
+                            </p>
+                            <p className="text-[11px] text-[#A89F91] truncate">
+                              {placementAndSize}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-1 shrink-0 self-end">
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleOpenRequestDetail(item.rawItem || item);
+                              }}
+                              className={
+                                isInactive
+                                  ? "text-xs font-medium text-zinc-400 hover:text-zinc-300 flex items-center gap-0.5 cursor-pointer"
+                                  : "text-xs font-semibold text-[#ECE4D3] hover:text-white flex items-center gap-0.5 cursor-pointer"
+                              }
+                            >
+                              <span>{isInactive ? 'ดูรายละเอียด' : 'จัดการคำขอ'}</span>
+                              <ChevronRight size={14} />
+                            </button>
+                          </div>
+                        </div>
                       </div>
                     );
                   })}

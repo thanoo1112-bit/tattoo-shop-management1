@@ -310,7 +310,7 @@ export default function CustomerLoginPage({ initialFlipped = false }: CustomerLo
           <p className="text-sm text-studio-secondary leading-relaxed font-light transition-opacity duration-300">
             {isFlipped 
               ? 'จัดการคิวงาน ลูกค้า ตารางงาน Flash และการดำเนินงานของร้านสำหรับทีมงานสตูดิโอ'
-              : 'เข้าสู่ระบบเพื่อติดตามสถานะคิวงาน จัดการการแจ้งชำระมัดจำ และตรวจสอบใบเสนอราคาจากช่างสักที่คุณเลือก'
+              : 'เข้าสู่ระบบเพื่อติดตามสถานะการจองคิว แจ้งชำระมัดจำ และตรวจสอบรายละเอียดการนัดหมายกับช่างสักที่คุณเลือก'
             }
           </p>
         </div>
@@ -361,9 +361,17 @@ export default function CustomerLoginPage({ initialFlipped = false }: CustomerLo
             >
               {/* Header Section */}
               <div className="text-center space-y-1.5 pb-2">
-                <span className="text-xs uppercase tracking-[0.25em] text-studio-secondary font-heading block">
-                  {authMode === 'login' ? 'CUSTOMER ACCOUNT' : 'REGISTER ACCOUNT'}
-                </span>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src="/157-tattoo-logo.png"
+                  alt="157 TATTOO logo"
+                  className="block mx-auto h-14 md:h-[68px] w-auto object-contain mb-1.5 md:mb-2.5"
+                />
+                {authMode !== 'login' && (
+                  <span className="text-xs uppercase tracking-[0.25em] text-studio-secondary font-heading block">
+                    REGISTER ACCOUNT
+                  </span>
+                )}
                 <h2 className="text-3xl sm:text-4xl font-heading font-normal tracking-[0.1em] text-studio-primary">
                   157 <span className="text-studio-red">TATTOO</span>
                 </h2>
@@ -654,12 +662,12 @@ export default function CustomerLoginPage({ initialFlipped = false }: CustomerLo
               <div>
                 {/* Header */}
                 <div className="text-center space-y-1 pb-1">
-                  <div className="mx-auto w-10 h-10 bg-studio-red/15 border border-studio-red/30 rounded-full flex items-center justify-center text-studio-red mb-2">
-                    <ShieldCheck size={20} />
-                  </div>
-                  <span className="text-xs uppercase tracking-[0.25em] text-studio-paper font-heading block">
-                    STAFF PORTAL
-                  </span>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src="/157-tattoo-logo.png"
+                    alt="157 TATTOO logo"
+                    className="block mx-auto h-14 sm:h-[68px] w-auto object-contain mb-1.5 sm:mb-2.5"
+                  />
                   <h2 className="text-2xl sm:text-3xl font-heading font-normal tracking-[0.1em] text-studio-primary">
                     157 <span className="text-studio-red">TATTOO</span>
                   </h2>

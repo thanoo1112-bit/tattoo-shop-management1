@@ -12,6 +12,12 @@ interface CalendarFiltersProps {
   onArtistChange: (id: string) => void;
   selectedStatus: string; // 'ALL' or SessionStatus
   onStatusChange: (status: string) => void;
+  statusCounts?: {
+    all: number;
+    scheduled: number;
+    completed: number;
+    cancelled: number;
+  };
 }
 
 export default function CalendarFilters({
@@ -22,13 +28,13 @@ export default function CalendarFilters({
   onArtistChange,
   selectedStatus,
   onStatusChange,
+  statusCounts,
 }: CalendarFiltersProps) {
   const statusOptions: Array<{ value: string; label: string }> = [
-    { value: 'ALL', label: 'สถานะทั้งหมด' },
-    { value: 'SCHEDULED', label: 'นัดหมายแล้ว' },
-    { value: 'SESSIONS', label: 'รอบนัด' },
-    { value: 'COMPLETED', label: 'งานเสร็จสิ้น' },
-    { value: 'CANCELLED', label: 'ยกเลิก' },
+    { value: 'ALL', label: statusCounts ? `สถานะทั้งหมด (${statusCounts.all})` : 'สถานะทั้งหมด' },
+    { value: 'SCHEDULED', label: statusCounts ? `นัดหมายแล้ว (${statusCounts.scheduled})` : 'นัดหมายแล้ว' },
+    { value: 'COMPLETED', label: statusCounts ? `งานเสร็จสิ้น (${statusCounts.completed})` : 'งานเสร็จสิ้น' },
+    { value: 'CANCELLED', label: statusCounts ? `ยกเลิก (${statusCounts.cancelled})` : 'ยกเลิก' },
   ];
 
   return (
@@ -37,7 +43,7 @@ export default function CalendarFilters({
       <div className="relative flex-1 max-w-md">
         <Search
           size={14}
-          className="absolute left-3 top-1/2 -translate-y-1/2 text-[#7A7265]"
+          className="absolute left-3 top-1/2 -translate-y-1/2 text-[#B8B0A3]"
         />
         <input
           id="input-calendar-search"
@@ -45,7 +51,7 @@ export default function CalendarFilters({
           value={searchQuery}
           onChange={(e) => onSearchChange(e.target.value)}
           placeholder="ค้นหาชื่อลูกค้า หรือชื่อช่าง..."
-          className="w-full bg-[#171512] border border-[#4A443A]/60 rounded-xl pl-9 pr-3 py-2 text-xs text-[#ECE4D3] placeholder-[#7A7265] focus:outline-none focus:border-[#9C2F2F] transition-colors"
+          className="w-full bg-[#171512] border border-[#4A443A]/60 rounded-xl pl-9 pr-3 py-2 text-xs text-[#ECE4D3] placeholder-[#B8B0A3] focus:outline-none focus:border-[#9C2F2F] transition-colors"
         />
       </div>
 
@@ -68,7 +74,7 @@ export default function CalendarFilters({
           </select>
           <User
             size={13}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-[#7A7265] pointer-events-none"
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-[#B8B0A3] pointer-events-none"
           />
         </div>
 
@@ -88,7 +94,7 @@ export default function CalendarFilters({
           </select>
           <Filter
             size={13}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-[#7A7265] pointer-events-none"
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-[#B8B0A3] pointer-events-none"
           />
         </div>
       </div>

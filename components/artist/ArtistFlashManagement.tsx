@@ -15,8 +15,6 @@ import {
   AlertTriangle,
   CheckCircle2,
   RefreshCw,
-  Eye,
-  EyeOff,
   Upload,
   Camera,
   Loader2,
@@ -59,7 +57,6 @@ export default function ArtistFlashManagement() {
   // Search & Filters
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStyle, setFilterStyle] = useState('ALL');
-  const [filterStatus, setFilterStatus] = useState<'ALL' | 'AVAILABLE' | 'RESERVED' | 'SOLD'>('ALL');
 
   // Modal / Form States
   const [isFormModalOpen, setIsFormModalOpen] = useState(false);
@@ -88,6 +85,7 @@ export default function ArtistFlashManagement() {
   // Delete Modal State
   const [deleteTarget, setDeleteTarget] = useState<ArtistFlashDesign | null>(null);
   const [isDeletingFlash, setIsDeletingFlash] = useState(false);
+  const [reopeningId, setReopeningId] = useState<string | null>(null);
 
   // Image Upload State
   const [isUploadingImage, setIsUploadingImage] = useState(false);
@@ -220,7 +218,7 @@ export default function ArtistFlashManagement() {
     setFormImageUrl(design.image_url);
     setFormStatus(design.status);
     setFormIsVisible(design.is_visible);
-    setFormIsRepeatable(Boolean(design.is_repeatable));
+    setFormIsRepeatable(false);
     setFormSortOrder(design.sort_order || 0);
     setFormError('');
     setImageUploadError('');
@@ -269,7 +267,7 @@ export default function ArtistFlashManagement() {
             image_url: formImageUrl.trim(),
             status: formStatus,
             is_visible: formIsVisible,
-            is_repeatable: formIsRepeatable,
+            is_repeatable: false,
             sort_order: Number(formSortOrder) || 0,
           })
           .eq('id', editingDesign.id)
@@ -293,7 +291,7 @@ export default function ArtistFlashManagement() {
             image_url: formImageUrl.trim(),
             status: formStatus,
             is_visible: formIsVisible,
-            is_repeatable: formIsRepeatable,
+            is_repeatable: false,
             sort_order: Number(formSortOrder) || 0,
           });
 
@@ -312,10 +310,68 @@ export default function ArtistFlashManagement() {
     }
   };
 
-  // Toggle Quick Status (AVAILABLE -> SOLD / RESERVED -> AVAILABLE)
+  // Toggle Quick Status (AVAILABLE -> SOLD / SOLD -> AVAILABLE)
   const handleQuickStatusToggle = async (design: ArtistFlashDesign, newStatus: 'AVAILABLE' | 'RESERVED' | 'SOLD') => {
     if (!staffArtistId) return;
+
+    if (newStatus === 'AVAILABLE') {
+      try {
+        setReopeningId(design.id);
+
+        // Safety Guard 1: Check active flash_reservations for this flash design
+        const { data: activeReservations, error: resErr } = await supabase
+          .from('flash_reservations')
+          .select('id, status')
+          .eq('flash_design_id', design.id)
+          .not('status', 'in', '("CANCELLED","REJECTED","EXPIRED","COMPLETED")');
+
+        if (resErr) {
+          console.error('[ArtistFlash] Error checking active reservations:', resErr);
+        }
+
+        if (activeReservations && activeReservations.length > 0) {
+          setActionNotice({
+            text: 'ไม่สามารถเปิดจองได้เนื่องจากมีรายการจองที่ยังดำเนินการอยู่',
+            type: 'error',
+          });
+          setReopeningId(null);
+          return;
+        }
+
+        // Safety Guard 2: Check active bookings linked to any reservation of this flash design
+        const { data: allReservations } = await supabase
+          .from('flash_reservations')
+          .select('id')
+          .eq('flash_design_id', design.id);
+
+        if (allReservations && allReservations.length > 0) {
+          const resIds = allReservations.map((r: any) => r.id);
+          const { data: activeBookings, error: bErr } = await supabase
+            .from('bookings')
+            .select('id, status')
+            .in('flash_reservation_id', resIds)
+            .not('status', 'in', '("CANCELLED","REJECTED","EXPIRED","COMPLETED")');
+
+          if (bErr) {
+            console.error('[ArtistFlash] Error checking active bookings:', bErr);
+          }
+
+          if (activeBookings && activeBookings.length > 0) {
+            setActionNotice({
+              text: 'ไม่สามารถเปิดจองได้เนื่องจากมีรายการจองที่ยังดำเนินการอยู่',
+              type: 'error',
+            });
+            setReopeningId(null);
+            return;
+          }
+        }
+      } catch (checkErr: any) {
+        console.error('[ArtistFlash] Safety check error:', checkErr);
+      }
+    }
+
     try {
+      setReopeningId(design.id);
       const { error: toggleErr } = await supabase
         .from('flash_designs')
         .update({ status: newStatus })
@@ -335,12 +391,16 @@ export default function ArtistFlashManagement() {
       };
 
       setActionNotice({
-        text: `อัปเดตสถานะ "${design.title}" เป็น [${statusLabels[newStatus]}] แล้ว`,
+        text: newStatus === 'AVAILABLE'
+          ? `เปิดจองลาย Flash "${design.title}" อีกครั้งเรียบร้อยแล้ว`
+          : `อัปเดตสถานะ "${design.title}" เป็น [${statusLabels[newStatus]}] แล้ว`,
         type: 'success',
       });
     } catch (err: any) {
       console.error('[ArtistFlash] Quick status error:', err);
       setActionNotice({ text: 'ไม่สามารถเปลี่ยนสถานะได้: ' + err?.message, type: 'error' });
+    } finally {
+      setReopeningId(null);
     }
   };
 
@@ -409,8 +469,6 @@ export default function ArtistFlashManagement() {
     return designs.filter((d) => {
       // Style
       if (filterStyle !== 'ALL' && d.style !== filterStyle) return false;
-      // Status
-      if (filterStatus !== 'ALL' && d.status !== filterStatus) return false;
       // Search
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase().trim();
@@ -421,7 +479,7 @@ export default function ArtistFlashManagement() {
       }
       return true;
     });
-  }, [designs, filterStyle, filterStatus, searchQuery]);
+  }, [designs, filterStyle, searchQuery]);
 
   return (
     <div className="space-y-6 font-prompt">
@@ -501,19 +559,19 @@ export default function ArtistFlashManagement() {
       <div className="bg-studio-card border border-studio-border p-4 rounded-xl space-y-3 shadow-md">
         <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
           {/* Search */}
-          <div className="md:col-span-6 relative">
-            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-studio-muted" />
+          <div className="md:col-span-8 relative">
+            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#B8B0A3]" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="ค้นหาชื่อลาย Flash คำอธิบาย หรือสไตล์..."
-              className="w-full bg-studio-main border border-studio-border focus:border-studio-red/60 text-studio-primary placeholder-studio-muted pl-9 pr-4 py-2 rounded-lg text-xs focus:outline-none transition-colors"
+              className="w-full bg-studio-main border border-studio-border focus:border-studio-red/60 text-studio-primary placeholder-[#B8B0A3] pl-9 pr-4 py-2 rounded-lg text-xs focus:outline-none transition-colors"
             />
             {searchQuery && (
               <button
                 onClick={() => setSearchQuery('')}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-studio-muted hover:text-studio-primary"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-[#B8B0A3] hover:text-studio-primary"
               >
                 <X size={14} />
               </button>
@@ -521,7 +579,7 @@ export default function ArtistFlashManagement() {
           </div>
 
           {/* Filter Style */}
-          <div className="md:col-span-3">
+          <div className="md:col-span-4">
             <select
               value={filterStyle}
               onChange={(e) => setFilterStyle(e.target.value)}
@@ -535,31 +593,16 @@ export default function ArtistFlashManagement() {
               ))}
             </select>
           </div>
-
-          {/* Filter Status */}
-          <div className="md:col-span-3">
-            <select
-              value={filterStatus}
-              onChange={(e) => setFilterStatus(e.target.value as any)}
-              className="w-full bg-studio-main border border-studio-border focus:border-studio-red/60 text-studio-primary px-3 py-2 rounded-lg text-xs focus:outline-none cursor-pointer"
-            >
-              <option value="ALL">ทุกสถานะลาย Flash</option>
-              <option value="AVAILABLE">พร้อมขาย (AVAILABLE)</option>
-              <option value="RESERVED">จองแล้ว (RESERVED)</option>
-              <option value="SOLD">ขายแล้ว/ปิดขาย (SOLD)</option>
-            </select>
-          </div>
         </div>
 
         <div className="flex items-center justify-between text-xs text-studio-secondary pt-2 border-t border-studio-border/60">
           <div>
             แสดง <strong className="text-studio-primary font-bold">{filteredDesigns.length}</strong> จากทั้งหมด {designs.length} รายการ
           </div>
-          {(filterStyle !== 'ALL' || filterStatus !== 'ALL' || searchQuery) && (
+          {(filterStyle !== 'ALL' || searchQuery) && (
             <button
               onClick={() => {
                 setFilterStyle('ALL');
-                setFilterStatus('ALL');
                 setSearchQuery('');
               }}
               className="text-studio-red-bright hover:underline text-[11px]"
@@ -604,6 +647,7 @@ export default function ArtistFlashManagement() {
           {filteredDesigns.map((design) => {
             const isSold = design.status === 'SOLD';
             const isReserved = design.status === 'RESERVED';
+            const isAvailable = design.status === 'AVAILABLE';
 
             return (
               <div
@@ -672,35 +716,34 @@ export default function ArtistFlashManagement() {
                   {/* Quick Action / Close Sale buttons */}
                   <div className="pt-2 border-t border-studio-border/60 flex items-center justify-between gap-2">
                     {/* Status quick toggle */}
-                    {isSold ? (
-                      <button
-                        onClick={() => handleQuickStatusToggle(design, 'AVAILABLE')}
-                        className="px-2.5 py-1.5 bg-emerald-950/40 hover:bg-emerald-900/60 border border-emerald-800/60 text-emerald-400 text-[11px] font-medium rounded-lg transition-colors flex items-center space-x-1 cursor-pointer"
-                        title="เปิดขายใหม่"
-                      >
-                        <RefreshCw size={12} />
-                        <span>เปิดขายใหม่</span>
-                      </button>
-                    ) : (
-                      <button
-                        onClick={() => handleQuickStatusToggle(design, 'SOLD')}
-                        className="px-2.5 py-1.5 bg-red-950/40 hover:bg-red-900/60 border border-red-800/60 text-red-400 text-[11px] font-medium rounded-lg transition-colors flex items-center space-x-1 cursor-pointer"
-                        title="ปิดการขาย (SOLD)"
-                      >
-                        <Lock size={12} />
-                        <span>ปิดขาย (SOLD)</span>
-                      </button>
-                    )}
+                    <div>
+                      {isSold ? (
+                        <button
+                          onClick={() => handleQuickStatusToggle(design, 'AVAILABLE')}
+                          disabled={reopeningId === design.id}
+                          className="px-2.5 py-1.5 bg-emerald-950/40 hover:bg-emerald-900/60 border border-emerald-800/60 text-emerald-400 text-[11px] font-medium rounded-lg transition-colors flex items-center space-x-1 cursor-pointer disabled:opacity-50"
+                          title="เปิดจองอีกครั้ง"
+                        >
+                          {reopeningId === design.id ? (
+                            <Loader2 size={12} className="animate-spin" />
+                          ) : (
+                            <RefreshCw size={12} />
+                          )}
+                          <span>เปิดจองอีกครั้ง</span>
+                        </button>
+                      ) : isAvailable ? (
+                        <button
+                          onClick={() => handleQuickStatusToggle(design, 'SOLD')}
+                          className="px-2.5 py-1.5 bg-red-950/40 hover:bg-red-900/60 border border-red-800/60 text-red-400 text-[11px] font-medium rounded-lg transition-colors flex items-center space-x-1 cursor-pointer"
+                          title="ปิดรับจอง"
+                        >
+                          <Lock size={12} />
+                          <span>ปิดรับจอง</span>
+                        </button>
+                      ) : null}
+                    </div>
 
                     <div className="flex items-center space-x-1.5">
-                      {/* Visibility Toggle */}
-                      <button
-                        onClick={() => handleToggleVisibility(design)}
-                        className="p-1.5 bg-studio-sec hover:bg-studio-border border border-studio-border text-studio-secondary hover:text-studio-primary rounded-lg transition-colors"
-                        title={design.is_visible ? 'ซ่อนจากหน้าเว็บ' : 'แสดงบนหน้าเว็บ'}
-                      >
-                        {design.is_visible ? <EyeOff size={14} /> : <Eye size={14} />}
-                      </button>
 
                       {/* Edit Button */}
                       <button
@@ -873,58 +916,6 @@ export default function ArtistFlashManagement() {
                         </option>
                       ))}
                     </select>
-                  </div>
-
-                  {/* ประเภทลาย Flash */}
-                  <div className="space-y-1.5 pt-1">
-                    <label className="text-xs font-semibold text-[#ECE4D3] block">
-                      ประเภทลาย Flash <span className="text-red-400">*</span>
-                    </label>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                      <label
-                        className={`flex items-start gap-2.5 p-3 rounded-lg border cursor-pointer transition-all ${
-                          !formIsRepeatable
-                            ? 'bg-[#1C1814] border-[#9C2F2F] text-[#ECE4D3]'
-                            : 'bg-[#0E0D0C] border-[#2D2820] text-[#7A7162] hover:border-[#3E372C]'
-                        }`}
-                      >
-                        <input
-                          type="radio"
-                          name="artistFlashRepeatable"
-                          checked={!formIsRepeatable}
-                          onChange={() => setFormIsRepeatable(false)}
-                          className="mt-0.5 w-3.5 h-3.5 text-[#9C2F2F] focus:ring-0 cursor-pointer"
-                        />
-                        <div>
-                          <span className="text-xs font-bold block text-[#ECE4D3]">ลายเดียว</span>
-                          <span className="text-[10px] text-[#A89F91] leading-tight block mt-0.5">
-                            สักได้เพียง 1 คน เมื่อมีผู้จอง/อนุมัติแล้วจะปิดรับการจอง
-                          </span>
-                        </div>
-                      </label>
-
-                      <label
-                        className={`flex items-start gap-2.5 p-3 rounded-lg border cursor-pointer transition-all ${
-                          formIsRepeatable
-                            ? 'bg-[#1C1814] border-cyan-600/70 text-[#ECE4D3]'
-                            : 'bg-[#0E0D0C] border-[#2D2820] text-[#7A7162] hover:border-[#3E372C]'
-                        }`}
-                      >
-                        <input
-                          type="radio"
-                          name="artistFlashRepeatable"
-                          checked={formIsRepeatable}
-                          onChange={() => setFormIsRepeatable(true)}
-                          className="mt-0.5 w-3.5 h-3.5 text-cyan-500 focus:ring-0 cursor-pointer"
-                        />
-                        <div>
-                          <span className="text-xs font-bold block text-[#ECE4D3]">สักซ้ำได้</span>
-                          <span className="text-[10px] text-[#A89F91] leading-tight block mt-0.5">
-                            ลูกค้าหลายคนจองลายนี้ได้ ลายยังคงสถานะว่างตลอด
-                          </span>
-                        </div>
-                      </label>
-                    </div>
                   </div>
                 </div>
 

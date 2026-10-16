@@ -25,7 +25,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { BookingItem, BookingSessionItem, formatDateTimeBangkok, formatDateBangkok, formatTimeBangkok, formatCurrency, getTattooWorkTypeLabel, getColorTechniqueLabel, toBangkokDateString } from './types';
-import { calculateDurationText } from '@/components/admin/calendar/calendarUtils';
+import { calculateDurationText, resolveBookingCalendarStatus } from '@/components/admin/calendar/calendarUtils';
 import { parseNoteWithPreferredTime } from '@/lib/noteUtils';
 import BookingSessionList from './BookingSessionList';
 import { CompleteBookingDialog } from './CompleteBookingDialog';
@@ -38,12 +38,22 @@ import PaymentSlipImage from '@/components/common/PaymentSlipImage';
 import { BlockedDateRecord, checkDateAvailability, checkExistingDateWarning } from '@/lib/availabilityUtils';
 import { calculateCustomerAgeYears } from '@/lib/customerUtils';
 import { formatTattooSize } from '@/lib/utils/formatters';
+import { isConfirmedDepositBooking } from '@/components/portal/portalUtils';
+import BookingRescheduleRequestSection from './BookingRescheduleRequestSection';
+import {
+  RescheduleRequest,
+  getLatestRescheduleRequest,
+  getPendingRescheduleRequest,
+  isRescheduleRequestUiEnabled,
+  subscribeRescheduleRequests,
+} from '@/lib/reschedule/rescheduleRequestStore';
 
 interface BookingDetailPanelProps {
   booking: BookingItem | null;
   artists: Array<{ id: string; name: string; nickname: string | null }>;
   blockedDates?: BlockedDateRecord[];
   isArtistView?: boolean;
+  isDashboard?: boolean;
   onClose: () => void;
   onRefresh: () => void;
   onCheckSlip?: (bookingId: string) => void;
@@ -54,6 +64,7 @@ export default function BookingDetailPanel({
   artists,
   blockedDates = [],
   isArtistView = false,
+  isDashboard = false,
   onClose,
   onRefresh,
   onCheckSlip,
@@ -72,6 +83,17 @@ export default function BookingDetailPanel({
   const [isStartingSession, setIsStartingSession] = useState(false);
   const [isCompletingActiveSession, setIsCompletingActiveSession] = useState(false);
   const [mounted, setMounted] = useState(false);
+
+  const [latestReschedule, setLatestReschedule] = useState<RescheduleRequest | null>(() =>
+    booking?.id ? getLatestRescheduleRequest(booking.id) : null
+  );
+
+  useEffect(() => {
+    const bId = booking?.id || '';
+    const sync = () => setLatestReschedule(bId ? getLatestRescheduleRequest(bId) : null);
+    sync();
+    return subscribeRescheduleRequests(sync);
+  }, [booking?.id]);
 
   // Reschedule Session Dialog State
   const [reschedulingSession, setReschedulingSession] = useState<BookingSessionItem | null>(null);
@@ -278,13 +300,35 @@ export default function BookingDetailPanel({
     allergy_note: string | null;
     error: boolean;
   }>({
-    loading: true,
-    has_medical_condition: null,
-    medical_condition_note: null,
-    has_allergy: null,
-    allergy_note: null,
+    loading: booking?.has_medical_condition === undefined && booking?.has_allergy === undefined,
+    has_medical_condition: booking?.has_medical_condition ?? null,
+    medical_condition_note: (booking as any)?.medical_condition_note ?? null,
+    has_allergy: booking?.has_allergy ?? null,
+    allergy_note: (booking as any)?.allergy_note ?? null,
     error: false,
   });
+
+  React.useEffect(() => {
+    if (
+      booking &&
+      (booking.has_medical_condition !== undefined || booking.has_allergy !== undefined)
+    ) {
+      setHealthState((prev) => ({
+        ...prev,
+        has_medical_condition: booking.has_medical_condition ?? prev.has_medical_condition,
+        medical_condition_note: (booking as any)?.medical_condition_note || prev.medical_condition_note,
+        has_allergy: booking.has_allergy ?? prev.has_allergy,
+        allergy_note: (booking as any)?.allergy_note || prev.allergy_note,
+        loading: false,
+      }));
+    }
+  }, [
+    booking?.id,
+    booking?.has_medical_condition,
+    booking?.has_allergy,
+    (booking as any)?.medical_condition_note,
+    (booking as any)?.allergy_note,
+  ]);
 
   React.useEffect(() => {
     const estimateRequestId = booking?.estimate_request_id;
@@ -294,17 +338,20 @@ export default function BookingDetailPanel({
     if (!customerUserId && !customerId && !estimateRequestId) {
       setHealthState({
         loading: false,
-        has_medical_condition: null,
-        medical_condition_note: null,
-        has_allergy: null,
-        allergy_note: null,
+        has_medical_condition: booking?.has_medical_condition ?? null,
+        medical_condition_note: (booking as any)?.medical_condition_note ?? null,
+        has_allergy: booking?.has_allergy ?? null,
+        allergy_note: (booking as any)?.allergy_note ?? null,
         error: false,
       });
       return;
     }
 
     let isMounted = true;
-    setHealthState((prev) => ({ ...prev, loading: true }));
+    setHealthState((prev) => ({
+      ...prev,
+      loading: prev.has_medical_condition === null && prev.has_allergy === null,
+    }));
     const supabase = createClient();
 
     async function fetchHealthData() {
@@ -373,7 +420,10 @@ export default function BookingDetailPanel({
 
         setHealthState({
           loading: false,
-          ...healthObj,
+          has_medical_condition: healthObj.has_medical_condition ?? booking?.has_medical_condition ?? null,
+          medical_condition_note: healthObj.medical_condition_note || (booking as any)?.medical_condition_note || null,
+          has_allergy: healthObj.has_allergy ?? booking?.has_allergy ?? null,
+          allergy_note: healthObj.allergy_note || (booking as any)?.allergy_note || null,
           error: false,
         });
       } catch (err) {
@@ -381,10 +431,10 @@ export default function BookingDetailPanel({
         if (isMounted) {
           setHealthState({
             loading: false,
-            has_medical_condition: null,
-            medical_condition_note: null,
-            has_allergy: null,
-            allergy_note: null,
+            has_medical_condition: booking?.has_medical_condition ?? null,
+            medical_condition_note: (booking as any)?.medical_condition_note ?? null,
+            has_allergy: booking?.has_allergy ?? null,
+            allergy_note: (booking as any)?.allergy_note ?? null,
             error: true,
           });
         }
@@ -396,7 +446,7 @@ export default function BookingDetailPanel({
     return () => {
       isMounted = false;
     };
-  }, [booking?.id, booking?.customer_user_id, booking?.estimate_request_id]);
+  }, [booking?.id, booking?.customer_user_id, (booking as any)?.customer_id, booking?.estimate_request_id]);
 
 
 
@@ -436,7 +486,13 @@ export default function BookingDetailPanel({
   const sizeDisplay = formatTattooSize(wCm, hCm, sizeTierVal);
 
   const activeSession = booking.sessions?.find((s) => s.status !== 'CANCELLED') || booking.sessions?.[0];
-  const appointmentDateDisplay = activeSession?.start_at
+  const hasApprovedReschedule =
+    latestReschedule?.status === 'APPROVED' &&
+    Boolean(latestReschedule.requested_date && latestReschedule.requested_start_time);
+
+  const appointmentDateDisplay = hasApprovedReschedule
+    ? formatDateBangkok(latestReschedule!.requested_date)
+    : activeSession?.start_at
     ? formatDateBangkok(activeSession.start_at)
     : booking.requested_date
     ? formatDateBangkok(booking.requested_date)
@@ -445,7 +501,9 @@ export default function BookingDetailPanel({
   const rawTimeStr = booking.requested_time || booking.requested_start_time;
   const formattedRawTime = rawTimeStr ? (rawTimeStr.length >= 5 ? `${rawTimeStr.slice(0, 5)} น.` : rawTimeStr) : 'ไม่ระบุเวลา';
 
-  const appointmentTimeDisplay = activeSession?.start_at
+  const appointmentTimeDisplay = hasApprovedReschedule
+    ? `${latestReschedule!.requested_start_time.slice(0, 5)} น.`
+    : activeSession?.start_at
     ? formatTimeBangkok(activeSession.start_at)
     : formattedRawTime;
 
@@ -455,31 +513,86 @@ export default function BookingDetailPanel({
 
   const descriptionDisplay = booking.description || booking.customer_note || '';
   const cleanDescription = parseNoteWithPreferredTime(descriptionDisplay).cleanNote || null;
-  const refImages = Array.isArray(booking.reference_images) && booking.reference_images.length > 0 ? booking.reference_images : [];
+  // Resolve reference images defensively from booking, parent estimate, flash design, or artwork_image_url
+  const rawRefs = booking.reference_images || (booking as any).estimate_requests?.reference_images || (booking as any).estimate?.reference_images;
+  const flashImg = (booking as any).flash_reservations?.flash_designs?.image_url ||
+                   (booking as any).flash_reservation?.flash_designs?.image_url ||
+                   (booking as any).flash_reservation?.flash_design?.image_url ||
+                   (booking as any).flash_design?.image_url;
+
+  let refImages: string[] = [];
+  if (flashImg) {
+    refImages = [flashImg];
+  } else if (Array.isArray(rawRefs) && rawRefs.length > 0) {
+    refImages = rawRefs.filter((x): x is string => typeof x === 'string' && Boolean(x.trim()));
+  } else if (typeof rawRefs === 'string' && rawRefs.trim()) {
+    try {
+      const parsed = JSON.parse(rawRefs);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        refImages = parsed.filter((x): x is string => typeof x === 'string' && Boolean(x.trim()));
+      } else {
+        refImages = [rawRefs.trim()];
+      }
+    } catch {
+      refImages = [rawRefs.trim()];
+    }
+  } else if (booking.artwork_image_url) {
+    refImages = [booking.artwork_image_url];
+  }
+
+  const isConfirmedDeposit = Boolean(
+    booking &&
+    (isConfirmedDepositBooking(booking, undefined, undefined, booking.financial) || booking.status === 'COMPLETED') &&
+    !booking.has_pending_payment_submission &&
+    booking.pending_submission?.status !== 'PENDING' &&
+    booking.operational_status?.key !== 'WAITING_SLIP_VERIFICATION'
+  );
+
+  const dashboardCalendarStatus = (isDashboard || isArtistView)
+    ? resolveBookingCalendarStatus(booking.sessions, booking.status)
+    : null;
+
+  const hasPendingReschedule = Boolean(
+    booking.id && isRescheduleRequestUiEnabled() && getPendingRescheduleRequest(booking.id)
+  );
 
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'PENDING':
         return (
-          <span className="bg-blue-950/60 text-blue-400 border border-blue-800/60 px-2.5 py-0.5 rounded text-xs font-semibold">
+          <span className="bg-blue-500/15 text-blue-300 border border-blue-400/40 px-2.5 py-0.5 rounded text-xs font-semibold">
             รออนุมัติคิว
           </span>
         );
       case 'APPROVED':
         return (
-          <span className="bg-emerald-950/60 text-emerald-400 border border-emerald-800/60 px-2.5 py-0.5 rounded text-xs font-semibold">
+          <span className="bg-emerald-500/15 text-emerald-300 border border-emerald-400/40 px-2.5 py-0.5 rounded text-xs font-semibold">
             อนุมัติแล้ว
           </span>
         );
       case 'WAITING_DEPOSIT':
         return (
-          <span className="bg-purple-950/60 text-purple-400 border border-purple-800/60 px-2.5 py-0.5 rounded text-xs font-semibold">
+          <span className="bg-amber-500/15 text-amber-300 border border-amber-400/40 px-2.5 py-0.5 rounded text-xs font-semibold">
             รอมัดจำ
           </span>
         );
       case 'CONFIRMED':
+        if (hasPendingReschedule) {
+          return (
+            <span className="bg-amber-500/15 text-amber-300 border border-amber-400/40 px-2.5 py-0.5 rounded text-xs font-semibold">
+              ขอเลื่อนนัด
+            </span>
+          );
+        }
+        if (isDashboard || isArtistView) {
+          return (
+            <span className="bg-sky-500/15 text-sky-300 border border-sky-400/40 px-2.5 py-0.5 rounded text-xs font-semibold">
+              นัดหมายแล้ว
+            </span>
+          );
+        }
         return (
-          <span className="bg-emerald-950/60 text-emerald-400 border border-emerald-800/60 px-2.5 py-0.5 rounded text-xs font-semibold">
+          <span className="bg-emerald-500/15 text-emerald-300 border border-emerald-400/40 px-2.5 py-0.5 rounded text-xs font-semibold">
             คิวยืนยันแล้ว
           </span>
         );
@@ -498,7 +611,7 @@ export default function BookingDetailPanel({
         );
       case 'REJECTED':
         return (
-          <span className="bg-red-950/50 text-red-400 border border-red-900/60 px-2.5 py-0.5 rounded text-xs font-semibold">
+          <span className="bg-red-500/15 text-red-300 border border-red-400/40 px-2.5 py-0.5 rounded text-xs font-semibold">
             ปฏิเสธแล้ว
           </span>
         );
@@ -510,7 +623,7 @@ export default function BookingDetailPanel({
         );
       case 'CANCELLED':
         return (
-          <span className="bg-[#1F1D1A] text-[#7A7265] border border-[#4A443A] px-2.5 py-0.5 rounded text-xs font-semibold">
+          <span className="bg-[#1F1D1A] text-[#AFA79A] border border-[#4A443A] px-2.5 py-0.5 rounded text-xs font-semibold">
             ยกเลิกแล้ว
           </span>
         );
@@ -554,21 +667,60 @@ export default function BookingDetailPanel({
     setActionError(null);
 
     setIsRejecting(true);
+    const isConfirmed = booking.status === 'CONFIRMED' || booking.status === 'IN_PROGRESS';
     try {
       const supabase = createClient();
-      const { error } = await supabase
-        .from('bookings')
-        .update({
-          status: 'REJECTED',
-          admin_note: rejectReason.trim() ? `ปฏิเสธ: ${rejectReason.trim()}` : 'ร้านไม่สามารถรับคิวงานนี้ได้',
-        })
-        .eq('id', booking.id);
+      const targetStatus = isConfirmed ? 'CANCELLED' : 'REJECTED';
+      const defaultNote = isConfirmed ? 'ร้านขอยกเลิกคิวงานนี้' : 'ร้านไม่สามารถรับคิวงานนี้ได้';
+      const notePrefix = isConfirmed ? 'ยกเลิก' : 'ปฏิเสธ';
+      const cancellationReason = rejectReason.trim() ? `${notePrefix}: ${rejectReason.trim()}` : defaultNote;
 
-      if (error) throw error;
+      if (isArtistView && isConfirmed) {
+        const { data: rpcData, error: rpcErr } = await supabase.rpc('artist_cancel_booking', {
+          p_booking_id: booking.id,
+          p_cancellation_reason: cancellationReason,
+        });
+
+        if (rpcErr || (rpcData && !(rpcData as any).success)) {
+          console.error('artist_cancel_booking RPC failed, attempting direct update fallback:', rpcErr || rpcData);
+          const { error: updateErr } = await supabase
+            .from('bookings')
+            .update({
+              status: targetStatus,
+              admin_note: cancellationReason,
+            })
+            .eq('id', booking.id);
+
+          if (updateErr) throw (rpcErr || updateErr);
+        }
+      } else {
+        const { error: updateErr } = await supabase
+          .from('bookings')
+          .update({
+            status: targetStatus,
+            admin_note: cancellationReason,
+          })
+          .eq('id', booking.id);
+
+        if (updateErr) {
+          if (isConfirmed) {
+            const { data: rpcData, error: rpcErr } = await supabase.rpc('artist_cancel_booking', {
+              p_booking_id: booking.id,
+              p_cancellation_reason: cancellationReason,
+            });
+            if (rpcErr || (rpcData && !(rpcData as any).success)) throw (updateErr || rpcErr);
+          } else {
+            throw updateErr;
+          }
+        }
+      }
+
+      setRejectReason('');
+      setSuccessToast(isConfirmed ? 'ยกเลิกคิวงานเรียบร้อยแล้ว' : 'ปฏิเสธคิวงานเรียบร้อยแล้ว');
       onRefresh();
     } catch (err: any) {
-      console.error('Error rejecting booking:', err);
-      setActionError(err.message || 'เกิดข้อผิดพลาดในการปฏิเสธคิว');
+      console.error('Error rejecting/cancelling booking:', err);
+      setActionError(err.message || (isConfirmed ? 'เกิดข้อผิดพลาดในการยกเลิกคิว' : 'เกิดข้อผิดพลาดในการปฏิเสธคิว'));
     } finally {
       setIsRejecting(false);
     }
@@ -723,7 +875,7 @@ export default function BookingDetailPanel({
         {/* Drawer Header */}
         <div className="p-4 sm:p-5 border-b border-studio-border flex items-center justify-between bg-studio-card/95">
           <div className="flex items-center space-x-2.5">
-            <span className="text-xs font-mono font-bold text-studio-secondary bg-studio-sec px-2 py-1 rounded border border-studio-border">
+            <span className="text-xs font-mono font-bold text-[#B8B0A3] bg-studio-sec px-2 py-1 rounded border border-studio-border">
               คิว #{booking.id.slice(0, 8)}
             </span>
             {(booking.operational_status?.key === 'WAITING_SLIP_VERIFICATION' || booking.has_pending_payment_submission) &&
@@ -732,21 +884,68 @@ export default function BookingDetailPanel({
                 type="button"
                 onClick={() => onCheckSlip(booking.id)}
                 title="กดเพื่อตรวจสลิป"
-                className="bg-amber-950/80 hover:bg-amber-900 text-amber-300 border border-amber-800/80 px-2.5 py-0.5 rounded text-xs font-semibold inline-flex items-center animate-pulse transition-colors cursor-pointer"
+                className="bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-400/40 px-2.5 py-0.5 rounded text-xs font-semibold inline-flex items-center animate-pulse transition-colors cursor-pointer"
               >
                 <span>สลิปรอตรวจ</span>
               </button>
+            ) : (isDashboard || isArtistView) && dashboardCalendarStatus ? (
+              dashboardCalendarStatus === 'IN_PROGRESS' ? (
+                <span className="bg-[#9C2F2F]/20 text-[#D64545] border border-[#9C2F2F]/60 px-2.5 py-0.5 rounded text-xs font-semibold flex items-center gap-1 animate-pulse">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#D64545] animate-pulse" />
+                  กำลังสัก
+                </span>
+              ) : dashboardCalendarStatus === 'SCHEDULED' ? (
+                hasPendingReschedule ? (
+                  <span className="bg-amber-500/15 text-amber-300 border border-amber-400/40 px-2.5 py-0.5 rounded text-xs font-semibold">
+                    ขอเลื่อนนัด
+                  </span>
+                ) : (
+                  <span className="bg-sky-500/15 text-sky-300 border border-sky-400/40 px-2.5 py-0.5 rounded text-xs font-semibold">
+                    นัดหมายแล้ว
+                  </span>
+                )
+              ) : dashboardCalendarStatus === 'COMPLETED' ? (
+                <span className="bg-emerald-950/80 text-emerald-300 border border-emerald-700/80 px-2.5 py-0.5 rounded text-xs font-semibold">
+                  งานเสร็จสิ้น
+                </span>
+              ) : dashboardCalendarStatus === 'CANCELLED' ? (
+                <span className="bg-[#1F1D1A] text-[#AFA79A] border border-[#4A443A] px-2.5 py-0.5 rounded text-xs font-semibold">
+                  ยกเลิกแล้ว
+                </span>
+              ) : dashboardCalendarStatus === 'REJECTED' ? (
+                <span className="bg-red-500/15 text-red-300 border border-red-400/40 px-2.5 py-0.5 rounded text-xs font-semibold">
+                  ปฏิเสธแล้ว
+                </span>
+              ) : dashboardCalendarStatus === 'EXPIRED' ? (
+                <span className="bg-zinc-900/90 text-zinc-400 border border-zinc-700/80 px-2.5 py-0.5 rounded text-xs font-semibold">
+                  หมดอายุ
+                </span>
+              ) : hasPendingReschedule ? (
+                <span className="bg-amber-500/15 text-amber-300 border border-amber-400/40 px-2.5 py-0.5 rounded text-xs font-semibold">
+                  ขอเลื่อนนัด
+                </span>
+              ) : (
+                <span className="bg-sky-500/15 text-sky-300 border border-sky-400/40 px-2.5 py-0.5 rounded text-xs font-semibold">
+                  นัดหมายแล้ว
+                </span>
+              )
             ) : booking.operational_status ? (
-              <span className={`${booking.operational_status.badgeClass} px-2.5 py-0.5 rounded text-xs font-semibold`}>
-                {booking.operational_status.label}
-              </span>
+              hasPendingReschedule && booking.status === 'CONFIRMED' ? (
+                <span className="bg-amber-500/15 text-amber-300 border border-amber-400/40 px-2.5 py-0.5 rounded text-xs font-semibold">
+                  ขอเลื่อนนัด
+                </span>
+              ) : (
+                <span className={`${booking.operational_status.badgeClass} px-2.5 py-0.5 rounded text-xs font-semibold`}>
+                  {booking.operational_status.label}
+                </span>
+              )
             ) : (
               getStatusBadge(booking.status)
             )}
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg text-studio-secondary hover:text-studio-primary hover:bg-studio-sec border border-studio-border transition-colors cursor-pointer"
+            className="p-1.5 rounded-lg text-[#B8B0A3] hover:text-studio-primary hover:bg-studio-sec border border-studio-border transition-colors cursor-pointer"
           >
             <X size={18} />
           </button>
@@ -775,21 +974,21 @@ export default function BookingDetailPanel({
         <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-5 pb-32 md:pb-24 text-xs">
           {/* Section 1: Date & Time Card */}
           <div className="bg-studio-sec/80 border border-studio-border rounded-xl p-4 space-y-3">
-            <div className="flex items-center space-x-2 text-studio-secondary text-[11px] uppercase tracking-wider font-semibold">
+            <div className="flex items-center space-x-2 text-[#ECE4D3] text-[11px] uppercase tracking-wider font-semibold">
               <Calendar size={14} className="text-studio-red-bright" />
               <span>วันและเวลานัดหมาย (Bangkok Time)</span>
             </div>
             <div className="grid grid-cols-2 gap-3 pt-1">
               <div>
-                <span className="text-studio-muted text-[10px] block">วันที่</span>
+                <span className="text-[#B8B0A3] text-[10px] block">วันที่</span>
                 <span className="text-sm font-semibold text-studio-primary">
                   {appointmentDateDisplay}
                 </span>
               </div>
               <div>
-                <span className="text-studio-muted text-[10px] block">เวลานัด</span>
+                <span className="text-[#B8B0A3] text-[10px] block">เวลานัด</span>
                 <span className="text-sm font-semibold text-studio-primary font-mono flex items-center space-x-1">
-                  <Clock size={13} className="text-studio-secondary inline mr-1" />
+                  <Clock size={13} className="text-[#B8B0A3] inline mr-1" />
                   {appointmentTimeDisplay}
                 </span>
               </div>
@@ -809,11 +1008,27 @@ export default function BookingDetailPanel({
             })()}
           </div>
 
+          {/* Section 1B: Customer Reschedule Request Review (Artist & Admin) */}
+          <BookingRescheduleRequestSection
+            booking={booking}
+            customerName={customerName}
+            artistDisplay={rawArtistNickname || rawArtistName}
+            blockedDates={blockedDates}
+            reviewerId={profile?.id || staffArtistRecord?.id || null}
+            onApproved={(msg) => {
+              setSuccessToast(msg);
+              onRefresh();
+            }}
+            onRejected={(msg) => {
+              setSuccessToast(msg);
+            }}
+          />
+
           {/* Section 2: Admin Actions Panel (Matched with Artist Action Card Information Layout) */}
           <div className="bg-studio-card border border-studio-border rounded-xl p-4 space-y-3">
             {/* Header */}
             <div className="flex items-center justify-between">
-              <span className="text-studio-secondary text-[11px] uppercase tracking-wider font-semibold">
+              <span className="text-[#ECE4D3] text-[11px] uppercase tracking-wider font-semibold">
                 การจัดการคิวงาน (ADMIN ACTIONS)
               </span>
             </div>
@@ -824,13 +1039,13 @@ export default function BookingDetailPanel({
                 {/* Context Info Box */}
                 <div className="space-y-2 bg-studio-sec p-2.5 rounded-lg border border-studio-border/60 text-xs">
                   <div className="flex items-center justify-between gap-2">
-                    <span className="text-studio-secondary">หลักฐานการชำระเงินมัดจำ:</span>
+                    <span className="text-[#B8B0A3]">หลักฐานการชำระเงินมัดจำ:</span>
                     <span className="bg-amber-950/80 text-amber-300 border border-amber-800/80 px-2 py-0.5 rounded text-[10px] font-semibold animate-pulse">
                       สลิปรอตรวจ
                     </span>
                   </div>
                   <div className="flex items-center justify-between gap-2">
-                    <span className="text-studio-secondary">ยอดเงินที่ลูกค้าแจ้ง:</span>
+                    <span className="text-[#B8B0A3]">ยอดเงินที่ลูกค้าแจ้ง:</span>
                     <span className="text-sm font-bold text-amber-300 font-mono">
                       ฿{formatCurrency(pendingSubmission.claimed_amount)}
                     </span>
@@ -873,7 +1088,7 @@ export default function BookingDetailPanel({
                       <button
                         type="button"
                         onClick={() => setIsRejectingSlip(false)}
-                        className="px-3 py-1.5 bg-studio-sec text-xs text-studio-secondary rounded border border-studio-border hover:text-studio-primary"
+                        className="px-3 py-1.5 bg-studio-sec text-xs text-[#B8B0A3] rounded border border-studio-border hover:text-studio-primary"
                       >
                         ยกเลิก
                       </button>
@@ -918,15 +1133,15 @@ export default function BookingDetailPanel({
             {/* CASE 2: Pending Queue Approval */}
             {!pendingSubmission && booking.status === 'PENDING' && (
               <div className="space-y-3 pt-1">
-                <span className="text-studio-secondary text-[11px] uppercase tracking-wider font-semibold block">
+                <span className="text-[#ECE4D3] text-[11px] uppercase tracking-wider font-semibold block">
                   มอบหมายช่างผู้รับผิดชอบ
                 </span>
-                <p className="text-studio-muted text-[11px] leading-relaxed">
+                <p className="text-[#B8B0A3] text-[11px] leading-relaxed">
                   เลือกช่างที่รับผิดชอบงานนี้ โดยสามารถเปลี่ยนมอบหมายให้ช่างคนอื่นได้
                 </p>
 
                 <div>
-                  <label className="block text-[11px] text-studio-secondary mb-1 font-medium">
+                  <label className="block text-[11px] text-[#B8B0A3] mb-1 font-medium">
                     ช่างผู้รับผิดชอบ: <span className="text-studio-red">*</span>
                   </label>
                   <select
@@ -974,7 +1189,7 @@ export default function BookingDetailPanel({
                       <button
                         type="button"
                         onClick={() => setIsRejecting(false)}
-                        className="px-2.5 py-1 text-xs text-studio-secondary"
+                        className="px-2.5 py-1 text-xs text-[#B8B0A3]"
                       >
                         ยกเลิก
                       </button>
@@ -1021,7 +1236,7 @@ export default function BookingDetailPanel({
             {!pendingSubmission && (booking.status === 'CONFIRMED' || booking.status === 'IN_PROGRESS') && (
               <div className="pt-1 space-y-3">
                 {/* Primary Action Full Width: Complete Booking */}
-                {(() => {
+                {!isRejecting && (() => {
                   const eligibility = checkAdminCompletionEligibility(booking);
                   return (
                     <div className="space-y-1.5">
@@ -1047,8 +1262,8 @@ export default function BookingDetailPanel({
                         <span>เสร็จสิ้นงาน</span>
                       </button>
                       {!eligibility.allowed && (
-                        <p className="text-[11px] text-amber-400 font-medium text-center flex items-center justify-center gap-1">
-                          <AlertTriangle size={12} className="shrink-0" />
+                        <p className="text-[11px] text-amber-300 font-medium text-center flex items-center justify-center gap-1">
+                          <AlertTriangle size={12} className="shrink-0 text-amber-400" />
                           <span>{eligibility.reason}</span>
                         </p>
                       )}
@@ -1056,39 +1271,77 @@ export default function BookingDetailPanel({
                   );
                 })()}
 
+                {/* Cancel Confirmation Form */}
+                {isRejecting && (
+                  <form onSubmit={handleRejectBooking} className="pt-2 border-t border-studio-border/40 space-y-2 animate-in fade-in">
+                    <span className="text-[11px] text-red-400 block font-semibold">ระบุเหตุผลการยกเลิก</span>
+                    <input
+                      type="text"
+                      required
+                      value={rejectReason}
+                      onChange={(e) => setRejectReason(e.target.value)}
+                      placeholder="เช่น ลูกค้าขอยกเลิก หรือไม่สะดวกในวันดังกล่าว..."
+                      className="w-full bg-studio-sec border border-studio-border rounded-lg px-2.5 py-1.5 text-xs text-studio-primary focus:outline-none focus:border-red-400 font-prompt placeholder:text-[#B8B0A3]"
+                    />
+                    <div className="flex items-center justify-end gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsRejecting(false);
+                          setRejectReason('');
+                        }}
+                        className="px-2.5 py-1 text-xs text-[#B8B0A3] hover:text-studio-primary cursor-pointer"
+                      >
+                        ยกเลิก
+                      </button>
+                      <button
+                        type="submit"
+                        className="px-3 py-1 bg-red-600 hover:bg-red-500 text-xs text-white rounded font-medium cursor-pointer"
+                      >
+                        ยืนยันยกเลิก
+                      </button>
+                    </div>
+                  </form>
+                )}
+
                 {/* Divider & 3-Column Secondary Action Row */}
-                <div className="pt-2 border-t border-studio-border/60 grid grid-cols-3 gap-2">
-                  <button
-                    type="button"
-                    onClick={handleOpenRescheduleModal}
-                    className="py-2 px-2.5 bg-studio-sec hover:bg-studio-border text-studio-primary border border-studio-border rounded-xl font-medium text-[11px] transition-colors cursor-pointer text-center"
-                  >
-                    เลื่อนคิว
-                  </button>
+                {!isRejecting && (
+                  <div className="pt-2 border-t border-studio-border/60 grid grid-cols-3 gap-2">
+                    <button
+                      type="button"
+                      onClick={handleOpenRescheduleModal}
+                      className="py-2 px-2.5 bg-studio-sec hover:bg-studio-border text-studio-primary border border-studio-border rounded-xl font-medium text-[11px] transition-colors cursor-pointer text-center"
+                    >
+                      เลื่อนคิว
+                    </button>
 
-                  <button
-                    type="button"
-                    onClick={() => setIsCreatingSession(true)}
-                    className="py-2 px-2.5 bg-studio-sec hover:bg-studio-border text-studio-primary border border-studio-border rounded-xl font-medium text-[11px] transition-colors cursor-pointer text-center"
-                  >
-                    เพิ่มรอบสัก
-                  </button>
+                    <button
+                      type="button"
+                      onClick={() => setIsCreatingSession(true)}
+                      className="py-2 px-2.5 bg-studio-sec hover:bg-studio-border text-studio-primary border border-studio-border rounded-xl font-medium text-[11px] transition-colors cursor-pointer text-center"
+                    >
+                      เพิ่มรอบสัก
+                    </button>
 
-                  <button
-                    type="button"
-                    onClick={() => setIsRejecting(true)}
-                    className="py-2 px-2.5 bg-red-950/60 hover:bg-red-900/80 text-red-300 border border-red-800/60 rounded-xl font-medium text-[11px] transition-colors cursor-pointer text-center"
-                  >
-                    ยกเลิกคิว
-                  </button>
-                </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsRejecting(true);
+                        setRejectReason('');
+                      }}
+                      className="py-2 px-2.5 bg-red-950/60 hover:bg-red-900/80 text-red-300 border border-red-800/60 rounded-xl font-medium text-[11px] transition-colors cursor-pointer text-center"
+                    >
+                      ยกเลิกคิว
+                    </button>
+                  </div>
+                )}
               </div>
             )}
 
             {/* CASE 6: Waiting Deposit Banner */}
             {!pendingSubmission && booking.status === 'WAITING_DEPOSIT' && (
               <div className="pt-1 space-y-2">
-                <p className="text-studio-muted text-[11px] leading-relaxed">
+                <p className="text-[#B8B0A3] text-[11px] leading-relaxed">
                   รอมัดจำ: อยู่ระหว่างรอลูกค้าชำระเงินและส่งหลักฐานสลิปมัดจำ
                 </p>
               </div>
@@ -1106,29 +1359,29 @@ export default function BookingDetailPanel({
 
           {/* Section 3: Customer Information */}
           <div className="bg-studio-card border border-studio-border rounded-xl p-4 space-y-3">
-            <div className="flex items-center space-x-2 text-studio-secondary text-[11px] uppercase tracking-wider font-semibold">
+            <div className="flex items-center space-x-2 text-[#ECE4D3] text-[11px] uppercase tracking-wider font-semibold">
               <User size={14} className="text-studio-red-bright" />
               <span>ข้อมูลลูกค้า</span>
             </div>
             <div className="space-y-2.5 pt-1 divide-y divide-studio-border/50">
               <div className="flex justify-between items-center pb-2">
-                <span className="text-studio-muted">ชื่อลูกค้า:</span>
+                <span className="text-[#B8B0A3]">ชื่อลูกค้า:</span>
                 <span className="text-studio-primary font-medium">{customerName}</span>
               </div>
               {customerEmail ? (
                 <div className="flex justify-between items-center py-2">
-                  <span className="text-studio-muted">อีเมล:</span>
-                  <span className="text-studio-secondary font-mono truncate max-w-[220px]">{customerEmail}</span>
+                  <span className="text-[#B8B0A3]">อีเมล:</span>
+                  <span className="text-[#ECE4D3] font-mono truncate max-w-[220px]">{customerEmail}</span>
                 </div>
               ) : (
                 <div className="flex justify-between items-center py-2">
-                  <span className="text-studio-muted">อีเมล:</span>
-                  <span className="text-studio-muted text-xs">ไม่ระบุอีเมล</span>
+                  <span className="text-[#B8B0A3]">อีเมล:</span>
+                  <span className="text-[#B8B0A3] text-xs">ไม่ระบุอีเมล</span>
                 </div>
               )}
               {customerPhone ? (
                 <div className="flex justify-between items-center py-2">
-                  <span className="text-studio-muted">เบอร์โทรศัพท์:</span>
+                  <span className="text-[#B8B0A3]">เบอร์โทรศัพท์:</span>
                   <a
                     href={`tel:${customerPhone}`}
                     className="flex items-center space-x-1.5 text-emerald-400 hover:text-emerald-300 font-mono bg-emerald-950/40 border border-emerald-800/40 px-2.5 py-1 rounded transition-colors"
@@ -1139,21 +1392,21 @@ export default function BookingDetailPanel({
                 </div>
               ) : (
                 <div className="flex justify-between items-center py-2">
-                  <span className="text-studio-muted">เบอร์โทรศัพท์:</span>
-                  <span className="text-studio-muted text-xs">ไม่ระบุเบอร์โทร</span>
+                  <span className="text-[#B8B0A3]">เบอร์โทรศัพท์:</span>
+                  <span className="text-[#B8B0A3] text-xs">ไม่ระบุเบอร์โทร</span>
                 </div>
               )}
               {(() => {
                 const customerAge = calculateCustomerAgeYears(customerDob || booking?.date_of_birth || booking?.customer_dob);
                 return (
                   <div className="flex justify-between items-center py-2 border-t border-studio-border/30">
-                    <span className="text-studio-muted">อายุลูกค้า:</span>
+                    <span className="text-[#B8B0A3]">อายุลูกค้า:</span>
                     {customerAge !== null ? (
                       <span className="text-studio-primary font-mono text-xs font-semibold">
                         {customerAge} ปี
                       </span>
                     ) : (
-                      <span className="text-studio-muted text-xs">
+                      <span className="text-[#B8B0A3] text-xs">
                         ไม่พบข้อมูลวันเกิด
                       </span>
                     )}
@@ -1166,7 +1419,7 @@ export default function BookingDetailPanel({
           {/* Section: ข้อมูลสุขภาพที่ลูกค้าแจ้ง */}
           <div className="bg-studio-card border border-studio-border rounded-xl p-4 space-y-3 font-prompt">
             <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-2 text-studio-secondary text-[11px] uppercase tracking-wider font-semibold">
+              <div className="flex items-center space-x-2 text-[#ECE4D3] text-[11px] uppercase tracking-wider font-semibold">
                 <AlertTriangle
                   size={14}
                   className={
@@ -1182,12 +1435,12 @@ export default function BookingDetailPanel({
             </div>
 
             {healthState.loading ? (
-              <div className="flex items-center space-x-2 text-xs text-studio-muted bg-studio-sec/60 border border-studio-border/50 p-2.5 rounded-lg">
+              <div className="flex items-center space-x-2 text-xs text-[#B8B0A3] bg-studio-sec/60 border border-studio-border/50 p-2.5 rounded-lg">
                 <span className="animate-pulse">กำลังโหลดข้อมูลสุขภาพ...</span>
               </div>
             ) : isHealthUnknown ? (
-              <div className="flex items-center space-x-2 text-xs text-studio-muted bg-studio-sec/60 border border-studio-border/50 p-2.5 rounded-lg">
-                <AlertCircle size={15} className="shrink-0 text-studio-muted" />
+              <div className="flex items-center space-x-2 text-xs text-[#B8B0A3] bg-studio-sec/60 border border-studio-border/50 p-2.5 rounded-lg">
+                <AlertCircle size={15} className="shrink-0 text-[#B8B0A3]" />
                 <span>ยังไม่ให้ข้อมูล</span>
               </div>
             ) : isHealthy ? (
@@ -1205,27 +1458,27 @@ export default function BookingDetailPanel({
                   <div className="space-y-1.5">
                     <div className="flex items-center justify-between">
                       <span className="text-xs text-studio-primary font-medium flex items-center gap-1.5">
-                        <span className="w-1.5 h-1.5 rounded-full bg-red-500"></span>
+                        <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
                         โรคประจำตัว
                       </span>
-                      <span className="inline-flex items-center space-x-1 text-red-400 bg-red-950/50 border border-red-800/60 px-2.5 py-0.5 rounded text-[11px] font-medium">
-                        <AlertTriangle size={11} className="shrink-0" />
+                      <span className="inline-flex items-center space-x-1 text-amber-300 bg-amber-500/15 border border-amber-400/40 px-2.5 py-0.5 rounded text-[11px] font-medium">
+                        <AlertTriangle size={11} className="shrink-0 text-amber-400" />
                         <span>มีโรคประจำตัว</span>
                       </span>
                     </div>
                     {healthState.medical_condition_note?.trim() ? (
-                      <p className="text-xs text-red-200/90 bg-studio-sec p-2.5 rounded-lg border border-red-900/50 whitespace-pre-wrap leading-relaxed">
+                      <p className="text-xs text-amber-200/90 bg-amber-500/10 p-2.5 rounded-lg border border-amber-400/40 whitespace-pre-wrap leading-relaxed">
                         {healthState.medical_condition_note.trim()}
                       </p>
                     ) : (
-                      <p className="text-xs text-red-300/70 bg-studio-sec p-2 rounded-lg border border-red-900/40 font-light italic">
+                      <p className="text-xs text-amber-300 bg-amber-500/5 p-2 rounded-lg border border-amber-400/40 font-light italic">
                         ลูกค้าแจ้งว่ามีโรคประจำตัว (ไม่ได้ระบุรายละเอียด)
                       </p>
                     )}
                   </div>
                 ) : (
                   <div className="flex items-center justify-between text-xs py-0.5">
-                    <span className="text-studio-muted">โรคประจำตัว:</span>
+                    <span className="text-[#B8B0A3]">โรคประจำตัว:</span>
                     <span className="text-emerald-400 font-medium flex items-center gap-1 text-[11px]">
                       <CheckCircle2 size={12} /> ไม่มี
                     </span>
@@ -1240,24 +1493,24 @@ export default function BookingDetailPanel({
                         <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
                         ประวัติการแพ้
                       </span>
-                      <span className="inline-flex items-center space-x-1 text-amber-400 bg-amber-950/50 border border-amber-800/60 px-2.5 py-0.5 rounded text-[11px] font-medium">
-                        <AlertTriangle size={11} className="shrink-0" />
+                      <span className="inline-flex items-center space-x-1 text-amber-300 bg-amber-500/15 border border-amber-400/40 px-2.5 py-0.5 rounded text-[11px] font-medium">
+                        <AlertTriangle size={11} className="shrink-0 text-amber-400" />
                         <span>มีประวัติการแพ้</span>
                       </span>
                     </div>
                     {healthState.allergy_note?.trim() ? (
-                      <p className="text-xs text-amber-200/90 bg-studio-sec p-2.5 rounded-lg border border-amber-900/50 whitespace-pre-wrap leading-relaxed">
+                      <p className="text-xs text-amber-200/90 bg-amber-500/10 p-2.5 rounded-lg border border-amber-400/40 whitespace-pre-wrap leading-relaxed">
                         {healthState.allergy_note.trim()}
                       </p>
                     ) : (
-                      <p className="text-xs text-amber-300/70 bg-studio-sec p-2 rounded-lg border border-amber-900/40 font-light italic">
+                      <p className="text-xs text-amber-300 bg-amber-500/5 p-2 rounded-lg border border-amber-400/40 font-light italic">
                         ลูกค้าแจ้งว่ามีประวัติการแพ้ (ไม่ได้ระบุรายละเอียด)
                       </p>
                     )}
                   </div>
                 ) : (
                   <div className={`flex items-center justify-between text-xs py-0.5 ${healthState.has_medical_condition ? 'pt-2.5 border-t border-studio-border/50' : ''}`}>
-                    <span className="text-studio-muted">ประวัติการแพ้:</span>
+                    <span className="text-[#B8B0A3]">ประวัติการแพ้:</span>
                     <span className="text-emerald-400 font-medium flex items-center gap-1 text-[11px]">
                       <CheckCircle2 size={12} /> ไม่มี
                     </span>
@@ -1269,39 +1522,39 @@ export default function BookingDetailPanel({
 
           {/* Section 4: Tattoo Details & Specs */}
           <div className="bg-studio-card border border-studio-border rounded-xl p-4 space-y-3">
-            <div className="flex items-center space-x-2 text-studio-secondary text-[11px] uppercase tracking-wider font-semibold">
+            <div className="flex items-center space-x-2 text-[#ECE4D3] text-[11px] uppercase tracking-wider font-semibold">
               <Layers size={14} className="text-studio-red-bright" />
               <span>รายละเอียดงานสัก</span>
             </div>
             <div className="space-y-2 pt-1 divide-y divide-studio-border/50">
               {!isArtistView && (
                 <div className="flex justify-between items-center pb-2">
-                  <span className="text-studio-muted">ช่างสัก:</span>
+                  <span className="text-[#B8B0A3]">ช่างสัก:</span>
                   <span className="text-studio-primary font-medium">{artistDisplay}</span>
                 </div>
               )}
               {(booking as any).color_technique && (
                 <div className="flex justify-between items-center py-2">
-                  <span className="text-studio-muted">ลักษณะการลงสี:</span>
+                  <span className="text-[#B8B0A3]">ลักษณะการลงสี:</span>
                   <span className="text-studio-primary font-medium">{getColorTechniqueLabel((booking as any).color_technique)}</span>
                 </div>
               )}
               <div className="flex justify-between items-center py-2">
-                <span className="text-studio-muted">สไตล์ลายสัก (Tattoo Style):</span>
+                <span className="text-[#B8B0A3]">สไตล์ลายสัก (Tattoo Style):</span>
                 <span className="text-studio-primary font-medium">{styleDisplay}</span>
               </div>
               <div className="flex justify-between items-center py-2">
-                <span className="text-studio-muted">ตำแหน่งที่สัก (Placement):</span>
+                <span className="text-[#B8B0A3]">ตำแหน่งที่สัก (Placement):</span>
                 <span className="text-studio-primary font-medium">{placementDisplay}</span>
               </div>
               <div className="flex justify-between items-center py-2">
-                <span className="text-studio-muted">ขนาดประมาณ (Size):</span>
+                <span className="text-[#B8B0A3]">ขนาดประมาณ (Size):</span>
                 <span className="text-studio-primary font-mono">{sizeDisplay}</span>
               </div>
               {cleanDescription && (
                 <div className="py-2 space-y-1">
-                  <span className="text-studio-muted block text-[11px]">รายละเอียดเพิ่มเติม:</span>
-                  <p className="text-studio-secondary bg-studio-sec/50 p-2.5 rounded border border-studio-border/60 whitespace-pre-wrap leading-relaxed">
+                  <span className="text-[#B8B0A3] block text-[11px]">รายละเอียดเพิ่มเติม:</span>
+                  <p className="text-[#ECE4D3] bg-studio-sec/50 p-2.5 rounded border border-studio-border/60 whitespace-pre-wrap leading-relaxed">
                     {cleanDescription}
                   </p>
                 </div>
@@ -1311,22 +1564,24 @@ export default function BookingDetailPanel({
           </div>
 
           {/* Section 6: Tattoo Sessions List */}
-          <div className="bg-studio-card border border-studio-border rounded-xl p-4 space-y-3">
-            <div className="flex items-center space-x-2 text-studio-secondary text-[11px] uppercase tracking-wider font-semibold">
-              <Calendar size={14} className="text-studio-red-bright" />
-              <span>รอบการสักทั้งหมด ({booking.sessions?.length || 0} รอบ)</span>
+          {isConfirmedDeposit && (
+            <div className="bg-studio-card border border-studio-border rounded-xl p-4 space-y-3">
+              <div className="flex items-center space-x-2 text-[#ECE4D3] text-[11px] uppercase tracking-wider font-semibold">
+                <Calendar size={14} className="text-studio-red-bright" />
+                <span>รอบการสักทั้งหมด ({booking.sessions?.length || 0} รอบ)</span>
+              </div>
+              <BookingSessionList booking={booking} blockedDates={blockedDates} onRefresh={onRefresh} embedMode={true} />
             </div>
-            <BookingSessionList booking={booking} blockedDates={blockedDates} onRefresh={onRefresh} embedMode={true} />
-          </div>
+          )}
 
           {/* Section 7: Reference Images Gallery */}
           <div className="bg-studio-card border border-studio-border rounded-xl p-4 space-y-3">
             <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-2 text-studio-secondary text-[11px] uppercase tracking-wider font-semibold">
+              <div className="flex items-center space-x-2 text-[#ECE4D3] text-[11px] uppercase tracking-wider font-semibold">
                 <ImageIcon size={14} className="text-studio-red-bright" />
                 <span>ภาพเรฟเฟอเรนซ์ / แบบลายสัก</span>
               </div>
-              <span className="text-[10px] text-studio-muted">
+              <span className="text-[10px] text-[#B8B0A3]">
                 {refImages.length} รูป
               </span>
             </div>
@@ -1351,7 +1606,7 @@ export default function BookingDetailPanel({
                 ))}
               </div>
             ) : (
-              <div className="p-4 bg-studio-sec/40 border border-studio-border/50 rounded-lg text-center text-studio-muted text-xs">
+              <div className="p-4 bg-studio-sec/40 border border-studio-border/50 rounded-lg text-center text-[#B8B0A3] text-xs">
                 ไม่มีภาพเรฟเฟอเรนซ์แนบมากับงานนี้
               </div>
             )}
@@ -1395,7 +1650,7 @@ export default function BookingDetailPanel({
               <button
                 type="button"
                 onClick={() => setReschedulingSession(null)}
-                className="text-studio-secondary hover:text-studio-primary p-1 rounded-lg hover:bg-studio-sec cursor-pointer"
+                className="text-[#B8B0A3] hover:text-studio-primary p-1 rounded-lg hover:bg-studio-sec cursor-pointer"
               >
                 <X size={16} />
               </button>
@@ -1403,7 +1658,7 @@ export default function BookingDetailPanel({
 
             {booking.sessions && booking.sessions.length > 1 && (
               <div>
-                <label className="block text-studio-secondary mb-1 font-medium">เลือกรอบสักที่ต้องการเลื่อน:</label>
+                <label className="block text-[#B8B0A3] mb-1 font-medium">เลือกรอบสักที่ต้องการเลื่อน:</label>
                 <select
                   value={reschedulingSession.id}
                   onChange={(e) => {
@@ -1416,7 +1671,7 @@ export default function BookingDetailPanel({
                     .filter((s) => s.status !== 'CANCELLED')
                     .map((s) => (
                       <option key={s.id} value={s.id}>
-                        รอบที่ {s.session_number} ({s.status === 'COMPLETED' ? 'เสร็จแล้ว' : s.status === 'IN_PROGRESS' ? 'กำลังสัก' : 'รอบนัด'})
+                        รอบที่ {s.session_number} ({s.status === 'COMPLETED' ? 'เสร็จแล้ว' : s.status === 'IN_PROGRESS' ? 'กำลังสัก' : 'นัดหมายแล้ว'})
                       </option>
                     ))}
                 </select>
@@ -1432,7 +1687,7 @@ export default function BookingDetailPanel({
 
             <form onSubmit={handleExecuteReschedule} className="space-y-3">
               <div>
-                <label className="block text-studio-secondary mb-1 font-medium">
+                <label className="block text-[#B8B0A3] mb-1 font-medium">
                   วันที่นัดหมายใหม่ <span className="text-studio-red">*</span>
                 </label>
                 <input
@@ -1445,7 +1700,7 @@ export default function BookingDetailPanel({
               </div>
 
               <div>
-                <label className="block text-studio-secondary mb-1 font-medium">
+                <label className="block text-[#B8B0A3] mb-1 font-medium">
                   เวลาเริ่ม <span className="text-studio-red">*</span>
                 </label>
                 <input
@@ -1458,7 +1713,7 @@ export default function BookingDetailPanel({
               </div>
 
               <div>
-                <label className="block text-studio-secondary mb-1 font-medium">หมายเหตุการเลื่อนคิว</label>
+                <label className="block text-[#B8B0A3] mb-1 font-medium">หมายเหตุการเลื่อนคิว</label>
                 <input
                   type="text"
                   value={rescheduleNote}
@@ -1473,7 +1728,7 @@ export default function BookingDetailPanel({
                   type="button"
                   onClick={() => setReschedulingSession(null)}
                   disabled={isSubmittingReschedule}
-                  className="w-full py-2.5 px-3 rounded-xl border border-studio-border bg-studio-sec hover:bg-studio-border text-studio-secondary font-medium cursor-pointer"
+                  className="w-full py-2.5 px-3 rounded-xl border border-studio-border bg-studio-sec hover:bg-studio-border text-[#B8B0A3] font-medium cursor-pointer"
                 >
                   ยกเลิก
                 </button>
@@ -1503,7 +1758,7 @@ export default function BookingDetailPanel({
               <button
                 type="button"
                 onClick={() => setCompletingSessionModal(null)}
-                className="text-studio-secondary hover:text-studio-primary p-1 rounded-lg hover:bg-studio-sec cursor-pointer"
+                className="text-[#B8B0A3] hover:text-studio-primary p-1 rounded-lg hover:bg-studio-sec cursor-pointer"
               >
                 <X size={16} />
               </button>
@@ -1511,7 +1766,7 @@ export default function BookingDetailPanel({
 
             <form onSubmit={handleExecuteCompleteSession} className="space-y-3">
               <div>
-                <label className="block text-studio-secondary mb-1 font-medium">
+                <label className="block text-[#B8B0A3] mb-1 font-medium">
                   หมายเหตุการสักรอบนี้ (ถ้ามี)
                 </label>
                 <textarea
@@ -1521,7 +1776,7 @@ export default function BookingDetailPanel({
                   placeholder="เช่น เดินเส้นและลงโครงสร้างหลักเรียบร้อยแล้ว..."
                   className="w-full bg-studio-sec border border-studio-border rounded-xl p-2.5 text-studio-primary focus:outline-none focus:border-emerald-400 resize-none font-prompt"
                 />
-                <p className="text-[10px] text-studio-muted mt-1">
+                <p className="text-[10px] text-[#B8B0A3] mt-1">
                   * ข้อความหมายเหตุนี้จะแสดงเฉพาะใต้การ์ดรอบสักรอบที่ {completingSessionModal.session_number} เท่านั้น
                 </p>
               </div>
@@ -1531,7 +1786,7 @@ export default function BookingDetailPanel({
                   type="button"
                   onClick={() => setCompletingSessionModal(null)}
                   disabled={isCompletingActiveSession}
-                  className="w-full py-2.5 px-3 rounded-xl border border-studio-border bg-studio-sec hover:bg-studio-border text-studio-secondary font-medium cursor-pointer"
+                  className="w-full py-2.5 px-3 rounded-xl border border-studio-border bg-studio-sec hover:bg-studio-border text-[#B8B0A3] font-medium cursor-pointer"
                 >
                   ยกเลิก
                 </button>

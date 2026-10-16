@@ -2,59 +2,37 @@
 
 import React, { useMemo } from 'react';
 import { UserCheck, Users } from 'lucide-react';
-import { formatCurrency } from '@/components/admin/revenue/types';
 
 export interface ArtistRevenueItemDetail {
   artist_id: string;
   name: string;
   nickname: string | null;
-  amount: number;
-  percentage: number;
+  amount?: number;
+  percentage?: number;
+  job_count?: number;
 }
 
 interface RevenueByArtistBarChartProps {
   artistsData: ArtistRevenueItemDetail[];
-  totalRevenue: number;
+  totalRevenue?: number;
+  totalJobs?: number;
 }
 
 export default function RevenueByArtistBarChart({
   artistsData,
-  totalRevenue,
+  totalJobs: propsTotalJobs,
 }: RevenueByArtistBarChartProps) {
   const hasArtists = artistsData.length > 0;
 
-  // 1. Sort artists descending by amount (highest revenue first)
+  // 1. Sort artists descending by job count
   const sortedArtists = useMemo(() => {
-    return [...artistsData].sort((a, b) => b.amount - a.amount);
+    return [...artistsData].sort((a, b) => (b.job_count ?? 0) - (a.job_count ?? 0));
   }, [artistsData]);
 
-  // 2. Extract unique non-zero revenue values to determine rank tiers
-  const uniqueRevenues = useMemo(() => {
-    return Array.from(
-      new Set(sortedArtists.map((a) => a.amount).filter((r) => r > 0))
-    ).sort((a, b) => b - a);
-  }, [sortedArtists]);
-
-  // 3. Rank color palette in gold/amber/bronze theme tones
-  const getRankStyle = (revenue: number) => {
-    if (revenue <= 0 || uniqueRevenues.length === 0) {
-      return {
-        dotColor: '#7A7265',
-        barColor: '#4A443A',
-        textColor: 'text-[#7A7265]',
-      };
-    }
-    const tierIndex = uniqueRevenues.indexOf(revenue);
-    const palette = [
-      { dotColor: '#F59E0B', barColor: '#F59E0B', textColor: 'text-amber-300 font-bold' },
-      { dotColor: '#D97706', barColor: '#D97706', textColor: 'text-amber-400 font-bold' },
-      { dotColor: '#B45309', barColor: '#B45309', textColor: 'text-amber-500 font-semibold' },
-      { dotColor: '#92400E', barColor: '#92400E', textColor: 'text-amber-600 font-semibold' },
-      { dotColor: '#78350F', barColor: '#78350F', textColor: 'text-amber-700 font-medium' },
-    ];
-
-    return palette[Math.min(tierIndex, palette.length - 1)];
-  };
+  const totalJobs = useMemo(() => {
+    if (propsTotalJobs !== undefined) return propsTotalJobs;
+    return sortedArtists.reduce((sum, a) => sum + (a.job_count ?? 0), 0);
+  }, [propsTotalJobs, sortedArtists]);
 
   return (
     <div className="bg-[#171512] border border-[#4A443A] rounded-xl p-3.5 sm:p-5 shadow-lg space-y-4 font-prompt">
@@ -67,21 +45,21 @@ export default function RevenueByArtistBarChart({
           </div>
           <div>
             <h3 className="text-sm sm:text-base font-heading font-semibold text-[#ECE4D3] leading-tight">
-              รายได้ตามช่าง
+              งานตามช่าง
             </h3>
             <p className="text-[10px] sm:text-[11px] text-[#A89F91] leading-tight mt-0.5">
-              ยอดเงินรับจริงของช่างสักแต่ละคน
+              จำนวนงานของช่างสักแต่ละคน
             </p>
           </div>
         </div>
 
-        {/* Full-width Row: Label Left, Total Amount Right */}
+        {/* Full-width Row: Label Left, Total Count Right */}
         <div className="flex items-center justify-between pt-1 border-t border-[#4A443A]/40">
           <span className="text-xs text-[#A89F91] font-medium">
-            รายได้รวมทุกช่าง
+            งานรวมทุกช่าง
           </span>
           <span className="text-sm sm:text-base font-heading font-bold text-amber-400">
-            {formatCurrency(totalRevenue)}
+            {totalJobs} งาน
           </span>
         </div>
       </div>
@@ -93,23 +71,21 @@ export default function RevenueByArtistBarChart({
           <p className="text-xs font-medium text-[#ECE4D3]">ไม่พบข้อมูลช่างสัก</p>
         </div>
       ) : (
-        <div className="space-y-3">
+        <div className="space-y-2.5">
           {sortedArtists.map((art) => {
-            const isZero = art.amount <= 0;
-            const style = getRankStyle(art.amount);
-            const sharePercentage = totalRevenue > 0 ? Math.round((art.amount / totalRevenue) * 100) : 0;
+            const count = art.job_count ?? 0;
+            const hasJobs = count > 0;
 
             return (
               <div
                 key={art.artist_id}
-                className="bg-[#0E0D0C] border border-[#4A443A]/70 rounded-lg p-3 hover:border-[#7A7265] transition-colors space-y-2"
+                className="bg-[#0E0D0C] border border-[#4A443A]/70 rounded-lg p-3 hover:border-[#7A7265] transition-colors"
               >
-                {/* Header Row: Rank Dot + Name/Nickname + Revenue Amount */}
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2 min-w-0">
                     <span
-                      className="w-2.5 h-2.5 rounded-full shrink-0 shadow-sm"
-                      style={{ backgroundColor: style.dotColor }}
+                      className="w-2.5 h-2.5 rounded-full shrink-0 shadow-xs"
+                      style={{ backgroundColor: hasJobs ? '#F59E0B' : '#7A7265' }}
                     />
                     <span className="font-semibold text-sm text-[#ECE4D3] truncate">
                       {art.name}
@@ -121,28 +97,11 @@ export default function RevenueByArtistBarChart({
                     )}
                   </div>
 
-                  {/* THB Amount & Share % */}
-                  <div className="text-right shrink-0 flex items-center gap-2">
-                    <span className={`font-heading text-sm ${style.textColor}`}>
-                      {formatCurrency(art.amount)}
+                  <div className="text-right shrink-0">
+                    <span className={`font-heading text-sm ${hasJobs ? 'text-amber-400 font-bold' : 'text-[#7A7265]'}`}>
+                      {count} งาน
                     </span>
-                    {totalRevenue > 0 && (
-                      <span className="text-[10px] text-[#A89F91] font-mono">
-                        ({sharePercentage}%)
-                      </span>
-                    )}
                   </div>
-                </div>
-
-                {/* Progress Bar Reflecting Revenue Proportion */}
-                <div className="w-full h-1.5 bg-[#171512] border border-[#4A443A]/40 rounded-full overflow-hidden">
-                  <div
-                    className="h-full rounded-full transition-all duration-500"
-                    style={{
-                      width: isZero ? '0%' : `${Math.max(2, sharePercentage)}%`,
-                      backgroundColor: style.barColor,
-                    }}
-                  />
                 </div>
               </div>
             );

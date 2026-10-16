@@ -215,7 +215,7 @@ function CustomerPortalContent() {
       let estData: any[] = [];
       const { data: estDataPrimary, error: estErr } = await supabase
         .from('estimate_requests')
-        .select('id, customer_user_id, artist_id, reference_images, width_cm, height_cm, placement, style, description, preferred_date, preferred_time, status, quoted_price, estimated_duration_minutes, deposit_required, quote_note, quoted_at, accepted_at, rejected_at, created_at, updated_at, request_type, service_type, work_type, estimated_min_price, estimated_max_price, price_estimated_at, has_medical_condition, medical_condition_note, has_allergy, allergy_note, customer_hidden_at')
+        .select('id, customer_user_id, artist_id, reference_images, width_cm, height_cm, placement, style, description, preferred_date, preferred_time, status, quoted_price, estimated_duration_minutes, deposit_required, quote_note, quoted_at, accepted_at, rejected_at, created_at, updated_at, request_type, service_type, work_type, estimated_min_price, estimated_max_price, price_estimated_at, has_medical_condition, medical_condition_note, has_allergy, allergy_note, customer_hidden_at, is_date_proposed, proposed_artist_note, proposed_date, proposed_time')
         .eq('customer_user_id', user.id)
         .is('customer_hidden_at', null)
         .order('created_at', { ascending: false });
@@ -223,7 +223,7 @@ function CustomerPortalContent() {
       if (estErr && estErr.code === '42703') {
         const { data: estFallback } = await supabase
           .from('estimate_requests')
-          .select('id, customer_user_id, artist_id, reference_images, width_cm, height_cm, placement, style, description, preferred_date, preferred_time, status, quoted_price, estimated_duration_minutes, deposit_required, quote_note, quoted_at, accepted_at, rejected_at, created_at, updated_at, request_type, service_type, work_type, estimated_min_price, estimated_max_price, price_estimated_at, has_medical_condition, medical_condition_note, has_allergy, allergy_note')
+          .select('id, customer_user_id, artist_id, reference_images, width_cm, height_cm, placement, style, description, preferred_date, preferred_time, status, quoted_price, estimated_duration_minutes, deposit_required, quote_note, quoted_at, accepted_at, rejected_at, created_at, updated_at, request_type, service_type, work_type, estimated_min_price, estimated_max_price, price_estimated_at, has_medical_condition, medical_condition_note, has_allergy, allergy_note, is_date_proposed, proposed_artist_note, proposed_date, proposed_time')
           .eq('customer_user_id', user.id)
           .order('created_at', { ascending: false });
         estData = estFallback || [];
@@ -254,12 +254,15 @@ function CustomerPortalContent() {
           height_cm,
           customer_note,
           admin_note,
+          proposed_date,
+          proposed_time,
+          proposal_note,
+          date_proposed_at,
           approved_at,
           rejected_at,
           cancelled_at,
           completed_at,
           created_at,
-          customer_hidden_at,
           flash_designs (
             id,
             title,
@@ -277,7 +280,6 @@ function CustomerPortalContent() {
           )
         `)
         .eq('customer_user_id', user.id)
-        .is('customer_hidden_at', null)
         .order('created_at', { ascending: false });
 
       if (flashErr && flashErr.code === '42703') {
@@ -295,6 +297,10 @@ function CustomerPortalContent() {
             height_cm,
             customer_note,
             admin_note,
+            proposed_date,
+            proposed_time,
+            proposal_note,
+            date_proposed_at,
             approved_at,
             rejected_at,
             cancelled_at,
@@ -318,7 +324,13 @@ function CustomerPortalContent() {
           `)
           .eq('customer_user_id', user.id)
           .order('created_at', { ascending: false });
-        flashData = flashFallback || [];
+        flashData = (flashFallback || []).map((f: any) => ({
+          ...f,
+          proposed_date: f.proposed_date || null,
+          proposed_time: f.proposed_time || null,
+          proposal_note: f.proposal_note || null,
+          date_proposed_at: f.date_proposed_at || null,
+        }));
       } else {
         flashData = flashPrimary || [];
       }
@@ -547,6 +559,10 @@ function CustomerPortalContent() {
           allergy_note: e.allergy_note ?? null,
           artist: eArtist,
           booking_id: linkedBooking?.id || null,
+          is_date_proposed: Boolean(e.is_date_proposed),
+          proposed_artist_note: e.proposed_artist_note || null,
+          proposed_date: e.proposed_date || null,
+          proposed_time: e.proposed_time || null,
         };
       });
 
@@ -563,6 +579,10 @@ function CustomerPortalContent() {
         height_cm: r.height_cm ? Number(r.height_cm) : null,
         customer_note: r.customer_note,
         admin_note: r.admin_note,
+        proposed_date: r.proposed_date || null,
+        proposed_time: r.proposed_time || null,
+        proposal_note: r.proposal_note || null,
+        date_proposed_at: r.date_proposed_at || null,
         approved_at: r.approved_at,
         rejected_at: r.rejected_at,
         cancelled_at: r.cancelled_at,
@@ -691,9 +711,11 @@ function CustomerPortalContent() {
   }
 
   // Flash Status Mapper helper
-  const getFlashMappedStatus = (rawStatus: string): string => {
+  const getFlashMappedStatus = (rawStatus: string, proposedDate?: string | null): string => {
     const s = (rawStatus || '').toUpperCase();
-    if (s === 'PENDING' || s === 'PENDING_REVIEW') return 'PENDING';
+    if (s === 'PENDING' || s === 'PENDING_REVIEW') {
+      return proposedDate ? 'WAITING_DEPOSIT' : 'PENDING';
+    }
     if (s === 'WAITING_DEPOSIT' || s === 'PENDING_PAYMENT') return 'WAITING_DEPOSIT';
     if (s === 'SLIP_REVIEW' || s === 'VERIFICATION_PENDING') return 'SLIP_REVIEW';
     if (s === 'APPROVED' || s === 'CONFIRMED' || s === 'IN_PROGRESS') return 'CONFIRMED';
@@ -710,23 +732,28 @@ function CustomerPortalContent() {
   const standaloneFlashReservations = liveFlashReservations.filter((f) => !linkedFlashIds.has(f.id));
 
   // Flash Reservation Status Groups (for standalone flash requests awaiting artist action)
-  const pendingFlash = standaloneFlashReservations.filter((f) => getFlashMappedStatus(f.status) === 'PENDING');
-  const waitingDepositFlash = standaloneFlashReservations.filter((f) => getFlashMappedStatus(f.status) === 'WAITING_DEPOSIT');
-  const slipReviewFlash = standaloneFlashReservations.filter((f) => getFlashMappedStatus(f.status) === 'SLIP_REVIEW');
-  const confirmedFlash = standaloneFlashReservations.filter((f) => getFlashMappedStatus(f.status) === 'CONFIRMED');
-  const completedFlash = standaloneFlashReservations.filter((f) => getFlashMappedStatus(f.status) === 'COMPLETED');
-  const cancelledOrRejectedFlash = standaloneFlashReservations.filter((f) => getFlashMappedStatus(f.status) === 'CANCELLED');
+  const pendingFlash = standaloneFlashReservations.filter((f) => getFlashMappedStatus(f.status, f.proposed_date) === 'PENDING');
+  const waitingDepositFlash = standaloneFlashReservations.filter((f) => getFlashMappedStatus(f.status, f.proposed_date) === 'WAITING_DEPOSIT');
+  const slipReviewFlash = standaloneFlashReservations.filter((f) => getFlashMappedStatus(f.status, f.proposed_date) === 'SLIP_REVIEW');
+  const confirmedFlash = standaloneFlashReservations.filter((f) => getFlashMappedStatus(f.status, f.proposed_date) === 'CONFIRMED');
+  const completedFlash = standaloneFlashReservations.filter((f) => getFlashMappedStatus(f.status, f.proposed_date) === 'COMPLETED');
+  const cancelledOrRejectedFlash = standaloneFlashReservations.filter((f) => getFlashMappedStatus(f.status, f.proposed_date) === 'CANCELLED');
 
-  // Tab 2: รอตรวจสอบ (Estimate/Request ที่ยังไม่มี Booking + Flash PENDING)
+  // Tab 2: รอตรวจสอบ (Estimate/Request ที่ยังไม่มี Booking และยังไม่ถูกเสนอวันใหม่ + Flash PENDING)
   const pendingEstimates = liveEstimates.filter(
-    (e) => e.status === 'PENDING' && !e.booking_id && !liveBookings.some((b) => b.estimate_request_id === e.id)
+    (e) => e.status === 'PENDING' && !e.is_date_proposed && !e.booking_id && !liveBookings.some((b) => b.estimate_request_id === e.id)
   );
   const allPendingJobs = [
     ...pendingEstimates.map((e) => ({ item: e, type: 'estimate' as const, sortTime: new Date(e.created_at || 0).getTime() })),
     ...pendingFlash.map((f) => ({ item: f, type: 'flash' as const, sortTime: new Date(f.created_at || 0).getTime() })),
   ].sort((a, b) => b.sortTime - a.sortTime);
 
-  // Tab 3: รอชำระมัดจำ (Booking WAITING_DEPOSIT ที่ยังไม่ส่งสลิป + Standalone Flash WAITING_DEPOSIT)
+  // Estimates ที่ร้านเสนอวันนัดใหม่ (แสดงเป็น "รอชำระมัดจำ")
+  const proposedDateEstimates = liveEstimates.filter(
+    (e) => e.status === 'PENDING' && Boolean(e.is_date_proposed) && !e.booking_id && !liveBookings.some((b) => b.estimate_request_id === e.id)
+  );
+
+  // Tab 3: รอชำระมัดจำ (Booking WAITING_DEPOSIT ที่ยังไม่ส่งสลิป + Standalone Flash WAITING_DEPOSIT + Estimate ที่ร้านเสนอวันใหม่)
   const waitingDepositBookings = liveBookings.filter((b) => {
     if (b.status !== 'WAITING_DEPOSIT' || b.has_pending_payment_submission) return false;
     const approvedAt = b.approved_at || b.flash_reservation?.approved_at;
@@ -737,6 +764,7 @@ function CustomerPortalContent() {
   const allWaitingDepositJobs = [
     ...waitingDepositBookings.map((b) => ({ item: b, type: b.is_flash ? ('flash' as const) : ('booking' as const), sortTime: new Date(b.created_at || 0).getTime() })),
     ...waitingDepositFlash.map((f) => ({ item: f, type: 'flash' as const, sortTime: new Date(f.created_at || 0).getTime() })),
+    ...proposedDateEstimates.map((e) => ({ item: e, type: 'estimate' as const, sortTime: new Date(e.created_at || 0).getTime() })),
   ].sort((a, b) => b.sortTime - a.sortTime);
 
   // Tab 4: รอตรวจสลิป (Booking WAITING_DEPOSIT ที่ส่งสลิปแล้วรอตรวจ + Standalone Flash SLIP_REVIEW)
@@ -791,6 +819,7 @@ function CustomerPortalContent() {
   const allVisibleJobs = [
     ...liveBookings.map((b) => ({ item: b, type: b.is_flash ? ('flash' as const) : ('booking' as const), sortTime: new Date(b.created_at || 0).getTime() })),
     ...pendingEstimates.map((e) => ({ item: e, type: 'estimate' as const, sortTime: new Date(e.created_at || 0).getTime() })),
+    ...proposedDateEstimates.map((e) => ({ item: e, type: 'estimate' as const, sortTime: new Date(e.created_at || 0).getTime() })),
     ...rejectedOrExpiredEstimates.map((e) => ({ item: e, type: 'estimate' as const, sortTime: new Date(e.created_at || 0).getTime() })),
     ...standaloneFlashReservations.map((f) => ({ item: f, type: 'flash' as const, sortTime: new Date(f.created_at || 0).getTime() })),
   ].sort((a, b) => b.sortTime - a.sortTime);
@@ -825,7 +854,7 @@ function CustomerPortalContent() {
   return (
     <div className="min-h-screen bg-studio-main pb-28 md:pb-16 text-studio-primary font-prompt">
       {/* Top Header Navigation */}
-      <CustomerHeader />
+      <CustomerHeader showLogo />
 
       <main className="max-w-[1560px] mx-auto px-4 sm:px-6 md:px-12 xl:px-16 py-6 md:py-12">
         {/* DESKTOP SPLIT CONTAINER: LEFT 65% / RIGHT 35% */}
@@ -834,13 +863,13 @@ function CustomerPortalContent() {
           <div className="w-full lg:w-[65%] space-y-8">
             {/* Top Greeting */}
             <div>
-              <span className="text-xs uppercase tracking-widest text-studio-secondary font-heading block">
+              <span className="text-xs uppercase tracking-widest text-[#E2DDD4] font-heading block">
                 Customer Portal
               </span>
-              <h1 className="text-3xl md:text-5xl font-heading font-normal tracking-wide text-studio-primary mt-0.5">
+              <h1 className="text-3xl md:text-5xl font-heading font-normal tracking-wide text-[#ECE4D3] mt-0.5">
                 ยินดีต้อนรับ, {customerName}
               </h1>
-              <p className="text-xs text-studio-secondary mt-1 font-light">
+              <p className="text-xs text-[#E2DDD4] mt-1 font-light">
                 ศูนย์รวมรายการนัดหมาย คิวสัก และติดตามสถานะคำขอจองคิวของคุณ
               </p>
             </div>
@@ -1000,11 +1029,11 @@ function CustomerPortalContent() {
               </div>
             ) : (
               <div className="bg-studio-card border border-studio-border p-8 rounded-[8px] text-center space-y-3">
-                <Calendar size={32} className="text-studio-muted mx-auto" />
-                <h4 className="text-sm font-semibold text-studio-primary">
+                <Calendar size={32} className="text-[#E2DDD4] mx-auto opacity-70" />
+                <h4 className="text-sm font-semibold text-[#ECE4D3]">
                   ยังไม่มีนัดหมายที่กำลังจะมาถึง
                 </h4>
-                <p className="text-xs text-studio-secondary max-w-sm mx-auto">
+                <p className="text-xs text-[#E2DDD4] max-w-sm mx-auto">
                   คุณสามารถเลือกชมแบบลายสักว่างในแกลเลอรี หรือส่งคำขอจองคิวเพื่อเริ่มนัดหมายใหม่
                 </p>
                 <div className="pt-2 flex justify-center gap-3">
@@ -1016,7 +1045,7 @@ function CustomerPortalContent() {
                   </Link>
                   <Link
                     href="/booking"
-                    className="min-h-[44px] bg-transparent border border-studio-border text-studio-primary px-4 py-2.5 rounded-[4px] text-xs font-medium uppercase tracking-wider hover:bg-studio-sec transition-all flex items-center"
+                    className="min-h-[44px] bg-transparent border border-studio-border text-[#ECE4D3] px-4 py-2.5 rounded-[4px] text-xs font-medium uppercase tracking-wider hover:bg-studio-sec transition-all flex items-center"
                   >
                     จองคิวสักทั่วไป
                   </Link>
@@ -1042,8 +1071,8 @@ function CustomerPortalContent() {
                   onClick={() => setActiveTab(t.key as any)}
                   className={`pb-3 relative transition-colors shrink-0 whitespace-nowrap ${
                     activeTab === t.key
-                      ? 'text-studio-primary font-bold'
-                      : 'text-studio-secondary hover:text-studio-primary'
+                      ? 'text-[#ECE4D3] font-bold'
+                      : 'text-[#E2DDD4] hover:text-[#ECE4D3]'
                   }`}
                 >
                   <span>{t.label}</span>
@@ -1058,7 +1087,7 @@ function CustomerPortalContent() {
             {activeTab === 'all' && (
               <div className="space-y-3">
                 {allVisibleJobs.length === 0 ? (
-                  <p className="text-xs text-studio-muted py-12 bg-studio-card border border-studio-border rounded-[6px] text-center">
+                  <p className="text-xs text-[#E2DDD4] py-12 bg-studio-card border border-studio-border rounded-[6px] text-center">
                     ยังไม่มีคิวนัดหมายหรือคำขอจอง
                   </p>
                 ) : (
@@ -1078,7 +1107,7 @@ function CustomerPortalContent() {
             {activeTab === 'pending' && (
               <div className="space-y-3">
                 {allPendingJobs.length === 0 ? (
-                  <p className="text-xs text-studio-muted py-12 bg-studio-card border border-studio-border rounded-[6px] text-center">
+                  <p className="text-xs text-[#E2DDD4] py-12 bg-studio-card border border-studio-border rounded-[6px] text-center">
                     ยังไม่มีรายการรอตรวจสอบ
                   </p>
                 ) : (
@@ -1098,7 +1127,7 @@ function CustomerPortalContent() {
             {activeTab === 'waiting_deposit' && (
               <div className="space-y-3">
                 {allWaitingDepositJobs.length === 0 ? (
-                  <p className="text-xs text-studio-muted py-12 bg-studio-card border border-studio-border rounded-[6px] text-center">
+                  <p className="text-xs text-[#E2DDD4] py-12 bg-studio-card border border-studio-border rounded-[6px] text-center">
                     ยังไม่มีรายการรอชำระมัดจำ
                   </p>
                 ) : (
@@ -1118,7 +1147,7 @@ function CustomerPortalContent() {
             {activeTab === 'slip_review' && (
               <div className="space-y-3">
                 {allSlipReviewJobs.length === 0 ? (
-                  <p className="text-xs text-studio-muted py-12 bg-studio-card border border-studio-border rounded-[6px] text-center">
+                  <p className="text-xs text-[#E2DDD4] py-12 bg-studio-card border border-studio-border rounded-[6px] text-center">
                     ยังไม่มีรายการรอตรวจสลิป
                   </p>
                 ) : (
@@ -1138,7 +1167,7 @@ function CustomerPortalContent() {
             {activeTab === 'confirmed' && (
               <div className="space-y-3">
                 {allConfirmedJobs.length === 0 ? (
-                  <p className="text-xs text-studio-muted py-12 bg-studio-card border border-studio-border rounded-[6px] text-center">
+                  <p className="text-xs text-[#E2DDD4] py-12 bg-studio-card border border-studio-border rounded-[6px] text-center">
                     ยังไม่มีรายการคิวที่ยืนยันแล้ว
                   </p>
                 ) : (
@@ -1158,7 +1187,7 @@ function CustomerPortalContent() {
             {activeTab === 'completed' && (
               <div className="space-y-3">
                 {allCompletedJobs.length === 0 ? (
-                  <p className="text-xs text-studio-muted py-12 bg-studio-card border border-studio-border rounded-[6px] text-center">
+                  <p className="text-xs text-[#E2DDD4] py-12 bg-studio-card border border-studio-border rounded-[6px] text-center">
                     ยังไม่มีรายการที่เสร็จสิ้น
                   </p>
                 ) : (
@@ -1178,7 +1207,7 @@ function CustomerPortalContent() {
             {activeTab === 'cancelled' && (
               <div className="space-y-3">
                 {cancelledOrRejectedJobs.length === 0 ? (
-                  <p className="text-xs text-studio-muted py-12 bg-studio-card border border-studio-border rounded-[6px] text-center">
+                  <p className="text-xs text-[#E2DDD4] py-12 bg-studio-card border border-studio-border rounded-[6px] text-center">
                     ยังไม่มีรายการที่ถูกยกเลิกหรือปฏิเสธ
                   </p>
                 ) : (
@@ -1202,8 +1231,8 @@ function CustomerPortalContent() {
                     {customerName.charAt(0)}
                   </div>
                   <div>
-                    <h3 className="text-lg font-heading text-studio-primary">{customerName}</h3>
-                    <p className="text-xs text-studio-secondary">
+                    <h3 className="text-lg font-heading text-[#ECE4D3]">{customerName}</h3>
+                    <p className="text-xs text-[#E2DDD4]">
                       {formatThaiPhoneForDisplay(customerPhone) || customerEmail || 'บัญชีลูกค้า'}
                     </p>
                     <span className="text-[10px] bg-studio-sec text-studio-paper px-2 py-0.5 rounded border border-studio-border inline-block mt-1 font-medium">
@@ -1212,11 +1241,11 @@ function CustomerPortalContent() {
                   </div>
                 </div>
 
-                <div className="space-y-3 text-xs text-studio-secondary">
+                <div className="space-y-3 text-xs text-[#E2DDD4]">
                   <div className="flex justify-between items-center py-2 border-b border-studio-border/30">
                     <span>ชื่อผู้ใช้งาน:</span>
                     <div className="flex items-center gap-2">
-                      <strong className="text-studio-primary">{customerName}</strong>
+                      <strong className="text-[#ECE4D3]">{customerName}</strong>
                       <button
                         type="button"
                         onClick={() => {
@@ -1273,7 +1302,7 @@ function CustomerPortalContent() {
                   <div className="flex justify-between items-center py-2 border-b border-studio-border/30">
                     <span>เบอร์โทรศัพท์ (ติดต่อ):</span>
                     <div className="flex items-center gap-2">
-                      <strong className="text-studio-primary">
+                      <strong className="text-[#ECE4D3]">
                         {formatThaiPhoneForDisplay(customerPhone) || 'ยังไม่ได้ระบุ'}
                       </strong>
                       <button
@@ -1293,7 +1322,7 @@ function CustomerPortalContent() {
 
                   {editingPhone && (
                     <div className="bg-studio-main/60 border border-studio-border p-4 rounded-[6px] space-y-3 animate-fadeIn">
-                      <label className="text-[11px] uppercase tracking-wider text-studio-secondary block font-medium">
+                      <label className="text-[11px] uppercase tracking-wider text-[#E2DDD4] block font-medium">
                         กรอกเบอร์โทรศัพท์มือถือ 10 หลัก (สำหรับติดต่อเรื่องคิวงาน)
                       </label>
                       <div className="flex gap-2">
@@ -1304,7 +1333,7 @@ function CustomerPortalContent() {
                           value={phoneInput}
                           onChange={(e) => setPhoneInput(sanitizeDigitsOnly(e.target.value))}
                           placeholder="0812345678"
-                          className="flex-1 bg-studio-sec border border-studio-border focus:border-studio-red text-xs text-studio-primary px-3 py-2.5 outline-none rounded-[4px]"
+                          className="flex-1 bg-studio-sec border border-studio-border focus:border-studio-red text-xs text-[#ECE4D3] px-3 py-2.5 outline-none rounded-[4px]"
                         />
                         <button
                           type="button"
@@ -1334,7 +1363,7 @@ function CustomerPortalContent() {
 
                   <div className="flex justify-between items-center py-2 border-b border-studio-border/30">
                     <span>วันเกิด / อายุ:</span>
-                    <strong className="text-studio-primary font-medium">
+                    <strong className="text-[#ECE4D3] font-medium">
                       {formatCustomerDateOfBirthAndAge(customerDateOfBirth)}
                     </strong>
                   </div>
@@ -1353,7 +1382,7 @@ function CustomerPortalContent() {
                   >
                     ออกจากระบบ
                   </button>
-                  <span className="text-[10px] text-studio-muted">
+                  <span className="text-[10px] text-[#B8B0A3]">
                     157 TATTOO Studio Customer Session
                   </span>
                 </div>
@@ -1365,30 +1394,30 @@ function CustomerPortalContent() {
           <div className="w-full lg:w-[35%] space-y-6 sticky top-[88px]">
             {/* Quick Actions Card */}
             <div className="bg-studio-card border border-studio-border p-6 rounded-[8px] space-y-4 shadow-md">
-              <span className="text-xs uppercase tracking-wider font-heading text-studio-secondary block">
+              <span className="text-xs uppercase tracking-wider font-heading text-[#ECE4D3] block font-semibold">
                 Quick Actions • ดำเนินการด่วน
               </span>
               <div className="grid grid-cols-1 gap-2.5">
                 <Link
                   href="/flash"
-                  className="min-h-[46px] w-full bg-studio-sec hover:bg-studio-main border border-studio-border hover:border-studio-red/60 text-studio-primary p-3 rounded-[4px] text-xs font-semibold flex items-center justify-between transition-colors"
+                  className="min-h-[46px] w-full bg-studio-sec hover:bg-studio-main border border-studio-border hover:border-studio-red/60 text-[#ECE4D3] p-3 rounded-[4px] text-xs font-semibold flex items-center justify-between transition-colors group"
                 >
                   <span className="flex items-center gap-2">
                     <Sparkles size={14} className="text-studio-red" />
                     <span>เลือกลายสักพร้อมจอง (Flash)</span>
                   </span>
-                  <ArrowUpRight size={14} className="text-studio-muted" />
+                  <ArrowUpRight size={14} className="text-[#E2DDD4] group-hover:text-[#ECE4D3]" />
                 </Link>
 
                 <Link
                   href="/booking"
-                  className="min-h-[46px] w-full bg-studio-sec hover:bg-studio-main border border-studio-border hover:border-studio-red/60 text-studio-primary p-3 rounded-[4px] text-xs font-semibold flex items-center justify-between transition-colors"
+                  className="min-h-[46px] w-full bg-studio-sec hover:bg-studio-main border border-studio-border hover:border-studio-red/60 text-[#ECE4D3] p-3 rounded-[4px] text-xs font-semibold flex items-center justify-between transition-colors group"
                 >
                   <span className="flex items-center gap-2">
                     <Compass size={14} className="text-studio-red" />
                     <span>จองคิวสักทั่วไป (Custom)</span>
                   </span>
-                  <ArrowUpRight size={14} className="text-studio-muted" />
+                  <ArrowUpRight size={14} className="text-[#E2DDD4] group-hover:text-[#ECE4D3]" />
                 </Link>
               </div>
             </div>
@@ -1402,7 +1431,15 @@ function CustomerPortalContent() {
       {/* Item Detail Modal (Booking or Estimate) */}
       {selectedItem && (
         <CustomerBookingDetail
-          item={selectedItem}
+          item={
+            selectedType === 'booking'
+              ? liveBookings.find((b) => b.id === selectedItem.id) || selectedItem
+              : selectedType === 'estimate'
+              ? liveEstimates.find((e) => e.id === selectedItem.id) || selectedItem
+              : selectedType === 'flash'
+              ? liveFlashReservations.find((f) => f.id === selectedItem.id) || selectedItem
+              : selectedItem
+          }
           type={selectedType || 'booking'}
           estimates={liveEstimates}
           onClose={() => setSelectedItem(null)}

@@ -7,6 +7,7 @@ import PlacementSelector from '@/components/estimate/PlacementSelector';
 import TattooSizeInput from '@/components/estimate/TattooSizeInput';
 import DatePickerPopover from '@/components/booking/DatePickerPopover';
 import DualTimePicker from '@/components/estimate/DualTimePicker';
+import { BusyRange } from '@/components/booking/BookingCalendar';
 import { getThailandTodayStr } from '@/components/portal/portalUtils';
 import {
   X,
@@ -81,6 +82,46 @@ export default function FlashReservationModal({
   const [medicalConditionNote, setMedicalConditionNote] = useState('');
   const [hasAllergy, setHasAllergy] = useState<boolean | null>(null);
   const [allergyNote, setAllergyNote] = useState('');
+  const [artistBusyRanges, setArtistBusyRanges] = useState<BusyRange[]>([]);
+
+  const targetArtistId = flash.artist_id || flash.artist?.id;
+
+  // Fetch busy ranges for the flash artist
+  React.useEffect(() => {
+    if (!targetArtistId || !isOpen) {
+      setArtistBusyRanges([]);
+      return;
+    }
+    let isMounted = true;
+    const now = new Date();
+    const startDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
+    const endDateObj = new Date(now.getFullYear(), now.getMonth() + 4, 0);
+    const endDate = `${endDateObj.getFullYear()}-${String(endDateObj.getMonth() + 1).padStart(2, '0')}-${String(endDateObj.getDate()).padStart(2, '0')}`;
+
+    async function fetchBusy() {
+      try {
+        const supabase = createClient();
+        const { data, error: rpcErr } = await supabase.rpc('get_artist_busy_ranges', {
+          p_artist_id: targetArtistId,
+          p_start_date: startDate,
+          p_end_date: endDate,
+        });
+        if (!isMounted) return;
+        if (!rpcErr && Array.isArray(data)) {
+          setArtistBusyRanges(data);
+        } else {
+          setArtistBusyRanges([]);
+        }
+      } catch {
+        if (isMounted) setArtistBusyRanges([]);
+      }
+    }
+    fetchBusy();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [targetArtistId, isOpen]);
 
   // Pre-fill customer master health profile when modal opens
   React.useEffect(() => {
@@ -206,7 +247,6 @@ export default function FlashReservationModal({
       return;
     }
 
-    const targetArtistId = flash.artist_id || flash.artist?.id;
     if (requestedDate && targetArtistId) {
       const supabase = createClient();
       const { data: busyCheck } = await supabase.rpc('get_artist_busy_ranges', {
@@ -215,8 +255,15 @@ export default function FlashReservationModal({
         p_end_date: requestedDate,
       });
       if (Array.isArray(busyCheck) && busyCheck.length > 0) {
-        setError('วันที่เลือกมีคิวงานที่ยืนยันแล้วของช่างสักท่านนี้ กรุณาเลือกวันอื่น');
-        return;
+        const isFullDay = busyCheck.some((r: any) => {
+          const startH = new Date(r.start_at).getHours();
+          const endH = new Date(r.end_at).getHours();
+          return startH <= 1 && endH >= 23;
+        });
+        if (isFullDay) {
+          setError('วันที่เลือกช่างไม่พร้อมให้บริการ กรุณาเลือกวันอื่น');
+          return;
+        }
       }
     }
 
@@ -275,7 +322,7 @@ export default function FlashReservationModal({
         <button
           type="button"
           onClick={onClose}
-          className="absolute top-4 right-4 text-xs text-studio-muted hover:text-studio-red font-bold p-1 transition-colors z-10"
+          className="absolute top-4 right-4 text-xs text-[#B8B0A3] hover:text-studio-red font-bold p-1 transition-colors z-10"
         >
           ✕ ปิดหน้าต่าง
         </button>
@@ -316,7 +363,7 @@ export default function FlashReservationModal({
                 <User size={13} className="text-studio-red" />
                 <span>1. ช่างสักประจำลาย (Artist)</span>
               </label>
-              <span className="text-[10px] bg-studio-main border border-studio-border text-studio-muted px-2 py-0.5 rounded flex items-center gap-1">
+              <span className="text-[10px] bg-studio-main border border-studio-border text-[#B8B0A3] px-2 py-0.5 rounded flex items-center gap-1">
                 <Lock size={10} /> ช่างสักเจ้าของลาย
               </span>
             </div>
@@ -346,7 +393,7 @@ export default function FlashReservationModal({
                 <ImageIcon size={13} className="text-studio-red" />
                 <span>2. รูปภาพอ้างอิงงานสัก (Reference Image)</span>
               </label>
-              <span className="text-[10px] text-studio-muted flex items-center gap-1">
+              <span className="text-[10px] text-[#B8B0A3] flex items-center gap-1">
                 <Lock size={10} strokeWidth={2} /> รูปต้นแบบ Flash ของร้าน
               </span>
             </div>
@@ -372,7 +419,7 @@ export default function FlashReservationModal({
                   <h4 className="font-bold text-studio-primary text-sm truncate">{flash.title}</h4>
                   <div className="text-xs text-studio-secondary space-y-0.5">
                     <p>สไตล์: <strong className="text-studio-primary">{flash.style}</strong></p>
-                    <p className="text-[11px] text-studio-muted font-light">
+                    <p className="text-[11px] text-[#B8B0A3] font-light">
                       • ราคาพร้อมสักแบบคงที่ (Fixed Price)<br />
                       • รูปอ้างอิงต้นแบบสงวนลิขสิทธิ์ของช่างประจำร้าน (ห้ามเปลี่ยนรูป)
                     </p>
@@ -400,7 +447,7 @@ export default function FlashReservationModal({
                 <span className="px-3 py-1.5 rounded-[4px] text-xs bg-studio-red border border-studio-red text-white font-semibold shadow-md inline-block">
                   {flash.style}
                 </span>
-                <span className="text-[11px] text-studio-muted font-light">
+                <span className="text-[11px] text-[#B8B0A3] font-light">
                   (สไตล์ตามแบบลาย Flash)
                 </span>
               </div>
@@ -568,15 +615,21 @@ export default function FlashReservationModal({
                     setRequestedDate(dateStr);
                     setError('');
                   }}
-                  artistId={flash.artist_id || flash.artist?.id}
+                  artistId={targetArtistId}
+                  busyRanges={artistBusyRanges}
                   placeholder="-- เลือกวันนัดหมายเข้ารับบริการ --"
                 />
               </div>
 
-              <div className="space-y-1">
-                <label className="block text-studio-secondary font-medium flex items-center gap-1">
-                  <Clock size={12} className="text-studio-red" />
-                  <span>เวลาที่สะดวกเริ่มสัก <span className="text-studio-red">*</span></span>
+              <div className="space-y-1.5">
+                <label className="block text-studio-secondary font-medium flex items-center justify-between">
+                  <span className="flex items-center gap-1">
+                    <Clock size={12} className="text-studio-red" />
+                    <span>เวลาที่สะดวกเริ่มสัก <span className="text-studio-red">*</span></span>
+                  </span>
+                  <span className="text-[10px] text-[#E2DDD4] font-normal">
+                    (10:00 - 23:00 น.)
+                  </span>
                 </label>
                 <DualTimePicker
                   value={requestedTime}
@@ -584,6 +637,7 @@ export default function FlashReservationModal({
                     setRequestedTime(t);
                     setError('');
                   }}
+                  disabled={!targetArtistId || !requestedDate}
                 />
               </div>
             </div>

@@ -110,14 +110,19 @@ export default function BookingList({
 
     const isAlert = hasMed === true || hasAll === true;
     const isHealthy = hasMed === false && hasAll === false;
+    const isInactive = book.operational_status?.key === 'CANCELLED' || book.operational_status?.key === 'CANCELLED_CUSTOMER' || book.status === 'CANCELLED' || book.status === 'EXPIRED' || book.status === 'REJECTED';
 
     if (isAlert) {
       return (
         <span
           title="มีข้อมูลสุขภาพ กรุณาตรวจสอบรายละเอียดก่อนให้บริการ"
-          className="bg-[#2A1212] text-[#E8B4B4] border border-[#9C2F2F] px-2 py-0.5 rounded text-[10px] font-semibold inline-flex items-center gap-1 cursor-help"
+          className={
+            isInactive
+              ? "bg-zinc-900/90 text-zinc-400 border border-zinc-700/80 px-2 py-0.5 rounded text-[10px] font-medium inline-flex items-center gap-1 cursor-help"
+              : "bg-amber-500/15 text-amber-300 border border-amber-400/40 px-2 py-0.5 rounded text-[10px] font-semibold inline-flex items-center gap-1 cursor-help"
+          }
         >
-          <TriangleAlert size={11} className="text-[#E8B4B4] shrink-0" />
+          <TriangleAlert size={11} className={isInactive ? "text-zinc-500 shrink-0" : "text-amber-400 shrink-0"} />
           <span>มีข้อมูล</span>
         </span>
       );
@@ -125,14 +130,14 @@ export default function BookingList({
 
     if (isHealthy) {
       return (
-        <span className="bg-emerald-950/60 text-emerald-400 border border-emerald-800/60 px-2 py-0.5 rounded text-[10px] font-medium inline-flex items-center">
+        <span className={isInactive ? "bg-zinc-900/60 text-zinc-500 border border-zinc-800/80 px-2 py-0.5 rounded text-[10px] font-medium inline-flex items-center" : "bg-emerald-950/60 text-emerald-400 border border-emerald-800/60 px-2 py-0.5 rounded text-[10px] font-medium inline-flex items-center"}>
           ปกติ
         </span>
       );
     }
 
     return (
-      <span className="bg-[#1F1D1A] text-[#A89F91] border border-[#4A443A] px-2 py-0.5 rounded text-[10px] font-medium inline-flex items-center">
+      <span className={isInactive ? "bg-zinc-900/60 text-zinc-500 border border-zinc-800/80 px-2 py-0.5 rounded text-[10px] font-medium inline-flex items-center" : "bg-[#1F1D1A] text-[#A89F91] border border-[#4A443A] px-2 py-0.5 rounded text-[10px] font-medium inline-flex items-center"}>
         ไม่ระบุ
       </span>
     );
@@ -159,7 +164,7 @@ export default function BookingList({
               onCheckSlip(book.id);
             }}
             title="กดเพื่อตรวจสลิป"
-            className="bg-amber-950/80 hover:bg-amber-900 text-amber-300 border border-amber-800/80 px-2 py-0.5 rounded text-[10px] font-semibold inline-flex items-center animate-pulse transition-colors cursor-pointer shadow-sm"
+            className="bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-400/40 px-2 py-0.5 rounded text-[10px] font-semibold inline-flex items-center animate-pulse transition-colors cursor-pointer shadow-sm"
           >
             <span>สลิปรอตรวจ</span>
           </button>
@@ -198,25 +203,25 @@ export default function BookingList({
     switch (book.status) {
       case 'PENDING':
         return (
-          <span className="bg-blue-950/60 text-blue-400 border border-blue-800/60 px-2 py-0.5 rounded text-[10px] font-semibold">
+          <span className="bg-blue-500/15 text-blue-300 border border-blue-400/40 px-2 py-0.5 rounded text-[10px] font-semibold">
             รออนุมัติ
           </span>
         );
       case 'APPROVED':
         return (
-          <span className="bg-emerald-950/60 text-emerald-400 border border-emerald-800/60 px-2 py-0.5 rounded text-[10px] font-semibold">
+          <span className="bg-emerald-500/15 text-emerald-300 border border-emerald-400/40 px-2 py-0.5 rounded text-[10px] font-semibold">
             อนุมัติแล้ว
           </span>
         );
       case 'WAITING_DEPOSIT':
         return (
-          <span className="bg-purple-950/60 text-purple-400 border border-purple-800/60 px-2 py-0.5 rounded text-[10px] font-semibold">
+          <span className="bg-amber-500/15 text-amber-300 border border-amber-400/40 px-2 py-0.5 rounded text-[10px] font-semibold">
             รอมัดจำ
           </span>
         );
       case 'CONFIRMED':
         return (
-          <span className="bg-emerald-950/60 text-emerald-400 border border-emerald-800/60 px-2 py-0.5 rounded text-[10px] font-semibold">
+          <span className="bg-emerald-500/15 text-emerald-300 border border-emerald-400/40 px-2 py-0.5 rounded text-[10px] font-semibold">
             ยืนยันคิวแล้ว
           </span>
         );
@@ -235,7 +240,7 @@ export default function BookingList({
         );
       case 'REJECTED':
         return (
-          <span className="bg-red-950/50 text-red-400 border border-red-900/60 px-2 py-0.5 rounded text-[10px] font-semibold">
+          <span className="bg-red-500/15 text-red-300 border border-red-400/40 px-2 py-0.5 rounded text-[10px] font-semibold">
             ปฏิเสธ
           </span>
         );
@@ -247,7 +252,7 @@ export default function BookingList({
         );
       case 'CANCELLED':
         return (
-          <span className="bg-[#1F1D1A] text-[#7A7265] border border-[#4A443A] px-2 py-0.5 rounded text-[10px] font-semibold">
+          <span className="bg-[#1F1D1A] text-[#AFA79A] border border-[#4A443A] px-2 py-0.5 rounded text-[10px] font-semibold">
             ยกเลิก
           </span>
         );
@@ -329,13 +334,13 @@ export default function BookingList({
 
         {/* Search Bar */}
         <div className="relative min-w-[220px]">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#7A7265]" />
+          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#B8B0A3]" />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="ค้นหาชื่อลูกค้า, ช่างสัก..."
-            className="w-full bg-[#0E0D0C] border border-[#4A443A] rounded-lg pl-9 pr-3 py-1.5 text-xs text-[#ECE4D3] placeholder-[#7A7265] focus:outline-none focus:border-[#ECE4D3]"
+            className="w-full bg-[#0E0D0C] border border-[#4A443A] rounded-lg pl-9 pr-3 py-1.5 text-xs text-[#ECE4D3] placeholder-[#B8B0A3] focus:outline-none focus:border-[#ECE4D3]"
           />
         </div>
       </div>
@@ -343,9 +348,9 @@ export default function BookingList({
       {/* Content List */}
       {filteredBookings.length === 0 ? (
         <div className="py-12 text-center border border-dashed border-[#4A443A]/60 rounded-lg bg-[#0E0D0C]/40 space-y-2">
-          <Calendar size={28} className="text-[#7A7265] mx-auto opacity-60" />
+          <Calendar size={28} className="text-[#B8B0A3] mx-auto opacity-60" />
           <h4 className="text-xs sm:text-sm font-semibold text-[#ECE4D3]">ยังไม่มีคิวงาน</h4>
-          <p className="text-[11px] text-[#7A7265] max-w-sm mx-auto">
+          <p className="text-[11px] text-[#B8B0A3] max-w-sm mx-auto">
             เมื่อลูกค้าทำการจองคิวงานและได้รับการอนุมัติ คิวงานและสถานะการทำงานจะแสดงที่นี่
           </p>
         </div>
@@ -354,9 +359,9 @@ export default function BookingList({
           {/* Desktop Table */}
           <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-left text-xs text-[#ECE4D3]">
-              <thead className="bg-[#0E0D0C] text-[#7A7265] uppercase text-[10px] tracking-wider border-b border-[#4A443A]">
+              <thead className="bg-[#0E0D0C] text-[#B8B0A3] uppercase text-[10px] tracking-wider border-b border-[#4A443A]">
                 <tr>
-                  <th className="py-3 px-3">รหัสคิว / วันที่ลูกค้าสะดวก</th>
+                  <th className="py-3 px-3">รหัสคิว / วันที่ลูกค้าเลือก</th>
                   <th className="py-3 px-3">ลูกค้า</th>
                   <th className="py-3 px-3">ช่างสัก</th>
                   <th className="py-3 px-3">สถานะ</th>
@@ -369,6 +374,7 @@ export default function BookingList({
               <tbody className="divide-y divide-[#4A443A]/50">
                 {filteredBookings.map((book) => {
                   const isSelected = selectedBooking?.id === book.id;
+                  const isInactive = book.operational_status?.key === 'CANCELLED' || book.operational_status?.key === 'CANCELLED_CUSTOMER' || book.status === 'CANCELLED' || book.status === 'EXPIRED' || book.status === 'REJECTED';
                   const { displayDate, displayTime } = getActiveQueueSessionDateTime(book);
                   const timeFormatted = displayTime ? (displayTime.length >= 5 ? displayTime.slice(0, 5) : displayTime) : null;
 
@@ -377,30 +383,34 @@ export default function BookingList({
                       key={book.id}
                       onClick={() => onSelectBooking(book)}
                       className={`cursor-pointer transition-colors ${
-                        isSelected ? 'bg-[#1F1D1A]' : 'hover:bg-[#1F1D1A]/50'
+                        isSelected
+                          ? 'bg-[#1F1D1A]'
+                          : isInactive
+                          ? 'bg-zinc-950/40 text-zinc-400 opacity-80 hover:bg-zinc-900/50'
+                          : 'hover:bg-[#1F1D1A]/50'
                       }`}
                     >
-                      <td className="py-3 px-3 text-[#A89F91]">
-                        <span className="text-[10px] text-[#7A7265] font-mono block font-semibold">
+                      <td className="py-3 px-3">
+                        <span className={`text-[10px] ${isInactive ? 'text-zinc-500' : 'text-[#B8B0A3]'} font-mono block font-semibold`}>
                           #{book.id.slice(0, 8)}
                         </span>
-                        <div className="font-medium text-[#ECE4D3] text-xs mt-0.5">
+                        <div className={`font-medium ${isInactive ? 'text-zinc-400' : 'text-[#ECE4D3]'} text-xs mt-0.5`}>
                           {displayDate ? formatDateBangkok(displayDate) : 'ไม่ได้ระบุ'}
                         </div>
                         {timeFormatted ? (
-                          <div className="text-[10px] text-amber-400/90 font-mono">
+                          <div className={`text-[10px] ${isInactive ? 'text-zinc-500 font-mono' : 'text-amber-400/90 font-mono'}`}>
                             {timeFormatted} น.
                           </div>
                         ) : (
-                          <div className="text-[10px] text-[#7A7265] font-mono">
+                          <div className={`text-[10px] ${isInactive ? 'text-zinc-500 font-mono' : 'text-[#B8B0A3] font-mono'}`}>
                             ไม่ได้ระบุเวลา
                           </div>
                         )}
                       </td>
-                      <td className="py-3 px-3 font-medium text-[#ECE4D3]">
+                      <td className={`py-3 px-3 font-medium ${isInactive ? 'text-zinc-400' : 'text-[#ECE4D3]'}`}>
                         {book.customer_name}
                       </td>
-                      <td className="py-3 px-3 text-[#A89F91]">
+                      <td className={`py-3 px-3 ${isInactive ? 'text-zinc-500' : 'text-[#A89F91]'}`}>
                         {book.artist_name}
                       </td>
                       <td className="py-3 px-3">
@@ -409,16 +419,32 @@ export default function BookingList({
                       <td className="py-3 px-3 text-center">
                         {renderHealthAlertBadge(book)}
                       </td>
-                      <td className="py-3 px-3 text-right font-medium text-[#ECE4D3]">
+                      <td className={`py-3 px-3 text-right font-medium ${isInactive ? 'text-zinc-400' : 'text-[#ECE4D3]'}`}>
                         {book.financial?.quoted_price && book.financial.quoted_price > 0
                           ? `฿${formatCurrency(book.financial.quoted_price)}`
                           : 'ยังไม่กำหนดราคา'}
                       </td>
-                      <td className="py-3 px-3 text-right font-semibold text-emerald-400">
+                      <td className={`py-3 px-3 text-right font-semibold ${isInactive ? 'text-zinc-400' : 'text-emerald-400'}`}>
                         ฿{formatCurrency(book.financial?.total_paid || 0)}
                       </td>
-                      <td className="py-3 px-3 text-center text-[#7A7265]">
-                        <ChevronRight size={14} className="inline-block" />
+                      <td className="py-3 px-3 text-center">
+                        <div className="flex items-center justify-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onSelectBooking(book);
+                            }}
+                            className={
+                              isInactive
+                                ? "px-2.5 py-1 bg-zinc-900 hover:bg-zinc-800 text-zinc-400 hover:text-zinc-300 text-xs font-medium rounded border border-zinc-800 transition-colors inline-flex items-center gap-1 cursor-pointer"
+                                : "px-2.5 py-1 bg-[#0E0D0C] hover:bg-[#1F1D1A] text-[#ECE4D3] text-xs font-medium rounded border border-[#4A443A] hover:border-[#7A7265] transition-colors inline-flex items-center gap-1 cursor-pointer"
+                            }
+                          >
+                            <span>{isInactive ? 'ดูรายละเอียด' : 'จัดการคิว'}</span>
+                            <ChevronRight size={13} className={isInactive ? 'text-zinc-500' : 'text-[#B8B0A3]'} />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -431,6 +457,7 @@ export default function BookingList({
           <div className="md:hidden space-y-2.5">
             {filteredBookings.map((book) => {
               const isSelected = selectedBooking?.id === book.id;
+              const isInactive = book.operational_status?.key === 'CANCELLED' || book.operational_status?.key === 'CANCELLED_CUSTOMER' || book.status === 'CANCELLED' || book.status === 'EXPIRED' || book.status === 'REJECTED';
               const { displayDate, displayTime } = getActiveQueueSessionDateTime(book);
               const timeFormatted = displayTime ? (displayTime.length >= 5 ? displayTime.slice(0, 5) : displayTime) : null;
 
@@ -441,17 +468,19 @@ export default function BookingList({
                   className={`border rounded-lg p-3.5 space-y-2.5 cursor-pointer transition-colors ${
                     isSelected
                       ? 'bg-[#1F1D1A] border-[#ECE4D3]'
+                      : isInactive
+                      ? 'bg-zinc-950/40 border-zinc-800/70 opacity-85 hover:bg-zinc-900/50'
                       : 'bg-[#0E0D0C] border-[#4A443A]/70 hover:border-[#7A7265]'
                   }`}
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div>
-                      <span className="text-[10px] text-[#7A7265] font-mono mr-1.5 font-semibold">
+                      <span className={`text-[10px] ${isInactive ? 'text-zinc-500' : 'text-[#B8B0A3]'} font-mono mr-1.5 font-semibold`}>
                         #{book.id.slice(0, 8)}
                       </span>
-                      <span className="font-semibold text-xs text-[#ECE4D3]">{book.customer_name}</span>
-                      <p className="text-[11px] text-[#7A7265] mt-0.5">
-                        ช่าง: <span className="text-[#A89F91]">{book.artist_name}</span>
+                      <span className={`font-semibold text-xs ${isInactive ? 'text-zinc-400' : 'text-[#ECE4D3]'}`}>{book.customer_name}</span>
+                      <p className={`text-[11px] ${isInactive ? 'text-zinc-500' : 'text-[#B8B0A3]'} mt-0.5`}>
+                        ช่าง: <span className={isInactive ? 'text-zinc-400' : 'text-[#A89F91]'}>{book.artist_name}</span>
                         {displayDate ? (
                           <span>
                             {' • '}วันที่สะดวก: {formatDateBangkok(displayDate)} {timeFormatted ? `(${timeFormatted} น.)` : ''}
@@ -468,12 +497,23 @@ export default function BookingList({
                   </div>
 
                   <div className="text-xs pt-2 border-t border-[#4A443A]/40 flex items-center justify-between">
-                    <div className="text-right w-full">
-                      <span className="text-[10px] text-[#7A7265] mr-1">รับเงินแล้ว:</span>
-                      <span className="font-semibold text-emerald-400">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onSelectBooking(book);
+                      }}
+                      className={isInactive ? "text-xs font-medium text-zinc-400 hover:text-zinc-300 flex items-center gap-0.5 cursor-pointer" : "text-xs font-medium text-[#ECE4D3] hover:text-white flex items-center gap-0.5 cursor-pointer"}
+                    >
+                      <span>{isInactive ? 'ดูรายละเอียด' : 'จัดการคิว'}</span>
+                      <ChevronRight size={14} className={isInactive ? 'text-zinc-500' : ''} />
+                    </button>
+                    <div className="text-right">
+                      <span className={`text-[10px] ${isInactive ? 'text-zinc-500' : 'text-[#B8B0A3]'} mr-1`}>รับเงินแล้ว:</span>
+                      <span className={`font-semibold ${isInactive ? 'text-zinc-400' : 'text-emerald-400'}`}>
                         ฿{formatCurrency(book.financial?.total_paid || 0)}
                       </span>
-                      <span className="text-[10px] text-[#7A7265] ml-1">
+                      <span className={`text-[10px] ${isInactive ? 'text-zinc-500' : 'text-[#B8B0A3]'} ml-1`}>
                         / {book.financial?.quoted_price && book.financial.quoted_price > 0 ? `฿${formatCurrency(book.financial.quoted_price)}` : 'ยังไม่กำหนดราคา'}
                       </span>
                     </div>

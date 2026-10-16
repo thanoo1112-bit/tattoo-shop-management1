@@ -33,6 +33,11 @@ import CustomerDepositPaymentSection from './CustomerDepositPaymentSection';
 import CustomerEditBookingModal from './CustomerEditBookingModal';
 import CustomerEditFlashModal from './CustomerEditFlashModal';
 import { parseNoteWithPreferredTime, extractHHMM } from '@/lib/noteUtils';
+import {
+  RescheduleRequest,
+  getLatestRescheduleRequest,
+  subscribeRescheduleRequests,
+} from '@/lib/reschedule/rescheduleRequestStore';
 
 interface CustomerBookingDetailProps {
   item: CustomerPortalBooking | CustomerPortalEstimate | CustomerFlashReservationRecord | any;
@@ -69,6 +74,17 @@ export default function CustomerBookingDetail({
   const estimate = item as CustomerPortalEstimate;
   const flashRes = ((item as any)?.flash_reservation || item) as CustomerFlashReservationRecord;
   const flashDesign = flashRes?.flash_design || flashRes?.flash_designs;
+
+  const [latestReschedule, setLatestReschedule] = useState<RescheduleRequest | null>(() =>
+    booking?.id ? getLatestRescheduleRequest(booking.id) : null
+  );
+
+  React.useEffect(() => {
+    const bId = booking?.id || '';
+    const sync = () => setLatestReschedule(bId ? getLatestRescheduleRequest(bId) : null);
+    sync();
+    return subscribeRescheduleRequests(sync);
+  }, [booking?.id]);
 
   // Flash note & legacy fallback parsing (scoped strictly to isFlash)
   const flashNoteParsed = React.useMemo(() => {
@@ -110,7 +126,7 @@ export default function CustomerBookingDetail({
             const supabase = createClient();
             const { data: bData } = await supabase
               .from('bookings')
-              .select('id, customer_user_id, artist_id, status, approved_at, quoted_price, created_at, artist:artists(id, name, nickname)')
+              .select('id, customer_user_id, artist_id, status, approved_at, quoted_price, created_at, requested_date, requested_start_time, artist:artists(id, name, nickname, working_days), sessions:booking_sessions(id, booking_id, artist_id, session_number, start_at, end_at, status, note)')
               .eq('flash_reservation_id', flashRes.id)
               .maybeSingle();
 
@@ -140,11 +156,13 @@ export default function CustomerBookingDetail({
                   started_at: null,
                   completed_at: null,
                   created_at: bData.created_at,
-                  requested_date: flashRes.requested_date || '',
-                  requested_start_time: flashRes.requested_start_time || null,
+                  requested_date: (bData as any).requested_date || flashRes.requested_date || '',
+                  requested_start_time: (bData as any).requested_start_time || flashRes.requested_start_time || null,
+                  width_cm: flashRes.width_cm || null,
+                  height_cm: flashRes.height_cm || null,
                   customer_note: flashRes.customer_note || null,
                   admin_note: flashRes.admin_note || null,
-                  sessions: [],
+                  sessions: Array.isArray((bData as any)?.sessions) ? (bData as any).sessions : [],
                   financial: {
                     booking_id: bData.id,
                     customer_user_id: bData.customer_user_id,
@@ -169,7 +187,7 @@ export default function CustomerBookingDetail({
     return () => {
       isMounted = false;
     };
-  }, [isFlash, flashRes?.id, (flashRes as any)?.booking, (item as any)?.financial]);
+  }, [isFlash, flashRes, item]);
 
   const effectiveBooking = (item.id && (item as any)?.financial)
     ? (item as CustomerPortalBooking)
@@ -177,9 +195,11 @@ export default function CustomerBookingDetail({
   const hasPendingSlip = Boolean((item as any).has_pending_payment_submission || effectiveBooking?.has_pending_payment_submission);
 
   let displayStatus = '';
+  const isFlashDateProposed = Boolean(flashRes?.proposed_date || (item as any)?.proposed_date);
+
   if (isFlash) {
     const s = (effectiveBooking?.status || flashRes?.status || '').toUpperCase();
-    if (s === 'PENDING' || s === 'PENDING_REVIEW') displayStatus = 'PENDING';
+    if (s === 'PENDING' || s === 'PENDING_REVIEW') displayStatus = isFlashDateProposed ? 'WAITING_DEPOSIT' : 'PENDING';
     else if (s === 'WAITING_DEPOSIT' || s === 'PENDING_PAYMENT') displayStatus = hasPendingSlip ? 'SLIP_REVIEW' : 'WAITING_DEPOSIT';
     else if (s === 'SLIP_REVIEW' || s === 'VERIFICATION_PENDING') displayStatus = 'SLIP_REVIEW';
     else if (s === 'APPROVED' || s === 'CONFIRMED' || s === 'IN_PROGRESS') displayStatus = 'CONFIRMED';
@@ -189,7 +209,8 @@ export default function CustomerBookingDetail({
     else if (s === 'EXPIRED') displayStatus = 'EXPIRED';
     else displayStatus = s;
   } else {
-    displayStatus = resolveCustomerDisplayStatus(item.status, hasPendingSlip);
+    const isDateProposed = Boolean(estimate?.is_date_proposed || (item as any)?.is_date_proposed);
+    displayStatus = resolveCustomerDisplayStatus(item.status, hasPendingSlip, isDateProposed);
   }
 
   const artistDisplayName = React.useMemo(() => {
@@ -416,6 +437,31 @@ export default function CustomerBookingDetail({
     }
   };
 
+  const handleConfirmFlashProposal = async () => {
+    if (!flashRes?.id) return;
+    setLoading(true);
+    setError('');
+    try {
+      const supabase = createClient();
+      const { data, error: rpcError } = await supabase.rpc('customer_confirm_flash_proposed_date', {
+        p_reservation_id: flashRes.id,
+      });
+
+      if (rpcError) throw rpcError;
+      if (data && !data.success) {
+        throw new Error(data.error || 'ไม่สามารถยืนยันวันนัดหมาย Flash ได้');
+      }
+
+      if (onRefresh) onRefresh();
+      onClose();
+    } catch (err: any) {
+      console.error('Error confirming flash proposed date:', err);
+      setError(err?.message || 'ไม่สามารถยืนยันวันนัดหมายได้');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const isGeneralTattoo = !isFlash;
 
   const hasSubmittedDepositSlip = Boolean(
@@ -434,7 +480,7 @@ export default function CustomerBookingDetail({
 
   const canCustomerEdit = isGeneralTattoo
     ? (displayStatus === 'PENDING' && !hasSubmittedDepositSlip)
-    : (isFlash && (displayStatus === 'PENDING' || (flashRes?.status || '').toUpperCase() === 'PENDING') && !hasSubmittedDepositSlip);
+    : (isFlash && (displayStatus === 'PENDING' || (flashRes?.status || '').toUpperCase() === 'PENDING') && !hasSubmittedDepositSlip && !isFlashDateProposed);
 
   const canCustomerCancel = !hasSubmittedDepositSlip && (
     isGeneralTattoo
@@ -492,7 +538,7 @@ export default function CustomerBookingDetail({
         <button
           type="button"
           onClick={onClose}
-          className="absolute top-3.5 right-3.5 z-10 p-1.5 bg-studio-main/60 hover:bg-studio-red text-studio-primary rounded-full transition-colors duration-200"
+          className="absolute top-3.5 right-3.5 z-10 p-1.5 bg-studio-main/60 hover:bg-studio-red text-[#ECE4D3] hover:text-white rounded-full transition-colors duration-200"
           title="ปิด"
         >
           <X size={16} />
@@ -504,20 +550,22 @@ export default function CustomerBookingDetail({
           <div className="border-b border-studio-border pb-4 flex justify-between items-start">
             <div>
               <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-[10px] uppercase tracking-wider text-studio-red font-semibold block">
+                <span className="text-xs uppercase tracking-wider text-[#ECE4D3] font-bold block">
                   {isFlash ? 'รายละเอียดการจองลาย Flash' : (isBooking ? 'รายละเอียดคิวจองสัก' : 'รายละเอียดคำขอจองคิว')}
                 </span>
-                <span className="text-[10px] text-studio-muted font-mono">
+                <span className="text-[10px] text-[#F2EEE8] font-mono">
                   #{item.id.slice(0, 8)}
                 </span>
               </div>
               {isFlash && (
-                <h3 className="text-base font-bold text-studio-primary mt-1">
+                <h3 className="text-base font-bold text-[#ECE4D3] mt-1">
                   {flashDesign?.title || booking.artwork_title || 'แบบลายสัก Flash'}
                 </h3>
               )}
             </div>
-            <BookingStatusBadge status={displayStatus as any} type={type === 'flash' ? 'booking' : type} />
+            <div className="flex items-center gap-1.5 flex-wrap justify-end">
+              <BookingStatusBadge status={displayStatus as any} type={type === 'flash' ? 'booking' : type} />
+            </div>
           </div>
 
           {error && (
@@ -528,14 +576,26 @@ export default function CustomerBookingDetail({
           )}
 
           {/* Status Context Banner */}
-          {item.status === 'PENDING' && (
+          {item.status === 'PENDING' && !estimate?.is_date_proposed && !isFlashDateProposed && (
             <div className="bg-[#171512] border border-[#4A443A] p-3.5 rounded-[6px] space-y-1">
               <div className="flex items-center gap-2 text-xs font-bold text-[#ECE4D3]">
-                <Clock size={14} className="text-[#9C2F2F] animate-pulse" />
+                <Clock size={14} className="text-[#D64545] animate-pulse" />
                 <span>ส่งคำขอจองแล้ว (รอร้านตรวจสอบ)</span>
               </div>
-              <p className="text-[11px] text-[#A89F91] leading-relaxed font-light">
+              <p className="text-[11px] text-[#E2DDD4] leading-relaxed font-light">
                 ทางร้านได้รับคำขอจองคิวของคุณแล้ว ขณะนี้กำลังรอช่างสักตรวจสอบรายละเอียด วันที่สะดวก และจัดคิวงานให้คุณ
+              </p>
+            </div>
+          )}
+
+          {(Boolean(estimate?.is_date_proposed) || (isFlash && isFlashDateProposed && (item.status === 'PENDING' || (flashRes?.status || '').toUpperCase() === 'PENDING'))) && (
+            <div className="bg-[#171512] border border-amber-800/50 p-3.5 rounded-[6px] space-y-1">
+              <div className="flex items-center gap-2 text-xs font-bold text-amber-300">
+                <CalendarClock size={14} className="text-amber-400 animate-pulse" />
+                <span>{isFlash ? 'ทางร้านเสนอวันนัดใหม่ (รอยืนยันวันนัด)' : 'ทางร้านเสนอวันนัดหมายใหม่ (รอชำระมัดจำหลังยืนยันวัน)'}</span>
+              </div>
+              <p className="text-[11px] text-[#E2DDD4] leading-relaxed font-light">
+                {isFlash ? 'ทางร้านเสนอวันนัดใหม่ กรุณาตรวจสอบและยืนยันวันนัด' : 'ทางร้านได้ตรวจสอบและเสนอวันนัดหมายใหม่ กรุณาตรวจสอบวันและเวลาด้านล่าง จากนั้นกดยืนยันวันนัดหมายเพื่อดำเนินการชำระเงินมัดจำ'}
               </p>
             </div>
           )}
@@ -553,7 +613,7 @@ export default function CustomerBookingDetail({
                   </span>
                 )}
               </div>
-              <p className="text-[11px] text-[#A89F91] leading-relaxed font-light">
+              <p className="text-[11px] text-[#E2DDD4] leading-relaxed font-light">
                 {hasPendingSlip
                   ? 'ทางร้านได้รับหลักฐานการชำระเงินมัดจำของคุณแล้ว ขณะนี้กำลังรอร้านค้าตรวจสอบสลิป'
                   : 'คำขอของคุณได้รับการยืนยันแล้ว กรุณาชำระเงินมัดจำเพื่อยืนยันและล็อกคิว'}
@@ -567,7 +627,7 @@ export default function CustomerBookingDetail({
                 <CheckCircle2 size={14} />
                 <span>ยืนยันคิวเรียบร้อยแล้ว</span>
               </div>
-              <p className="text-[11px] text-[#A89F91] leading-relaxed font-light">
+              <p className="text-[11px] text-[#E2DDD4] leading-relaxed font-light">
                 คิวสักของคุณได้รับการยืนยันและลงตารางนัดหมายเรียบร้อยแล้ว
                 <br />
                 แนะนำให้พักผ่อนและรับประทานอาหารให้พร้อมก่อนมา แต่งกายให้สะดวกต่อบริเวณที่จะสัก
@@ -581,7 +641,7 @@ export default function CustomerBookingDetail({
                 <Sparkles size={14} />
                 <span>กำลังดำเนินงานสัก</span>
               </div>
-              <p className="text-[11px] text-[#A89F91] leading-relaxed font-light">
+              <p className="text-[11px] text-[#E2DDD4] leading-relaxed font-light">
                 คิวสักของคุณกำลังอยู่ในขั้นตอนการให้บริการสักที่สตูดิโอ
               </p>
             </div>
@@ -593,7 +653,7 @@ export default function CustomerBookingDetail({
                 <CheckCircle2 size={14} />
                 <span>งานสักเสร็จสิ้นแล้ว</span>
               </div>
-              <p className="text-[11px] text-[#A89F91] leading-relaxed font-light">
+              <p className="text-[11px] text-[#E2DDD4] leading-relaxed font-light">
                 ขอบคุณที่ไว้วางใจใช้บริการกับ 157 TATTOO Studio ดูแลรอยสักตามคำแนะนำของช่างเพื่อผลลัพธ์ที่ดีที่สุด
               </p>
             </div>
@@ -617,11 +677,11 @@ export default function CustomerBookingDetail({
 
           {item.status === 'CANCELLED' && (
             <div className="bg-[#171512] border border-red-900/30 p-3.5 rounded-[6px] space-y-1">
-              <div className="flex items-center gap-2 text-xs font-bold text-[#A89F91]">
+              <div className="flex items-center gap-2 text-xs font-bold text-[#E2DDD4]">
                 <X size={14} className="text-red-400" />
                 <span>ยกเลิกคิวแล้ว</span>
               </div>
-              <p className="text-[11px] text-[#A89F91] leading-relaxed font-light">
+              <p className="text-[11px] text-[#E2DDD4] leading-relaxed font-light">
                 รายการจองคิวนี้ถูกยกเลิกแล้ว
               </p>
             </div>
@@ -629,7 +689,7 @@ export default function CustomerBookingDetail({
 
           {/* Reference Image Gallery */}
           <div className="space-y-1.5">
-            <span className="text-[10px] uppercase font-bold text-studio-secondary block">
+            <span className="text-[10px] uppercase font-bold text-[#F2EEE8] block">
               รูปภาพอ้างอิง {referenceImages.length > 0 ? `(${referenceImages.length} รูป)` : ''}
             </span>
             {referenceImages.length > 0 ? (
@@ -649,26 +709,26 @@ export default function CustomerBookingDetail({
                     <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
                       <ZoomIn size={16} className="text-white" />
                     </div>
-                    <span className="absolute bottom-1 left-1 bg-black/80 text-[9px] font-mono text-[#ECE4D3] px-1 py-0.2 rounded border border-white/10 select-none">
+                    <span className="absolute bottom-1 left-1 bg-black/80 text-[9px] font-mono text-[#F2EEE8] px-1 py-0.2 rounded border border-white/10 select-none">
                       #{idx + 1}
                     </span>
                   </div>
                 ))}
               </div>
             ) : (
-              <div className="p-2.5 bg-studio-main border border-studio-border/60 rounded-[6px] text-center text-xs text-studio-muted italic font-light">
+              <div className="p-2.5 bg-studio-main border border-studio-border/60 rounded-[6px] text-center text-xs text-[#E2DDD4] italic font-light">
                 ไม่มีรูปอ้างอิง
               </div>
             )}
           </div>
 
           {/* Core Info Specs Grid */}
-          <div className="bg-studio-main border border-studio-border p-4 rounded-[6px] space-y-3 text-xs text-studio-primary">
+          <div className="bg-studio-main border border-studio-border p-4 rounded-[6px] space-y-3 text-xs text-[#ECE4D3]">
             <div className="flex justify-between">
-              <span className="text-studio-secondary flex items-center gap-1.5">
-                <User size={13} /> ช่างสัก
+              <span className="text-[#E2DDD4] flex items-center gap-1.5">
+                <User size={13} className="text-[#D64545]" /> ช่างสัก
               </span>
-              <span className="font-semibold">{artistDisplayName}</span>
+              <span className="font-semibold text-[#ECE4D3]">{artistDisplayName}</span>
             </div>
 
             {isBooking ? (
@@ -676,10 +736,10 @@ export default function CustomerBookingDetail({
                 {/* 2. สไตล์ลายสัก */}
                 {Boolean(booking.style || (booking as any).style_preference || (booking.artwork_title && booking.artwork_title !== 'งานสัก Custom')) && (
                   <div className="flex justify-between">
-                    <span className="text-studio-secondary flex items-center gap-1.5">
-                      <Palette size={13} /> สไตล์ลายสัก
+                    <span className="text-[#E2DDD4] flex items-center gap-1.5">
+                      <Palette size={13} className="text-[#D64545]" /> สไตล์ลายสัก
                     </span>
-                    <span className="font-semibold">
+                    <span className="font-semibold text-[#ECE4D3]">
                       {booking.style || (booking as any).style_preference || booking.artwork_title}
                     </span>
                   </div>
@@ -688,20 +748,20 @@ export default function CustomerBookingDetail({
                 {/* 3. ตำแหน่งที่สัก */}
                 {booking.placement && (
                   <div className="flex justify-between">
-                    <span className="text-studio-secondary flex items-center gap-1.5">
-                      <MapPin size={13} /> ตำแหน่งที่สัก
+                    <span className="text-[#E2DDD4] flex items-center gap-1.5">
+                      <MapPin size={13} className="text-[#D64545]" /> ตำแหน่งที่สัก
                     </span>
-                    <span className="font-semibold">{booking.placement}</span>
+                    <span className="font-semibold text-[#ECE4D3]">{booking.placement}</span>
                   </div>
                 )}
 
                 {/* 4. ขนาดงานสัก */}
                 {booking.width_cm && booking.height_cm && (
                   <div className="flex justify-between">
-                    <span className="text-studio-secondary flex items-center gap-1.5">
-                      <Maximize2 size={13} /> ขนาดงานสัก
+                    <span className="text-[#E2DDD4] flex items-center gap-1.5">
+                      <Maximize2 size={13} className="text-[#D64545]" /> ขนาดงานสัก
                     </span>
-                    <span className="font-semibold">
+                    <span className="font-semibold text-[#ECE4D3]">
                       {formatTattooSize(booking.width_cm, booking.height_cm)}
                     </span>
                   </div>
@@ -710,15 +770,27 @@ export default function CustomerBookingDetail({
                 {/* Multi-Session Schedule List (Real appointment time) */}
                 {booking.sessions && booking.sessions.length > 0 ? (
                   <div className="pt-2 border-t border-studio-border/30 space-y-2">
-                    <div className="flex items-center justify-between text-[11px] font-semibold text-studio-primary">
-                      <span className="flex items-center gap-1 text-studio-red">
+                    <div className="flex items-center justify-between text-[11px] font-semibold text-[#ECE4D3]">
+                      <span className="flex items-center gap-1 text-[#D64545]">
                         <Layers size={12} /> รอบการนัดหมายสัก
                       </span>
                     </div>
 
                     <div className="space-y-1.5">
-                      {booking.sessions.map((ses) => {
-                        const rawStart = formatTimeBangkok(ses.start_at).replace(/\s*น\.?\s*$/i, '').trim();
+                      {booking.sessions.map((ses, idx) => {
+                        const isPrimaryScheduled =
+                          idx === 0 &&
+                          ses.status === 'SCHEDULED' &&
+                          latestReschedule?.status === 'APPROVED' &&
+                          Boolean(latestReschedule.requested_date && latestReschedule.requested_start_time);
+
+                        const effectiveDateDisplay = isPrimaryScheduled
+                          ? formatThaiDate(latestReschedule!.requested_date)
+                          : formatThaiDate(ses.start_at);
+
+                        const rawStart = isPrimaryScheduled
+                          ? latestReschedule!.requested_start_time.slice(0, 5)
+                          : formatTimeBangkok(ses.start_at).replace(/\s*น\.?\s*$/i, '').trim();
                         const startDisplay = rawStart ? `${rawStart} น.` : '-';
 
                         return (
@@ -727,18 +799,18 @@ export default function CustomerBookingDetail({
                             className="bg-studio-card/80 border border-studio-border/60 p-2.5 rounded-[6px] flex items-center justify-between text-[11px]"
                           >
                             <div className="space-y-0.5">
-                              <div className="font-semibold text-studio-primary flex items-center gap-1.5 text-xs">
-                                <Calendar size={13} className="text-studio-red shrink-0" />
+                              <div className="font-semibold text-[#ECE4D3] flex items-center gap-1.5 text-xs">
+                                <Calendar size={13} className="text-[#D64545] shrink-0" />
                                 <span>
                                   {booking.sessions.length > 1 ? `รอบที่ ${ses.session_number} : ` : ''}
-                                  {formatThaiDate(ses.start_at)} · {startDisplay}
+                                  {effectiveDateDisplay} · {startDisplay}
                                 </span>
                               </div>
                             </div>
                             <span
                               className={`px-1.5 py-0.5 rounded text-[9px] font-semibold shrink-0 ml-2 ${
                                 ses.status === 'IN_PROGRESS'
-                                  ? 'bg-studio-red/20 text-studio-red border border-studio-red/40'
+                                  ? 'bg-studio-red/20 text-[#D64545] border border-studio-red/40'
                                   : ses.status === 'COMPLETED'
                                   ? 'bg-emerald-950/40 text-emerald-400 border border-emerald-800/40'
                                   : 'bg-[#171512] text-[#ECE4D3] border border-[#4A443A]'
@@ -759,13 +831,22 @@ export default function CustomerBookingDetail({
                   </div>
                 ) : booking.requested_date ? (
                   <div className="pt-2 border-t border-studio-border/30 flex justify-between text-xs">
-                    <span className="text-studio-secondary flex items-center gap-1.5">
-                      <Calendar size={13} /> วันนัด
+                    <span className="text-[#E2DDD4] flex items-center gap-1.5">
+                      <Calendar size={13} className="text-[#D64545]" /> วันนัด
                     </span>
-                    <span className="font-semibold text-studio-primary">
-                      {formatThaiDate(booking.requested_date)}
-                      {booking.requested_start_time
-                        ? ` · ${booking.requested_start_time.slice(0, 5)} น.`
+                    <span className="font-semibold text-[#ECE4D3]">
+                      {formatThaiDate(
+                        latestReschedule?.status === 'APPROVED' && latestReschedule.requested_date
+                          ? latestReschedule.requested_date
+                          : booking.requested_date
+                      )}
+                      {(latestReschedule?.status === 'APPROVED' && latestReschedule.requested_start_time
+                        ? latestReschedule.requested_start_time
+                        : booking.requested_start_time)
+                        ? ` · ${(latestReschedule?.status === 'APPROVED' && latestReschedule.requested_start_time
+                            ? latestReschedule.requested_start_time
+                            : booking.requested_start_time!
+                          ).slice(0, 5)} น.`
                         : ''}
                     </span>
                   </div>
@@ -780,6 +861,7 @@ export default function CustomerBookingDetail({
                   <div className="pt-2 border-t border-studio-border/30">
                     <CustomerDepositPaymentSection
                       booking={booking}
+                      artistName={artistDisplayName}
                       onRefresh={onRefresh}
                     />
                   </div>
@@ -791,46 +873,48 @@ export default function CustomerBookingDetail({
               <>
                 {/* 2. สไตล์ลายสัก */}
                 <div className="flex justify-between">
-                  <span className="text-studio-secondary flex items-center gap-1.5">
-                    <Palette size={13} /> สไตล์ลายสัก
+                  <span className="text-[#E2DDD4] flex items-center gap-1.5">
+                    <Palette size={13} className="text-[#D64545]" /> สไตล์ลายสัก
                   </span>
-                  <span className="font-semibold">{flashDesign?.style || '-'}</span>
+                  <span className="font-semibold text-[#ECE4D3]">{flashDesign?.style || '-'}</span>
                 </div>
 
                 {/* 3. ตำแหน่งที่สัก */}
                 <div className="flex justify-between">
-                  <span className="text-studio-secondary flex items-center gap-1.5">
-                    <MapPin size={13} /> ตำแหน่งที่สัก
+                  <span className="text-[#E2DDD4] flex items-center gap-1.5">
+                    <MapPin size={13} className="text-[#D64545]" /> ตำแหน่งที่สัก
                   </span>
-                  <span className="font-semibold">{effectiveFlashPlacement}</span>
+                  <span className="font-semibold text-[#ECE4D3]">{effectiveFlashPlacement}</span>
                 </div>
 
                 {/* 4. ขนาดงานสัก (แสดงเฉพาะเมื่อมีข้อมูลขนาดจริง) */}
                 {formattedFlashSize && (
                   <div className="flex justify-between">
-                    <span className="text-studio-secondary flex items-center gap-1.5">
-                      <Maximize2 size={13} /> ขนาดงานสัก
+                    <span className="text-[#E2DDD4] flex items-center gap-1.5">
+                      <Maximize2 size={13} className="text-[#D64545]" /> ขนาดงานสัก
                     </span>
-                    <span className="font-semibold">{formattedFlashSize}</span>
+                    <span className="font-semibold text-[#ECE4D3]">{formattedFlashSize}</span>
                   </div>
                 )}
 
                 {/* 5. วันนัด */}
                 <div className="flex justify-between">
-                  <span className="text-studio-secondary flex items-center gap-1.5">
-                    <Calendar size={13} /> วันนัด
+                  <span className={isFlashDateProposed ? "text-[#8C8479] flex items-center gap-1.5" : "text-[#E2DDD4] flex items-center gap-1.5"}>
+                    <Calendar size={13} className={isFlashDateProposed ? "text-[#8C8479]" : "text-[#D64545]"} />
+                    {isFlashDateProposed ? 'วันที่ลูกค้าเลือกเดิม' : 'วันนัด'}
                   </span>
-                  <span className="font-semibold">
+                  <span className={isFlashDateProposed ? "font-normal text-[#8C8479]" : "font-semibold text-[#ECE4D3]"}>
                     {flashRes?.requested_date ? formatThaiDate(flashRes.requested_date, true) : '-'}
                   </span>
                 </div>
 
                 {/* 6. เวลาเริ่ม */}
                 <div className="flex justify-between">
-                  <span className="text-studio-secondary flex items-center gap-1.5">
-                    <Clock size={13} /> เวลาเริ่ม
+                  <span className={isFlashDateProposed ? "text-[#8C8479] flex items-center gap-1.5" : "text-[#E2DDD4] flex items-center gap-1.5"}>
+                    <Clock size={13} className={isFlashDateProposed ? "text-[#8C8479]" : "text-[#D64545]"} />
+                    {isFlashDateProposed ? 'เวลาเริ่มเดิม' : 'เวลาเริ่ม'}
                   </span>
-                  <span className="font-semibold text-studio-primary">
+                  <span className={isFlashDateProposed ? "font-normal text-[#8C8479]" : "font-semibold text-[#ECE4D3]"}>
                     {flashRes?.requested_start_time ? `${flashRes.requested_start_time.slice(0, 5)} น.` : '-'}
                   </span>
                 </div>
@@ -838,8 +922,8 @@ export default function CustomerBookingDetail({
                 {/* 7. รายละเอียดเพิ่มเติม (แสดงเมื่อมีข้อความเหลือหลังตัด tag legacy) */}
                 {flashNoteParsed.cleanNote && (
                   <div className="pt-2 border-t border-studio-border/20">
-                    <span className="text-studio-secondary block mb-1">รายละเอียดเพิ่มเติม:</span>
-                    <p className="text-[11px] text-studio-secondary leading-relaxed bg-studio-card/85 p-2 border border-studio-border/40 rounded-[4px] font-light whitespace-pre-wrap">
+                    <span className="text-[#E2DDD4] block mb-1">รายละเอียดเพิ่มเติม:</span>
+                    <p className="text-[11px] text-[#E2DDD4] leading-relaxed bg-studio-card/85 p-2 border border-studio-border/40 rounded-[4px] font-light whitespace-pre-wrap">
                       {flashNoteParsed.cleanNote}
                     </p>
                   </div>
@@ -858,6 +942,7 @@ export default function CustomerBookingDetail({
                   <div className="pt-2 border-t border-studio-border/30">
                     <CustomerDepositPaymentSection
                       booking={effectiveBooking}
+                      artistName={artistDisplayName}
                       onRefresh={onRefresh}
                     />
                   </div>
@@ -868,40 +953,40 @@ export default function CustomerBookingDetail({
                 {/* 2. สไตล์ลายสัก */}
                 {estimate.style && (
                   <div className="flex justify-between">
-                    <span className="text-studio-secondary flex items-center gap-1.5">
-                      <Palette size={13} /> สไตล์ลายสัก
+                    <span className="text-[#E2DDD4] flex items-center gap-1.5">
+                      <Palette size={13} className="text-[#D64545]" /> สไตล์ลายสัก
                     </span>
-                    <span className="font-semibold">{estimate.style}</span>
+                    <span className="font-semibold text-[#ECE4D3]">{estimate.style}</span>
                   </div>
                 )}
 
                 {/* 3. ตำแหน่งที่สัก */}
                 {estimate.placement && (
                   <div className="flex justify-between">
-                    <span className="text-studio-secondary flex items-center gap-1.5">
-                      <MapPin size={13} /> ตำแหน่งที่สัก
+                    <span className="text-[#E2DDD4] flex items-center gap-1.5">
+                      <MapPin size={13} className="text-[#D64545]" /> ตำแหน่งที่สัก
                     </span>
-                    <span className="font-semibold">{estimate.placement}</span>
+                    <span className="font-semibold text-[#ECE4D3]">{estimate.placement}</span>
                   </div>
                 )}
 
                 {/* 4. ขนาดงานสัก */}
                 {estimate.width_cm && estimate.height_cm && (
                   <div className="flex justify-between">
-                    <span className="text-studio-secondary flex items-center gap-1.5">
-                      <Maximize2 size={13} /> ขนาดงานสัก
+                    <span className="text-[#E2DDD4] flex items-center gap-1.5">
+                      <Maximize2 size={13} className="text-[#D64545]" /> ขนาดงานสัก
                     </span>
-                    <span className="font-semibold">
+                    <span className="font-semibold text-[#ECE4D3]">
                       {formatTattooSize(estimate.width_cm, estimate.height_cm)}
                     </span>
                   </div>
                 )}
 
                 <div className="flex justify-between">
-                  <span className="text-studio-secondary flex items-center gap-1.5">
-                    <Calendar size={13} /> วันนัด
+                  <span className="text-[#E2DDD4] flex items-center gap-1.5">
+                    <Calendar size={13} className="text-[#D64545]" /> วันนัด
                   </span>
-                  <span className="font-semibold">
+                  <span className="font-semibold text-[#ECE4D3]">
                     {formatThaiDate(estimate.preferred_date, true)}
                   </span>
                 </div>
@@ -917,10 +1002,10 @@ export default function CustomerBookingDetail({
                     <>
                       {preferredTimeDisplay && (
                         <div className="flex justify-between">
-                          <span className="text-studio-secondary flex items-center gap-1.5">
-                            <Clock size={13} /> เวลาเริ่ม
+                          <span className="text-[#E2DDD4] flex items-center gap-1.5">
+                            <Clock size={13} className="text-[#D64545]" /> เวลาเริ่ม
                           </span>
-                          <span className="font-semibold text-studio-primary">
+                          <span className="font-semibold text-[#ECE4D3]">
                             {preferredTimeDisplay}
                           </span>
                         </div>
@@ -930,8 +1015,8 @@ export default function CustomerBookingDetail({
 
                       {cleanNote && (
                         <div className="pt-2 border-t border-studio-border/20">
-                          <span className="text-studio-secondary block mb-1">รายละเอียดเพิ่มเติม:</span>
-                          <p className="text-[11px] text-studio-secondary leading-relaxed bg-studio-card/85 p-2 border border-studio-border/40 rounded-[4px] font-light">
+                          <span className="text-[#E2DDD4] block mb-1">รายละเอียดเพิ่มเติม:</span>
+                          <p className="text-[11px] text-[#E2DDD4] leading-relaxed bg-studio-card/85 p-2 border border-studio-border/40 rounded-[4px] font-light">
                             {cleanNote}
                           </p>
                         </div>
@@ -943,130 +1028,200 @@ export default function CustomerBookingDetail({
             )}
           </div>
 
-          {/* Multi-Option Date Proposal Card from Artist */}
-          {Boolean(estimate.is_date_proposed) && (
-            <div className="bg-amber-950/40 border border-amber-800/60 p-4 rounded-[8px] space-y-4 font-prompt">
-              <div className="space-y-1">
-                <div className="flex items-center space-x-2 text-amber-300 font-bold text-sm">
-                  <CalendarClock size={18} className="text-amber-400 shrink-0" />
-                  <span>เลือกวันนัดหมายที่สะดวก</span>
-                </div>
-                <p className="text-xs text-amber-200/80">
-                  ช่างสักเสนอวันนัดหมายใหม่ กรุณาเลือก 1 ตัวเลือก
-                </p>
-              </div>
+          {/* Flash Date Proposal Card from Shop */}
+          {isFlash && isFlashDateProposed && (item.status === 'PENDING' || (flashRes?.status || '').toUpperCase() === 'PENDING') && Boolean(flashRes?.proposed_date) && (() => {
+            const proposedDate = flashRes!.proposed_date!;
+            const proposedTime = flashRes?.proposed_time || '10:00';
+            const hhmm = extractHHMM(proposedTime) || proposedTime;
+            const timeDisplay = hhmm.endsWith('น.') || hhmm.endsWith('น') ? hhmm : `${hhmm} น.`;
 
-              {estimate.proposed_artist_note && (
-                <div className="bg-black/50 p-3 rounded-lg border border-amber-900/40 text-xs text-amber-200/90 leading-relaxed">
-                  <span className="font-semibold text-amber-300 block mb-0.5">ข้อความจากทางร้าน:</span>
-                  <p className="whitespace-pre-wrap">{estimate.proposed_artist_note}</p>
-                </div>
-              )}
-
-              {/* Options Radio List */}
-              {(() => {
-                const effectiveOptions = fetchedDateOptions.length > 0
-                  ? fetchedDateOptions
-                  : (estimate.date_options && estimate.date_options.length > 0
-                      ? estimate.date_options.filter((o) => o.status !== 'CANCELLED')
-                      : (estimate.proposed_date
-                          ? [{ id: 'legacy-1', estimate_request_id: estimate.id, proposed_date: estimate.proposed_date, proposed_time: estimate.proposed_time || '10:00', option_order: 1, status: 'PENDING' as const }]
-                          : []));
-
-                const isSingleOption = effectiveOptions.length === 1;
-
-                return (
-                  <div className="space-y-2.5">
-                    <span className="text-[11px] font-semibold text-studio-secondary block">
-                      {isSingleOption ? 'วันนัดหมายที่เสนอ:' : 'ตัวเลือกวันนัดหมายจากทางร้าน:'}
-                    </span>
-
-                    {effectiveOptions.map((opt, idx) => {
-                      const isUnavailable = opt.status === 'UNAVAILABLE';
-                      const isSelected = selectedOptionId === opt.id || isSingleOption;
-                      const hhmm = extractHHMM(opt.proposed_time) || opt.proposed_time;
-                      const timeDisplay = hhmm.endsWith('น.') || hhmm.endsWith('น') ? hhmm : `${hhmm} น.`;
-
-                      return (
-                        <div
-                          key={opt.id || idx}
-                          onClick={() => {
-                            if (!isUnavailable) setSelectedOptionId(opt.id);
-                          }}
-                          className={`p-3.5 rounded-xl border transition-all flex items-center justify-between ${
-                            isUnavailable
-                              ? 'bg-studio-main/40 border-studio-border/40 opacity-60 cursor-not-allowed'
-                              : isSelected
-                              ? 'bg-amber-950/80 border-amber-500 shadow-md text-amber-100 ring-1 ring-amber-500'
-                              : 'bg-studio-card/90 border-studio-border hover:border-amber-700/60 text-studio-primary cursor-pointer'
-                          }`}
-                        >
-                          <div className="flex items-center space-x-3">
-                            {!isSingleOption && (
-                              <input
-                                type="radio"
-                                name="booking_date_option"
-                                checked={isSelected}
-                                disabled={isUnavailable}
-                                onChange={() => setSelectedOptionId(opt.id)}
-                                className="w-4 h-4 accent-amber-500 cursor-pointer disabled:cursor-not-allowed"
-                              />
-                            )}
-                            <div className="space-y-0.5">
-                              {!isSingleOption && (
-                                <span className="text-xs font-bold block text-amber-300">
-                                  ตัวเลือกที่ {opt.option_order || idx + 1}
-                                </span>
-                              )}
-                              <div className="text-xs font-medium flex items-center gap-2">
-                                <span>{formatThaiDate(opt.proposed_date)}</span>
-                                <span className="font-mono text-amber-200">· {timeDisplay}</span>
-                              </div>
-                            </div>
-                          </div>
-
-                          {isUnavailable && (
-                            <span className="text-[10px] bg-red-950/80 text-red-300 border border-red-800/80 px-2 py-0.5 rounded font-semibold shrink-0">
-                              ตัวเลือกนี้ถูกจองไปแล้ว
-                            </span>
-                          )}
-                        </div>
-                      );
-                    })}
+            return (
+              <div className="bg-amber-950/40 border border-amber-800/60 p-4 rounded-[8px] space-y-4 font-prompt">
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <div className="flex items-center space-x-2 text-amber-300 font-bold text-sm">
+                      <CalendarClock size={18} className="text-amber-400 shrink-0" />
+                      <span>ทางร้านเสนอวันนัดใหม่</span>
+                    </div>
                   </div>
-                );
-              })()}
+                  <p className="text-xs text-amber-200/80">
+                    ทางร้านขอเสนอวันและเวลานัดหมายใหม่ กรุณาตรวจสอบและกดยืนยันวันนัดหมายนี้
+                  </p>
+                </div>
 
-              {/* Proposal Action Buttons */}
-              <div className="pt-2 flex flex-col sm:flex-row gap-2">
-                <button
-                  type="button"
-                  onClick={handleConfirmSelectOption}
-                  disabled={loading || !selectedOptionId}
-                  className="flex-1 py-2.5 px-4 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition-all shadow-md flex items-center justify-center space-x-1.5 cursor-pointer disabled:opacity-50"
-                >
-                  <CheckCircle2 size={16} />
-                  <span>{loading ? 'กำลังดำเนินการ...' : 'ยืนยันวันนัดหมาย'}</span>
-                </button>
+                {flashRes?.proposal_note && (
+                  <div className="bg-black/50 p-3 rounded-lg border border-amber-900/40 text-xs text-amber-200/90 leading-relaxed">
+                    <span className="font-semibold text-amber-300 block mb-0.5">ข้อความจากทางร้าน:</span>
+                    <p className="whitespace-pre-wrap">{flashRes.proposal_note}</p>
+                  </div>
+                )}
 
-                {canCustomerCancel && (
+                {/* Proposed Option Card */}
+                <div className="space-y-2.5">
+                  <span className="text-[11px] font-semibold text-[#E2DDD4] block">
+                    วันและเวลาที่ร้านเสนอ:
+                  </span>
+                  <div className="p-3.5 rounded-xl border bg-amber-950/80 border-amber-500 shadow-md text-amber-100 ring-1 ring-amber-500 flex items-center justify-between">
+                    <div className="space-y-0.5">
+                      <div className="text-xs font-medium flex items-center gap-2">
+                        <span>{formatThaiDate(proposedDate)}</span>
+                        <span className="font-mono text-amber-200">· {timeDisplay}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Proposal Action Buttons */}
+                <div className="pt-2 flex flex-col sm:flex-row gap-2">
                   <button
                     type="button"
-                    onClick={() => setShowCancelModal(true)}
+                    onClick={handleConfirmFlashProposal}
                     disabled={loading}
-                    className="py-2.5 px-4 bg-red-950/60 hover:bg-red-900/80 text-red-300 border border-red-800/80 text-xs font-semibold rounded-xl transition-all cursor-pointer disabled:opacity-50"
+                    className="flex-1 py-2.5 px-4 bg-emerald-700 hover:bg-emerald-600 border border-emerald-600 hover:border-emerald-500 text-white text-xs font-semibold rounded-xl transition-colors duration-150 flex items-center justify-center space-x-1.5 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    <CheckCircle2 size={16} className="text-white shrink-0" />
+                    <span>{loading ? 'กำลังดำเนินการ...' : 'ยืนยันวันนัดนี้'}</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleCancelFlashReservation}
+                    disabled={loading}
+                    className="py-2.5 px-4 bg-red-800 hover:bg-red-700 border border-red-700 hover:border-red-600 text-white text-xs font-semibold rounded-xl transition-colors duration-150 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
                   >
                     ยกเลิกคำขอ
                   </button>
-                )}
+                </div>
               </div>
-            </div>
-          )}
+            );
+          })()}
+
+          {/* Multi-Option Date Proposal Card from Artist */}
+          {Boolean(estimate.is_date_proposed) && (() => {
+            const effectiveOptions = fetchedDateOptions.length > 0
+              ? fetchedDateOptions
+              : (estimate.date_options && estimate.date_options.length > 0
+                  ? estimate.date_options.filter((o) => o.status !== 'CANCELLED')
+                  : (estimate.proposed_date
+                      ? [{ id: 'legacy-1', estimate_request_id: estimate.id, proposed_date: estimate.proposed_date, proposed_time: estimate.proposed_time || '10:00', option_order: 1, status: 'PENDING' as const }]
+                      : []));
+
+            const isSingleOption = effectiveOptions.length <= 1;
+
+            return (
+              <div className="bg-amber-950/40 border border-amber-800/60 p-4 rounded-[8px] space-y-4 font-prompt">
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <div className="flex items-center space-x-2 text-amber-300 font-bold text-sm">
+                      <CalendarClock size={18} className="text-amber-400 shrink-0" />
+                      <span>{isSingleOption ? 'วันนัดหมายที่ร้านเสนอ' : 'เลือกวันนัดหมายที่สะดวก'}</span>
+                    </div>
+                  </div>
+                  <p className="text-xs text-amber-200/80">
+                    {isSingleOption
+                      ? 'ทางร้านขอเสนอวันและเวลานัดหมายใหม่ กรุณาตรวจสอบและกดยืนยัน'
+                      : 'ช่างสักเสนอวันนัดหมายใหม่ กรุณาเลือก 1 ตัวเลือก'}
+                  </p>
+                </div>
+
+                {estimate.proposed_artist_note && (
+                  <div className="bg-black/50 p-3 rounded-lg border border-amber-900/40 text-xs text-amber-200/90 leading-relaxed">
+                    <span className="font-semibold text-amber-300 block mb-0.5">ข้อความจากทางร้าน:</span>
+                    <p className="whitespace-pre-wrap">{estimate.proposed_artist_note}</p>
+                  </div>
+                )}
+
+                {/* Options List */}
+                <div className="space-y-2.5">
+                  <span className="text-[11px] font-semibold text-[#E2DDD4] block">
+                    {isSingleOption ? 'วันนัดหมายที่ร้านเสนอ:' : 'ตัวเลือกวันนัดหมายจากทางร้าน:'}
+                  </span>
+
+                  {effectiveOptions.map((opt, idx) => {
+                    const isUnavailable = opt.status === 'UNAVAILABLE';
+                    const isSelected = selectedOptionId === opt.id || isSingleOption;
+                    const hhmm = extractHHMM(opt.proposed_time) || opt.proposed_time;
+                    const timeDisplay = hhmm.endsWith('น.') || hhmm.endsWith('น') ? hhmm : `${hhmm} น.`;
+
+                    return (
+                      <div
+                        key={opt.id || idx}
+                        onClick={() => {
+                          if (!isUnavailable) setSelectedOptionId(opt.id);
+                        }}
+                        className={`p-3.5 rounded-xl border transition-all flex items-center justify-between ${
+                          isUnavailable
+                            ? 'bg-studio-main/40 border-studio-border/40 opacity-60 cursor-not-allowed'
+                            : isSelected
+                            ? 'bg-amber-950/80 border-amber-500 shadow-md text-amber-100 ring-1 ring-amber-500'
+                            : 'bg-studio-card/90 border-studio-border hover:border-amber-700/60 text-[#ECE4D3] cursor-pointer'
+                        }`}
+                      >
+                        <div className="flex items-center space-x-3">
+                          {!isSingleOption && (
+                            <input
+                              type="radio"
+                              name="booking_date_option"
+                              checked={isSelected}
+                              disabled={isUnavailable}
+                              onChange={() => setSelectedOptionId(opt.id)}
+                              className="w-4 h-4 accent-amber-500 cursor-pointer disabled:cursor-not-allowed"
+                            />
+                          )}
+                          <div className="space-y-0.5">
+                            {!isSingleOption && (
+                              <span className="text-xs font-bold block text-amber-300">
+                                ตัวเลือกที่ {opt.option_order || idx + 1}
+                              </span>
+                            )}
+                            <div className="text-xs font-medium flex items-center gap-2">
+                              <span>{formatThaiDate(opt.proposed_date)}</span>
+                              <span className="font-mono text-amber-200">· {timeDisplay}</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {isUnavailable && (
+                          <span className="text-[10px] bg-red-950/80 text-red-300 border border-red-800/80 px-2 py-0.5 rounded font-semibold shrink-0">
+                            ตัวเลือกนี้ถูกจองไปแล้ว
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Proposal Action Buttons */}
+                <div className="pt-2 flex flex-col sm:flex-row gap-2">
+                  <button
+                    type="button"
+                    onClick={handleConfirmSelectOption}
+                    disabled={loading || !selectedOptionId}
+                    className="flex-1 py-2.5 px-4 bg-emerald-700 hover:bg-emerald-600 border border-emerald-600 hover:border-emerald-500 text-white text-xs font-semibold rounded-xl transition-colors duration-150 flex items-center justify-center space-x-1.5 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    <CheckCircle2 size={16} className="text-white shrink-0" />
+                    <span>{loading ? 'กำลังดำเนินการ...' : 'ยืนยันวันนัดหมาย'}</span>
+                  </button>
+
+                  {canCustomerCancel && (
+                    <button
+                      type="button"
+                      onClick={() => setShowCancelModal(true)}
+                      disabled={loading}
+                      className="py-2.5 px-4 bg-red-800 hover:bg-red-700 border border-red-700 hover:border-red-600 text-white text-xs font-semibold rounded-xl transition-colors duration-150 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                      ยกเลิกคำขอ
+                    </button>
+                  )}
+                </div>
+              </div>
+            );
+          })()}
 
           {/* In-Flight Status Notice for General Tattoo */}
           {showInFlightNotice && (
             <div className="bg-[#171512] border border-[#4A443A] p-3.5 rounded-[6px] space-y-1">
-              <div className="flex items-center gap-2 text-xs font-semibold text-[#A89F91]">
+              <div className="flex items-center gap-2 text-xs font-semibold text-[#E2DDD4]">
                 <Info size={14} className="text-[#C9A86A] shrink-0" />
                 <span>คิวนี้อยู่ระหว่างดำเนินการ กรุณาติดต่อร้านหากต้องการเลื่อนหรือยกเลิกคิว</span>
               </div>
@@ -1074,14 +1229,14 @@ export default function CustomerBookingDetail({
           )}
 
           {/* Booking Actions: Edit, Cancel, & Delete Buttons */}
-          {(canCustomerEdit || canCustomerCancel || canDeleteRequest) && !estimate?.is_date_proposed && (
+          {(canCustomerEdit || canCustomerCancel || canDeleteRequest) && !estimate?.is_date_proposed && !isFlashDateProposed && (
             <div className="pt-3 border-t border-studio-border/30 flex flex-col sm:flex-row gap-2.5 justify-end">
               {canCustomerEdit && (
                 <button
                   type="button"
                   onClick={() => setShowEditModal(true)}
                   disabled={loading}
-                  className="w-full sm:w-auto px-4 py-2 bg-studio-main border border-studio-border text-studio-primary hover:border-studio-red hover:text-studio-red text-xs font-bold rounded-[4px] transition-all disabled:opacity-50"
+                  className="w-full sm:w-auto px-4 py-2 bg-studio-main border border-studio-border text-[#ECE4D3] hover:border-studio-red hover:text-studio-red text-xs font-bold rounded-[4px] transition-all disabled:opacity-50"
                 >
                   แก้ไขคำขอ
                 </button>
@@ -1128,9 +1283,9 @@ export default function CustomerBookingDetail({
           <div className="w-full max-w-md bg-studio-card border border-studio-border p-6 rounded-[8px] space-y-4 shadow-2xl">
             <div className="flex items-center space-x-2 text-red-400">
               <AlertTriangle size={20} />
-              <h3 className="text-base font-bold text-studio-primary">ยืนยันการยกเลิกคำขอ</h3>
+              <h3 className="text-base font-bold text-[#ECE4D3]">ยืนยันการยกเลิกคำขอ</h3>
             </div>
-            <p className="text-xs text-studio-secondary leading-relaxed font-light">
+            <p className="text-xs text-[#E2DDD4] leading-relaxed font-light">
               คุณต้องการยกเลิกคำขอจองคิวนี้ใช่หรือไม่? รายการคำขอจะถูกเปลี่ยนสถานะเป็นยกเลิกและย้ายไปแสดงที่แท็บ &ldquo;ยกเลิก / ปฏิเสธ&rdquo;
             </p>
             <div className="flex justify-end space-x-3 pt-2">
@@ -1141,7 +1296,7 @@ export default function CustomerBookingDetail({
                   setShowCancelModal(false);
                 }}
                 disabled={loading}
-                className="px-4 py-2 bg-studio-main border border-studio-border text-studio-secondary hover:text-studio-primary text-xs font-semibold rounded-[4px] transition-all"
+                className="px-4 py-2 bg-studio-main border border-studio-border text-[#E2DDD4] hover:text-[#ECE4D3] text-xs font-semibold rounded-[4px] transition-all"
               >
                 ยกเลิก
               </button>
@@ -1164,9 +1319,9 @@ export default function CustomerBookingDetail({
           <div className="w-full max-w-md bg-studio-card border border-studio-border p-6 rounded-[8px] space-y-4 shadow-2xl">
             <div className="flex items-center space-x-2 text-amber-400">
               <Trash2 size={20} />
-              <h3 className="text-base font-bold text-studio-primary">ลบออกจากประวัติของฉัน</h3>
+              <h3 className="text-base font-bold text-[#ECE4D3]">ลบออกจากประวัติของฉัน</h3>
             </div>
-            <p className="text-xs text-studio-secondary leading-relaxed font-light">
+            <p className="text-xs text-[#E2DDD4] leading-relaxed font-light">
               คุณต้องการซ่อนรายการนี้ออกจากประวัติของคุณหรือไม่? (รายการจะถูกลบออกจากหน้าจอของคุณ แต่อัดมินและช่างจะยังคงบันทึกประวัติไว้)
             </p>
             <div className="flex justify-end space-x-3 pt-2">
@@ -1177,7 +1332,7 @@ export default function CustomerBookingDetail({
                   setShowDeleteModal(false);
                 }}
                 disabled={loading}
-                className="px-4 py-2 bg-studio-main border border-studio-border text-studio-secondary hover:text-studio-primary text-xs font-semibold rounded-[4px] transition-all cursor-pointer"
+                className="px-4 py-2 bg-studio-main border border-studio-border text-[#E2DDD4] hover:text-[#ECE4D3] text-xs font-semibold rounded-[4px] transition-all cursor-pointer"
               >
                 ยกเลิก
               </button>

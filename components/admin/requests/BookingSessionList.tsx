@@ -11,21 +11,16 @@ import {
   AlertCircle,
   Check,
   MoreVertical,
-  Edit3,
-  CalendarDays,
-  XCircle,
   Trash2,
   X,
   Loader2,
   Wallet,
+  AlertTriangle,
 } from 'lucide-react';
 import { BookingItem, BookingSessionItem, formatDateTimeBangkok, formatDateBangkok, formatTimeBangkok } from './types';
 import CreateSessionDialog from './CreateSessionDialog';
-import RecordPaymentForm from '@/components/admin/payments/RecordPaymentForm';
-import { PaymentBookingDetail } from '@/components/admin/payments/types';
 import { createClient } from '@/lib/supabase/client';
-import { BlockedDateRecord, checkDateAvailability, checkExistingDateWarning } from '@/lib/availabilityUtils';
-import { AlertTriangle } from 'lucide-react';
+import { BlockedDateRecord, checkExistingDateWarning } from '@/lib/availabilityUtils';
 
 interface BookingSessionListProps {
   booking: BookingItem;
@@ -52,58 +47,7 @@ export default function BookingSessionList({
   // Active Action Menu & Modals State
   const [openMenuSessionId, setOpenMenuSessionId] = useState<string | null>(null);
   const [activeModalSession, setActiveModalSession] = useState<BookingSessionItem | null>(null);
-  const [modalType, setModalType] = useState<'edit' | 'reschedule' | 'cancel' | 'delete' | 'complete' | null>(null);
-  const [recordPaymentSession, setRecordPaymentSession] = useState<BookingSessionItem | null>(null);
-
-  // Check if booking is fully paid
-  const isFullyPaid = (booking.financial?.remaining_balance ?? 1) <= 0 || Boolean(booking.financial?.is_fully_paid) || booking.status === 'COMPLETED';
-
-  // Construct PaymentBookingDetail object for RecordPaymentForm modal
-  const paymentBookingDetail: PaymentBookingDetail | null = recordPaymentSession ? {
-    id: booking.id,
-    estimate_request_id: booking.estimate_request_id,
-    customer_user_id: booking.customer_user_id || '',
-    artist_id: booking.artist_id,
-    requested_date: booking.requested_date,
-    status: (booking.status === 'EXPIRED' ? 'CANCELLED' : booking.status) as any,
-    approved_at: null,
-    confirmed_at: null,
-    created_at: booking.created_at,
-    customer_name: booking.customer_name,
-    customer_phone: booking.customer_phone || '',
-    customer_email: booking.customer_email || '',
-    artist_name: booking.artist_name,
-    artist_nickname: booking.artist_nickname || null,
-    placement: booking.placement,
-    summary: {
-      booking_id: booking.id,
-      estimate_request_id: booking.estimate_request_id,
-      customer_user_id: booking.customer_user_id || '',
-      artist_id: booking.artist_id,
-      quoted_price: booking.financial?.quoted_price || 0,
-      deposit_required: booking.financial?.deposit_required || 0,
-      paid_total: booking.financial?.total_paid || 0,
-      remaining_balance: booking.financial?.remaining_balance || 0,
-      deposit_paid: booking.financial?.is_deposit_paid || false,
-      is_fully_paid: booking.financial?.is_fully_paid || false,
-    },
-    sessions: (booking.sessions || []).map((s) => ({
-      id: s.id,
-      session_number: s.session_number,
-      start_at: s.start_at,
-      end_at: s.end_at,
-      status: s.status,
-    })),
-  } : null;
-
-  // Form Inputs State
-  const [editDate, setEditDate] = useState('');
-  const [editStartTime, setEditStartTime] = useState('10:00');
-  const [editEndTime, setEditEndTime] = useState('13:00');
-  const [sessionDurationMs, setSessionDurationMs] = useState<number>(8 * 3600 * 1000);
-  const [editStatus, setEditStatus] = useState('SCHEDULED');
-  const [editNote, setEditNote] = useState('');
-  const [cancelReason, setCancelReason] = useState('');
+  const [modalType, setModalType] = useState<'delete' | 'complete' | null>(null);
   const [isSubmittingModal, setIsSubmittingModal] = useState(false);
 
   const canCreateSession = booking.status === 'CONFIRMED' || booking.status === 'IN_PROGRESS';
@@ -184,31 +128,11 @@ export default function BookingSessionList({
   };
 
   // Open Modal Handlers
-  const handleOpenActionModal = (session: BookingSessionItem, type: 'edit' | 'reschedule' | 'cancel' | 'delete' | 'complete') => {
+  const handleOpenActionModal = (session: BookingSessionItem, type: 'delete' | 'complete') => {
     setOpenMenuSessionId(null);
     setActiveModalSession(session);
     setModalType(type);
     setSessionError(null);
-
-    // Populate initial form fields from session datetimes (+07 Bangkok)
-    const startDateObj = new Date(session.start_at);
-    const dateStr = startDateObj.toLocaleDateString('sv-SE', { timeZone: 'Asia/Bangkok' });
-    const startTimeStr = startDateObj.toLocaleTimeString('th-TH', { timeZone: 'Asia/Bangkok', hour12: false, hour: '2-digit', minute: '2-digit' });
-    
-    const endDateObj = new Date(session.end_at);
-    const endTimeStr = endDateObj.toLocaleTimeString('th-TH', { timeZone: 'Asia/Bangkok', hour12: false, hour: '2-digit', minute: '2-digit' });
-
-    const startMs = startDateObj.getTime();
-    const endMs = endDateObj.getTime();
-    const durationMs = (!isNaN(startMs) && !isNaN(endMs) && endMs > startMs) ? (endMs - startMs) : (8 * 3600 * 1000);
-    setSessionDurationMs(durationMs);
-
-    setEditDate(dateStr);
-    setEditStartTime(startTimeStr);
-    setEditEndTime(endTimeStr);
-    setEditStatus(session.status);
-    setEditNote(session.note || '');
-    setCancelReason('');
   };
 
   // Action RPC Handlers
@@ -233,161 +157,12 @@ export default function BookingSessionList({
     }
   };
 
-  const handleExecuteCancel = async () => {
-    if (!activeModalSession || isSubmittingModal) return;
-    setIsSubmittingModal(true);
-    setSessionError(null);
-    try {
-      const supabase = createClient();
-      const { data, error } = await supabase.rpc('artist_cancel_session_item', {
-        p_session_id: activeModalSession.id,
-        p_reason: cancelReason.trim() || null
-      });
-      if (error) throw error;
-      setModalType(null);
-      setActiveModalSession(null);
-      onRefresh();
-    } catch (err: any) {
-      console.error('Error cancelling session:', err);
-      setSessionError(err.message || 'ไม่สามารถยกเลิกรอบสักได้');
-    } finally {
-      setIsSubmittingModal(false);
-    }
-  };
-
-  const handleExecuteReschedule = async () => {
-    if (!activeModalSession || isSubmittingModal) return;
-
-    const availCheck = checkDateAvailability(
-      editDate,
-      booking.artist_id,
-      blockedDates,
-      booking.artist_nickname || booking.artist_name
-    );
-    if (availCheck.isBlocked) {
-      setSessionError(availCheck.errorMessage || 'ไม่สามารถเลือกวันที่นี้ได้ ร้านหรือช่างปิดรับคิวในวันที่เลือก');
-      return;
-    }
-
-    setIsSubmittingModal(true);
-    setSessionError(null);
-    try {
-      const supabase = createClient();
-      const startAtIso = `${editDate}T${editStartTime}:00+07:00`;
-
-      // Automatically calculate end time based on existing session duration
-      const startMs = new Date(startAtIso).getTime();
-      const computedEndMs = !isNaN(startMs) ? startMs + sessionDurationMs : startMs;
-      const endBangkokStr = new Date(computedEndMs).toLocaleTimeString('th-TH', {
-        timeZone: 'Asia/Bangkok',
-        hour12: false,
-        hour: '2-digit',
-        minute: '2-digit',
-      });
-      const computedEndTimeStr = endBangkokStr.length === 5 ? endBangkokStr : editStartTime;
-      const endAtIso = `${editDate}T${computedEndTimeStr}:00+07:00`;
-      const finalNote = editNote.trim() ? editNote.trim() : null;
-
-      const { error: updateErr } = await supabase
-        .from('booking_sessions')
-        .update({
-          start_at: startAtIso,
-          end_at: endAtIso,
-          note: finalNote,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', activeModalSession.id);
-
-      if (updateErr) {
-        const { error: rpcErr } = await supabase.rpc('artist_reschedule_session_item', {
-          p_session_id: activeModalSession.id,
-          p_new_date: editDate,
-          p_new_start_time: editStartTime,
-          p_new_end_time: computedEndTimeStr,
-          p_note: finalNote
-        });
-        if (rpcErr) throw rpcErr;
-      }
-
-      setModalType(null);
-      setActiveModalSession(null);
-      onRefresh();
-    } catch (err: any) {
-      console.error('Error rescheduling session:', err);
-      setSessionError(err.message || 'ไม่สามารถเลื่อนรอบสักได้');
-    } finally {
-      setIsSubmittingModal(false);
-    }
-  };
-
-  const handleExecuteEdit = async () => {
-    if (!activeModalSession || isSubmittingModal) return;
-
-    const originalDate = activeModalSession.start_at
-      ? new Date(activeModalSession.start_at).toLocaleDateString('sv-SE', { timeZone: 'Asia/Bangkok' })
-      : '';
-
-    if (editDate !== originalDate) {
-      const availCheck = checkDateAvailability(
-        editDate,
-        booking.artist_id,
-        blockedDates,
-        booking.artist_nickname || booking.artist_name
-      );
-      if (availCheck.isBlocked) {
-        setSessionError(availCheck.errorMessage || 'ไม่สามารถเลือกวันที่นี้ได้ ร้านหรือช่างปิดรับคิวในวันที่เลือก');
-        return;
-      }
-    }
-
-    setIsSubmittingModal(true);
-    setSessionError(null);
-    try {
-      const supabase = createClient();
-      const startAtIso = `${editDate}T${editStartTime}:00+07:00`;
-      const endAtIso = `${editDate}T${editEndTime}:00+07:00`;
-      const finalNote = editNote.trim() ? editNote.trim() : null;
-
-      const { error: updateErr } = await supabase
-        .from('booking_sessions')
-        .update({
-          start_at: startAtIso,
-          end_at: endAtIso,
-          status: editStatus,
-          note: finalNote,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', activeModalSession.id);
-
-      if (updateErr) {
-        const { error: rpcErr } = await supabase.rpc('artist_edit_session_item', {
-          p_session_id: activeModalSession.id,
-          p_new_date: editDate,
-          p_new_start_time: editStartTime,
-          p_new_end_time: editEndTime,
-          p_status: editStatus,
-          p_note: finalNote
-        });
-        if (rpcErr) throw rpcErr;
-      }
-
-      setModalType(null);
-      setActiveModalSession(null);
-      onRefresh();
-    } catch (err: any) {
-      console.error('Error editing session:', err);
-      setSessionError(err.message || 'ไม่สามารถแก้ไขรอบสักได้');
-    } finally {
-      setIsSubmittingModal(false);
-    }
-  };
-
   const getSessionBadge = (status: string) => {
     switch (status) {
       case 'SCHEDULED':
         return (
-          <span className="bg-amber-950/60 text-amber-400 border border-amber-800/60 px-2 py-0.5 rounded text-[10px] font-semibold">
-            รอบนัด
+          <span className="bg-sky-500/15 text-sky-300 border border-sky-400/40 px-2 py-0.5 rounded text-[10px] font-semibold">
+            นัดหมายแล้ว
           </span>
         );
       case 'IN_PROGRESS':
@@ -458,7 +233,7 @@ export default function BookingSessionList({
 
       {/* Sessions List */}
       {sessions.length === 0 ? (
-        <div className="py-5 text-center text-xs text-[#7A7265] border border-dashed border-[#4A443A]/50 rounded-lg bg-[#171512]/40">
+        <div className="py-5 text-center text-xs text-[#B8B0A3] border border-dashed border-[#4A443A]/50 rounded-lg bg-[#171512]/40">
           {canCreateSession
             ? 'ยังไม่มีรอบนัดหมาย กดปุ่ม "+ เพิ่มรอบสัก" เพื่อกำหนดวันและเวลาทำงาน'
             : 'ยังไม่มีรอบนัดหมาย (สามารถเพิ่มรอบสักได้เมื่อคิวได้รับการยืนยันแล้ว)'}
@@ -513,7 +288,7 @@ export default function BookingSessionList({
                       <button
                         type="button"
                         onClick={() => setOpenMenuSessionId(openMenuSessionId === ses.id ? null : ses.id)}
-                        className="p-1 rounded text-[#A89F91] hover:text-[#ECE4D3] hover:bg-[#26221D] transition-colors cursor-pointer"
+                        className="p-1 rounded text-[#B8B0A3] hover:text-[#ECE4D3] hover:bg-[#26221D] transition-colors cursor-pointer"
                         title="เมนูการจัดการรอบสัก"
                       >
                         <MoreVertical size={15} />
@@ -537,60 +312,15 @@ export default function BookingSessionList({
                             </button>
                           )}
 
-                          <button
-                            type="button"
-                            onClick={() => handleOpenActionModal(ses, 'edit')}
-                            className="w-full px-3 py-2 text-left text-[#ECE4D3] hover:bg-[#26221D] flex items-center gap-2 transition-colors cursor-pointer"
-                          >
-                            <Edit3 size={13} className="text-blue-400" />
-                            <span>แก้ไขรอบสัก</span>
-                          </button>
-                          
-                          {!isCompleted && !isInProgress && !isCancelled && (
-                            <button
-                              type="button"
-                              onClick={() => handleOpenActionModal(ses, 'reschedule')}
-                              className="w-full px-3 py-2 text-left text-[#ECE4D3] hover:bg-[#26221D] flex items-center gap-2 transition-colors cursor-pointer"
-                            >
-                              <CalendarDays size={13} className="text-amber-400" />
-                              <span>เลื่อนรอบสัก</span>
-                            </button>
-                          )}
-
-                          {!isFullyPaid && (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setOpenMenuSessionId(null);
-                                setRecordPaymentSession(ses);
-                              }}
-                              className="w-full px-3 py-2 text-left text-[#ECE4D3] hover:bg-[#26221D] flex items-center gap-2 transition-colors cursor-pointer"
-                            >
-                              <Wallet size={13} className="text-emerald-400" />
-                              <span>บันทึกรับเงิน</span>
-                            </button>
-                          )}
-
-                          {!isCompleted && !isCancelled && (
-                            <button
-                              type="button"
-                              onClick={() => handleOpenActionModal(ses, 'cancel')}
-                              className="w-full px-3 py-2 text-left text-[#ECE4D3] hover:bg-[#26221D] flex items-center gap-2 transition-colors cursor-pointer"
-                            >
-                              <XCircle size={13} className="text-red-400" />
-                              <span>ยกเลิกรอบสัก</span>
-                            </button>
-                          )}
-
                           {isDeleteDisabled ? (
-                            <div className="px-3 py-2 text-[10px] text-[#7A7265] border-t border-[#332E27] cursor-not-allowed">
+                            <div className={`px-3 py-2 text-[10px] text-[#7A7265] ${!isCompleted && !isCancelled ? 'border-t border-[#332E27]' : ''} cursor-not-allowed`}>
                               <span>ไม่สามารถลบรอบนี้ได้</span>
                             </div>
                           ) : (
                             <button
                               type="button"
                               onClick={() => handleOpenActionModal(ses, 'delete')}
-                              className="w-full px-3 py-2 text-left text-red-400 hover:bg-red-950/40 border-t border-[#332E27] flex items-center gap-2 transition-colors cursor-pointer"
+                              className={`w-full px-3 py-2 text-left text-red-400 hover:bg-red-950/40 ${!isCompleted && !isCancelled ? 'border-t border-[#332E27]' : ''} flex items-center gap-2 transition-colors cursor-pointer`}
                             >
                               <Trash2 size={13} />
                               <span>ลบรอบสัก</span>
@@ -602,7 +332,7 @@ export default function BookingSessionList({
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between gap-2 text-[11px] text-[#A89F91] pt-0.5">
+                <div className="flex items-center justify-between gap-2 text-[11px] text-[#B8B0A3] pt-0.5">
                   <span className={`font-medium shrink-0 ${isCancelled ? 'text-[#7A7265] line-through' : 'text-[#ECE4D3]'}`}>
                     {formatDateBangkok(ses.start_at)} · เวลานัด {formatTimeBangkok(ses.start_at)}
                   </span>
@@ -618,7 +348,7 @@ export default function BookingSessionList({
                     if (isQuoteNote) return null;
                     return (
                       <div className="text-right truncate max-w-[60%]">
-                        <span className="text-[#7A7265]">หมายเหตุ: </span>
+                        <span className="text-[#B8B0A3]">หมายเหตุ: </span>
                         <span className="text-[#ECE4D3] font-medium">{rawNote}</span>
                       </div>
                     );
@@ -627,7 +357,7 @@ export default function BookingSessionList({
                 {(() => {
                   if (isCancelled || isCompleted) return null;
                   return (
-                    <div className="text-[10px] text-amber-400/90 bg-amber-950/30 border border-amber-900/40 px-2 py-0.5 rounded flex items-center gap-1 mt-1 font-normal">
+                    <div className="text-[10px] text-amber-300 bg-amber-950/30 border border-amber-900/40 px-2 py-0.5 rounded flex items-center gap-1 mt-1 font-normal">
                       <AlertTriangle size={11} className="shrink-0 text-amber-400" />
                       <span>ยังต้องเสร็จสิ้นรอบนี้ก่อนปิดงานหลัก</span>
                     </div>
@@ -678,7 +408,7 @@ export default function BookingSessionList({
                 <CheckCircle2 size={18} />
                 <span>ยืนยันเสร็จสิ้นรอบสัก</span>
               </div>
-              <button onClick={() => setModalType(null)} className="text-[#A89F91] hover:text-white cursor-pointer">
+              <button onClick={() => setModalType(null)} className="text-[#B8B0A3] hover:text-white cursor-pointer">
                 <X size={16} />
               </button>
             </div>
@@ -688,13 +418,13 @@ export default function BookingSessionList({
                 คุณต้องการยืนยันว่า รอบที่ {activeModalSession.session_number || 1} เสร็จสิ้นแล้วจริงหรือไม่?
               </p>
               {activeModalSession.start_at && (
-                <p className="text-[11px] text-[#A89F91]">
+                <p className="text-[11px] text-[#B8B0A3]">
                   วันที่นัด: <span className="text-[#ECE4D3] font-medium">{formatDateBangkok(activeModalSession.start_at)} · เวลานัด {formatTimeBangkok(activeModalSession.start_at)}</span>
                 </p>
               )}
             </div>
 
-            <p className="text-[10px] text-[#A89F91] leading-relaxed italic">
+            <p className="text-[10px] text-[#B8B0A3] leading-relaxed italic">
               * การเสร็จสิ้นรอบสักนี้จะเปลี่ยนเฉพาะสถานะของรอบนี้เท่านั้น จะไม่ปิดงานรวมทั้ง Booking และไม่บันทึกรับเงินโดยอัตโนมัติ
             </p>
 
@@ -742,7 +472,7 @@ export default function BookingSessionList({
               <span>ลบรอบสัก?</span>
             </div>
 
-            <p className="text-xs text-[#A89F91] leading-relaxed">
+            <p className="text-xs text-[#B8B0A3] leading-relaxed">
               คุณต้องการลบรอบสักรอบนี้ใช่หรือไม่? ข้อมูลรอบนี้จะถูกนำออกจากรายการและจัดลำดับคิวใหม่
             </p>
 
@@ -777,250 +507,6 @@ export default function BookingSessionList({
           </div>
         </div>,
         document.body
-      )}
-
-      {/* --------------------------------------------------------------------- */}
-      {/* 2. CANCEL SESSION CONFIRMATION MODAL */}
-      {/* --------------------------------------------------------------------- */}
-      {modalType === 'cancel' && activeModalSession && mounted && createPortal(
-        <div className="fixed inset-0 z-[9999] bg-black/80 backdrop-blur-xs flex items-center justify-center p-4 font-prompt">
-          <div className="bg-[#171512] border border-[#4A443A] rounded-2xl w-full max-w-sm p-5 space-y-4 shadow-2xl animate-in zoom-in-95 duration-150 text-xs">
-            <div className="flex items-center justify-between border-b border-[#4A443A]/60 pb-3">
-              <div className="flex items-center space-x-2 text-[#ECE4D3] font-bold text-sm">
-                <XCircle size={18} className="text-red-400" />
-                <span>ยกเลิกรอบสัก?</span>
-              </div>
-              <button onClick={() => setModalType(null)} className="text-[#A89F91] hover:text-white">
-                <X size={16} />
-              </button>
-            </div>
-
-            <p className="text-xs text-[#A89F91] leading-relaxed bg-[#0E0D0C] p-3 rounded-xl border border-[#332E27]">
-              รอบนี้จะถูกเก็บไว้ในประวัติ แต่จะไม่นับเป็นรอบที่ต้องดำเนินการ
-            </p>
-
-            <div>
-              <label className="block text-[#A89F91] mb-1">เหตุผลในการยกเลิก (ไม่บังคับ)</label>
-              <textarea
-                rows={2}
-                value={cancelReason}
-                onChange={(e) => setCancelReason(e.target.value)}
-                placeholder="ระบุเหตุผลในการยกเลิกรอบ..."
-                className="w-full bg-[#0E0D0C] border border-[#4A443A] rounded-xl px-3 py-2 text-[#ECE4D3] focus:outline-none focus:border-[#9C2F2F]"
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-2.5 pt-1">
-              <button
-                type="button"
-                onClick={() => {
-                  setModalType(null);
-                  setActiveModalSession(null);
-                }}
-                disabled={isSubmittingModal}
-                className="w-full py-2.5 px-3 rounded-xl border border-[#4A443A] bg-[#0E0D0C] hover:bg-[#26221D] text-[#ECE4D3] font-medium text-xs transition-colors cursor-pointer"
-              >
-                กลับ
-              </button>
-              <button
-                type="button"
-                onClick={handleExecuteCancel}
-                disabled={isSubmittingModal}
-                className="w-full py-2.5 px-3 rounded-xl bg-red-800 hover:bg-red-700 text-white font-semibold text-xs flex items-center justify-center space-x-1.5 transition-colors cursor-pointer shadow"
-              >
-                {isSubmittingModal ? (
-                  <>
-                    <Loader2 size={14} className="animate-spin" />
-                    <span>กำลังบันทึก...</span>
-                  </>
-                ) : (
-                  <span>ยืนยันการยกเลิก</span>
-                )}
-              </button>
-            </div>
-          </div>
-        </div>,
-        document.body
-      )}
-
-      {/* --------------------------------------------------------------------- */}
-      {/* 3. RESCHEDULE SESSION MODAL */}
-      {/* --------------------------------------------------------------------- */}
-      {modalType === 'reschedule' && activeModalSession && mounted && createPortal(
-        <div className="fixed inset-0 z-[9999] bg-black/80 backdrop-blur-xs flex items-center justify-center p-4 font-prompt">
-          <div className="bg-[#171512] border border-[#4A443A] rounded-2xl w-full max-w-sm p-5 space-y-4 shadow-2xl animate-in zoom-in-95 duration-150 text-xs">
-            <div className="flex items-center justify-between border-b border-[#4A443A]/60 pb-3">
-              <h3 className="font-semibold text-sm text-[#ECE4D3]">เลื่อนรอบการสัก</h3>
-              <button onClick={() => setModalType(null)} className="text-[#A89F91] hover:text-white">
-                <X size={16} />
-              </button>
-            </div>
-
-            <div className="space-y-3">
-              <div>
-                <label className="block text-[#A89F91] mb-1">วันที่นัดใหม่ *</label>
-                <input
-                  type="date"
-                  value={editDate}
-                  onChange={(e) => setEditDate(e.target.value)}
-                  className="w-full bg-[#0E0D0C] border border-[#4A443A] rounded-xl px-3 py-2 text-[#ECE4D3] focus:outline-none focus:border-[#9C2F2F]"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[#A89F91] mb-1">เวลาเริ่ม *</label>
-                <input
-                  type="time"
-                  value={editStartTime}
-                  onChange={(e) => setEditStartTime(e.target.value)}
-                  className="w-full bg-[#0E0D0C] border border-[#4A443A] rounded-xl px-3 py-2 text-[#ECE4D3] font-mono focus:outline-none focus:border-[#9C2F2F]"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[#A89F91] mb-1">หมายเหตุการเลื่อนคิว</label>
-                <input
-                  type="text"
-                  value={editNote}
-                  onChange={(e) => setEditNote(e.target.value)}
-                  placeholder="ระบุเหตุผลการเลื่อนคิว..."
-                  className="w-full bg-[#0E0D0C] border border-[#4A443A] rounded-xl px-3 py-2 text-[#ECE4D3] focus:outline-none focus:border-[#9C2F2F]"
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-2.5 pt-2 border-t border-[#4A443A]/60">
-              <button
-                type="button"
-                onClick={() => setModalType(null)}
-                disabled={isSubmittingModal}
-                className="w-full py-2.5 px-3 rounded-xl border border-[#4A443A] bg-[#0E0D0C] hover:bg-[#26221D] text-[#A89F91] font-medium"
-              >
-                ยกเลิก
-              </button>
-              <button
-                type="button"
-                onClick={handleExecuteReschedule}
-                disabled={isSubmittingModal}
-                className="w-full py-2.5 px-3 rounded-xl bg-[#9C2F2F] hover:bg-red-700 text-white font-semibold flex items-center justify-center space-x-1.5 shadow"
-              >
-                {isSubmittingModal ? 'กำลังบันทึก...' : 'ยืนยันเลื่อนคิว'}
-              </button>
-            </div>
-          </div>
-        </div>,
-        document.body
-      )}
-
-      {/* --------------------------------------------------------------------- */}
-      {/* 4. EDIT SESSION MODAL */}
-      {/* --------------------------------------------------------------------- */}
-      {modalType === 'edit' && activeModalSession && mounted && createPortal(
-        <div className="fixed inset-0 z-[9999] bg-black/80 backdrop-blur-xs flex items-center justify-center p-4 font-prompt">
-          <div className="bg-[#171512] border border-[#4A443A] rounded-2xl w-full max-w-sm p-5 space-y-4 shadow-2xl animate-in zoom-in-95 duration-150 text-xs">
-            <div className="flex items-center justify-between border-b border-[#4A443A]/60 pb-3">
-              <h3 className="font-semibold text-sm text-[#ECE4D3]">แก้ไขข้อมูลรอบสัก</h3>
-              <button onClick={() => setModalType(null)} className="text-[#A89F91] hover:text-white">
-                <X size={16} />
-              </button>
-            </div>
-
-            <div className="space-y-3">
-              <div>
-                <label className="block text-[#A89F91] mb-1">วันที่ *</label>
-                <input
-                  type="date"
-                  value={editDate}
-                  onChange={(e) => setEditDate(e.target.value)}
-                  className="w-full bg-[#0E0D0C] border border-[#4A443A] rounded-xl px-3 py-2 text-[#ECE4D3] focus:outline-none focus:border-[#9C2F2F]"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="block text-[#A89F91] mb-1">เวลาเริ่ม *</label>
-                  <input
-                    type="time"
-                    value={editStartTime}
-                    onChange={(e) => setEditStartTime(e.target.value)}
-                    className="w-full bg-[#0E0D0C] border border-[#4A443A] rounded-xl px-3 py-2 text-[#ECE4D3] font-mono focus:outline-none focus:border-[#9C2F2F]"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[#A89F91] mb-1">เวลาสิ้นสุด *</label>
-                  <input
-                    type="time"
-                    value={editEndTime}
-                    onChange={(e) => setEditEndTime(e.target.value)}
-                    className="w-full bg-[#0E0D0C] border border-[#4A443A] rounded-xl px-3 py-2 text-[#ECE4D3] font-mono focus:outline-none focus:border-[#9C2F2F]"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-[#A89F91] mb-1">สถานะรอบสัก</label>
-                <select
-                  value={editStatus}
-                  onChange={(e) => setEditStatus(e.target.value)}
-                  className="w-full bg-[#0E0D0C] border border-[#4A443A] rounded-xl px-3 py-2 text-[#ECE4D3] focus:outline-none focus:border-[#9C2F2F]"
-                >
-                  <option value="SCHEDULED">นัดหมายแล้ว (SCHEDULED)</option>
-                  <option value="IN_PROGRESS">กำลังสัก (IN_PROGRESS)</option>
-                  <option value="COMPLETED">เสร็จสิ้นรอบนี้ (COMPLETED)</option>
-                  <option value="CANCELLED">ยกเลิกแล้ว (CANCELLED)</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-[#A89F91] mb-1">หมายเหตุรอบสัก</label>
-                <input
-                  type="text"
-                  value={editNote}
-                  onChange={(e) => setEditNote(e.target.value)}
-                  placeholder="ระบุหมายเหตุ..."
-                  className="w-full bg-[#0E0D0C] border border-[#4A443A] rounded-xl px-3 py-2 text-[#ECE4D3] focus:outline-none focus:border-[#9C2F2F]"
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-2.5 pt-2 border-t border-[#4A443A]/60">
-              <button
-                type="button"
-                onClick={() => setModalType(null)}
-                disabled={isSubmittingModal}
-                className="w-full py-2.5 px-3 rounded-xl border border-[#4A443A] bg-[#0E0D0C] hover:bg-[#26221D] text-[#A89F91] font-medium"
-              >
-                ยกเลิก
-              </button>
-              <button
-                type="button"
-                onClick={handleExecuteEdit}
-                disabled={isSubmittingModal}
-                className="w-full py-2.5 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold flex items-center justify-center space-x-1.5 shadow"
-              >
-                {isSubmittingModal ? 'กำลังบันทึก...' : 'บันทึกแก้ไข'}
-              </button>
-            </div>
-          </div>
-        </div>,
-        document.body
-      )}
-
-      {/* Record Payment Form Modal for Session */}
-      {recordPaymentSession && paymentBookingDetail && (
-        <RecordPaymentForm
-          booking={paymentBookingDetail}
-          isOpen={Boolean(recordPaymentSession)}
-          onClose={() => setRecordPaymentSession(null)}
-          onSuccess={(msg) => {
-            setRecordPaymentSession(null);
-            onRefresh();
-          }}
-          onError={(err) => setSessionError(err)}
-          bookingSessionId={recordPaymentSession.id}
-          sessionRoundNumber={recordPaymentSession.session_number}
-          sessionDate={formatDateBangkok(recordPaymentSession.start_at)}
-        />
       )}
     </div>
   );

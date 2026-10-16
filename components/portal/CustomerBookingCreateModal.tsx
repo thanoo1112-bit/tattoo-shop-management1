@@ -4,6 +4,7 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { CustomerPortalEstimate } from './types';
 import { createClient } from '@/lib/supabase/client';
 import BookingCalendar, { BusyRange } from '../booking/BookingCalendar';
+import DualTimePicker from '../estimate/DualTimePicker';
 import { X, Calendar, Clock, AlertTriangle, CheckCircle2, Ban, Info, RefreshCw } from 'lucide-react';
 import {
   formatThaiDate,
@@ -21,16 +22,6 @@ interface CustomerBookingCreateModalProps {
   onClose: () => void;
   onSuccess: (bookingId: string) => void;
 }
-
-const PRESET_START_TIMES = [
-  { value: '10:00', label: '10:00 น. (ช่วงเช้า)' },
-  { value: '11:00', label: '11:00 น. (ช่วงสาย)' },
-  { value: '13:00', label: '13:00 น. (ช่วงบ่าย)' },
-  { value: '14:00', label: '14:00 น. (ช่วงบ่าย)' },
-  { value: '15:00', label: '15:00 น. (ช่วงบ่ายแก่)' },
-  { value: '16:00', label: '16:00 น. (ช่วงเย็น)' },
-  { value: '17:00', label: '17:00 น. (ช่วงค่ำ)' },
-];
 
 export default function CustomerBookingCreateModal({
   estimate,
@@ -54,17 +45,8 @@ export default function CustomerBookingCreateModal({
     return minBookable;
   });
   const [requestedTime, setRequestedTime] = useState(() => {
-    if (
-      estimate.preferred_time &&
-      isStartTimeAllowedForSize(
-        estimate.preferred_time,
-        estimate.estimated_size_tier,
-        estimate.width_cm,
-        estimate.height_cm,
-        estimate.description
-      )
-    ) {
-      return estimate.preferred_time;
+    if (estimate.preferred_time) {
+      return estimate.preferred_time.length >= 5 ? estimate.preferred_time.slice(0, 5) : estimate.preferred_time;
     }
     return '10:00';
   });
@@ -162,56 +144,6 @@ export default function CustomerBookingCreateModal({
     });
   }, [requestedDate, busyRanges]);
 
-  // Check if a given start time conflicts with busy ranges
-  const checkTimeSlotConflict = useCallback(
-    (timeStr: string): boolean => {
-      if (!requestedDate || selectedDateBusyRanges.length === 0) return false;
-      if (durationMinutes <= 0) return false; // Cannot compute precise range without duration
-
-      const [reqH, reqM] = timeStr.split(':').map(Number);
-      const reqStartMins = reqH * 60 + reqM;
-      const reqEndMins = reqStartMins + durationMinutes;
-
-      return selectedDateBusyRanges.some((busy) => {
-        try {
-          const bStart = new Date(busy.start_at);
-          const bEnd = new Date(busy.end_at);
-
-          // Get minutes in Bangkok time
-          const bStartParts = new Intl.DateTimeFormat('en-US', {
-            timeZone: 'Asia/Bangkok',
-            hour: '2-digit',
-            minute: '2-digit',
-            hourCycle: 'h23',
-          }).formatToParts(bStart);
-          const bStartH = parseInt(bStartParts.find((p) => p.type === 'hour')?.value || '0', 10);
-          const bStartM = parseInt(bStartParts.find((p) => p.type === 'minute')?.value || '0', 10);
-
-          const bEndParts = new Intl.DateTimeFormat('en-US', {
-            timeZone: 'Asia/Bangkok',
-            hour: '2-digit',
-            minute: '2-digit',
-            hourCycle: 'h23',
-          }).formatToParts(bEnd);
-          const bEndH = parseInt(bEndParts.find((p) => p.type === 'hour')?.value || '0', 10);
-          const bEndM = parseInt(bEndParts.find((p) => p.type === 'minute')?.value || '0', 10);
-
-          const busyStartMins = bStartH * 60 + bStartM;
-          const busyEndMins = bEndH * 60 + bEndM;
-
-          return Math.max(reqStartMins, busyStartMins) < Math.min(reqEndMins, busyEndMins);
-        } catch {
-          return false;
-        }
-      });
-    },
-    [requestedDate, selectedDateBusyRanges, durationMinutes]
-  );
-
-  const isCurrentTimeConflicted = useMemo(() => {
-    return checkTimeSlotConflict(requestedTime);
-  }, [requestedTime, checkTimeSlotConflict]);
-
   // Form Submit Handler
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -220,59 +152,11 @@ export default function CustomerBookingCreateModal({
       return;
     }
 
-    if (isCurrentTimeConflicted) {
-      setError('ช่วงเวลาที่เลือกมีคิวของช่างแล้ว กรุณาเลือกช่วงเวลาอื่น');
-      return;
-    }
-
     setLoading(true);
     setError('');
 
     try {
       const supabase = createClient();
-
-      // Stale Availability Protection: Refetch latest busy ranges before submitting
-      if (artistId) {
-        const { data: latestRanges } = await supabase.rpc('get_artist_busy_ranges', {
-          p_artist_id: artistId,
-          p_start_date: requestedDate,
-          p_end_date: requestedDate,
-        });
-
-        if (Array.isArray(latestRanges) && latestRanges.length > 0 && durationMinutes > 0) {
-          const [reqH, reqM] = requestedTime.split(':').map(Number);
-          const reqStartMins = reqH * 60 + reqM;
-          const reqEndMins = reqStartMins + durationMinutes;
-
-          const hasRecentConflict = latestRanges.some((busy: any) => {
-            const bStart = new Date(busy.start_at);
-            const bEnd = new Date(busy.end_at);
-            const bStartH = parseInt(
-              new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Bangkok', hour: 'numeric', hour12: false }).format(bStart),
-              10
-            );
-            const bStartM = parseInt(
-              new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Bangkok', minute: 'numeric' }).format(bStart),
-              10
-            );
-            const bEndH = parseInt(
-              new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Bangkok', hour: 'numeric', hour12: false }).format(bEnd),
-              10
-            );
-            const bEndM = parseInt(
-              new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Bangkok', minute: 'numeric' }).format(bEnd),
-              10
-            );
-            return Math.max(reqStartMins, bStartH * 60 + bStartM) < Math.min(reqEndMins, bEndH * 60 + bEndM);
-          });
-
-          if (hasRecentConflict) {
-            setError('ช่วงเวลานี้เพิ่งมีคิวใหม่ที่ช่างบันทึกไว้ กรุณาเลือกช่วงเวลาอื่น');
-            setLoading(false);
-            return;
-          }
-        }
-      }
 
       // Canonical RPC: create_booking_from_estimate
       const { data, error: rpcError } = await supabase.rpc('create_booking_from_estimate', {
@@ -301,7 +185,7 @@ export default function CustomerBookingCreateModal({
         <button
           type="button"
           onClick={onClose}
-          className="absolute top-4 right-4 text-xs text-studio-muted hover:text-studio-red font-bold p-1"
+          className="absolute top-4 right-4 text-xs text-[#B8B0A3] hover:text-studio-red font-bold p-1"
         >
           ✕ ปิดหน้าต่าง
         </button>
@@ -341,7 +225,7 @@ export default function CustomerBookingCreateModal({
               <strong className="text-studio-red">฿{formatCurrency(estimate.deposit_required)}</strong>
             </div>
             {durationMinutes > 0 && (
-              <div className="flex justify-between text-[11px] text-studio-muted pt-1 border-t border-studio-border/40">
+              <div className="flex justify-between text-[11px] text-[#B8B0A3] pt-1 border-t border-studio-border/40">
                 <span>ระยะเวลาประเมินโดยช่าง:</span>
                 <span>{durationMinutes} นาที ({Math.round((durationMinutes / 60) * 10) / 10} ชม.)</span>
               </div>
@@ -377,7 +261,7 @@ export default function CustomerBookingCreateModal({
                   ตารางคิววันที่ {formatThaiDate(requestedDate, true)}:
                 </span>
                 {loadingAvailability && (
-                  <span className="text-[10px] text-studio-muted animate-pulse">กำลังอัปเดต...</span>
+                  <span className="text-[10px] text-[#B8B0A3] animate-pulse">กำลังอัปเดต...</span>
                 )}
               </div>
 
@@ -405,67 +289,25 @@ export default function CustomerBookingCreateModal({
             </div>
           )}
 
-          {/* Time Picker */}
+          {/* Time Picker - 10:00 - 23:00 */}
           <div className="space-y-1">
             <label className="block text-studio-secondary font-medium flex items-center justify-between">
               <span className="flex items-center gap-1.5">
                 <Clock size={13} className="text-studio-red" />
-                <span>2. เวลาที่ต้องการเริ่มสัก *</span>
+                <span>2. เลือกเวลาที่ต้องการเริ่มสัก *</span>
               </span>
-              <span className="text-[10px] text-studio-muted font-normal">
-                (เวลาที่ต้องการส่งคำขอ)
+              <span className="text-[10px] text-[#E2DDD4] font-normal">
+                (10:00 - 23:00 น.)
               </span>
             </label>
 
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 pt-1">
-              {PRESET_START_TIMES.map((t) => {
-                const isConflicted = checkTimeSlotConflict(t.value);
-                const isAllowedForSize = isStartTimeAllowedForSize(
-                  t.value,
-                  estimate.estimated_size_tier,
-                  estimate.width_cm,
-                  estimate.height_cm,
-                  estimate.description
-                );
-                const isDisabled = isConflicted || !isAllowedForSize;
-                const isSelected = requestedTime === t.value;
-
-                return (
-                  <button
-                    key={t.value}
-                    type="button"
-                    disabled={isDisabled}
-                    onClick={() => {
-                      setRequestedTime(t.value);
-                      setError('');
-                    }}
-                    className={`py-2 px-2.5 rounded-[4px] border text-xs font-semibold transition-all flex flex-col items-center justify-center gap-0.5 ${
-                      isDisabled
-                        ? 'bg-studio-main/40 border-studio-border/40 text-studio-muted/40 opacity-40 cursor-not-allowed'
-                        : isSelected
-                        ? 'bg-studio-red border-studio-red text-studio-paper shadow-sm'
-                        : 'bg-studio-main border-studio-border text-studio-primary hover:border-studio-red/60'
-                    }`}
-                  >
-                    <span>{t.value} น.</span>
-                    {isConflicted ? (
-                      <span className="text-[9px] text-red-400 font-normal">ติดคิว</span>
-                    ) : !isAllowedForSize ? (
-                      <span className="text-[9px] text-amber-500/80 font-normal">
-                        นอกเวลาทำการ
-                      </span>
-                    ) : null}
-                  </button>
-                );
-              })}
-            </div>
-
-            {durationMinutes <= 0 && (
-              <p className="text-[10px] text-studio-muted flex items-center gap-1 mt-1">
-                <Info size={11} className="text-studio-secondary shrink-0" />
-                ยังไม่สามารถตรวจช่วงเวลาทั้งหมดอัตโนมัติได้ ร้านจะยืนยันเวลาอีกครั้ง
-              </p>
-            )}
+            <DualTimePicker
+              value={requestedTime}
+              onChange={(val) => {
+                setRequestedTime(val);
+                setError('');
+              }}
+            />
           </div>
 
           {/* Customer Note */}
@@ -484,7 +326,7 @@ export default function CustomerBookingCreateModal({
 
           {/* Action Buttons */}
           <div className="pt-3 border-t border-studio-border flex flex-col sm:flex-row justify-between sm:items-center gap-3">
-            <div className="text-[10px] text-studio-muted">
+            <div className="text-[10px] text-[#B8B0A3]">
               * การส่งคำขอนี้ยังไม่ใช่นัดหมายที่ยืนยัน ร้านจะติดต่อยืนยันรอบนัดหมายอีกครั้ง
             </div>
 
@@ -499,7 +341,7 @@ export default function CustomerBookingCreateModal({
               </button>
               <button
                 type="submit"
-                disabled={loading || isCurrentTimeConflicted}
+                disabled={loading}
                 className="px-4 py-2 bg-studio-red border border-studio-red text-studio-paper hover:bg-tattoo-red-dark rounded-[4px] font-bold disabled:opacity-40 flex items-center gap-1.5"
               >
                 {loading ? 'กำลังส่งคำขอ...' : 'ส่งคำขอจองคิว'}

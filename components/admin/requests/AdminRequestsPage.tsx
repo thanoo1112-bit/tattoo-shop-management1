@@ -15,6 +15,7 @@ import {
   BookingSessionItem,
   resolveEstimateOperationalStatus,
   resolveBookingOperationalStatus,
+  hasEstimateProposalHistory,
 } from './types';
 import { createClient } from '@/lib/supabase/client';
 import { BlockedDateRecord } from '@/lib/availabilityUtils';
@@ -82,7 +83,18 @@ export default function AdminRequestsPage({ defaultTab = 'estimates' }: AdminReq
       // 1. Fetch estimate requests
       const { data: estData, error: estErr } = await supabase
         .from('estimate_requests')
-        .select('*')
+        .select(`
+          *,
+          estimate_request_date_options (
+            id,
+            estimate_request_id,
+            proposed_date,
+            proposed_time,
+            option_order,
+            status,
+            created_at
+          )
+        `)
         .order('created_at', { ascending: false });
 
       if (estErr) throw estErr;
@@ -296,6 +308,8 @@ export default function AdminRequestsPage({ defaultTab = 'estimates' }: AdminReq
             ? b.reference_images
             : ((Array.isArray(est?.reference_images) && est.reference_images.length > 0) ? est.reference_images : null),
           created_at: b.created_at,
+          submitted_at: (est as any)?.submitted_at || est?.created_at || (flashRes as any)?.submitted_at || flashRes?.created_at || null,
+          request_submitted_at: (est as any)?.submitted_at || est?.created_at || (flashRes as any)?.submitted_at || flashRes?.created_at || null,
           updated_at: b.updated_at,
           customer_name: getCleanCustomerName(customer, profile),
           customer_phone: customer?.phone || profile?.phone || undefined,
@@ -350,6 +364,13 @@ export default function AdminRequestsPage({ defaultTab = 'estimates' }: AdminReq
           : null;
         const hasPendingSlip = Boolean(pendingSub);
 
+        const activeDateOptions = Array.isArray(e.estimate_request_date_options)
+          ? e.estimate_request_date_options.filter((opt: any) => opt.status === 'PENDING')
+          : [];
+        const latestActiveOption = activeDateOptions.length > 0
+          ? [...activeDateOptions].sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0]
+          : null;
+
         const opStatus = resolveEstimateOperationalStatus(e, linkedBooking, hasPendingSlip);
 
         return {
@@ -378,7 +399,13 @@ export default function AdminRequestsPage({ defaultTab = 'estimates' }: AdminReq
           has_allergy: e.has_allergy !== undefined && e.has_allergy !== null ? Boolean(e.has_allergy) : e.has_allergy,
           allergy_note: e.allergy_note || null,
           created_at: e.created_at,
+          submitted_at: (e as any).submitted_at || e.created_at,
           updated_at: e.updated_at,
+          is_date_proposed: Boolean(e.is_date_proposed),
+          proposed_artist_note: e.proposed_artist_note || null,
+          date_options: e.estimate_request_date_options || null,
+          proposed_date: latestActiveOption?.proposed_date || e.proposed_date || null,
+          proposed_time: latestActiveOption?.proposed_time || e.proposed_time || null,
           customer_name: getCleanCustomerName(customer, profile),
           customer_phone: customer?.phone || profile?.phone || undefined,
           customer_email: customer?.email || profile?.email || undefined,
@@ -545,6 +572,11 @@ export default function AdminRequestsPage({ defaultTab = 'estimates' }: AdminReq
           reference_images: design?.image_url ? [design.image_url] : null,
           status: estItemStatus,
           request_type: 'FLASH',
+          is_date_proposed: Boolean(r.proposed_date),
+          proposed_date: r.proposed_date || null,
+          proposed_time: r.proposed_time || null,
+          proposed_artist_note: r.proposal_note || null,
+          date_proposed_at: r.date_proposed_at || null,
           quoted_price: design?.price ? Number(design.price) : null,
           deposit_required: 500,
           estimated_duration_minutes: null,
@@ -556,6 +588,7 @@ export default function AdminRequestsPage({ defaultTab = 'estimates' }: AdminReq
           allergy_note: allergyNote,
           eligibility_confirmed_at: eligibilityConfirmedAt,
           created_at: r.created_at,
+          submitted_at: (r as any).submitted_at || r.created_at,
           updated_at: r.created_at,
           customer_name: customerName,
           customer_phone: customer?.phone || profile?.phone || undefined,
@@ -585,6 +618,10 @@ export default function AdminRequestsPage({ defaultTab = 'estimates' }: AdminReq
             status: r.status,
             requested_date: r.requested_date,
             requested_start_time: r.requested_start_time,
+            proposed_date: r.proposed_date || null,
+            proposed_time: r.proposed_time || null,
+            proposal_note: r.proposal_note || null,
+            date_proposed_at: r.date_proposed_at || null,
             placement: r.placement,
             width_cm: r.width_cm ? Number(r.width_cm) : null,
             height_cm: r.height_cm ? Number(r.height_cm) : null,
@@ -734,6 +771,20 @@ export default function AdminRequestsPage({ defaultTab = 'estimates' }: AdminReq
     return estimates.filter((e) => {
       if (e.request_type === 'DIRECT_BOOKING') return false; // Admin-created logbook entries belong to Calendar/Work Queue
       
+      // Customer cancelled requests without proposal history (CASE A) should not appear in active request tabs or rejected tab
+      // But requests where shop/artist had previously proposed new dates (CASE B) remain visible in "ทั้งหมด"
+      const isCancelled =
+        e.status === 'CANCELLED' ||
+        e.operational_status?.key === 'CANCELLED' ||
+        e.operational_status?.key === 'CANCELLED_CUSTOMER' ||
+        e.linked_booking?.status === 'CANCELLED';
+
+      if (isCancelled) {
+        if (!hasEstimateProposalHistory(e)) {
+          return false;
+        }
+      }
+
       if (e.linked_booking) {
         const bStatus = e.linked_booking.status;
         const hasPendingSlip = Boolean(
@@ -924,8 +975,8 @@ export default function AdminRequestsPage({ defaultTab = 'estimates' }: AdminReq
           <h1 className="text-2xl sm:text-3xl md:text-4xl font-heading font-normal tracking-wide text-[#ECE4D3]">
             จัดการคำขอ
           </h1>
-          <p className="text-xs text-[#A89F91] mt-1 font-light">
-            ติดตามคำขอประเมินราคา ตรวจสอบสลิปมัดจำ และเสนอราคาให้กับลูกค้า
+          <p className="text-xs text-[#CFC7BA] mt-1 font-light">
+            ติดตามคำขอจอง ตรวจสอบสลิปมัดจำ และจัดการสถานะคำขอของลูกค้า
           </p>
         </div>
 

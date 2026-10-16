@@ -183,7 +183,7 @@ function ArtistAvatarUploader({
                 ✓ บีบอัดแล้ว: {compressionMetrics.width}×{compressionMetrics.height}px ({compressionMetrics.compKb} KB จาก {compressionMetrics.origKb} KB)
               </p>
             ) : (
-              <p className="text-[10px] text-[#7A7265] leading-tight font-light">
+              <p className="text-[10px] text-[#B8B0A3] leading-tight font-light">
                 รูปตัวอย่างพร้อมใช้งาน กดบันทึกเพื่ออัปโหลด
               </p>
             )}
@@ -201,7 +201,7 @@ function ArtistAvatarUploader({
             <span className="text-xs text-[#ECE4D3] font-medium block">
               + อัปโหลดรูปภาพโปรไฟล์
             </span>
-            <span className="text-[10px] text-[#7A7265] block mt-0.5">
+            <span className="text-[10px] text-[#B8B0A3] block mt-0.5">
               รองรับ JPG, PNG, WEBP (บีบอัดอัตโนมัติ ไม่ลดมิติภาพ)
             </span>
           </div>
@@ -1497,7 +1497,7 @@ export default function AdminArtistManagement() {
                           {artist.name}
                         </h3>
                         {artist.nickname && (
-                          <span className="text-[10px] sm:text-xs text-[#7A7265] font-mono shrink-0">
+                          <span className="text-[10px] sm:text-xs text-[#B8B0A3] font-mono shrink-0">
                             ({artist.nickname})
                           </span>
                         )}

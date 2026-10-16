@@ -6,7 +6,7 @@ import { usePathname } from 'next/navigation';
 import { useApp } from '../AppContext';
 import { Calendar, User, LogOut } from 'lucide-react';
 
-export default function CustomerHeader() {
+export default function CustomerHeader({ showLogo = false }: { showLogo?: boolean }) {
   const pathname = usePathname();
   const { isLoggedIn, customerName, logoutCustomer } = useApp();
 
@@ -24,6 +24,14 @@ export default function CustomerHeader() {
         
         {/* Left: Brand Wordmark in Bebas Neue */}
         <Link href="/" className="text-xl md:text-2xl xl:text-3xl font-heading tracking-[0.1em] text-studio-primary hover:text-studio-red transition-colors flex items-center gap-1.5">
+          {showLogo && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src="/157-tattoo-logo.png"
+              alt="157 TATTOO logo"
+              className="h-8 md:h-10 w-auto object-contain shrink-0 mr-1 md:mr-1.5"
+            />
+          )}
           <span>157</span>
           <span className="text-studio-red">TATTOO</span>
         </Link>
@@ -38,8 +46,8 @@ export default function CustomerHeader() {
                 href={item.href}
                 className={`text-xs xl:text-sm tracking-wide font-medium flex items-center relative transition-colors duration-200 ${
                   isActive
-                    ? 'text-studio-primary font-semibold'
-                    : 'text-studio-secondary hover:text-studio-primary'
+                    ? 'text-[#ECE4D3] font-semibold'
+                    : 'text-[#E2DDD4] hover:text-[#ECE4D3]'
                 }`}
               >
                 <span>{item.name}</span>
@@ -57,24 +65,24 @@ export default function CustomerHeader() {
             <>
               <Link
                 href="/portal"
-                className="flex items-center space-x-2 text-xs xl:text-sm font-medium text-studio-secondary hover:text-studio-primary transition-colors tracking-wide"
+                className="flex items-center space-x-2 text-xs xl:text-sm font-medium text-[#ECE4D3] hover:text-white transition-colors tracking-wide"
               >
-                <Calendar size={15} className="text-studio-red" />
+                <Calendar size={15} className="text-[#D64545]" />
                 <span>การจองของฉัน</span>
               </Link>
               <div className="flex items-center space-x-3 border-l border-studio-border pl-5">
                 <Link
                   href="/portal?tab=profile"
-                  className="text-xs xl:text-sm text-studio-primary font-medium flex items-center space-x-2 hover:text-studio-red-bright transition-colors"
+                  className="text-xs xl:text-sm text-[#ECE4D3] font-medium flex items-center space-x-2 hover:text-studio-red-bright transition-colors"
                 >
-                  <div className="w-7 h-7 rounded-full bg-studio-red/15 border border-studio-red/30 flex items-center justify-center text-studio-red">
+                  <div className="w-7 h-7 rounded-full bg-studio-red/15 border border-studio-red/30 flex items-center justify-center text-[#D64545]">
                     <User size={13} />
                   </div>
                   <span>{customerName}</span>
                 </Link>
                 <button
                   onClick={logoutCustomer}
-                  className="text-xs text-studio-muted hover:text-studio-red-bright transition-colors flex items-center space-x-1"
+                  className="text-xs text-[#F2EEE8] hover:text-[#ECE4D3] transition-colors flex items-center space-x-1"
                   title="ออกจากระบบ"
                 >
                   <LogOut size={14} />

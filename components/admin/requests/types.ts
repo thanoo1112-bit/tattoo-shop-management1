@@ -1,3 +1,5 @@
+import { isDepositExpired } from '@/components/portal/portalUtils';
+
 export type EstimateStatus = 'PENDING' | 'QUOTED' | 'ACCEPTED' | 'REJECTED' | 'EXPIRED' | 'CANCELLED' | 'APPROVED' | 'COMPLETED';
 
 export type BookingStatus =
@@ -119,11 +121,15 @@ export interface EstimateRequestItem {
   allergy_note?: string | null;
   eligibility_confirmed_at?: string | null;
   created_at: string;
+  submitted_at?: string | null;
   updated_at: string;
   // Proposed options fields
   is_date_proposed?: boolean;
   proposed_artist_note?: string | null;
   date_options?: EstimateDateOption[] | null;
+  estimate_request_date_options?: EstimateDateOption[] | any[] | null;
+  proposed_date?: string | null;
+  proposed_time?: string | null;
   // Joined fields:
   customer_name: string;
   customer_phone?: string;
@@ -151,6 +157,10 @@ export interface EstimateRequestItem {
     height_cm?: number | null;
     customer_note?: string | null;
     admin_note?: string | null;
+    proposed_date?: string | null;
+    proposed_time?: string | null;
+    proposal_note?: string | null;
+    date_proposed_at?: string | null;
     approved_at?: string | null;
     rejected_at?: string | null;
     cancelled_at?: string | null;
@@ -237,6 +247,8 @@ export interface BookingItem {
   customer_note?: string | null;
   admin_note?: string | null;
   created_at: string;
+  submitted_at?: string | null;
+  request_submitted_at?: string | null;
   updated_at: string;
   // Joined fields:
   customer_name: string;
@@ -269,7 +281,10 @@ export interface BookingItem {
   sessions: BookingSessionItem[];
   // Health alert indicators
   has_medical_condition?: boolean | null;
+  medical_condition_note?: string | null;
   has_allergy?: boolean | null;
+  allergy_note?: string | null;
+  eligibility_confirmed_at?: string | null;
   // Operational status hydration:
   has_pending_payment_submission?: boolean;
   pending_submission?: PendingPaymentSubmission | null;
@@ -315,25 +330,37 @@ export function formatDateBangkok(isoOrDateStr: string): string {
   }
 }
 
-export function formatDateTimeBangkok(isoString: string): string {
-  const d = new Date(isoString);
-  return new Intl.DateTimeFormat('th-TH', {
-    timeZone: 'Asia/Bangkok',
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  }).format(d);
+export function formatDateTimeBangkok(isoString: string | null | undefined): string {
+  if (!isoString) return '-';
+  try {
+    const d = new Date(isoString);
+    const formatted = new Intl.DateTimeFormat('th-TH', {
+      timeZone: 'Asia/Bangkok',
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    }).format(d);
+    return formatted.endsWith('น.') || formatted.endsWith('น') ? formatted : `${formatted} น.`;
+  } catch {
+    return isoString;
+  }
 }
 
-export function formatTimeBangkok(isoString: string): string {
-  const d = new Date(isoString);
-  return new Intl.DateTimeFormat('th-TH', {
-    timeZone: 'Asia/Bangkok',
-    hour: '2-digit',
-    minute: '2-digit',
-  }).format(d);
+export function formatTimeBangkok(isoString: string | null | undefined): string {
+  if (!isoString) return '-';
+  try {
+    const d = new Date(isoString);
+    const time = new Intl.DateTimeFormat('th-TH', {
+      timeZone: 'Asia/Bangkok',
+      hour: '2-digit',
+      minute: '2-digit',
+    }).format(d);
+    return time.endsWith('น.') || time.endsWith('น') ? time : `${time} น.`;
+  } catch {
+    return isoString;
+  }
 }
 
 export function formatCurrency(amount: number): string {
@@ -401,19 +428,41 @@ export function isMultiSessionIncompleteBooking(booking: BookingItem): {
   };
 }
 
+export function hasEstimateProposalHistory(item?: {
+  is_date_proposed?: boolean;
+  proposed_date?: string | null;
+  proposed_artist_note?: string | null;
+  date_options?: any[] | null;
+  estimate_request_date_options?: any[] | null;
+} | null): boolean {
+  if (!item) return false;
+  if (item.is_date_proposed) return true;
+  if (Array.isArray(item.date_options) && item.date_options.length > 0) return true;
+  if (Array.isArray(item.estimate_request_date_options) && item.estimate_request_date_options.length > 0) return true;
+  if (Boolean(item.proposed_date)) return true;
+  if (Boolean(item.proposed_artist_note)) return true;
+  return false;
+}
+
 export function resolveEstimateOperationalStatus(
-  request: { status: string },
+  request: {
+    status: string;
+    is_date_proposed?: boolean;
+    proposed_date?: string | null;
+    proposed_artist_note?: string | null;
+    date_options?: any[] | null;
+    estimate_request_date_options?: any[] | null;
+  },
   linkedBooking?: BookingItem | null,
   hasPendingSlip?: boolean
 ): OperationalStatusInfo {
-  // 1. Terminal / Cancelled / Rejected / Expired
-  if (request.status === 'CANCELLED' || request.status === 'EXPIRED') {
+  // 1. Terminal / Cancelled / Rejected
+  if (request.status === 'CANCELLED') {
+    const hasHistory = hasEstimateProposalHistory(request);
     return {
-      key: 'CANCELLED',
-      label: request.status === 'EXPIRED' ? 'หมดเวลาชำระมัดจำ' : 'ยกเลิก',
-      badgeClass: request.status === 'EXPIRED'
-        ? 'bg-zinc-900/90 text-zinc-400 border border-zinc-700/80'
-        : 'bg-[#1F1D1A] text-[#7A7265] border border-[#4A443A]',
+      key: hasHistory ? 'CANCELLED_CUSTOMER' : 'CANCELLED',
+      label: hasHistory ? 'ลูกค้ายกเลิก' : 'ยกเลิก',
+      badgeClass: 'bg-[#1F1D1A] text-[#AFA79A] border border-[#4A443A]',
     };
   }
 
@@ -421,28 +470,71 @@ export function resolveEstimateOperationalStatus(
     return {
       key: 'REJECTED',
       label: 'ปฏิเสธ',
-      badgeClass: 'bg-red-950/50 text-red-400 border border-red-900/60',
+      badgeClass: 'bg-red-500/15 text-red-300 border border-red-400/40',
     };
   }
 
-  // 2. Pending Payment Submission (Pending Slip takes priority over WAITING_DEPOSIT / QUOTED)
+  // Single Expiry Rule (Direct EXPIRED status on request or linked booking)
+  if (request.status === 'EXPIRED' || (linkedBooking && (linkedBooking.status as string) === 'EXPIRED')) {
+    return {
+      key: 'EXPIRED',
+      label: 'หมดอายุ',
+      badgeClass: 'bg-zinc-900/90 text-zinc-400 border border-zinc-700/80',
+    };
+  }
+
+  // 2. Pending Payment Submission (Pending Slip takes priority over WAITING_DEPOSIT)
   if (hasPendingSlip) {
     return {
       key: 'WAITING_SLIP_VERIFICATION',
       label: 'สลิปรอตรวจ',
-      badgeClass: 'bg-amber-950/80 text-amber-300 border border-amber-800/80 animate-pulse',
+      badgeClass: 'bg-amber-500/15 text-amber-300 border border-amber-400/40 animate-pulse',
+    };
+  }
+
+  // 2.5 Single Expiry Rule: WAITING_DEPOSIT where deposit deadline has passed
+  // (Priority: terminal/expired before waiting-deposit display)
+  const isLinkedBookingWaitingDeposit = Boolean(
+    linkedBooking && (linkedBooking.status === 'WAITING_DEPOSIT' || linkedBooking.status === 'PENDING')
+  );
+  if (isLinkedBookingWaitingDeposit && isDepositExpired(linkedBooking, request)) {
+    return {
+      key: 'EXPIRED',
+      label: 'หมดอายุ',
+      badgeClass: 'bg-zinc-900/90 text-zinc-400 border border-zinc-700/80',
+    };
+  }
+
+  const isRequestWaitingDeposit =
+    request.status === 'WAITING_DEPOSIT' ||
+    request.status === 'PENDING_DEPOSIT' ||
+    request.status === 'ACCEPTED' ||
+    request.status === 'QUOTED';
+
+  if (!linkedBooking && isRequestWaitingDeposit && isDepositExpired(undefined, { ...request, status: 'WAITING_DEPOSIT' })) {
+    return {
+      key: 'EXPIRED',
+      label: 'หมดอายุ',
+      badgeClass: 'bg-zinc-900/90 text-zinc-400 border border-zinc-700/80',
     };
   }
 
   // 3. Evaluate linked booking lifecycle
   if (linkedBooking) {
-    if (linkedBooking.status === 'CANCELLED' || (linkedBooking.status as string) === 'EXPIRED') {
+    if (linkedBooking.status === 'CANCELLED') {
+      const hasHistory = hasEstimateProposalHistory(request);
       return {
-        key: 'CANCELLED',
-        label: (linkedBooking.status as string) === 'EXPIRED' ? 'หมดเวลาชำระมัดจำ' : 'ยกเลิก',
-        badgeClass: (linkedBooking.status as string) === 'EXPIRED'
-          ? 'bg-zinc-900/90 text-zinc-400 border border-zinc-700/80'
-          : 'bg-[#1F1D1A] text-[#7A7265] border border-[#4A443A]',
+        key: hasHistory ? 'CANCELLED_CUSTOMER' : 'CANCELLED',
+        label: hasHistory ? 'ลูกค้ายกเลิก' : 'ยกเลิก',
+        badgeClass: 'bg-[#1F1D1A] text-[#AFA79A] border border-[#4A443A]',
+      };
+    }
+
+    if ((linkedBooking.status as string) === 'EXPIRED') {
+      return {
+        key: 'EXPIRED',
+        label: 'หมดอายุ',
+        badgeClass: 'bg-zinc-900/90 text-zinc-400 border border-zinc-700/80',
       };
     }
 
@@ -450,7 +542,7 @@ export function resolveEstimateOperationalStatus(
       return {
         key: 'REJECTED',
         label: 'ปฏิเสธ',
-        badgeClass: 'bg-red-950/50 text-red-400 border border-red-900/60',
+        badgeClass: 'bg-red-500/15 text-red-300 border border-red-400/40',
       };
     }
 
@@ -463,10 +555,17 @@ export function resolveEstimateOperationalStatus(
     }
 
     if (linkedBooking.status === 'WAITING_DEPOSIT' || linkedBooking.status === 'PENDING') {
+      if (isDepositExpired(linkedBooking, request)) {
+        return {
+          key: 'EXPIRED',
+          label: 'หมดอายุ',
+          badgeClass: 'bg-zinc-900/90 text-zinc-400 border border-zinc-700/80',
+        };
+      }
       return {
         key: 'WAITING_DEPOSIT',
         label: 'รอมัดจำ',
-        badgeClass: 'bg-purple-950/60 text-purple-400 border border-purple-800/60',
+        badgeClass: 'bg-amber-500/15 text-amber-300 border border-amber-400/40',
       };
     }
 
@@ -492,9 +591,18 @@ export function resolveEstimateOperationalStatus(
       return {
         key: 'CONFIRMED',
         label: 'คิวยืนยันแล้ว',
-        badgeClass: 'bg-emerald-950/60 text-emerald-400 border border-emerald-800/60',
+        badgeClass: 'bg-emerald-500/15 text-emerald-300 border border-emerald-400/40',
       };
     }
+  }
+
+  // 3.5 Proposed alternate date awaiting customer response
+  if (request.status === 'PENDING' && request.is_date_proposed) {
+    return {
+      key: 'PROPOSED_NEW_DATE',
+      label: 'รอมัดจำ',
+      badgeClass: 'bg-amber-500/15 text-amber-300 border border-amber-400/40',
+    };
   }
 
   // 4. Initial Pending Request
@@ -502,23 +610,38 @@ export function resolveEstimateOperationalStatus(
     return {
       key: 'PENDING',
       label: 'รอตรวจสอบ',
-      badgeClass: 'bg-blue-950/60 text-blue-400 border border-blue-800/60',
+      badgeClass: 'bg-blue-500/15 text-blue-300 border border-blue-400/40',
     };
   }
 
   // 5. Quoted or Accepted requests awaiting deposit
   if (request.status === 'QUOTED' || request.status === 'ACCEPTED') {
+    if (isDepositExpired(undefined, { ...request, status: 'WAITING_DEPOSIT' })) {
+      return {
+        key: 'EXPIRED',
+        label: 'หมดอายุ',
+        badgeClass: 'bg-zinc-900/90 text-zinc-400 border border-zinc-700/80',
+      };
+    }
     return {
       key: 'WAITING_DEPOSIT',
       label: 'รอมัดจำ',
-      badgeClass: 'bg-purple-950/60 text-purple-400 border border-purple-800/60',
+      badgeClass: 'bg-amber-500/15 text-amber-300 border border-amber-400/40',
+    };
+  }
+
+  if (isDepositExpired(undefined, { ...request, status: 'WAITING_DEPOSIT' })) {
+    return {
+      key: 'EXPIRED',
+      label: 'หมดอายุ',
+      badgeClass: 'bg-zinc-900/90 text-zinc-400 border border-zinc-700/80',
     };
   }
 
   return {
     key: 'WAITING_DEPOSIT',
     label: 'รอมัดจำ',
-    badgeClass: 'bg-purple-950/60 text-purple-400 border border-purple-800/60',
+    badgeClass: 'bg-amber-500/15 text-amber-300 border border-amber-400/40',
   };
 }
 
@@ -537,8 +660,8 @@ export function resolveBookingOperationalStatus(
       badgeClass: statusStr === 'EXPIRED'
         ? 'bg-zinc-900/90 text-zinc-400 border border-zinc-700/80'
         : statusStr === 'REJECTED'
-        ? 'bg-red-950/50 text-red-400 border border-red-900/60'
-        : 'bg-[#1F1D1A] text-[#7A7265] border border-[#4A443A]',
+        ? 'bg-red-500/15 text-red-300 border border-red-400/40'
+        : 'bg-[#1F1D1A] text-[#AFA79A] border border-[#4A443A]',
     };
   }
 
@@ -556,7 +679,16 @@ export function resolveBookingOperationalStatus(
     return {
       key: 'WAITING_SLIP_VERIFICATION',
       label: 'สลิปรอตรวจ',
-      badgeClass: 'bg-amber-950/80 text-amber-300 border border-amber-800/80 animate-pulse',
+      badgeClass: 'bg-amber-500/15 text-amber-300 border border-amber-400/40 animate-pulse',
+    };
+  }
+
+  // Single Expiry Rule for Booking (Priority over WAITING_DEPOSIT display)
+  if ((statusStr === 'WAITING_DEPOSIT' || statusStr === 'PENDING') && isDepositExpired(booking)) {
+    return {
+      key: 'EXPIRED',
+      label: 'หมดอายุ',
+      badgeClass: 'bg-zinc-900/90 text-zinc-400 border border-zinc-700/80',
     };
   }
 
@@ -582,10 +714,17 @@ export function resolveBookingOperationalStatus(
 
   // 6. WAITING_DEPOSIT / PENDING
   if (booking.status === 'WAITING_DEPOSIT' || booking.status === 'PENDING') {
+    if (isDepositExpired(booking)) {
+      return {
+        key: 'EXPIRED',
+        label: 'หมดอายุ',
+        badgeClass: 'bg-zinc-900/90 text-zinc-400 border border-zinc-700/80',
+      };
+    }
     return {
       key: 'WAITING_DEPOSIT',
       label: 'รอมัดจำ',
-      badgeClass: 'bg-purple-950/60 text-purple-400 border border-purple-800/60',
+      badgeClass: 'bg-amber-500/15 text-amber-300 border border-amber-400/40',
     };
   }
 
@@ -593,6 +732,6 @@ export function resolveBookingOperationalStatus(
   return {
     key: 'CONFIRMED',
     label: 'คิวยืนยันแล้ว',
-    badgeClass: 'bg-emerald-950/60 text-emerald-400 border border-emerald-800/60',
+    badgeClass: 'bg-emerald-500/15 text-emerald-300 border border-emerald-400/40',
   };
 }

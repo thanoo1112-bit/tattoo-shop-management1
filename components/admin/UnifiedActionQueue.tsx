@@ -27,6 +27,7 @@ import EstimateDetailPanel from '@/components/admin/requests/EstimateDetailPanel
 import BookingDetailPanel from '@/components/admin/requests/BookingDetailPanel';
 import { formatDateBangkok, formatTimeBangkok } from '@/components/admin/calendar/calendarUtils';
 import { resolveEstimateOperationalStatus } from '@/components/admin/requests/types';
+import { isConfirmedDepositBooking } from '@/components/portal/portalUtils';
 
 export type UnifiedQueueTab = 'all' | 'custom' | 'payments' | 'today_queue';
 
@@ -637,7 +638,7 @@ export default function UnifiedActionQueue() {
             flash_reservations (id, placement, width_cm, height_cm, customer_note, flash_designs(id, title, image_url, style, price))
           )
         `)
-        .neq('status', 'CANCELLED')
+        .in('status', ['SCHEDULED', 'IN_PROGRESS'])
         .order('start_at', { ascending: true });
       if (sessionsErr) {
         console.error('[UnifiedActionQueue] Error fetching today booking sessions:', sessionsErr.message || sessionsErr);
@@ -646,6 +647,9 @@ export default function UnifiedActionQueue() {
       if (todaySessionsData && todaySessionsData.length > 0) {
         todaySessionsData.forEach((s: any) => {
           if (!s.start_at) return;
+          // Rule: Show in today_queue only if session is active today (SCHEDULED or IN_PROGRESS)
+          if (s.status !== 'SCHEDULED' && s.status !== 'IN_PROGRESS') return;
+
           const sDateStr = new Intl.DateTimeFormat('en-CA', {
             timeZone: 'Asia/Bangkok',
             year: 'numeric',
@@ -656,8 +660,8 @@ export default function UnifiedActionQueue() {
           if (sDateStr !== todayBangkok) return;
 
           const b = s.bookings;
-          const bStatus = String(b?.status || '').toUpperCase();
-          if (bStatus === 'CANCELLED' || bStatus === 'REJECTED' || bStatus === 'EXPIRED') return;
+          // Target Business Rule: only confirmed deposit bookings qualify as real queue in "คิวงานวันนี้"
+          if (!isConfirmedDepositBooking(b, b?.estimate_requests, s)) return;
 
           const custInfo = getCustomerInfo(b?.customer_user_id);
           const artistObj = b?.artists || (b?.artist_id ? { name: artMap.get(b.artist_id) } : null);
@@ -665,13 +669,41 @@ export default function UnifiedActionQueue() {
             ? (artistObj.nickname ? `${artistObj.name} (${artistObj.nickname})` : artistObj.name)
             : 'ช่างสักประจำร้าน';
 
-          const est = b?.estimate_requests;
-          const fr = b?.flash_reservations;
-          const fd = fr?.flash_designs;
+          const est = Array.isArray(b?.estimate_requests) ? b.estimate_requests[0] : b?.estimate_requests;
+          const fr = Array.isArray(b?.flash_reservations) ? b.flash_reservations[0] : b?.flash_reservations;
+          const fd = Array.isArray(fr?.flash_designs) ? fr.flash_designs[0] : fr?.flash_designs;
+
+          const isFlash = Boolean(b?.flash_reservation_id || fr);
+          const flashImgUrl = fd?.image_url;
+
+          // Normalize reference images array from flash or estimate or booking
+          let resolvedRefImages: string[] = [];
+          if (flashImgUrl) {
+            resolvedRefImages = [flashImgUrl];
+          } else if (Array.isArray(est?.reference_images) && est.reference_images.length > 0) {
+            resolvedRefImages = est.reference_images.filter((x: any) => typeof x === 'string' && Boolean(x.trim()));
+          } else if (typeof est?.reference_images === 'string' && est.reference_images.trim()) {
+            try {
+              const parsed = JSON.parse(est.reference_images);
+              if (Array.isArray(parsed) && parsed.length > 0) {
+                resolvedRefImages = parsed.filter((x: any) => typeof x === 'string' && Boolean(x.trim()));
+              } else {
+                resolvedRefImages = [est.reference_images.trim()];
+              }
+            } catch {
+              resolvedRefImages = [est.reference_images.trim()];
+            }
+          } else if (Array.isArray(b?.reference_images) && b.reference_images.length > 0) {
+            resolvedRefImages = b.reference_images.filter((x: any) => typeof x === 'string' && Boolean(x.trim()));
+          }
 
           const hydratedBooking = {
             ...b,
             artwork_title: fd?.title || (est?.style ? `งานสัก ${est.style}` : 'งานสัก'),
+            artwork_image_url: flashImgUrl || resolvedRefImages[0] || undefined,
+            reference_images: resolvedRefImages,
+            estimate_requests: est,
+            flash_reservations: fr,
             style_preference: fd?.style ? `Flash (${fd.style})` : (est?.style || 'Custom'),
             style: fd?.style ? `Flash (${fd.style})` : (est?.style || 'Custom'),
             width_cm: fr?.width_cm ?? est?.width_cm ?? null,
@@ -688,6 +720,19 @@ export default function UnifiedActionQueue() {
             artist_name: artistObj?.name || 'ช่างสักประจำร้าน',
             artist_nickname: artistObj?.nickname || null,
             sessions: [s],
+            operational_status: s.status === 'IN_PROGRESS' ? {
+              key: 'IN_PROGRESS',
+              label: 'กำลังสัก',
+              badgeClass: 'bg-[#9C2F2F]/20 text-[#D64545] border border-[#9C2F2F]/60',
+            } : s.status === 'COMPLETED' ? {
+              key: 'COMPLETED',
+              label: 'งานเสร็จสิ้น',
+              badgeClass: 'bg-emerald-500/15 text-emerald-300 border border-emerald-400/40',
+            } : {
+              key: 'CONFIRMED',
+              label: 'นัดหมายแล้ว',
+              badgeClass: 'bg-sky-500/15 text-sky-300 border border-sky-400/40',
+            },
           };
 
           unifiedList.push({
@@ -747,7 +792,7 @@ export default function UnifiedActionQueue() {
       <div className="p-4 sm:p-5 border-b border-studio-border bg-studio-sec/50 flex flex-col sm:flex-row sm:items-center justify-between gap-3 min-w-0">
         <div className="flex items-center space-x-2.5 shrink-0">
           <div className="w-2.5 h-2.5 rounded-full bg-studio-red animate-pulse" />
-          <h2 className="text-base sm:text-lg font-heading font-semibold text-studio-primary">
+          <h2 className="text-base sm:text-lg font-heading font-semibold text-[#ECE4D3]">
             งานที่ต้องดำเนินการ ({totalCount})
           </h2>
         </div>
@@ -757,7 +802,7 @@ export default function UnifiedActionQueue() {
           <button
             type="button"
             onClick={() => fetchUnifiedQueue({ isInitial: false })}
-            className="p-1.5 bg-studio-main border border-studio-border hover:border-studio-red text-studio-secondary hover:text-studio-primary rounded transition-colors shrink-0"
+            className="p-1.5 bg-studio-main border border-studio-border hover:border-studio-red text-[#CFC7BA] hover:text-[#ECE4D3] rounded transition-colors shrink-0"
             title="รีเฟรชข้อมูล"
           >
             <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
@@ -776,8 +821,8 @@ export default function UnifiedActionQueue() {
                 onClick={() => setActiveFilter(t.key as any)}
                 className={`px-2.5 sm:px-3 py-1 rounded-[3px] font-medium transition-colors shrink-0 ${
                   activeFilter === t.key
-                    ? 'bg-studio-red text-studio-primary font-semibold'
-                    : 'text-studio-secondary hover:text-studio-primary'
+                    ? 'bg-studio-red text-[#ECE4D3] font-semibold'
+                    : 'text-[#CFC7BA] hover:text-[#ECE4D3]'
                 }`}
               >
                 {t.label}
@@ -790,20 +835,20 @@ export default function UnifiedActionQueue() {
       {/* QUEUE BODY */}
       <div className="p-4 sm:p-5">
         {loading ? (
-          <div className="p-12 text-center text-studio-secondary animate-pulse flex flex-col items-center justify-center space-y-2">
+          <div className="p-12 text-center text-[#CFC7BA] animate-pulse flex flex-col items-center justify-center space-y-2">
             <Loader2 size={20} className="animate-spin text-studio-red" />
             <span className="text-xs">กำลังโหลดงานที่ต้องดำเนินการ...</span>
           </div>
         ) : totalCount === 0 || displayedItems.length === 0 ? (
           /* EMPTY STATE */
           <div className="p-8 sm:p-12 text-center bg-studio-card/40 border border-dashed border-studio-border rounded-xl space-y-2">
-            <div className="w-12 h-12 rounded-full bg-studio-sec mx-auto flex items-center justify-center text-studio-muted">
+            <div className="w-12 h-12 rounded-full bg-studio-sec mx-auto flex items-center justify-center text-[#AFA79A]">
               <CheckCircle2 size={22} className="text-emerald-500" />
             </div>
-            <p className="text-sm text-studio-primary font-medium">
+            <p className="text-sm text-[#ECE4D3] font-medium">
               {activeFilter === 'all' ? 'ไม่มีงานที่ต้องดำเนินการในขณะนี้' : 'ไม่มีรายการในหมวดหมู่นี้'}
             </p>
-            <p className="text-xs text-studio-secondary max-w-sm mx-auto font-light">
+            <p className="text-xs text-[#CFC7BA] max-w-sm mx-auto font-light">
               {activeFilter === 'all'
                 ? 'คำขอจองคิว สลิปโอนเงินมัดจำ และการจอง Flash ทั้งหมดได้รับการตรวจสอบเรียบร้อยแล้ว'
                 : 'ไม่มีรายการที่ตรงกับเงื่อนไขตัวกรองที่เลือกในขณะนี้'}
@@ -838,20 +883,20 @@ export default function UnifiedActionQueue() {
                           <span className="text-[10px] bg-studio-red/15 text-studio-red-bright border border-studio-red/30 px-2 py-0.5 rounded font-bold uppercase tracking-wider">
                             คำขอจอง
                           </span>
-                          <span className="text-[10px] text-studio-muted font-mono">#{item.id.slice(0, 8)}</span>
-                          <span className="text-[10px] text-studio-secondary font-mono">
+                          <span className="text-[10px] text-[#AFA79A] font-mono">#{item.id.slice(0, 8)}</span>
+                          <span className="text-[10px] text-[#AFA79A] font-mono">
                             {formatDateBangkok(item.created_at, true)}
                           </span>
                         </div>
 
-                        <h4 className="text-sm font-semibold text-studio-primary group-hover:text-studio-red-bright transition-colors">
+                        <h4 className="text-sm font-semibold text-[#ECE4D3] group-hover:text-studio-red-bright transition-colors">
                           งานสักสไตล์ {est.style || 'Custom'} ({formatTattooSize(est.width_cm, est.height_cm)})
                         </h4>
 
-                        <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-studio-secondary">
-                          <span>ลูกค้า: <strong className="text-studio-primary">{item.customerName}</strong></span>
-                          <span>ช่างสัก: <strong className="text-studio-primary">{item.artistName}</strong></span>
-                          <span>ตำแหน่ง: {est.placement || 'ไม่ระบุ'}</span>
+                        <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-[#CFC7BA]">
+                          <span>ลูกค้า: <strong className="text-[#ECE4D3]">{item.customerName}</strong></span>
+                          <span>ช่างสัก: <strong className="text-[#ECE4D3]">{item.artistName}</strong></span>
+                          <span className="text-[#AFA79A]">ตำแหน่ง: {est.placement || 'ไม่ระบุ'}</span>
                         </div>
                       </div>
                     </div>
@@ -860,7 +905,7 @@ export default function UnifiedActionQueue() {
                       <button
                         type="button"
                         onClick={() => setSelectedEstimateReq(est)}
-                        className="w-full sm:w-auto px-4 py-2 bg-studio-sec hover:bg-studio-border text-studio-primary text-xs font-semibold rounded border border-studio-border transition-colors flex items-center justify-center space-x-1.5 cursor-pointer"
+                        className="w-full sm:w-auto px-4 py-2 bg-studio-sec hover:bg-studio-border text-[#ECE4D3] text-xs font-semibold rounded border border-studio-border transition-colors flex items-center justify-center space-x-1.5 cursor-pointer"
                       >
                         <Eye size={14} />
                         <span>ดูรายละเอียด</span>
@@ -896,20 +941,20 @@ export default function UnifiedActionQueue() {
                           <span className="text-[10px] bg-amber-950/60 text-amber-400 border border-amber-800/60 px-2 py-0.5 rounded font-bold uppercase tracking-wider">
                             สลิปรอตรวจ
                           </span>
-                          <span className="text-[10px] text-studio-muted font-mono">#{item.id.slice(0, 8)}</span>
-                          <span className="text-[10px] text-studio-secondary font-mono">
+                          <span className="text-[10px] text-[#AFA79A] font-mono">#{item.id.slice(0, 8)}</span>
+                          <span className="text-[10px] text-[#AFA79A] font-mono">
                             {formatDateBangkok(item.created_at, true)}
                           </span>
                         </div>
 
-                        <h4 className="text-sm font-semibold text-studio-primary group-hover:text-amber-400 transition-colors">
+                        <h4 className="text-sm font-semibold text-[#ECE4D3] group-hover:text-amber-400 transition-colors">
                           แจ้งโอนมัดจำ: ฿{(Number(sub.claimed_amount || sub.deposit_required || 500)).toLocaleString()}
                         </h4>
 
-                        <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-studio-secondary">
-                          <span>ลูกค้า: <strong className="text-studio-primary">{item.customerName}</strong></span>
-                          <span>ช่างสัก: <strong className="text-studio-primary">{item.artistName}</strong></span>
-                          <span>งาน: {sub.artwork_title || 'คิวจองสัก'}</span>
+                        <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-[#CFC7BA]">
+                          <span>ลูกค้า: <strong className="text-[#ECE4D3]">{item.customerName}</strong></span>
+                          <span>ช่างสัก: <strong className="text-[#ECE4D3]">{item.artistName}</strong></span>
+                          <span className="text-[#AFA79A]">งาน: {sub.artwork_title || 'คิวจองสัก'}</span>
                         </div>
                       </div>
                     </div>
@@ -968,20 +1013,20 @@ export default function UnifiedActionQueue() {
                           <span className="text-[10px] bg-purple-950/60 text-purple-300 border border-purple-800/60 px-2 py-0.5 rounded font-bold uppercase tracking-wider">
                             Flash
                           </span>
-                          <span className="text-[10px] text-studio-muted font-mono">#{item.id.slice(0, 8)}</span>
-                          <span className="text-[10px] text-studio-secondary font-mono">
+                          <span className="text-[10px] text-[#AFA79A] font-mono">#{item.id.slice(0, 8)}</span>
+                          <span className="text-[10px] text-[#AFA79A] font-mono">
                             {formatDateBangkok(item.created_at, true)}
                           </span>
                         </div>
 
-                        <h4 className="text-sm font-semibold text-studio-primary group-hover:text-purple-300 transition-colors">
+                        <h4 className="text-sm font-semibold text-[#ECE4D3] group-hover:text-purple-300 transition-colors">
                           จองลาย Flash: {design?.title || 'แบบลายสัก Flash'}
                         </h4>
 
-                        <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-studio-secondary">
-                          <span>ลูกค้า: <strong className="text-studio-primary">{item.customerName}</strong></span>
-                          <span>ช่างสัก: <strong className="text-studio-primary">{item.artistName}</strong></span>
-                          <span>ตำแหน่ง: {placementDisplay}</span>
+                        <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-[#CFC7BA]">
+                          <span>ลูกค้า: <strong className="text-[#ECE4D3]">{item.customerName}</strong></span>
+                          <span>ช่างสัก: <strong className="text-[#ECE4D3]">{item.artistName}</strong></span>
+                          <span className="text-[#AFA79A]">ตำแหน่ง: {placementDisplay}</span>
                         </div>
                       </div>
                     </div>
@@ -994,7 +1039,7 @@ export default function UnifiedActionQueue() {
                             setSelectedEstimateReq(item.estimateData);
                           }
                         }}
-                        className="w-full sm:w-auto px-4 py-2 bg-studio-sec hover:bg-studio-border text-studio-primary text-xs font-semibold rounded border border-studio-border transition-colors flex items-center justify-center space-x-1.5 cursor-pointer"
+                        className="w-full sm:w-auto px-4 py-2 bg-studio-sec hover:bg-studio-border text-[#ECE4D3] text-xs font-semibold rounded border border-studio-border transition-colors flex items-center justify-center space-x-1.5 cursor-pointer"
                       >
                         <Eye size={14} />
                         <span>ดูรายละเอียด</span>
@@ -1008,20 +1053,21 @@ export default function UnifiedActionQueue() {
               if (item.type === 'today_queue') {
                 const b = item.bookingData;
                 const s = item.sessionData;
-                const firstRefImage = getFirstReferenceImage(b?.estimate_requests) || b?.flash_reservations?.flash_designs?.image_url;
+                const firstRefImage = (b?.reference_images && b.reference_images.length > 0)
+                  ? b.reference_images[0]
+                  : (getFirstReferenceImage(b?.estimate_requests) || b?.flash_reservations?.flash_designs?.image_url);
 
                 const startTime = formatTimeBangkok(s?.start_at);
-                const endTime = formatTimeBangkok(s?.end_at);
-                const timeDisplay = startTime && endTime ? `${startTime} - ${endTime} น.` : (startTime ? `${startTime} น.` : 'วันนี้');
+                const timeDisplay = (startTime && startTime !== '-') ? startTime : 'วันนี้';
 
                 return (
                   <div
                     key={item.id}
-                    className="bg-studio-main border border-blue-900/40 hover:border-blue-700/60 p-4 rounded-[6px] transition-all flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 group cursor-pointer"
+                    className="bg-[#171512] border border-[#2D2820] hover:border-[#4A443A] p-4 rounded-[6px] transition-all flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 group cursor-pointer"
                     onClick={() => setSelectedBookingReq(b)}
                   >
                     <div className="flex items-start space-x-3.5 flex-1 min-w-0">
-                      <div className="w-12 h-12 bg-studio-card border border-blue-900/50 rounded overflow-hidden shrink-0">
+                      <div className="w-12 h-12 bg-studio-card border border-[#3A342C] rounded overflow-hidden shrink-0">
                         <CustomerReferenceImage
                           src={firstRefImage}
                           alt={b?.artwork_title || 'คิวงานวันนี้'}
@@ -1031,23 +1077,32 @@ export default function UnifiedActionQueue() {
 
                       <div className="space-y-1 flex-1 min-w-0">
                         <div className="flex items-center space-x-2 flex-wrap gap-y-1">
-                          <span className="text-[10px] bg-blue-950/80 text-blue-300 border border-blue-800/80 px-2 py-0.5 rounded font-bold uppercase tracking-wider">
+                          <span className="text-[10px] bg-[#1F1D1A] text-[#AFA79A] border border-[#3A342C] px-2 py-0.5 rounded font-bold uppercase tracking-wider">
                             คิวงานวันนี้
                           </span>
-                          <span className="text-[10px] text-blue-400/90 font-mono font-semibold flex items-center gap-1">
-                            <Clock size={11} /> {timeDisplay}
+                          <span className={`text-[10px] px-2 py-0.5 rounded font-semibold ${
+                            s?.status === 'IN_PROGRESS'
+                              ? 'bg-[#9C2F2F]/20 text-[#D64545] border border-[#9C2F2F]/60'
+                              : s?.status === 'COMPLETED'
+                              ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-400/40'
+                              : 'bg-sky-500/15 text-sky-300 border border-sky-400/40'
+                          }`}>
+                            {s?.status === 'IN_PROGRESS' ? 'กำลังสัก' : s?.status === 'COMPLETED' ? 'งานเสร็จสิ้น' : 'นัดหมายแล้ว'}
                           </span>
-                          <span className="text-[10px] text-studio-muted font-mono">#{b?.id?.slice(0, 8)}</span>
+                          <span className="text-[10px] text-[#ECE4D3] font-mono font-semibold flex items-center gap-1">
+                            <Clock size={11} className="text-[#B8B0A3]" /> {timeDisplay}
+                          </span>
+                          <span className="text-[10px] text-[#AFA79A] font-mono">#{b?.id?.slice(0, 8)}</span>
                         </div>
 
-                        <h4 className="text-sm font-semibold text-studio-primary group-hover:text-blue-300 transition-colors">
+                        <h4 className="text-sm font-semibold text-[#ECE4D3] group-hover:text-white transition-colors">
                           {b?.artwork_title || `งานสักสไตล์ ${b?.style_preference || 'Custom'}`}
                         </h4>
 
-                        <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-studio-secondary">
-                          <span>ลูกค้า: <strong className="text-studio-primary">{item.customerName}</strong></span>
-                          <span>ช่างสัก: <strong className="text-studio-primary">{item.artistName}</strong></span>
-                          <span>รอบที่ {s?.session_number || 1}</span>
+                        <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-[#CFC7BA]">
+                          <span>ลูกค้า: <strong className="text-[#ECE4D3]">{item.customerName}</strong></span>
+                          <span>ช่างสัก: <strong className="text-[#ECE4D3]">{item.artistName}</strong></span>
+                          <span className="text-[#AFA79A]">รอบที่ {s?.session_number || 1}</span>
                         </div>
                       </div>
                     </div>
@@ -1056,7 +1111,7 @@ export default function UnifiedActionQueue() {
                       <button
                         type="button"
                         onClick={() => setSelectedBookingReq(b)}
-                        className="w-full sm:w-auto px-4 py-2 bg-blue-950/80 hover:bg-blue-900 text-blue-200 border border-blue-800 text-xs font-semibold rounded transition-colors flex items-center justify-center space-x-1.5 cursor-pointer shadow"
+                        className="w-full sm:w-auto px-4 py-2 bg-transparent hover:bg-[#1F1D1A] text-[#ECE4D3] border border-[#4A443A] text-xs font-semibold rounded transition-colors flex items-center justify-center space-x-1.5 cursor-pointer shadow-xs"
                       >
                         <Eye size={14} />
                         <span>ดูรายละเอียด</span>
@@ -1107,6 +1162,7 @@ export default function UnifiedActionQueue() {
         <BookingDetailPanel
           booking={selectedBookingReq}
           artists={artistsList}
+          isDashboard={true}
           onClose={() => setSelectedBookingReq(null)}
           onRefresh={() => {
             setSelectedBookingReq(null);

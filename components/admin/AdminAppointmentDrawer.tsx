@@ -33,7 +33,10 @@ export default function AdminAppointmentDrawer({
   booking,
   onClose,
 }: AdminAppointmentDrawerProps) {
-  const { updateBookingStatus, artists } = useApp();
+  const { updateBookingStatus, artists, ensureArtistAvatars } = useApp();
+  React.useEffect(() => {
+    ensureArtistAvatars();
+  }, [ensureArtistAvatars]);
 
   if (!booking) return null;
 

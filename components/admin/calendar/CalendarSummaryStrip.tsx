@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Calendar, PlayCircle, AlertCircle, Users } from 'lucide-react';
+import { Calendar, PlayCircle, CheckCircle2, Users } from 'lucide-react';
 import { CalendarSummaryMetrics } from './types';
 
 interface CalendarSummaryStripProps {
@@ -43,16 +43,16 @@ export default function CalendarSummaryStrip({ metrics }: CalendarSummaryStripPr
         </div>
       </div>
 
-      {/* 3. Waiting Deposit */}
+      {/* 3. Confirmed Appointments */}
       <div className="bg-[#171512] border border-[#4A443A]/40 rounded-xl p-3 sm:p-3.5 flex items-center gap-3">
-        <div className="w-8 h-8 rounded-lg bg-amber-950/40 border border-amber-800/40 flex items-center justify-center text-amber-400 shrink-0">
-          <AlertCircle size={16} />
+        <div className="w-8 h-8 rounded-lg bg-blue-950/40 border border-blue-800/40 flex items-center justify-center text-blue-400 shrink-0">
+          <CheckCircle2 size={16} />
         </div>
         <div>
-          <span className="text-[10px] text-[#A89F91] block uppercase tracking-wider">รอมัดจำ</span>
+          <span className="text-[10px] text-[#A89F91] block uppercase tracking-wider">นัดหมายแล้ว</span>
           <div className="flex items-baseline gap-1">
-            <span className="text-lg sm:text-xl font-bold text-amber-400 font-bebas">
-              {metrics.waitingDepositCount}
+            <span className="text-lg sm:text-xl font-bold text-blue-400 font-bebas">
+              {metrics.confirmedCount ?? 0}
             </span>
             <span className="text-[10px] text-[#7A7265]">คิว</span>
           </div>

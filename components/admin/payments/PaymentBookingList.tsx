@@ -5,7 +5,6 @@ import {
   Search,
   User,
   CreditCard,
-  FileSpreadsheet,
 } from 'lucide-react';
 import {
   PaymentBookingDetail,
@@ -31,14 +30,6 @@ function getDepositPaidSum(b: PaymentBookingDetail): number {
     .reduce((sum: number, p: any) => sum + Number(p.amount || 0), 0);
 }
 
-// Helper to compute recorded balance payment amount for a booking
-function getBalancePaidSum(b: PaymentBookingDetail): number {
-  if (!b.payments || b.payments.length === 0) return 0;
-  return b.payments
-    .filter((p: any) => String(p.status || '').toUpperCase() === 'RECORDED' && (String(p.payment_type || '').toUpperCase() === 'BALANCE' || String(p.payment_type || '').toUpperCase() === 'FULL_PAYMENT'))
-    .reduce((sum: number, p: any) => sum + Number(p.amount || 0), 0);
-}
-
 export default function PaymentBookingList({
   bookings,
   selectedBookingId,
@@ -50,48 +41,9 @@ export default function PaymentBookingList({
   artists,
   isLoading,
 }: PaymentBookingListProps) {
-  // Export CSV handler
-  const handleExportCSV = () => {
-    if (!bookings || bookings.length === 0) return;
-    const headers = [
-      'วันที่',
-      'ชื่อลูกค้า',
-      'รายการ/งานสัก',
-      'ช่างสัก',
-      'มัดจำ',
-      'ชำระหน้าร้าน',
-      'ยอดรวม',
-    ];
-    const rows = bookings.map((b) => {
-      const depositSum = getDepositPaidSum(b);
-      const balanceSum = getBalancePaidSum(b);
-      const totalQuoted = b.summary?.quoted_price || (b as any).quoted_price || 0;
-
-      return [
-        `"${b.requested_date || (b.created_at ? new Date(b.created_at).toLocaleDateString('th-TH') : '')}"`,
-        `"${(b.customer_name || '').replace(/"/g, '""')}"`,
-        `"${(b.artwork_title || '').replace(/"/g, '""')}"`,
-        `"${(b.artist_name || '').replace(/"/g, '""')}"`,
-        depositSum,
-        balanceSum,
-        totalQuoted,
-      ].join(',');
-    });
-
-    const csvContent = '\uFEFF' + [headers.join(','), ...rows].join('\n');
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.setAttribute('href', url);
-    link.setAttribute('download', `Transaction_Logs_${new Date().toISOString().slice(0, 10)}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
-
   return (
     <div className="bg-[#171512] border border-[#4A443A] rounded-xl overflow-hidden shadow-lg font-prompt text-[#ECE4D3]">
-      {/* Header Container: Title (Top Left) & CSV Export Button (Top Right) */}
+      {/* Header Container: Title */}
       <div className="p-4 sm:p-5 border-b border-[#4A443A] bg-[#171512] space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
@@ -102,15 +54,6 @@ export default function PaymentBookingList({
               แสดงรายการธุรกรรมและการรับชำระเงินทั้งหมดในระบบ
             </p>
           </div>
-
-          <button
-            onClick={handleExportCSV}
-            disabled={bookings.length === 0}
-            className="inline-flex items-center justify-center gap-2 px-3.5 py-1.5 rounded-md bg-[#0E0D0C] hover:bg-[#1F1D1A] border border-[#4A443A] hover:border-[#7A7265] text-xs font-medium text-[#ECE4D3] transition-colors disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
-          >
-            <FileSpreadsheet size={15} className="text-emerald-400" />
-            <span>ส่งออกไฟล์ CSV</span>
-          </button>
         </div>
 
         {/* Search & Filter Header */}
@@ -173,7 +116,7 @@ export default function PaymentBookingList({
       ) : (
         /* Table View (Horizontal scroll support for mobile & aligned header/data) */
         <div className="overflow-x-auto w-full">
-          <table className="w-full text-left text-xs whitespace-nowrap min-w-[650px]">
+          <table className="w-full text-left text-xs whitespace-nowrap min-w-[500px]">
             <thead className="bg-[#0E0D0C] border-b border-[#4A443A] text-[11px] text-[#7A7265] uppercase tracking-wider font-normal">
               <tr>
                 <th className="py-3.5 px-4 font-normal">วันที่</th>
@@ -181,16 +124,12 @@ export default function PaymentBookingList({
                 <th className="py-3.5 px-4 font-normal">รายการ/งานสัก</th>
                 <th className="py-3.5 px-4 font-normal">ช่างสัก</th>
                 <th className="py-3.5 px-4 text-right font-normal">มัดจำ</th>
-                <th className="py-3.5 px-4 text-right font-normal">ชำระหน้าร้าน</th>
-                <th className="py-3.5 px-4 text-right font-normal">ยอดรวม</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#4A443A]/50">
               {bookings.map((b) => {
                 const isSelected = selectedBookingId === b.id;
                 const depositSum = getDepositPaidSum(b);
-                const balanceSum = getBalancePaidSum(b);
-                const quotedPrice = b.summary?.quoted_price || (b as any).quoted_price || 0;
 
                 return (
                   <tr
@@ -223,16 +162,6 @@ export default function PaymentBookingList({
                     {/* 5. Deposit Amount */}
                     <td className="py-3.5 px-4 text-right font-semibold text-[#ECE4D3] font-mono">
                       {depositSum > 0 ? `฿${depositSum.toLocaleString('th-TH')}` : '—'}
-                    </td>
-
-                    {/* 6. Onsite Balance Payment */}
-                    <td className="py-3.5 px-4 text-right font-semibold text-[#ECE4D3] font-mono">
-                      {balanceSum > 0 ? `฿${balanceSum.toLocaleString('th-TH')}` : '—'}
-                    </td>
-
-                    {/* 7. Total Quoted Price */}
-                    <td className="py-3.5 px-4 text-right font-semibold text-[#ECE4D3] font-mono">
-                      ฿{quotedPrice.toLocaleString('th-TH')}
                     </td>
                   </tr>
                 );

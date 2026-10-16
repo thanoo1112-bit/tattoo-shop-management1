@@ -97,7 +97,7 @@ export default function TattooSizeInput({
               className={`p-3.5 rounded-[6px] border text-left flex flex-col justify-between space-y-2 transition-all duration-200 select-none relative ${
                 isSelected
                   ? 'bg-studio-red/10 border-studio-red text-studio-primary ring-1 ring-studio-red/50 shadow-md font-medium'
-                  : 'bg-studio-main border-studio-border/70 text-studio-secondary hover:border-studio-red/50 hover:text-studio-primary'
+                  : 'bg-studio-main border-studio-border/70 text-[#F2EEE8] hover:border-studio-red/50 hover:text-studio-primary'
               }`}
             >
               <div className="flex items-center justify-between w-full">
@@ -122,11 +122,11 @@ export default function TattooSizeInput({
                 <div className="text-xs text-studio-red font-semibold">
                   {opt.priceDisplay}
                 </div>
-                <div className="text-[10.5px] text-studio-secondary font-normal flex items-center space-x-1">
+                <div className="text-[10.5px] text-[#F2EEE8] font-normal flex items-center space-x-1">
                   <Clock size={14} className="text-studio-red shrink-0" aria-label="ระยะเวลาโดยประมาณ" />
                   <span>{opt.durationDisplay}</span>
                 </div>
-                <div className="text-[10px] text-studio-muted font-light leading-tight">
+                <div className="text-[10px] text-[#E2DDD4] font-light leading-tight">
                   {opt.referenceDisplay}
                 </div>
               </div>
@@ -136,7 +136,7 @@ export default function TattooSizeInput({
       </div>
 
       {/* Note below size cards */}
-      <p className="text-[10.5px] text-[#7A7265] font-light leading-relaxed pt-0.5">
+      <p className="text-[10.5px] text-[#E2DDD4] font-light leading-relaxed pt-0.5">
         * ราคาและระยะเวลาเป็นค่าประเมินเบื้องต้น อาจมีการปรับเปลี่ยนตามรายละเอียดของแบบและตำแหน่งที่เลือก
       </p>
     </div>

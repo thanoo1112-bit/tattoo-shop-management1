@@ -25,24 +25,21 @@ export default function HeroSection() {
           <div className="inline-flex items-center space-x-2 bg-studio-sec border border-studio-border px-3 py-1 sm:px-3.5 sm:py-1.5 rounded-[4px]">
             <span className="w-2 h-2 rounded-full bg-studio-red animate-pulse" />
             <span className="text-[11px] sm:text-xs uppercase tracking-[0.2em] text-studio-paper font-heading">
-              Traditional Craft & Dark Ink Studio
+              157 TATTOO STUDIO CHIANG RAI
             </span>
           </div>
 
           <div className="space-y-1.5 sm:space-y-2">
-            <span className="text-xs uppercase tracking-[0.25em] text-studio-muted font-heading block">
-              157 TATTOO STUDIO BANGKOK
-            </span>
             <h1 className="text-3xl sm:text-5xl lg:text-6xl xl:text-7xl font-heading font-normal tracking-[0.04em] text-studio-primary leading-[1.1] sm:leading-[1.05]">
               เปลี่ยนไอเดีย<br />
               <span className="text-studio-red">ให้กลายเป็นศิลปะบนผิวหนัง</span>
             </h1>
-            <p className="font-caveat text-xl sm:text-2xl text-studio-secondary pt-1 font-normal tracking-wide">
+            <p className="font-caveat text-xl sm:text-2xl text-studio-primary/85 pt-1 font-normal tracking-wide">
               {"\"Fine craftsmanship, timeless ink on aged flash paper\""}
             </p>
           </div>
 
-          <p className="text-xs sm:text-sm xl:text-base text-studio-secondary font-prompt font-light leading-relaxed max-w-lg">
+          <p className="text-xs sm:text-sm xl:text-base text-[#E2DDD4] font-prompt font-light leading-relaxed max-w-lg">
             จิตวิญญาณแห่งศิลปะการสักชั้นสูง รังสรรค์งานศิลป์ระดับพรีเมียมเฉพาะบุคคล 
             สัมผัสมาตรฐานความสะอาดและปลอดเชื้อระดับสากล ในบรรยากาศสตูดิโอเข้ม เท่ และมีเอกลักษณ์
           </p>
@@ -65,7 +62,7 @@ export default function HeroSection() {
           </div>
 
           {/* Feature Badges */}
-          <div className="pt-4 sm:pt-6 border-t border-studio-border/60 flex flex-wrap items-center gap-y-2 gap-x-3 sm:gap-x-4 text-[11px] sm:text-xs text-studio-secondary font-prompt">
+          <div className="pt-4 sm:pt-6 border-t border-studio-border/60 flex flex-wrap items-center gap-y-2 gap-x-3 sm:gap-x-4 text-[11px] sm:text-xs text-[#E2DDD4] font-prompt">
             <div className="flex items-center space-x-1.5">
               <ShieldCheck size={15} className="text-studio-red shrink-0" />
               <span>อุปกรณ์ปลอดเชื้อ 100%</span>

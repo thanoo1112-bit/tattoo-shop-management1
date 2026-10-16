@@ -416,6 +416,12 @@ export default function ArtistRevenuePage() {
     return filteredJobRecords.filter((r) => r.booking_status === 'COMPLETED').length;
   }, [filteredJobRecords]);
 
+  // Count all confirmed jobs for current artist (all-time, not filtered by month)
+  const CONFIRMED_STATUSES = ['CONFIRMED', 'IN_PROGRESS', 'COMPLETED'];
+  const confirmedJobsCount = useMemo(() => {
+    return artistBookings.filter((b: any) => CONFIRMED_STATUSES.includes(b.status)).length;
+  }, [artistBookings]);
+
   if (authLoading || !isAuthorized) {
     return (
       <div className="min-h-screen bg-studio-main flex items-center justify-center font-prompt">
@@ -463,16 +469,16 @@ export default function ArtistRevenuePage() {
 
         {/* Top 3 Summary Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          {/* Card 1: รายได้เดือนนี้ */}
+          {/* Card 1: งานที่ยืนยันแล้วทั้งหมด */}
           <div className="bg-studio-card border border-studio-border p-5 rounded-xl flex items-center justify-between shadow-lg">
             <div className="space-y-1">
-              <span className="text-xs text-studio-secondary uppercase tracking-wider font-medium">รายได้เดือนนี้</span>
-              <div className="text-2xl sm:text-3xl font-bold font-mono text-emerald-400">
-                {monthRevenueTotal.toLocaleString('th-TH')} <span className="text-xs font-normal text-studio-muted">บาท</span>
+              <span className="text-xs text-studio-secondary uppercase tracking-wider font-medium">งานที่ยืนยันแล้วทั้งหมด</span>
+              <div className="text-2xl sm:text-3xl font-bold font-mono text-blue-400">
+                {confirmedJobsCount} <span className="text-xs font-normal text-studio-muted">งาน</span>
               </div>
             </div>
-            <div className="w-12 h-12 rounded-xl bg-emerald-950/30 border border-emerald-800/40 flex items-center justify-center text-emerald-400">
-              <Wallet size={22} />
+            <div className="w-12 h-12 rounded-xl bg-blue-950/30 border border-blue-800/40 flex items-center justify-center text-blue-400">
+              <CalendarCheck size={22} />
             </div>
           </div>
 
@@ -599,8 +605,6 @@ export default function ArtistRevenuePage() {
                       <th className="py-3 px-4">ลูกค้า</th>
                       <th className="py-3 px-4">งาน / ลายสัก</th>
                       <th className="py-3 px-4 text-right">เงินมัดจำ</th>
-                      <th className="py-3 px-4 text-right">ชำระวันปิดงาน</th>
-                      <th className="py-3 px-4 text-right">ยอดรับรวม</th>
                       <th className="py-3 px-4 text-center">สถานะ</th>
                     </tr>
                   </thead>
@@ -618,12 +622,6 @@ export default function ArtistRevenuePage() {
                         </td>
                         <td className="py-3.5 px-4 text-right font-mono text-amber-400">
                           {r.deposit_paid > 0 ? `${r.deposit_paid.toLocaleString('th-TH')} บาท` : '—'}
-                        </td>
-                        <td className="py-3.5 px-4 text-right font-mono text-emerald-400">
-                          {r.balance_paid > 0 ? `${r.balance_paid.toLocaleString('th-TH')} บาท` : '—'}
-                        </td>
-                        <td className="py-3.5 px-4 text-right font-mono font-bold text-emerald-400 text-sm">
-                          {r.total_received.toLocaleString('th-TH')} บาท
                         </td>
                         <td className="py-3.5 px-4 text-center">
                           {r.booking_status === 'COMPLETED' ? (
@@ -688,34 +686,12 @@ export default function ArtistRevenuePage() {
                       </div>
                     </div>
 
-                    {/* Financial Numbers Section (Layout C: 2 side-by-side boxes) */}
-                    <div className="grid grid-cols-2 gap-2.5 pt-2.5 border-t border-studio-border/40 font-mono">
-                      {/* Left Box: Deposit (Top) & Balance (Bottom) separated by thin line */}
-                      <div className="bg-[#0E0D0C] p-2.5 rounded-lg border border-[#4A443A]/60 flex flex-col justify-between gap-1.5">
-                        <div className="flex items-center justify-between gap-1">
-                          <span className="text-[10px] text-studio-muted font-sans">มัดจำ</span>
-                          <span className="text-xs font-semibold text-amber-400">
-                            {r.deposit_paid > 0 ? `฿${r.deposit_paid.toLocaleString('th-TH')}` : '—'}
-                          </span>
-                        </div>
-                        <div className="border-t border-[#4A443A]/40" />
-                        <div className="flex items-center justify-between gap-1">
-                          <span className="text-[10px] text-studio-muted font-sans">ปิดงาน</span>
-                          <span className="text-xs font-semibold text-emerald-400">
-                            {r.balance_paid > 0 ? `฿${r.balance_paid.toLocaleString('th-TH')}` : '—'}
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* Right Box: Dark green bg & border, centered ยอดรับรวม & large green sum */}
-                      <div className="bg-emerald-950/40 border border-emerald-800/60 p-2.5 rounded-lg flex flex-col items-center justify-center text-center">
-                        <span className="text-[10px] text-emerald-300/80 font-sans font-medium">
-                          ยอดรับรวม
-                        </span>
-                        <span className="text-base font-bold text-emerald-400 mt-0.5">
-                          ฿{r.total_received.toLocaleString('th-TH')}
-                        </span>
-                      </div>
+                    {/* Deposit Row */}
+                    <div className="flex items-center justify-between pt-2.5 border-t border-studio-border/40 font-mono">
+                      <span className="text-[10px] text-studio-muted font-sans">เงินมัดจำ</span>
+                      <span className="text-xs font-semibold text-amber-400">
+                        {r.deposit_paid > 0 ? `฿${r.deposit_paid.toLocaleString('th-TH')}` : '—'}
+                      </span>
                     </div>
                   </div>
                 ))}

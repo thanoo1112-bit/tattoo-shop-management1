@@ -70,11 +70,11 @@ export default function CustomerPostConfirmationGuide({
         <div className="space-y-0.5 border-b border-studio-border/60 pb-2">
           <div className="flex items-center gap-2">
             <HeartPulse size={15} className="text-studio-red" />
-            <span className="text-xs uppercase tracking-wider font-heading text-studio-primary font-bold">
+            <span className="text-xs uppercase tracking-wider font-heading text-[#ECE4D3] font-bold">
               เตรียมตัวก่อนเข้ารับบริการ
             </span>
           </div>
-          <p className="text-[11px] text-studio-secondary font-light">
+          <p className="text-[11px] text-[#E2DDD4] font-light">
             เตรียมตัวให้พร้อม เพื่อประสบการณ์ที่ดีที่สุดในวันสัก
           </p>
         </div>
@@ -87,10 +87,10 @@ export default function CustomerPostConfirmationGuide({
                 <BookOpen size={15} />
               </div>
               <div className="space-y-0.5">
-                <h4 className="text-xs font-semibold text-studio-primary">
+                <h4 className="text-xs font-semibold text-[#ECE4D3]">
                   คู่มือเตรียมตัวก่อนสัก
                 </h4>
-                <p className="text-[11px] text-studio-secondary font-light leading-snug">
+                <p className="text-[11px] text-[#E2DDD4] font-light leading-snug">
                   ดูคำแนะนำและสิ่งที่ควรเตรียมก่อนวันนัด
                 </p>
               </div>
@@ -99,10 +99,10 @@ export default function CustomerPostConfirmationGuide({
             <button
               type="button"
               onClick={() => setIsModalOpen(true)}
-              className="w-full min-h-[42px] sm:min-h-[34px] bg-studio-sec hover:bg-studio-card border border-studio-border text-studio-primary px-3.5 py-2 sm:py-1.5 rounded-[4px] text-xs font-medium flex items-center justify-between transition-all group active:scale-[0.99]"
+              className="w-full min-h-[42px] sm:min-h-[34px] bg-studio-sec hover:bg-studio-card border border-studio-border text-[#ECE4D3] px-3.5 py-2 sm:py-1.5 rounded-[4px] text-xs font-medium flex items-center justify-between transition-all group active:scale-[0.99]"
             >
               <span className="text-studio-red font-semibold">ดูคู่มือทั้งหมด</span>
-              <ChevronRight size={14} className="text-studio-muted group-hover:translate-x-0.5 transition-transform" />
+              <ChevronRight size={14} className="text-[#E2DDD4] group-hover:translate-x-0.5 transition-transform" />
             </button>
           </div>
 
@@ -113,13 +113,13 @@ export default function CustomerPostConfirmationGuide({
                 <MapPin size={15} />
               </div>
               <div className="space-y-0.5">
-                <h4 className="text-xs font-semibold text-studio-primary">
+                <h4 className="text-xs font-semibold text-[#ECE4D3]">
                   แผนที่และการเดินทาง
                 </h4>
-                <div className="text-[11px] font-semibold text-studio-primary pt-0.5">
+                <div className="text-[11px] font-semibold text-[#ECE4D3] pt-0.5">
                   {SHOP_NAME}
                 </div>
-                <p className="text-[10px] text-studio-muted leading-tight font-light">
+                <p className="text-[10px] text-[#F2EEE8] leading-tight font-light">
                   151/3 1299 ตำบลเวียงชัย อำเภอเวียงชัย จังหวัดเชียงราย 57210
                 </p>
               </div>
@@ -129,13 +129,13 @@ export default function CustomerPostConfirmationGuide({
               href={GOOGLE_MAPS_URL}
               target="_blank"
               rel="noopener noreferrer"
-              className="w-full min-h-[42px] sm:min-h-[34px] bg-studio-sec hover:bg-studio-card border border-studio-border text-studio-primary px-3.5 py-2 sm:py-1.5 rounded-[4px] text-xs font-medium flex items-center justify-between transition-all group active:scale-[0.99]"
+              className="w-full min-h-[42px] sm:min-h-[34px] bg-studio-sec hover:bg-studio-card border border-studio-border text-[#ECE4D3] px-3.5 py-2 sm:py-1.5 rounded-[4px] text-xs font-medium flex items-center justify-between transition-all group active:scale-[0.99]"
             >
-              <span className="flex items-center gap-1.5 font-semibold text-studio-primary group-hover:text-studio-red transition-colors">
+              <span className="flex items-center gap-1.5 font-semibold text-[#ECE4D3] group-hover:text-studio-red transition-colors">
                 <MapPin size={13} className="text-studio-red" />
                 <span>เปิด Google Maps</span>
               </span>
-              <ExternalLink size={13} className="text-studio-muted group-hover:text-studio-primary transition-colors" />
+              <ExternalLink size={13} className="text-[#E2DDD4] group-hover:text-[#ECE4D3] transition-colors" />
             </a>
           </div>
         </div>
@@ -163,7 +163,7 @@ export default function CustomerPostConfirmationGuide({
               <button
                 type="button"
                 onClick={() => setIsModalOpen(false)}
-                className="p-2 rounded-[4px] hover:bg-studio-sec text-studio-muted hover:text-studio-primary transition-colors"
+                className="p-2 rounded-[4px] hover:bg-studio-sec text-[#B8B0A3] hover:text-studio-primary transition-colors"
                 title="ปิด"
               >
                 <X size={20} />
@@ -191,7 +191,7 @@ export default function CustomerPostConfirmationGuide({
                 </div>
               ))}
 
-              <div className="p-3 bg-studio-sec/60 border border-studio-border/50 rounded-[6px] flex items-center gap-2 text-[11px] text-studio-muted">
+              <div className="p-3 bg-studio-sec/60 border border-studio-border/50 rounded-[6px] flex items-center gap-2 text-[11px] text-[#B8B0A3]">
                 <Info size={14} className="text-studio-red shrink-0" />
                 <span>ขอบคุณที่ไว้วางใจใช้บริการกับ 157 TATTOO</span>
               </div>

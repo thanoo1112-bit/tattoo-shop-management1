@@ -28,14 +28,17 @@ import {
 } from 'lucide-react';
 import Image from 'next/image';
 import PaymentSlipLightbox from '@/components/common/PaymentSlipLightbox';
+import CustomerRescheduleRequestCard from './CustomerRescheduleRequestCard';
 
 interface CustomerDepositPaymentSectionProps {
   booking: CustomerPortalBooking;
+  artistName?: string;
   onRefresh?: () => void;
 }
 
 export default function CustomerDepositPaymentSection({
   booking,
+  artistName,
   onRefresh,
 }: CustomerDepositPaymentSectionProps) {
   const supabase = createClient();
@@ -505,6 +508,22 @@ export default function CustomerDepositPaymentSection({
         </div>
       )}
 
+      {/* D2. Customer Reschedule Request Card (After Confirmed Banner, Before Payment History) */}
+      {isBookingConfirmed && (
+        <CustomerRescheduleRequestCard
+          booking={booking}
+          artistName={
+            artistName ||
+            (booking.artist?.nickname
+              ? `${booking.artist.name} (${booking.artist.nickname})`
+              : booking.artist?.name) ||
+            'ช่างสัก'
+          }
+          isConfirmed={isBookingConfirmed}
+          onRefresh={onRefresh}
+        />
+      )}
+
       {/* E. Expired Deposit Deadline Banner */}
       {!pendingSubmission && isBookingWaitingDeposit && isDeadlineExpired && (
         <div className="bg-red-950/40 border border-red-900/60 p-4 rounded-[6px] space-y-2">
@@ -548,7 +567,7 @@ export default function CustomerDepositPaymentSection({
             <span className="text-[11px] uppercase tracking-wider font-bold text-studio-secondary flex items-center gap-1.5">
               <QrCode size={13} className="text-[#D9A441]" /> ช่องทางการชำระเงินมัดจำ
             </span>
-            <span className="text-[10px] text-studio-muted">
+            <span className="text-[10px] text-[#B8B0A3]">
               ยอดชำระ: <strong className="text-[#D9A441]">฿{formatCurrency(depositOutstanding)}</strong>
             </span>
           </div>
@@ -677,7 +696,7 @@ export default function CustomerDepositPaymentSection({
             <span className="text-[11px] uppercase tracking-wider font-bold text-studio-secondary flex items-center gap-1.5">
               <UploadCloud size={13} className="text-studio-red" /> แจ้งชำระเงินมัดจำ
             </span>
-            <span className="text-[10px] text-studio-muted font-light">แนบหลักฐานสลิปโอนเงิน</span>
+            <span className="text-[10px] text-[#B8B0A3] font-light">แนบหลักฐานสลิปโอนเงิน</span>
           </div>
 
           {formError && (
@@ -711,7 +730,7 @@ export default function CustomerDepositPaymentSection({
                     <p className="text-xs font-semibold text-studio-primary">
                       คลิกเพื่อเลือกรูปสลิป
                     </p>
-                    <p className="text-[10px] text-studio-muted">
+                    <p className="text-[10px] text-[#B8B0A3]">
                       รองรับ JPG, PNG, WEBP (ไม่เกิน 5 MB)
                     </p>
                   </div>

@@ -201,7 +201,8 @@ export function formatCurrency(amount?: number | null): string {
  */
 export function resolveCustomerDisplayStatus(
   status: string,
-  hasPendingSlip?: boolean
+  hasPendingSlip?: boolean,
+  isDateProposed?: boolean
 ): string {
   if (status === 'CONFIRMED') return 'CONFIRMED';
   if (status === 'APPROVED') return 'APPROVED';
@@ -212,6 +213,11 @@ export function resolveCustomerDisplayStatus(
 
   if (hasPendingSlip) {
     return 'SLIP_REVIEW';
+  }
+
+  // If a new date has been proposed by shop/artist, show as WAITING_DEPOSIT ("รอชำระมัดจำ")
+  if (isDateProposed) {
+    return 'WAITING_DEPOSIT';
   }
 
   if (status === 'WAITING_DEPOSIT' || status === 'QUOTED') {
@@ -360,6 +366,73 @@ export function getDepositDeadlineInfo(
   } catch {
     return null;
   }
+}
+
+/**
+ * Checks whether a booking's deposit payment deadline has expired
+ */
+export function isDepositExpired(booking?: any, estimate?: any, session?: any): boolean {
+  const status = String(booking?.status || estimate?.status || session?.status || '').toUpperCase();
+  if (!status) return false;
+
+  if (status === 'EXPIRED') return true;
+
+  if (status === 'WAITING_DEPOSIT' || status === 'PENDING_DEPOSIT') {
+    const approvedAt = booking?.approved_at || estimate?.accepted_at || estimate?.quoted_at;
+    const createdAt = booking?.created_at || estimate?.created_at || session?.created_at;
+    const requestedDate = booking?.requested_date || estimate?.preferred_date || (session?.start_at ? session.start_at.slice(0, 10) : null);
+    const requestedStartTime = booking?.requested_start_time || estimate?.preferred_time || (session?.start_at ? session.start_at.slice(11, 19) : null);
+
+    const dlInfo = getDepositDeadlineInfo(approvedAt, createdAt, requestedDate, requestedStartTime);
+    return dlInfo?.isExpired ?? false;
+  }
+
+  return false;
+}
+
+/**
+ * Target Business Rule for Real Queue Appointments:
+ * An item qualifies as a confirmed queue appointment if and only if:
+ * 1. Booking exists
+ * 2. Deposit has been paid and confirmed (booking.status is 'CONFIRMED' or 'IN_PROGRESS')
+ * 3. Strictly NOT in pre-deposit or pending-slip statuses: WAITING_DEPOSIT, PENDING, APPROVED
+ * 4. Strictly NOT in terminal unconfirmed statuses: CANCELLED, REJECTED, EXPIRED
+ * 5. Not deposit-expired
+ * 6. Financial check: If deposit_required > 0 on payment summary, deposit_paid must not be false
+ */
+export function isConfirmedDepositBooking(
+  booking?: any,
+  estimate?: any,
+  session?: any,
+  paymentSummary?: any
+): boolean {
+  if (!booking) return false;
+
+  const bStatus = String(booking?.status || '').toUpperCase();
+
+  // 1. Strictly exclude pre-deposit, unverified slip, or terminal statuses
+  if (['WAITING_DEPOSIT', 'PENDING', 'APPROVED', 'CANCELLED', 'REJECTED', 'EXPIRED'].includes(bStatus)) {
+    return false;
+  }
+
+  // 2. Must be in an active confirmed queue status
+  if (!['CONFIRMED', 'IN_PROGRESS'].includes(bStatus)) {
+    return false;
+  }
+
+  // 3. Must not be deposit-expired
+  if (isDepositExpired(booking, estimate, session)) {
+    return false;
+  }
+
+  // 4. Financial verification if payment summary is present and deposit is required
+  if (paymentSummary && paymentSummary.deposit_required > 0) {
+    if (paymentSummary.deposit_paid === false) {
+      return false;
+    }
+  }
+
+  return true;
 }
 
 /**

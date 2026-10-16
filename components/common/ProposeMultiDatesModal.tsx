@@ -2,12 +2,14 @@
 
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { X, CalendarClock, Plus, AlertCircle } from 'lucide-react';
+import { X, CalendarClock, AlertCircle, Clock } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
+import DualTimePicker from '@/components/estimate/DualTimePicker';
 
 interface ProposeMultiDatesModalProps {
   isOpen: boolean;
   estimateRequestId: string | null;
+  flashReservationId?: string | null;
   requestCode?: string | null;
   customerName?: string | null;
   tattooSize?: string | null;
@@ -25,9 +27,63 @@ const PREDEFINED_REASONS = [
   'วันนัดกระชั้นเกินไป ช่างเตรียมอุปกรณ์ไม่ทัน',
 ];
 
+const mapFlashProposeError = (rawErrorMsg?: string | null): string => {
+  if (!rawErrorMsg) return 'ระบบขัดข้องชั่วคราว กรุณาลองใหม่อีกครั้ง';
+
+  const lower = rawErrorMsg.toLowerCase();
+
+  // 1. Capacity limit (3 jobs / day)
+  if (
+    rawErrorMsg.includes('เต็ม') ||
+    rawErrorMsg.includes('3 คิว') ||
+    rawErrorMsg.includes('3 งาน') ||
+    lower.includes('capacity')
+  ) {
+    return 'วันที่นี้คิวของช่างเต็ม 3 งานแล้ว กรุณาเลือกวันอื่น';
+  }
+
+  // 2. Blocked date / Artist unavailable
+  if (
+    rawErrorMsg.includes('ไม่พร้อมให้บริการ') ||
+    rawErrorMsg.includes('ไม่ว่าง') ||
+    lower.includes('blocked')
+  ) {
+    return 'วันที่เลือกช่างไม่พร้อมให้บริการ กรุณาเลือกวันอื่น';
+  }
+
+  // 3. Permission / unauthorized / role check
+  if (
+    rawErrorMsg.includes('ไม่มีสิทธิ์') ||
+    lower.includes('permission denied') ||
+    lower.includes('unauthorized') ||
+    lower.includes('42501') ||
+    lower.includes('authentication required')
+  ) {
+    return 'คุณไม่มีสิทธิ์ดำเนินการคำขอนี้';
+  }
+
+  // 4. Known business validation errors
+  if (rawErrorMsg.includes('ย้อนหลัง')) {
+    return 'ไม่สามารถเลือกวันนัดหมายย้อนหลังได้';
+  }
+  if (rawErrorMsg.includes('10:00 - 23:00')) {
+    return 'เวลาที่เสนอต้องอยู่ระหว่างช่วงเวลา 10:00 - 23:00 น.';
+  }
+  if (rawErrorMsg.includes('ไม่พบคำขอ')) {
+    return 'ไม่พบคำขอจองลาย Flash ที่ระบุ';
+  }
+  if (rawErrorMsg.includes('PENDING') || rawErrorMsg.includes('รอตรวจสอบ')) {
+    return 'สามารถเสนอวันใหม่ได้เฉพาะคำขอที่อยู่ในสถานะรอตรวจสอบเท่านั้น';
+  }
+
+  // 5. Fallback for raw DB/server errors (e.g. relation does not exist, syntax error)
+  return 'ระบบขัดข้องชั่วคราว กรุณาลองใหม่อีกครั้ง';
+};
+
 export default function ProposeMultiDatesModal({
   isOpen,
   estimateRequestId,
+  flashReservationId,
   requestCode,
   customerName,
   tattooSize,
@@ -63,7 +119,8 @@ export default function ProposeMultiDatesModal({
     }
   };
 
-  const [options, setOptions] = useState<{ date: string; time: string }[]>([]);
+  const [selectedDate, setSelectedDate] = useState<string>('');
+  const [selectedTime, setSelectedTime] = useState<string>('10:00');
   const [selectedReason, setSelectedReason] = useState<string>('');
   const [note, setNote] = useState<string>('');
   const [isNoteManuallyEdited, setIsNoteManuallyEdited] = useState<boolean>(false);
@@ -71,58 +128,95 @@ export default function ProposeMultiDatesModal({
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   useEffect(() => {
+    let isMounted = true;
     if (isOpen) {
+      const rawBaseTime = defaultTime || preferredTime || '10:00';
+      const baseTime = rawBaseTime.length >= 5 ? rawBaseTime.slice(0, 5) : '10:00';
       const baseDate = defaultDate || preferredDate || getTodayBangkokStr();
-      const baseTime = defaultTime || preferredTime || '10:00';
-      setOptions([
-        { date: baseDate, time: baseTime },
-      ]);
+
+      setSelectedDate(baseDate);
+      setSelectedTime(baseTime);
       setSelectedReason('');
       setNote('');
       setIsNoteManuallyEdited(false);
       setErrorMsg(null);
+
+      // If defaultDate was not provided by parent, fetch latest active PENDING proposal
+      if (!defaultDate && flashReservationId) {
+        (async () => {
+          try {
+            const supabase = createClient();
+            const { data, error } = await supabase
+              .from('flash_reservations')
+              .select('proposed_date, proposed_time, proposal_note')
+              .eq('id', flashReservationId)
+              .maybeSingle();
+
+            if (!error && data && isMounted) {
+              if (data.proposed_date) {
+                setSelectedDate(data.proposed_date);
+              }
+              if (data.proposed_time) {
+                const optTime = data.proposed_time.length >= 5 ? data.proposed_time.slice(0, 5) : data.proposed_time;
+                setSelectedTime(optTime);
+              }
+            }
+          } catch (err) {
+            console.error('Failed to load flash proposal in modal:', err);
+          }
+        })();
+      } else if (!defaultDate && estimateRequestId) {
+        (async () => {
+          try {
+            const supabase = createClient();
+            const { data, error } = await supabase
+              .from('estimate_request_date_options')
+              .select('proposed_date, proposed_time, status, created_at')
+              .eq('estimate_request_id', estimateRequestId)
+              .eq('status', 'PENDING')
+              .order('created_at', { ascending: false })
+              .limit(1);
+
+            if (!error && data && data.length > 0 && isMounted) {
+              const latest = data[0];
+              if (latest.proposed_date) {
+                setSelectedDate(latest.proposed_date);
+              }
+              if (latest.proposed_time) {
+                const optTime = latest.proposed_time.length >= 5 ? latest.proposed_time.slice(0, 5) : latest.proposed_time;
+                setSelectedTime(optTime);
+              }
+            }
+          } catch (err) {
+            console.error('Failed to load latest proposed option in modal:', err);
+          }
+        })();
+      }
     }
-  }, [isOpen, defaultDate, defaultTime, preferredDate, preferredTime]);
+    return () => {
+      isMounted = false;
+    };
+  }, [isOpen, defaultDate, defaultTime, preferredDate, preferredTime, estimateRequestId, flashReservationId]);
 
   // Generate message based on selected reason
   useEffect(() => {
     if (!isNoteManuallyEdited) {
       if (selectedReason) {
         setNote(
-          `ขออภัย ทางร้านไม่สะดวกในวันเดิม (${selectedReason}) จึงขอเสนอวันนัดหมายใหม่ให้คุณเลือก กรุณาเลือกวันและเวลาที่สะดวกที่สุด`
+          `ขออภัย ทางร้านไม่สะดวกในวันเดิม (${selectedReason}) จึงขอเสนอวันนัดหมายใหม่ให้คุณพิจารณา`
         );
       } else {
         setNote(
-          'ขออภัย ทางร้านไม่สะดวกในวันเดิม จึงขอเสนอวันนัดหมายใหม่ให้คุณเลือก กรุณาเลือกวันและเวลาที่สะดวกที่สุด'
+          'ขออภัย ทางร้านไม่สะดวกในวันเดิม จึงขอเสนอวันนัดหมายใหม่ให้คุณพิจารณา'
         );
       }
     }
   }, [selectedReason, isNoteManuallyEdited]);
 
-  if (!isOpen || !estimateRequestId || !mounted) return null;
-
-  const handleAddOption = () => {
-    if (options.length >= 3) return;
-    const baseDate = options[options.length - 1]?.date || getTodayBangkokStr();
-    setOptions([...options, { date: baseDate, time: '16:00' }]);
-  };
-
-  const handleRemoveOption = (index: number) => {
-    if (options.length <= 1) return;
-    setOptions(options.filter((_, i) => i !== index));
-  };
-
-  const handleOptionChange = (index: number, field: 'date' | 'time', value: string) => {
-    const next = [...options];
-    next[index] = { ...next[index], [field]: value };
-    setOptions(next);
-  };
+  if (!isOpen || (!estimateRequestId && !flashReservationId) || !mounted) return null;
 
   const isFormValid = () => {
-    if (options.length < 1) return false;
-    for (const opt of options) {
-      if (!opt.date || !opt.time) return false;
-    }
+    if (!selectedDate || !selectedTime) return false;
     if (!selectedReason) return false;
     if (!note.trim()) return false;
     return true;
@@ -130,38 +224,63 @@ export default function ProposeMultiDatesModal({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!estimateRequestId || !isFormValid()) return;
+    if ((!estimateRequestId && !flashReservationId) || !isFormValid()) return;
 
     setSubmitting(true);
     setErrorMsg(null);
 
     try {
       const supabase = createClient();
-      const formattedOptions = options.map((opt) => ({
-        date: opt.date,
-        time: opt.time.length === 5 ? `${opt.time}:00` : opt.time,
-      }));
+      const formattedTime = selectedTime.length === 5 ? `${selectedTime}:00` : selectedTime;
 
-      const { data, error } = await supabase.rpc('artist_propose_multi_booking_dates', {
-        p_estimate_request_id: estimateRequestId,
-        p_date_options: formattedOptions,
-        p_artist_note: note.trim(),
-      });
+      if (flashReservationId) {
+        const { data, error } = await supabase.rpc('artist_propose_flash_reservation_date', {
+          p_reservation_id: flashReservationId,
+          p_proposed_date: selectedDate,
+          p_proposed_time: formattedTime,
+          p_note: note.trim(),
+        });
 
-      if (error || !data?.success) {
-        setErrorMsg(error?.message || data?.error || 'เกิดข้อผิดพลาดในการส่งตัวเลือกให้ลูกค้า');
-      } else {
-        onSuccess();
-        onClose();
+        if (error || !data?.success) {
+          const rawErr = error?.message || data?.error;
+          setErrorMsg(mapFlashProposeError(rawErr));
+        } else {
+          onSuccess();
+          onClose();
+        }
+      } else if (estimateRequestId) {
+        const formattedOptions = [
+          {
+            date: selectedDate,
+            time: formattedTime,
+          },
+        ];
+
+        const { data, error } = await supabase.rpc('artist_propose_multi_booking_dates', {
+          p_estimate_request_id: estimateRequestId,
+          p_date_options: formattedOptions,
+          p_artist_note: note.trim(),
+        });
+
+        if (error || !data?.success) {
+          setErrorMsg(error?.message || data?.error || 'เกิดข้อผิดพลาดในการส่งข้อเสนอให้ลูกค้า');
+        } else {
+          onSuccess();
+          onClose();
+        }
       }
     } catch (err: any) {
-      setErrorMsg(err.message || 'เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์');
+      if (flashReservationId) {
+        setErrorMsg(mapFlashProposeError(err?.message));
+      } else {
+        setErrorMsg(err.message || 'เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์');
+      }
     } finally {
       setSubmitting(false);
     }
   };
 
-  const reqCodeDisplay = requestCode || (estimateRequestId ? `REQ-${estimateRequestId.slice(0, 8).toUpperCase()}` : 'REQ-');
+  const reqCodeDisplay = requestCode || (flashReservationId ? `FLASH-${flashReservationId.slice(0, 8).toUpperCase()}` : (estimateRequestId ? `REQ-${estimateRequestId.slice(0, 8).toUpperCase()}` : 'REQ-'));
   const originalDateText = formatThaiDateDisplay(preferredDate);
   const originalTimeText = preferredTime ? (preferredTime.length === 5 ? `${preferredTime} น.` : `${preferredTime}`) : '';
 
@@ -222,77 +341,33 @@ export default function ProposeMultiDatesModal({
 
         <form onSubmit={handleSubmit} className="space-y-4 text-xs">
           
-          {/* 3. Step 1: Appointment Options */}
+          {/* 3. Step 1: Appointment Option (Single Option) */}
           <div className="space-y-2.5">
-            <div className="flex items-center justify-between">
-              <label className="font-semibold text-studio-primary text-xs flex items-center gap-1.5">
-                <span>1. เลือกวันนัดหมายที่ต้องการเสนอ (เลือกได้ 1–3 วัน):</span>
-              </label>
-              <span className="text-[11px] font-mono text-amber-400 font-bold bg-amber-950/60 border border-amber-800/60 px-2 py-0.5 rounded">
-                เลือกแล้ว {options.length} / 3 วัน
-              </span>
-            </div>
+            <label className="font-semibold text-studio-primary text-xs block">
+              1. เลือกวันและเวลานัดหมายใหม่
+            </label>
 
-            <div className="space-y-2">
-              {options.map((opt, idx) => (
-                <div
-                  key={idx}
-                  className="p-3 bg-studio-sec/70 border border-studio-border rounded-xl space-y-2 relative"
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="font-semibold text-amber-300 text-[11px] flex items-center gap-1.5">
-                      <span className="w-5 h-5 rounded-full bg-amber-950 border border-amber-700/80 text-amber-400 text-[10px] font-bold flex items-center justify-center">
-                        {idx + 1}
-                      </span>
-                      ตัวเลือกที่ {idx + 1}
-                    </span>
-                    {options.length > 1 && (
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveOption(idx)}
-                        className="text-studio-muted hover:text-red-400 p-1 transition-colors cursor-pointer"
-                        title="ลบตัวเลือกนี้"
-                      >
-                        <X size={15} />
-                      </button>
-                    )}
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    <div>
-                      <label className="block text-[10px] text-studio-secondary mb-1">วันที่นัดหมาย *</label>
-                      <input
-                        type="date"
-                        min={getTodayBangkokStr()}
-                        value={opt.date}
-                        onChange={(e) => handleOptionChange(idx, 'date', e.target.value)}
-                        className="w-full bg-studio-card border border-studio-border rounded-lg px-2.5 py-1.5 text-xs text-studio-primary focus:outline-none focus:border-amber-500 [color-scheme:dark] cursor-pointer"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[10px] text-studio-secondary mb-1">เวลานัดหมาย *</label>
-                      <input
-                        type="time"
-                        value={opt.time}
-                        onChange={(e) => handleOptionChange(idx, 'time', e.target.value)}
-                        className="w-full bg-studio-card border border-studio-border rounded-lg px-2.5 py-1.5 text-xs text-studio-primary focus:outline-none focus:border-amber-500 font-mono [color-scheme:dark] cursor-pointer"
-                      />
-                    </div>
-                  </div>
+            <div className="p-3 bg-studio-sec/70 border border-studio-border rounded-xl">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                <div>
+                  <label className="block text-[10px] text-studio-secondary mb-1">วันที่นัดหมาย *</label>
+                  <input
+                    type="date"
+                    min={getTodayBangkokStr()}
+                    value={selectedDate}
+                    onChange={(e) => setSelectedDate(e.target.value)}
+                    className="w-full bg-studio-card border border-studio-border rounded-lg px-2.5 py-1.5 text-xs text-studio-primary focus:outline-none focus:border-amber-500 [color-scheme:dark] cursor-pointer"
+                  />
                 </div>
-              ))}
+                <div>
+                  <label className="block text-[10px] text-studio-secondary mb-1">เวลาที่สะดวกเริ่มสัก * (10:00 - 23:00 น.)</label>
+                  <DualTimePicker
+                    value={selectedTime}
+                    onChange={(val) => setSelectedTime(val)}
+                  />
+                </div>
+              </div>
             </div>
-
-            {options.length < 3 && (
-              <button
-                type="button"
-                onClick={handleAddOption}
-                className="w-full py-2 px-3 bg-amber-950/40 hover:bg-amber-950/70 border border-dashed border-amber-700/60 rounded-xl text-amber-300 font-semibold text-xs flex items-center justify-center space-x-1.5 transition-colors cursor-pointer"
-              >
-                <Plus size={14} className="text-amber-400" />
-                <span>เพิ่มตัวเลือกวันนัด</span>
-              </button>
-            )}
           </div>
 
           {/* 4. Step 2: Specify Reason */}

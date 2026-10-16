@@ -6,6 +6,7 @@ import ReferenceUploader from './ReferenceUploader';
 import TattooSizeInput from './TattooSizeInput';
 import PlacementSelector from './PlacementSelector';
 import DatePickerPopover from '../booking/DatePickerPopover';
+import { getArtistDailyCapacityStatus, BusyRange } from '../booking/BookingCalendar';
 import DualTimePicker from './DualTimePicker';
 import CustomerLoginModal from '../auth/CustomerLoginModal';
 import { getThailandTodayStr } from '../portal/portalUtils';
@@ -118,8 +119,14 @@ export default function EstimateForm({
     supabase,
     addEstimateRequest,
     estimateDraft, 
-    setEstimateDraft 
+    setEstimateDraft,
+    ensureArtistAvatars
   } = useApp();
+
+  // Artist photos are loaded lazily (not part of the global mount fetch)
+  useEffect(() => {
+    ensureArtistAvatars();
+  }, [ensureArtistAvatars]);
 
   // Flash Design State
   const [flashData, setFlashData] = useState<any | null>(null);
@@ -629,6 +636,7 @@ export default function EstimateForm({
     }
 
     // Busy range check against confirmed booking slots (create mode or date changed)
+    // Business Rule: MAX 3 JOBS / ARTIST / DAY (No time collision check on Request submit)
     if (preferredDate && artistId && (!isEditMode || preferredDate !== initialData?.preferredDate)) {
       try {
         const { data: busyCheck } = await supabase.rpc('get_artist_busy_ranges', {
@@ -636,9 +644,22 @@ export default function EstimateForm({
           p_start_date: preferredDate,
           p_end_date: preferredDate,
         });
+
         if (Array.isArray(busyCheck) && busyCheck.length > 0) {
-          setError('วันที่นี้มีคำขอหรือคิวของช่างที่เลือกอยู่แล้ว กรุณาเลือกวันอื่น');
-          return false;
+          const { isFullDayBlocked, dailyJobCount } = getArtistDailyCapacityStatus(
+            busyCheck as BusyRange[],
+            preferredDate
+          );
+
+          if (isFullDayBlocked) {
+            setError('วันที่เลือกช่างไม่พร้อมให้บริการ กรุณาเลือกวันอื่น');
+            return false;
+          }
+
+          if (dailyJobCount >= 3) {
+            setError('วันที่นี้มีคิวของช่างครบ 3 งานแล้ว กรุณาเลือกวันอื่น');
+            return false;
+          }
         }
       } catch (err: any) {
         console.warn('Busy check warning:', err);
@@ -941,15 +962,15 @@ export default function EstimateForm({
           
           <div className="bg-studio-main border border-studio-border p-4 rounded-[6px] max-w-md mx-auto text-left space-y-2 text-xs">
             <div className="flex justify-between items-center pb-2 border-b border-studio-border/60">
-              <span className="text-studio-muted">รหัสรายการ:</span>
+              <span className="text-[#B8B0A3]">รหัสรายการ:</span>
               <strong className="text-studio-primary font-mono">#{newRequestId.slice(0, 8).toUpperCase()}</strong>
             </div>
             <div className="flex justify-between items-center">
-              <span className="text-studio-muted">แบบลายสัก:</span>
+              <span className="text-[#B8B0A3]">แบบลายสัก:</span>
               <strong className="text-studio-primary">{flashData?.title}</strong>
             </div>
             <div className="flex justify-between items-center">
-              <span className="text-studio-muted">ช่างสัก:</span>
+              <span className="text-[#B8B0A3]">ช่างสัก:</span>
               <span className="text-studio-primary">{flashArtistName}</span>
             </div>
           </div>

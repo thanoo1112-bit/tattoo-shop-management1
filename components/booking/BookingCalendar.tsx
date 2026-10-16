@@ -10,6 +10,72 @@ export interface BusyRange {
   end_at: string;
 }
 
+/**
+ * Evaluates whether an artist is unavailable (full-day block) or has reached maximum daily capacity (3 jobs/day)
+ * for a specific date (YYYY-MM-DD in Asia/Bangkok).
+ * Reusable across BookingCalendar and EstimateForm submit validation.
+ */
+export function getArtistDailyCapacityStatus(
+  busyRanges: BusyRange[],
+  targetDateStr: string
+): { isFullDayBlocked: boolean; dailyJobCount: number; isCapacityReached: boolean } {
+  let isFullDayBlocked = false;
+  let dailyJobCount = 0;
+
+  for (const range of busyRanges) {
+    try {
+      const startD = new Date(range.start_at);
+      const endD = new Date(range.end_at);
+
+      const bkkDateStr = new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'Asia/Bangkok',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+      }).format(startD);
+
+      if (bkkDateStr !== targetDateStr) {
+        continue;
+      }
+
+      const startParts = new Intl.DateTimeFormat('en-US', {
+        timeZone: 'Asia/Bangkok',
+        hour: '2-digit',
+        minute: '2-digit',
+        hourCycle: 'h23',
+      }).formatToParts(startD);
+      const startH = parseInt(startParts.find((p) => p.type === 'hour')?.value || '0', 10);
+      const startM = parseInt(startParts.find((p) => p.type === 'minute')?.value || '0', 10);
+      const startMins = startH * 60 + startM;
+
+      const endParts = new Intl.DateTimeFormat('en-US', {
+        timeZone: 'Asia/Bangkok',
+        hour: '2-digit',
+        minute: '2-digit',
+        hourCycle: 'h23',
+      }).formatToParts(endD);
+      const endH = parseInt(endParts.find((p) => p.type === 'hour')?.value || '0', 10);
+      const endM = parseInt(endParts.find((p) => p.type === 'minute')?.value || '0', 10);
+      const endMins = endH * 60 + endM;
+
+      // Check if full-day blocked (e.g. 00:00 - 23:59 from artist_blocked_dates)
+      if (startMins <= 60 && endMins >= 1380) {
+        isFullDayBlocked = true;
+        continue;
+      }
+
+      // Each busy range returned by get_artist_busy_ranges represents a distinct active job
+      dailyJobCount++;
+    } catch (_) {}
+  }
+
+  return {
+    isFullDayBlocked,
+    dailyJobCount,
+    isCapacityReached: dailyJobCount >= 3,
+  };
+}
+
 interface BookingCalendarProps {
   selectedDate: string; // YYYY-MM-DD
   onDateSelect: (date: string) => void;
@@ -154,22 +220,65 @@ export default function BookingCalendar({
     return viewDate <= currentMonthStart;
   }, [viewDate]);
 
-  // Set of dates with busy ranges (in Bangkok time YYYY-MM-DD)
-  const busyDatesSet = useMemo(() => {
-    const set = new Set<string>();
+  // Set of dates that are FULLY BUSY:
+  // 1. Full-day blocked (studio or artist scope: start <= 01:00 and end >= 23:00)
+  // 2. Daily capacity reached: 3 or more distinct active jobs on that date
+  const fullyBusyDatesSet = useMemo(() => {
+    const fullDaySet = new Set<string>();
+    // Map of date -> count of distinct active jobs
+    const dateJobCount = new Map<string, number>();
+
     for (const range of activeBusyRanges) {
       try {
         const startD = new Date(range.start_at);
+        const endD = new Date(range.end_at);
+
         const bkkDateStr = new Intl.DateTimeFormat('en-CA', {
           timeZone: 'Asia/Bangkok',
           year: 'numeric',
           month: '2-digit',
           day: '2-digit',
         }).format(startD);
-        set.add(bkkDateStr);
+
+        const startParts = new Intl.DateTimeFormat('en-US', {
+          timeZone: 'Asia/Bangkok',
+          hour: '2-digit',
+          minute: '2-digit',
+          hourCycle: 'h23',
+        }).formatToParts(startD);
+        const startH = parseInt(startParts.find((p) => p.type === 'hour')?.value || '0', 10);
+        const startM = parseInt(startParts.find((p) => p.type === 'minute')?.value || '0', 10);
+        const startMins = startH * 60 + startM;
+
+        const endParts = new Intl.DateTimeFormat('en-US', {
+          timeZone: 'Asia/Bangkok',
+          hour: '2-digit',
+          minute: '2-digit',
+          hourCycle: 'h23',
+        }).formatToParts(endD);
+        const endH = parseInt(endParts.find((p) => p.type === 'hour')?.value || '0', 10);
+        const endM = parseInt(endParts.find((p) => p.type === 'minute')?.value || '0', 10);
+        const endMins = endH * 60 + endM;
+
+        // Check if full-day blocked (e.g. 00:00 - 23:59 from artist_blocked_dates)
+        if (startMins <= 60 && endMins >= 1380) {
+          fullDaySet.add(bkkDateStr);
+          continue;
+        }
+
+        // Each busy range returned by get_artist_busy_ranges represents a distinct active job
+        dateJobCount.set(bkkDateStr, (dateJobCount.get(bkkDateStr) || 0) + 1);
       } catch (_) {}
     }
-    return set;
+
+    // Disable dates where daily capacity >= 3 distinct active jobs
+    dateJobCount.forEach((count, dateStr) => {
+      if (count >= 3) {
+        fullDaySet.add(dateStr);
+      }
+    });
+
+    return fullDaySet;
   }, [activeBusyRanges]);
 
   // 42-day Calendar Grid Calculation (6 rows x 7 cols, Monday-first)
@@ -222,7 +331,7 @@ export default function BookingCalendar({
       const jsDay = new Date(year, month, d).getDay();
       const monFirstIdx = (jsDay + 6) % 7;
       const isPast = dateStr < minBookableDateStr;
-      const hasBusySession = busyDatesSet.has(dateStr) || disabledDatesSet.has(dateStr);
+      const hasBusySession = fullyBusyDatesSet.has(dateStr) || disabledDatesSet.has(dateStr);
       const isSelected = selectedDate === dateStr;
 
       // Customer date picker rule: Future & Not Busy => Selectable
@@ -261,7 +370,7 @@ export default function BookingCalendar({
     }
 
     return slots;
-  }, [year, month, minBookableDateStr, busyDatesSet, disabledDatesSet, selectedDate]);
+  }, [year, month, minBookableDateStr, fullyBusyDatesSet, disabledDatesSet, selectedDate]);
 
   const isGridLoading = loading || fetchingBusy;
 

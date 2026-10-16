@@ -12,7 +12,6 @@ import {
   SlidersHorizontal,
   Edit2,
   Trash2,
-  Eye,
   EyeOff,
   User,
   X,
@@ -74,7 +73,6 @@ export default function AdminPortfolioManagement() {
   // Search & Filter
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStyle, setFilterStyle] = useState('ALL');
-  const [filterVisibility, setFilterVisibility] = useState<'ALL' | 'VISIBLE' | 'HIDDEN'>('ALL');
   const [filterArtist, setFilterArtist] = useState('ALL');
 
   // Modal State for Create / Edit
@@ -427,9 +425,6 @@ export default function AdminPortfolioManagement() {
       if (filterStyle !== 'ALL' && item.style.toLowerCase() !== filterStyle.toLowerCase()) {
         return false;
       }
-      // Visibility
-      if (filterVisibility === 'VISIBLE' && !item.is_visible) return false;
-      if (filterVisibility === 'HIDDEN' && item.is_visible) return false;
       // Artist
       if (filterArtist !== 'ALL' && item.artist_id !== filterArtist) return false;
       // Search
@@ -446,7 +441,7 @@ export default function AdminPortfolioManagement() {
       }
       return true;
     });
-  }, [artworks, filterStyle, filterVisibility, filterArtist, searchQuery]);
+  }, [artworks, filterStyle, filterArtist, searchQuery]);
 
   return (
     <div className="space-y-6 font-prompt">
@@ -547,17 +542,6 @@ export default function AdminPortfolioManagement() {
             ))}
           </select>
 
-          {/* Visibility Filter */}
-          <select
-            value={filterVisibility}
-            onChange={(e: any) => setFilterVisibility(e.target.value)}
-            className="bg-[#0E0D0C] border border-[#3E372C] rounded-[4px] px-3 py-2 text-xs text-[#ECE4D3] focus:outline-none focus:border-[#9C2F2F] cursor-pointer"
-          >
-            <option value="ALL">สถานะทั้งหมด</option>
-            <option value="VISIBLE">แสดงบนเว็บ (Visible)</option>
-            <option value="HIDDEN">ซ่อนจากเว็บ (Hidden)</option>
-          </select>
-
           {/* Artist Filter */}
           <select
             value={filterArtist}
@@ -646,22 +630,14 @@ export default function AdminPortfolioManagement() {
                       {item.style}
                     </div>
 
-                    {/* Visibility Indicator */}
-                    <div className="absolute top-2 right-2">
-                      {isArtistInactive ? (
+                    {/* Inactive Artist Indicator */}
+                    {isArtistInactive && (
+                      <div className="absolute top-2 right-2">
                         <span className="bg-[#2D2820]/90 border border-[#4A443A] text-[#A89F91] text-[9px] font-bold px-2 py-0.5 rounded flex items-center gap-1">
                           <EyeOff size={10} /> ซ่อนตามสถานะช่าง
                         </span>
-                      ) : item.is_visible ? (
-                        <span className="bg-green-950/90 border border-green-700/50 text-green-300 text-[9px] font-bold px-2 py-0.5 rounded flex items-center gap-1">
-                          <Eye size={10} /> แสดง
-                        </span>
-                      ) : (
-                        <span className="bg-[#2D2820]/90 border border-[#4A443A] text-[#A89F91] text-[9px] font-bold px-2 py-0.5 rounded flex items-center gap-1">
-                          <EyeOff size={10} /> ซ่อน
-                        </span>
-                      )}
-                    </div>
+                      </div>
+                    )}
                   </div>
 
                   {/* Card Content */}
@@ -690,37 +666,23 @@ export default function AdminPortfolioManagement() {
                 </div>
 
                 {/* Card Actions Footer */}
-                <div className="p-2 sm:p-3 bg-[#13110F] border-t border-[#2D2820] flex items-center justify-between gap-1 sm:gap-1.5 min-w-0">
-                  <div className="flex items-center gap-1 shrink-0">
-                    <button
-                      onClick={() => handleToggleVisibility(item)}
-                      className={`p-1.5 rounded text-xs transition-colors ${
-                        item.is_visible
-                          ? 'bg-[#25201A] text-[#ECE4D3] hover:bg-[#2D2820]'
-                          : 'bg-[#2D2820] text-[#A89F91] hover:text-[#ECE4D3]'
-                      }`}
-                      title={item.is_visible ? 'คลิกเพื่อซ่อนผลงาน' : 'คลิกเพื่อแสดงผลงาน'}
-                    >
-                      {item.is_visible ? <Eye size={13} /> : <EyeOff size={13} />}
-                    </button>
-                  </div>
-
-                  <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
-                    <button
-                      onClick={() => handleOpenEditModal(item)}
-                      className="px-2 sm:px-2.5 py-1 sm:py-1.5 bg-[#25201A] hover:bg-[#2D2820] text-[#ECE4D3] rounded text-[11px] sm:text-xs font-medium flex items-center gap-1 transition-colors"
-                    >
-                      <Edit2 size={12} />
-                      <span>แก้ไข</span>
-                    </button>
-                    <button
-                      onClick={() => setDeleteTarget(item)}
-                      className="p-1.5 bg-[#2D1B1B] hover:bg-red-900/60 text-red-300 rounded transition-colors"
-                      title="ลบผลงาน"
-                    >
-                      <Trash2 size={13} />
-                    </button>
-                  </div>
+                <div className="p-2 sm:p-3 bg-[#13110F] border-t border-[#2D2820] flex items-center justify-end gap-1 sm:gap-1.5 min-w-0">
+                  <button
+                    type="button"
+                    onClick={() => handleOpenEditModal(item)}
+                    className="px-2 sm:px-2.5 py-1 sm:py-1.5 bg-[#25201A] hover:bg-[#2D2820] text-[#ECE4D3] rounded text-[11px] sm:text-xs font-medium flex items-center gap-1 transition-colors cursor-pointer"
+                  >
+                    <Edit2 size={12} />
+                    <span>แก้ไข</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDeleteTarget(item)}
+                    className="p-1.5 bg-[#2D1B1B] hover:bg-red-900/60 text-red-300 rounded transition-colors cursor-pointer"
+                    title="ลบผลงาน"
+                  >
+                    <Trash2 size={13} />
+                  </button>
                 </div>
               </div>
             );
@@ -944,28 +906,14 @@ export default function AdminPortfolioManagement() {
                     </h3>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-end">
-                    <div className="space-y-1">
-                      <label className="text-xs font-semibold text-[#ECE4D3] block">ลำดับการแสดงผล (Sort Order)</label>
-                      <input
-                        type="number"
-                        value={formData.sort_order}
-                        onChange={(e) => setFormData({ ...formData, sort_order: parseInt(e.target.value, 10) || 0 })}
-                        className="w-full bg-[#0E0D0C] border border-[#3E372C] rounded-[4px] px-3 py-2 text-xs text-[#ECE4D3] focus:outline-none focus:border-[#9C2F2F]"
-                      />
-                    </div>
-
-                    <div className="pb-2">
-                      <label className="inline-flex items-center gap-2 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={formData.is_visible}
-                          onChange={(e) => setFormData({ ...formData, is_visible: e.target.checked })}
-                          className="w-4 h-4 rounded bg-[#0E0D0C] border-[#3E372C] text-[#9C2F2F] focus:ring-0 focus:outline-none cursor-pointer"
-                        />
-                        <span className="text-xs text-[#ECE4D3] font-medium">แสดงผลงานบนเว็บไซต์</span>
-                      </label>
-                    </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold text-[#ECE4D3] block">ลำดับการแสดงผล (Sort Order)</label>
+                    <input
+                      type="number"
+                      value={formData.sort_order}
+                      onChange={(e) => setFormData({ ...formData, sort_order: parseInt(e.target.value, 10) || 0 })}
+                      className="w-full bg-[#0E0D0C] border border-[#3E372C] rounded-[4px] px-3 py-2 text-xs text-[#ECE4D3] focus:outline-none focus:border-[#9C2F2F]"
+                    />
                   </div>
                 </div>
               </div>
@@ -1144,30 +1092,16 @@ export default function AdminPortfolioManagement() {
                     />
                   </div>
 
-                  {/* ลำดับการแสดงผล + แสดงผลงานบนเว็บไซต์ */}
-                  <div className="grid grid-cols-2 gap-3 pt-1">
-                    <div className="space-y-1">
-                      <label className="text-xs font-semibold text-[#ECE4D3] block">ลำดับการแสดงผล (Sort Order)</label>
-                      <input
-                        type="number"
-                        value={formData.sort_order}
-                        onChange={(e) => setFormData({ ...formData, sort_order: parseInt(e.target.value, 10) || 0 })}
-                        className="w-full bg-[#0E0D0C] border border-[#3E372C] rounded-[4px] px-3 py-2 text-xs text-[#ECE4D3] focus:outline-none focus:border-[#9C2F2F]"
-                      />
-                      <span className="text-[10px] text-[#7A7162]">ค่าน้อยกว่าจะแสดงผลก่อน</span>
-                    </div>
-
-                    <div className="space-y-1 flex flex-col justify-end">
-                      <label className="inline-flex items-center gap-2 cursor-pointer pb-2">
-                        <input
-                          type="checkbox"
-                          checked={formData.is_visible}
-                          onChange={(e) => setFormData({ ...formData, is_visible: e.target.checked })}
-                          className="w-4 h-4 rounded bg-[#0E0D0C] border-[#3E372C] text-[#9C2F2F] focus:ring-0 focus:outline-none cursor-pointer"
-                        />
-                        <span className="text-xs text-[#ECE4D3] font-medium">แสดงผลงานบนเว็บไซต์</span>
-                      </label>
-                    </div>
+                  {/* ลำดับการแสดงผล */}
+                  <div className="space-y-1 pt-1">
+                    <label className="text-xs font-semibold text-[#ECE4D3] block">ลำดับการแสดงผล (Sort Order)</label>
+                    <input
+                      type="number"
+                      value={formData.sort_order}
+                      onChange={(e) => setFormData({ ...formData, sort_order: parseInt(e.target.value, 10) || 0 })}
+                      className="w-full bg-[#0E0D0C] border border-[#3E372C] rounded-[4px] px-3 py-2 text-xs text-[#ECE4D3] focus:outline-none focus:border-[#9C2F2F]"
+                    />
+                    <span className="text-[10px] text-[#7A7162]">ค่าน้อยกว่าจะแสดงผลก่อน</span>
                   </div>
                 </div>
               </div>

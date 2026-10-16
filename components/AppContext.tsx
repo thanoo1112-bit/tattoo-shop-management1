@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { Artist } from '@/data/mockArtists';
 import { Booking, BookingPayment } from '@/data/mockBookings';
 import { EstimateRequest } from '@/data/mockEstimateRequests';
@@ -48,6 +48,7 @@ interface AppContextType {
   
   artists: Artist[];
   fetchArtists: () => Promise<Artist[]>;
+  ensureArtistAvatars: () => Promise<void>;
   fetchEstimates: (currentUser?: any) => Promise<void>;
   fetchBookings: (currentUser?: any) => Promise<void>;
   bookings: Booking[];
@@ -137,6 +138,22 @@ export const checkIsCustomerProfileComplete = (
   return true;
 };
 
+// Neutral dark circle shown for artist photos until ensureArtistAvatars() resolves
+const PLACEHOLDER_AVATAR =
+  'data:image/svg+xml;utf8,' +
+  encodeURIComponent(
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" fill="#1F1D1A"/><circle cx="32" cy="24" r="10" fill="#4A443A"/><path d="M12 56c2-12 12-18 20-18s18 6 20 18z" fill="#4A443A"/></svg>'
+  );
+// Same stock image the app used before when an artist has no avatar_url
+const FALLBACK_ARTIST_AVATAR = 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=500';
+
+// Remove image fields (may contain large base64) before persisting artists to localStorage
+const stripArtistImages = <T extends Record<string, any>>(list: T[]): Omit<T, 'avatar' | 'avatar_url'>[] =>
+  list.map((a) => {
+    const { avatar, avatar_url, ...rest } = a || ({} as T);
+    return rest as Omit<T, 'avatar' | 'avatar_url'>;
+  });
+
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const supabase = createClient();
   
@@ -169,12 +186,54 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [staffArtistRecord, setStaffArtistRecord] = useState<any | null>(null);
   const [staffArtistIdState, setStaffArtistIdState] = useState<string | null>(null);
 
+  // Avatars are large (stored as base64 in artists.avatar_url) so they are NOT part of the
+  // global mount-time fetch. Components that render artist photos call ensureArtistAvatars().
+  const avatarCacheRef = useRef<Record<string, string | null>>({});
+  const avatarPromiseRef = useRef<Promise<void> | null>(null);
+
+  const resolveAvatarFields = (id: string): { avatar: string; avatar_url: string | undefined } => {
+    const cache = avatarCacheRef.current;
+    if (id in cache) {
+      const url = cache[id];
+      return { avatar: url || FALLBACK_ARTIST_AVATAR, avatar_url: url || undefined };
+    }
+    return { avatar: PLACEHOLDER_AVATAR, avatar_url: undefined };
+  };
+
+  const ensureArtistAvatars = useCallback((): Promise<void> => {
+    if (!avatarPromiseRef.current) {
+      avatarPromiseRef.current = (async () => {
+        try {
+          const { data, error } = await supabase
+            .from('artists')
+            .select('id, avatar_url')
+            .eq('is_active', true);
+          if (error || !data) {
+            avatarPromiseRef.current = null;
+            return;
+          }
+          const cache: Record<string, string | null> = {};
+          data.forEach((row: any) => {
+            if (row?.id) cache[row.id] = row.avatar_url || null;
+          });
+          avatarCacheRef.current = cache;
+          setArtists((prev) =>
+            prev.map((a) => (a.id in cache ? { ...a, ...resolveAvatarFields(a.id) } : a))
+          );
+        } catch (_) {
+          avatarPromiseRef.current = null;
+        }
+      })();
+    }
+    return avatarPromiseRef.current;
+  }, [supabase]);
+
   // Fetch artists from Supabase
   const fetchArtists = useCallback(async () => {
     try {
       const { data, error } = await supabase
         .from('artists')
-        .select('id, user_id, name, nickname, slug, specialties, bio, avatar_url, working_days, status, is_active, is_visible, sort_order, created_at, updated_at')
+        .select('id, user_id, name, nickname, slug, specialties, bio, working_days, status, is_active, is_visible, sort_order, created_at, updated_at')
         .eq('is_active', true)
         .order('sort_order', { ascending: true })
         .order('created_at', { ascending: true });
@@ -196,8 +255,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             specialty: (item.specialties && item.specialties.length > 0) ? item.specialties.join(' / ') : '',
             specialties: item.specialties || [],
             bio: item.bio || '',
-            avatar: item.avatar_url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=500',
-            avatar_url: item.avatar_url || undefined,
+            ...resolveAvatarFields(item.id),
             portfolio: [],
             availability: item.working_days || [],
             working_days: item.working_days || [],
@@ -209,11 +267,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             updated_at: item.updated_at,
           }));
         setArtists(mapped);
+        // If avatars were already requested earlier, refresh them so edits are not stale
+        if (avatarPromiseRef.current) {
+          avatarPromiseRef.current = null;
+          void ensureArtistAvatars();
+        }
         return mapped;
       }
     } catch (_) {}
     return [];
-  }, [supabase]);
+  }, [supabase, ensureArtistAvatars]);
 
   // Fetch flash reservations from Supabase
   const fetchFlashReservations = useCallback(async () => {
@@ -535,7 +598,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setIsMounted(true);
 
     const storedArtists = localStorage.getItem('157_artists');
-    if (storedArtists) setArtists(JSON.parse(storedArtists));
+    if (storedArtists) {
+      try {
+        const parsedArtists = JSON.parse(storedArtists);
+        if (Array.isArray(parsedArtists)) {
+          const hadImages = parsedArtists.some((a: any) => a && (a.avatar || a.avatar_url));
+          const strippedArtists = stripArtistImages(parsedArtists);
+          if (hadImages) {
+            try { localStorage.setItem('157_artists', JSON.stringify(strippedArtists)); } catch (_) {}
+          }
+          setArtists(strippedArtists.map((a: any) => ({ ...a, avatar: PLACEHOLDER_AVATAR })));
+        }
+      } catch (_) {}
+    }
 
     const storedBDraft = localStorage.getItem('157_bookingDraft');
     if (storedBDraft) setBookingDraftState(JSON.parse(storedBDraft));
@@ -1722,7 +1797,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const updateArtistStatus = (artistId: string, status: Artist['status']) => {
     const updated = artists.map(a => a.id === artistId ? { ...a, status } : a);
     setArtists(updated);
-    saveToStorage('157_artists', updated);
+    saveToStorage('157_artists', stripArtistImages(updated));
   };
 
   const getArtistBusySlots = async (
@@ -1804,6 +1879,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       retryAuthProfile,
       artists,
       fetchArtists,
+      ensureArtistAvatars,
       fetchEstimates,
       fetchBookings,
       bookings,

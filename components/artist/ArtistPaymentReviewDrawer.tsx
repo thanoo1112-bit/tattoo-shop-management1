@@ -24,7 +24,7 @@ import {
 import CustomerReferenceImage from '@/components/common/CustomerReferenceImage';
 import PaymentSlipImage from '@/components/common/PaymentSlipImage';
 import { formatTattooSize } from '@/lib/utils/formatters';
-import { formatDateBangkok, formatTimeBangkok } from '@/components/admin/calendar/calendarUtils';
+import { formatDateBangkok, formatTimeBangkok, formatDateTimeBangkok } from '@/components/admin/calendar/calendarUtils';
 import { createClient } from '@/lib/supabase/client';
 
 interface ArtistPaymentReviewDrawerProps {
@@ -385,6 +385,17 @@ export default function ArtistPaymentReviewDrawer({
     ? formatDateBangkok(submission.submitted_at, true)
     : 'ไม่ระบุวันที่ส่ง';
 
+  const requestSubmitIso =
+    (estimate as any)?.submitted_at ||
+    estimate?.created_at ||
+    (flashDetails as any)?.submitted_at ||
+    flashDetails?.created_at ||
+    booking?.created_at ||
+    null;
+  const requestSubmittedDate = requestSubmitIso
+    ? formatDateTimeBangkok(requestSubmitIso)
+    : null;
+
   const reqCode = isFlash
     ? `FLASH-${(booking?.flash_reservation_id || submission?.flash_reservation_id || flashDetails?.id || '').slice(0, 8).toUpperCase()}`
     : estimate?.id
@@ -516,7 +527,7 @@ export default function ArtistPaymentReviewDrawer({
           
           {/* กล่อง 1: แจ้งสถานะคำขอ / สถานะการชำระเงิน */}
           <div className="bg-[#0E0D0C] border border-[#4A443A]/70 rounded-xl p-3.5 space-y-2 shadow-sm">
-            <div className="flex items-center gap-1.5 text-[11px] font-semibold text-[#7A7265] uppercase tracking-wider">
+            <div className="flex items-center gap-1.5 text-[11px] font-semibold text-[#ECE4D3] uppercase tracking-wider">
               <AlertCircle size={13} className="text-studio-red-bright" />
               <span>สถานะคำขอ / การชำระเงิน</span>
             </div>
@@ -530,7 +541,7 @@ export default function ArtistPaymentReviewDrawer({
 
           {/* กล่อง 2: ข้อมูลลูกค้า — ชื่อ, อีเมล, เบอร์โทร, อายุ */}
           <div className="bg-[#0E0D0C] border border-[#4A443A]/70 rounded-xl p-3.5 space-y-2.5 shadow-sm">
-            <div className="flex items-center gap-1.5 text-[11px] font-semibold text-[#7A7265] uppercase tracking-wider">
+            <div className="flex items-center gap-1.5 text-[11px] font-semibold text-[#ECE4D3] uppercase tracking-wider">
               <User size={13} className="text-studio-red-bright" />
               <span>ข้อมูลลูกค้า</span>
             </div>
@@ -538,7 +549,7 @@ export default function ArtistPaymentReviewDrawer({
             <div className="space-y-2 bg-[#171512] p-2.5 rounded-lg border border-[#4A443A]/40 text-xs">
               {/* ชื่อลูกค้า */}
               <div className="flex items-center justify-between">
-                <span className="text-[#7A7265] flex items-center gap-1">
+                <span className="text-[#B8B0A3] flex items-center gap-1">
                   <User size={12} className="text-studio-red-bright" />
                   <span>ชื่อลูกค้า:</span>
                 </span>
@@ -547,8 +558,8 @@ export default function ArtistPaymentReviewDrawer({
 
               {/* อีเมล */}
               <div className="flex items-center justify-between border-t border-[#4A443A]/30 pt-2">
-                <span className="text-[#7A7265] flex items-center gap-1">
-                  <Mail size={12} className="text-[#7A7265]" />
+                <span className="text-[#B8B0A3] flex items-center gap-1">
+                  <Mail size={12} className="text-[#B8B0A3]" />
                   <span>อีเมล:</span>
                 </span>
                 <span className="font-mono text-[#ECE4D3] text-[11px]">
@@ -558,8 +569,8 @@ export default function ArtistPaymentReviewDrawer({
 
               {/* เบอร์โทรศัพท์ */}
               <div className="flex items-center justify-between border-t border-[#4A443A]/30 pt-2">
-                <span className="text-[#7A7265] flex items-center gap-1">
-                  <Phone size={12} className="text-[#7A7265]" />
+                <span className="text-[#B8B0A3] flex items-center gap-1">
+                  <Phone size={12} className="text-[#B8B0A3]" />
                   <span>เบอร์โทรศัพท์:</span>
                 </span>
                 {displayCustPhone && displayCustPhone !== 'ไม่ระบุ' && displayCustPhone !== 'ไม่ระบุเบอร์โทร' ? (
@@ -571,14 +582,14 @@ export default function ArtistPaymentReviewDrawer({
                     <span className="font-mono">{displayCustPhone}</span>
                   </a>
                 ) : (
-                  <span className="text-[#7A7265]">ไม่ระบุเบอร์โทร</span>
+                  <span className="text-[#B8B0A3]">ไม่ระบุเบอร์โทร</span>
                 )}
               </div>
 
               {/* อายุลูกค้า */}
               <div className="flex items-center justify-between border-t border-[#4A443A]/30 pt-2">
-                <span className="text-[#7A7265] flex items-center gap-1">
-                  <Calendar size={12} className="text-[#7A7265]" />
+                <span className="text-[#B8B0A3] flex items-center gap-1">
+                  <Calendar size={12} className="text-[#B8B0A3]" />
                   <span>อายุลูกค้า:</span>
                 </span>
                 <span className="font-medium text-[#ECE4D3]">{displayCustAge}</span>
@@ -588,17 +599,17 @@ export default function ArtistPaymentReviewDrawer({
 
           {/* กล่อง 3: ข้อมูลสุขภาพที่ลูกค้าแจ้ง (โรคประจำตัว, การแพ้ยา, การรับรองอายุ) */}
           <div className="bg-[#0E0D0C] border border-[#4A443A]/70 rounded-xl p-3.5 space-y-2.5 shadow-sm">
-            <div className="flex items-center gap-1.5 text-[11px] font-semibold text-[#7A7265] uppercase tracking-wider">
-              <ShieldCheck size={13} className="text-studio-red-bright" />
+            <div className="flex items-center gap-1.5 text-[11px] font-semibold text-[#ECE4D3] uppercase tracking-wider">
+              <ShieldCheck size={13} className="text-amber-400" />
               <span>ข้อมูลสุขภาพที่ลูกค้าแจ้ง</span>
             </div>
 
             <div className="space-y-2 text-xs">
               {/* โรคประจำตัว / การเจ็บป่วย */}
               <div className="bg-[#171512] p-2.5 rounded-lg border border-[#4A443A]/40 space-y-1">
-                <span className="text-[#7A7265] text-[10px] uppercase font-semibold block">โรคประจำตัว / การเจ็บป่วย</span>
+                <span className="text-[#B8B0A3] text-[10px] uppercase font-semibold block">โรคประจำตัว / การเจ็บป่วย</span>
                 {customerDetails?.hasMedicalCondition === true ? (
-                  <p className="text-amber-300 font-medium leading-relaxed bg-amber-950/40 p-2 rounded border border-amber-800/40 flex items-start gap-1.5">
+                  <p className="text-amber-200/90 font-medium leading-relaxed bg-amber-500/10 p-2 rounded border border-amber-400/40 flex items-start gap-1.5">
                     <AlertTriangle size={13} className="shrink-0 text-amber-400 mt-0.5" />
                     <span>{customerDetails.medicalConditionNote || 'ระบุว่ามีโรคประจำตัว'}</span>
                   </p>
@@ -607,15 +618,15 @@ export default function ArtistPaymentReviewDrawer({
                     <CheckCircle2 size={13} /> ไม่มีโรคประจำตัว
                   </p>
                 ) : (
-                  <p className="text-[#7A7265] font-light italic text-xs">ยังไม่ให้ข้อมูล</p>
+                  <p className="text-[#B8B0A3] font-light italic text-xs">ยังไม่ให้ข้อมูล</p>
                 )}
               </div>
 
               {/* ประวัติการแพ้ยา / แพ้สารเคมี */}
               <div className="bg-[#171512] p-2.5 rounded-lg border border-[#4A443A]/40 space-y-1">
-                <span className="text-[#7A7265] text-[10px] uppercase font-semibold block">ประวัติการแพ้ยา / แพ้สารเคมี</span>
+                <span className="text-[#B8B0A3] text-[10px] uppercase font-semibold block">ประวัติการแพ้ยา / แพ้สารเคมี</span>
                 {customerDetails?.hasAllergy === true ? (
-                  <p className="text-amber-300 font-medium leading-relaxed bg-amber-950/40 p-2 rounded border border-amber-800/40 flex items-start gap-1.5">
+                  <p className="text-amber-200/90 font-medium leading-relaxed bg-amber-500/10 p-2 rounded border border-amber-400/40 flex items-start gap-1.5">
                     <AlertTriangle size={13} className="shrink-0 text-amber-400 mt-0.5" />
                     <span>{customerDetails.allergyNote || 'ระบุว่ามีประวัติแพ้'}</span>
                   </p>
@@ -624,14 +635,14 @@ export default function ArtistPaymentReviewDrawer({
                     <CheckCircle2 size={13} /> ไม่มีประวัติแพ้
                   </p>
                 ) : (
-                  <p className="text-[#7A7265] font-light italic text-xs">ยังไม่ให้ข้อมูล</p>
+                  <p className="text-[#B8B0A3] font-light italic text-xs">ยังไม่ให้ข้อมูล</p>
                 )}
               </div>
 
               {/* ข้อจำกัดสุขภาพเพิ่มเติม (ถ้ามี) */}
               {customerDetails?.extraHealthNotes && customerDetails.extraHealthNotes.trim() !== '' && (
                 <div className="bg-[#171512] p-2.5 rounded-lg border border-[#4A443A]/40 space-y-1">
-                  <span className="text-[#7A7265] text-[10px] uppercase font-semibold block">ข้อจำกัดสุขภาพเพิ่มเติม</span>
+                  <span className="text-[#B8B0A3] text-[10px] uppercase font-semibold block">ข้อจำกัดสุขภาพเพิ่มเติม</span>
                   <p className="text-[#ECE4D3] font-light leading-relaxed whitespace-pre-wrap">
                     {customerDetails.extraHealthNotes}
                   </p>
@@ -642,32 +653,42 @@ export default function ArtistPaymentReviewDrawer({
 
           {/* กล่อง 4: วันนัด, เวลาเริ่ม, วันที่ส่งคำขอ */}
           <div className="bg-[#0E0D0C] border border-[#4A443A]/70 rounded-xl p-3.5 space-y-2 shadow-sm">
-            <div className="flex items-center gap-1.5 text-[11px] font-semibold text-[#7A7265] uppercase tracking-wider">
+            <div className="flex items-center gap-1.5 text-[11px] font-semibold text-[#ECE4D3] uppercase tracking-wider">
               <Calendar size={13} className="text-studio-red-bright" />
               <span>กำหนดการ & วันที่ส่งคำขอ</span>
             </div>
 
             <div className="space-y-2 bg-[#171512] p-2.5 rounded-lg border border-[#4A443A]/40 text-xs">
               <div className="flex items-center justify-between">
-                <span className="text-[#7A7265] flex items-center gap-1">
-                  <Calendar size={12} className="text-[#7A7265]" />
+                <span className="text-[#B8B0A3] flex items-center gap-1">
+                  <Calendar size={12} className="text-[#B8B0A3]" />
                   <span>วันนัดหมาย:</span>
                 </span>
                 <span className="font-medium text-[#ECE4D3]">{appointmentDate}</span>
               </div>
 
               <div className="flex items-center justify-between border-t border-[#4A443A]/30 pt-2">
-                <span className="text-[#7A7265] flex items-center gap-1">
-                  <Clock size={12} className="text-[#7A7265]" />
+                <span className="text-[#B8B0A3] flex items-center gap-1">
+                  <Clock size={12} className="text-[#B8B0A3]" />
                   <span>เวลาเริ่ม:</span>
                 </span>
                 <span className="font-medium text-[#ECE4D3]">{appointmentTime}</span>
               </div>
 
+              {requestSubmittedDate && (
+                <div className="flex items-center justify-between border-t border-[#4A443A]/30 pt-2">
+                  <span className="text-[#B8B0A3] flex items-center gap-1">
+                    <FileText size={12} className="text-[#B8B0A3]" />
+                    <span>วันที่ยื่นคำขอ:</span>
+                  </span>
+                  <span className="text-[#ECE4D3] font-medium">{requestSubmittedDate}</span>
+                </div>
+              )}
+
               <div className="flex items-center justify-between border-t border-[#4A443A]/30 pt-2">
-                <span className="text-[#7A7265] flex items-center gap-1">
-                  <Send size={12} className="text-[#7A7265]" />
-                  <span>วันที่ส่งคำขอ/สลิป:</span>
+                <span className="text-[#B8B0A3] flex items-center gap-1">
+                  <Send size={12} className="text-[#B8B0A3]" />
+                  <span>วันที่ส่งสลิป:</span>
                 </span>
                 <span className="text-[#A89F91]">{submittedDate}</span>
               </div>
@@ -676,42 +697,42 @@ export default function ArtistPaymentReviewDrawer({
 
           {/* กล่อง 5: รายละเอียดงานสัก — ประเภทงาน, ชื่อผลงาน (ถ้ามี), สไตล์งาน, ตำแหน่ง, ขนาด, รายละเอียดเพิ่มเติม */}
           <div className="bg-[#0E0D0C] border border-[#4A443A]/70 rounded-xl p-3.5 space-y-2.5 shadow-sm">
-            <div className="flex items-center gap-1.5 text-[11px] font-semibold text-[#7A7265] uppercase tracking-wider">
+            <div className="flex items-center gap-1.5 text-[11px] font-semibold text-[#ECE4D3] uppercase tracking-wider">
               <FileText size={13} className="text-studio-red-bright" />
               <span>รายละเอียดงานสัก</span>
             </div>
 
             <div className="space-y-2 bg-[#171512] p-2.5 rounded-lg border border-[#4A443A]/40 text-xs">
               <div className="flex items-center justify-between">
-                <span className="text-[#7A7265]">ประเภทงาน:</span>
+                <span className="text-[#B8B0A3]">ประเภทงาน:</span>
                 <span className="font-semibold text-[#ECE4D3]">{workType}</span>
               </div>
 
               {designTitle && (
                 <div className="flex items-center justify-between border-t border-[#4A443A]/30 pt-2">
-                  <span className="text-[#7A7265]">ชื่อผลงาน:</span>
+                  <span className="text-[#B8B0A3]">ชื่อผลงาน:</span>
                   <span className="font-semibold text-[#ECE4D3]">{designTitle}</span>
                 </div>
               )}
 
               <div className="flex items-center justify-between border-t border-[#4A443A]/30 pt-2">
-                <span className="text-[#7A7265]">สไตล์งาน:</span>
+                <span className="text-[#B8B0A3]">สไตล์งาน:</span>
                 <span className="font-medium text-[#ECE4D3]">{styleDisplay}</span>
               </div>
 
               <div className="flex items-center justify-between border-t border-[#4A443A]/30 pt-2">
-                <span className="text-[#7A7265]">ตำแหน่งสัก:</span>
+                <span className="text-[#B8B0A3]">ตำแหน่งสัก:</span>
                 <span className="font-medium text-[#ECE4D3]">{placement}</span>
               </div>
 
               <div className="flex items-center justify-between border-t border-[#4A443A]/30 pt-2">
-                <span className="text-[#7A7265]">ขนาดงาน:</span>
+                <span className="text-[#B8B0A3]">ขนาดงาน:</span>
                 <span className="font-medium text-[#ECE4D3]">{tattooSize}</span>
               </div>
 
               {description && (
                 <div className="border-t border-[#4A443A]/30 pt-2">
-                  <span className="text-[#7A7265] block mb-1">รายละเอียดเพิ่มเติม:</span>
+                  <span className="text-[#B8B0A3] block mb-1">รายละเอียดเพิ่มเติม:</span>
                   <p className="text-[#ECE4D3] font-light leading-relaxed whitespace-pre-wrap break-words">
                     {description}
                   </p>
@@ -722,7 +743,7 @@ export default function ArtistPaymentReviewDrawer({
 
           {/* กล่อง 6: รูปอ้างอิง */}
           <div className="bg-[#0E0D0C] border border-[#4A443A]/70 rounded-xl p-3.5 space-y-2 shadow-sm">
-            <div className="flex items-center justify-between text-[11px] font-semibold text-[#7A7265] uppercase tracking-wider">
+            <div className="flex items-center justify-between text-[11px] font-semibold text-[#ECE4D3] uppercase tracking-wider">
               <span className="flex items-center gap-1.5">
                 <ImageIcon size={13} className="text-studio-red-bright" />
                 <span>รูปภาพอ้างอิง</span>

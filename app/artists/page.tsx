@@ -34,7 +34,7 @@ function ArtistsContent() {
     try {
       const { data, error } = await supabase
         .from('artists')
-        .select('*')
+        .select('id, user_id, name, nickname, slug, specialties, bio, avatar_url, working_days, status, is_active, is_visible, sort_order, created_at, updated_at')
         .order('sort_order', { ascending: true })
         .order('created_at', { ascending: true });
 
@@ -129,7 +129,7 @@ function ArtistsContent() {
   return (
     <div className="min-h-screen bg-studio-main pb-28 md:pb-16 text-studio-primary font-prompt">
       {/* Header */}
-      <CustomerHeader />
+      <CustomerHeader showLogo />
 
       <main className="max-w-[1560px] mx-auto px-4 sm:px-6 md:px-12 xl:px-16 py-6 md:py-10">
         
@@ -138,7 +138,7 @@ function ArtistsContent() {
           <div className="border-b border-studio-border pb-4 mb-6 md:mb-8">
             <span className="text-[10px] uppercase tracking-widest text-studio-red-bright font-bold">Resident Artists</span>
             <h1 className="text-xl md:text-3xl font-bold tracking-wider text-studio-primary mt-0.5">ทีมช่างสักประจำร้าน</h1>
-            <p className="text-xs text-studio-secondary mt-1">พบกับศิลปินผู้สร้างสรรค์ผลงานศิลปะบนผิวหนังประจำสตูดิโอ 157 TATTOO</p>
+            <p className="text-xs text-[#E2DDD4] mt-1">พบกับศิลปินผู้สร้างสรรค์ผลงานศิลปะบนผิวหนังประจำสตูดิโอ 157 TATTOO</p>
           </div>
         )}
 
@@ -152,7 +152,7 @@ function ArtistsContent() {
               <h3 className="text-lg font-heading text-studio-primary">
                 {inactiveArtistNotice}
               </h3>
-              <p className="text-xs text-studio-secondary leading-relaxed">
+              <p className="text-xs text-[#E2DDD4] leading-relaxed">
                 ช่างสักที่คุณกำลังค้นหาไม่เปิดให้จองคิวในขณะนี้ คุณสามารถเลือกชมทีมช่างสักท่านอื่นของสตูดิโอ 157 TATTOO ได้ด้านล่าง
               </p>
             </div>
@@ -169,7 +169,7 @@ function ArtistsContent() {
         {loading && !selectedArtist && (
           <div className="py-24 text-center space-y-3">
             <Loader2 size={24} className="text-studio-red animate-spin mx-auto" />
-            <p className="text-xs text-studio-secondary">กำลังโหลดข้อมูลช่างสัก...</p>
+            <p className="text-xs text-[#E2DDD4]">กำลังโหลดข้อมูลช่างสัก...</p>
           </div>
         )}
 
@@ -183,7 +183,7 @@ function ArtistsContent() {
               <h3 className="text-lg font-heading text-studio-primary">
                 ยังไม่มีรายชื่อช่างสักที่เปิดเผยในขณะนี้
               </h3>
-              <p className="text-xs text-studio-secondary leading-relaxed">
+              <p className="text-xs text-[#E2DDD4] leading-relaxed">
                 ทางสตูดิโอกำลังอัปเดตข้อมูลรายชื่อช่างสักประจำร้าน กรุณาติดต่อสตูดิโอโดยตรงสำหรับข้อมูลเพิ่มเติม
               </p>
             </div>
@@ -222,7 +222,7 @@ function ArtistsContent() {
           <div className="max-w-xl mx-auto bg-studio-card border border-studio-border p-6 rounded-[8px] animate-fadeIn">
             <button
               onClick={() => setActiveForm('none')}
-              className="flex items-center space-x-1.5 text-xs text-studio-secondary hover:text-studio-red-bright transition-colors uppercase font-semibold mb-6"
+              className="flex items-center space-x-1.5 text-xs text-[#E2DDD4] hover:text-studio-red-bright transition-colors uppercase font-semibold mb-6"
             >
               <ArrowLeft size={14} />
               <span>ย้อนกลับไปประวัติช่างสัก</span>

@@ -62,6 +62,21 @@ function formatArtistTitle(name?: string | null): string {
   return `ช่าง${trimmed}`;
 }
 
+const KNOWN_TATTOO_STYLES = [
+  'Chicano',
+  'Portrait',
+  'Blackwork',
+  'Darkwork',
+  'Fine Line',
+  'Black & Grey',
+  'Realism',
+  'Minimalist',
+  'Traditional',
+  'Japanese / Irezumi',
+  'Color Tattoo',
+  'Cover Up',
+];
+
 function PortfolioContent() {
   const searchParams = useSearchParams();
   const { supabase } = useApp();
@@ -181,8 +196,25 @@ function PortfolioContent() {
     }
 
     const styleParam = searchParams.get('style') || searchParams.get('filter');
-    if (styleParam && styleParam !== 'All') {
-      setFilter(styleParam);
+    if (styleParam && styleParam.trim() && styleParam.toLowerCase() !== 'all') {
+      const trimmedParam = styleParam.trim();
+      const matchedFromArtworks = artworks.find(
+        (a) => a.style && a.style.trim().toLowerCase() === trimmedParam.toLowerCase()
+      )?.style?.trim();
+
+      const matchedKnown = KNOWN_TATTOO_STYLES.find(
+        (s) => s.toLowerCase() === trimmedParam.toLowerCase()
+      );
+
+      const resolvedStyle = matchedFromArtworks || matchedKnown;
+
+      if (resolvedStyle) {
+        setFilter(resolvedStyle);
+      } else {
+        setFilter('All');
+      }
+    } else {
+      setFilter('All');
     }
 
     const action = searchParams.get('action');
@@ -223,6 +255,19 @@ function PortfolioContent() {
     return list;
   }, [artworks, filter, searchQuery, sortBy]);
 
+  // Keep selectedArtwork in sync with filtered artworks (unless explicit item selected by id param)
+  useEffect(() => {
+    if (searchParams.get('id')) return;
+    if (filteredArtworks.length > 0) {
+      setSelectedArtwork((prev) => {
+        if (prev && filteredArtworks.some((p) => p.id === prev.id)) return prev;
+        return filteredArtworks[0];
+      });
+    } else {
+      setSelectedArtwork(null);
+    }
+  }, [filteredArtworks, searchParams]);
+
   const dynamicFilters = useMemo(() => {
     const seen = new Set<string>();
     const styles: string[] = [];
@@ -234,9 +279,12 @@ function PortfolioContent() {
         styles.push(a.style.trim());
       }
     }
+    if (filter !== 'All' && !seen.has(filter.trim().toLowerCase())) {
+      styles.push(filter.trim());
+    }
     styles.sort((a, b) => a.localeCompare(b, 'th'));
     return ['All', ...styles];
-  }, [artworks]);
+  }, [artworks, filter]);
 
   const handleItemSelect = (item: PortfolioArtworkData) => {
     setSelectedArtwork(item);
@@ -248,7 +296,7 @@ function PortfolioContent() {
 
   return (
     <div className="min-h-screen bg-studio-main pb-28 md:pb-16 text-studio-primary font-prompt">
-      <CustomerHeader />
+      <CustomerHeader showLogo />
 
       <main className="max-w-[1560px] mx-auto px-4 sm:px-6 md:px-12 xl:px-16 py-6 md:py-12">
         <div className="flex flex-col lg:flex-row gap-8 xl:gap-12 items-start">
@@ -259,7 +307,7 @@ function PortfolioContent() {
                 <h1 className="text-2xl md:text-3xl font-black tracking-wider text-studio-primary mt-1">
                   ผลงานสัก (PORTFOLIO)
                 </h1>
-                <p className="text-xs text-studio-secondary mt-1">
+                <p className="text-xs text-[#E2DDD4] mt-1">
                   รวมผลงานสักคัสตอมระดับพรีเมียมจากช่างประจำร้าน 157 TATTOO
                 </p>
               </div>
@@ -302,7 +350,7 @@ function PortfolioContent() {
               </div>
             </div>
 
-            <div className="flex justify-between items-center text-xs text-studio-secondary px-1">
+            <div className="flex justify-between items-center text-xs text-[#E2DDD4] px-1">
               <span>
                 แสดงผลงานทั้งหมด <strong className="text-studio-primary">{filteredArtworks.length}</strong> รายการ
                 {filter !== 'All' && <span> • สไตล์: <strong className="text-studio-red-bright">{filter}</strong></span>}
@@ -339,7 +387,7 @@ function PortfolioContent() {
               <div className="bg-studio-card border border-studio-red/40 p-8 rounded-[6px] text-center space-y-3">
                 <AlertCircle size={28} className="text-studio-red mx-auto" />
                 <h3 className="text-sm font-bold text-studio-primary">{error}</h3>
-                <p className="text-xs text-studio-secondary">กรุณาตรวจสอบการเชื่อมต่ออินเทอร์เน็ตแล้วลองใหม่อีกครั้ง</p>
+                <p className="text-xs text-[#E2DDD4]">กรุณาตรวจสอบการเชื่อมต่ออินเทอร์เน็ตแล้วลองใหม่อีกครั้ง</p>
                 <button
                   onClick={fetchLiveArtworks}
                   className="inline-flex items-center gap-1.5 bg-studio-main border border-studio-border hover:border-studio-red text-studio-primary px-4 py-2 rounded text-xs font-semibold"
@@ -354,7 +402,7 @@ function PortfolioContent() {
               <div className="bg-studio-card border border-studio-border p-12 rounded-[6px] text-center space-y-3">
                 <ImageIcon size={36} className="text-studio-muted mx-auto" />
                 <h3 className="text-base font-bold text-studio-primary">ยังไม่มีผลงานใน Portfolio</h3>
-                <p className="text-xs text-studio-secondary max-w-md mx-auto">
+                <p className="text-xs text-[#E2DDD4] max-w-md mx-auto">
                   ผลงานสักคัสตอมใหม่จากช่างประจำร้าน 157 TATTOO จะถูกเพิ่มในหน้านี้เร็วๆ นี้
                 </p>
                 {(filter !== 'All' || searchQuery) && (
@@ -408,7 +456,7 @@ function PortfolioContent() {
                           <h4 className="text-xs font-bold text-studio-primary truncate group-hover:text-studio-red-bright transition-colors">
                             {item.title}
                           </h4>
-                          <p className="text-[10px] text-studio-secondary truncate">
+                          <p className="text-[10px] text-[#E2DDD4] truncate">
                             ช่าง: {artistName}
                           </p>
                         </div>
@@ -448,7 +496,7 @@ function PortfolioContent() {
                 </div>
               </div>
             ) : (
-              <div className="bg-studio-card border border-studio-border p-8 rounded-[8px] text-center text-xs text-studio-muted">
+              <div className="bg-studio-card border border-studio-border p-8 rounded-[8px] text-center text-xs text-[#F2EEE8]">
                 เลือกผลงานจากรายการเพื่อดูรูปภาพ
               </div>
             )}
@@ -503,7 +551,7 @@ function PortfolioContent() {
 
                 <div className="grid grid-cols-2 gap-2 my-4 border-t border-b border-studio-border/60 py-3.5 text-xs">
                   <div className="space-y-0.5 min-w-0">
-                    <span className="text-[9px] sm:text-[10px] text-studio-muted flex items-center gap-1 truncate">
+                    <span className="text-[9px] sm:text-[10px] text-[#F2EEE8] flex items-center gap-1 truncate">
                       <User size={12} className="shrink-0" /> <span className="truncate">ช่างสัก</span>
                     </span>
                     <span className="font-semibold text-studio-primary text-xs block truncate">
@@ -512,7 +560,7 @@ function PortfolioContent() {
                   </div>
 
                   <div className="space-y-0.5 min-w-0">
-                    <span className="text-[9px] sm:text-[10px] text-studio-muted flex items-center gap-1 truncate">
+                    <span className="text-[9px] sm:text-[10px] text-[#F2EEE8] flex items-center gap-1 truncate">
                       <span className="truncate">สไตล์ลายสัก</span>
                     </span>
                     <span className="font-semibold text-studio-primary text-xs block truncate">
@@ -526,10 +574,10 @@ function PortfolioContent() {
                   selectedArtwork.description.trim() !== 'ว่าง' &&
                   selectedArtwork.description.trim() !== '-' && (
                     <div className="mb-4 space-y-1">
-                      <span className="text-[10px] font-medium uppercase tracking-wider text-studio-muted block">
+                      <span className="text-[10px] font-medium uppercase tracking-wider text-[#F2EEE8] block">
                         รายละเอียดผลงาน
                       </span>
-                      <p className="text-xs text-studio-secondary leading-relaxed whitespace-pre-line bg-studio-main/40 p-2.5 rounded border border-studio-border/50">
+                      <p className="text-xs text-[#E2DDD4] leading-relaxed whitespace-pre-line bg-studio-main/40 p-2.5 rounded border border-studio-border/50">
                         {selectedArtwork.description.trim()}
                       </p>
                     </div>
@@ -565,7 +613,7 @@ function PortfolioContent() {
         <div className="lg:hidden px-4 py-8 border-t border-studio-border mt-8 bg-studio-card animate-fadeIn">
           <button
             onClick={() => setPanelView('default')}
-            className="flex items-center space-x-1.5 text-xs text-studio-secondary hover:text-studio-red-bright transition-colors uppercase font-semibold mb-6"
+            className="flex items-center space-x-1.5 text-xs text-[#E2DDD4] hover:text-studio-red-bright transition-colors uppercase font-semibold mb-6"
           >
             <ArrowLeft size={14} />
             <span>ย้อนกลับไปดูผลงาน</span>
@@ -601,7 +649,7 @@ function PortfolioContent() {
               alt={selectedArtwork.title}
               className="max-w-full max-h-[85vh] object-contain rounded-lg border border-white/20 shadow-2xl mx-auto"
             />
-            <p className="text-center text-xs text-studio-secondary mt-2.5">
+            <p className="text-center text-xs text-[#E2DDD4] mt-2.5">
               {selectedArtwork.title} — รูปภาพความละเอียดสูงต้นฉบับ
             </p>
           </div>

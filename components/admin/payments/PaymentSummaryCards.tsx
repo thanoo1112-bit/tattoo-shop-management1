@@ -1,32 +1,21 @@
 'use client';
 
 import React from 'react';
-import { Wallet, Layers, Clock3, CheckCircle2 } from 'lucide-react';
+import { Layers, Clock3, CheckCircle2 } from 'lucide-react';
 
 interface PaymentSummaryCardsProps {
-  totalRecordedRevenue: number;
+  totalRecordedRevenue?: number;
   totalActiveBookingsCount: number;
   bookedFlashCount: number;
   completedBookingsCount: number;
 }
 
 export default function PaymentSummaryCards({
-  totalRecordedRevenue,
   totalActiveBookingsCount,
   bookedFlashCount,
   completedBookingsCount,
 }: PaymentSummaryCardsProps) {
   const cards = [
-    {
-      title: 'รายรับรวม',
-      subtitle: 'ยอดเงินที่รับจริงทั้งหมด',
-      value: `฿${totalRecordedRevenue.toLocaleString('th-TH')}`,
-      hint: '',
-      icon: Wallet,
-      borderColor: 'border-emerald-900/40',
-      iconBg: 'bg-emerald-950/40 text-emerald-400 border border-emerald-800/40',
-      accentColor: 'text-emerald-400',
-    },
     {
       title: 'งานที่ยืนยันแล้วทั้งหมด',
       subtitle: 'จำนวน booking ที่ยืนยันคิวแล้ว',
@@ -60,7 +49,7 @@ export default function PaymentSummaryCards({
   ];
 
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 font-prompt">
+    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 font-prompt">
       {cards.map((card, idx) => {
         const Icon = card.icon;
         return (

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Check, Pencil } from 'lucide-react';
+import { Pencil } from 'lucide-react';
 
 interface PlacementSelectorProps {
   value: string;
@@ -98,8 +98,8 @@ export default function PlacementSelector({ value, onChange }: PlacementSelector
 
   return (
     <div className="w-full space-y-3 font-prompt">
-      {/* Responsive Checkbox Grid */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 sm:gap-2.5">
+      {/* Flexible Tag-Style Buttons matching Style Selector */}
+      <div className="flex flex-wrap gap-2">
         {PLACEMENT_OPTIONS.map((option) => {
           const isSelected = selectedPlacement === option;
           return (
@@ -107,22 +107,13 @@ export default function PlacementSelector({ value, onChange }: PlacementSelector
               key={option}
               type="button"
               onClick={() => handleSelect(option)}
-              className={`min-h-[44px] px-3 py-2.5 rounded-[4px] border text-left flex items-center space-x-2.5 transition-all duration-200 select-none ${
+              className={`px-3 py-1.5 rounded-[4px] text-xs transition-all border select-none cursor-pointer ${
                 isSelected
-                  ? 'bg-studio-red/10 border-studio-red text-studio-primary shadow-sm font-semibold'
-                  : 'bg-studio-main border-studio-border/70 text-studio-secondary hover:border-studio-red/50 hover:text-studio-primary'
+                  ? 'bg-studio-red border-studio-red text-white font-semibold shadow-md'
+                  : 'bg-studio-main border-studio-border text-[#F2EEE8] hover:border-studio-border/80'
               }`}
             >
-              <div
-                className={`w-4 h-4 rounded-[3px] flex items-center justify-center shrink-0 transition-colors ${
-                  isSelected
-                    ? 'bg-studio-red border border-studio-red text-white'
-                    : 'border border-studio-border bg-studio-card'
-                }`}
-              >
-                {isSelected && <Check size={12} strokeWidth={3} />}
-              </div>
-              <span className="text-xs leading-tight">{option}</span>
+              {option}
             </button>
           );
         })}
@@ -131,13 +122,13 @@ export default function PlacementSelector({ value, onChange }: PlacementSelector
       {/* Conditional Custom Description Input when "อื่น ๆ" is selected */}
       {isOtherSelected && (
         <div className="relative w-full animate-fadeIn">
-          <Pencil size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-studio-muted pointer-events-none" />
+          <Pencil size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#B8B0A3] pointer-events-none" />
           <input
             type="text"
             value={otherText}
             onChange={(e) => handleOtherTextChange(e.target.value)}
             placeholder="ระบุตำแหน่งอื่น ๆ เพิ่มเติม เช่น ท่อนแขนด้านใน, หลังใบหู, ข้อศอก..."
-            className="w-full min-h-[44px] bg-studio-main border border-studio-border focus:border-studio-red text-xs sm:text-sm text-studio-primary pl-10 pr-4 py-2.5 outline-none rounded-[4px] transition-colors placeholder:text-studio-muted font-prompt"
+            className="w-full min-h-[44px] bg-studio-main border border-studio-border focus:border-studio-red text-xs sm:text-sm text-studio-primary pl-10 pr-4 py-2.5 outline-none rounded-[4px] transition-colors placeholder:text-[#B8B0A3] font-prompt"
           />
         </div>
       )}
