@@ -88,7 +88,7 @@ export default function DepositCard({
         <p className="text-[9px] text-studio-red-bright mb-3 uppercase tracking-widest font-bold">
           Deposit Verified • คิวจองได้รับการยืนยัน
         </p>
-        <p className="text-xs text-studio-secondary leading-relaxed">
+        <p className="text-xs text-studio-primary leading-relaxed">
           ทางร้านได้ทำการตรวจสอบยอดเงินมัดจำ ฿{depositAmount.toLocaleString()} เรียบร้อยแล้ว ช่าง {artistName} พร้อมให้บริการตามวันนัดหมาย
         </p>
       </div>
@@ -104,13 +104,13 @@ export default function DepositCard({
         <h4 className="text-xs font-bold text-studio-primary">
           แจ้งชำระเงินมัดจำเรียบร้อยแล้ว
         </h4>
-        <div className="text-[10px] text-studio-secondary leading-relaxed bg-studio-main p-3 rounded-[4px] border border-studio-border/60">
+        <div className="text-[10px] text-studio-primary leading-relaxed bg-studio-main p-3 rounded-[4px] border border-studio-border/60">
           <div className="flex justify-between mb-1">
-            <span className="text-studio-muted">เลขอ้างอิงสลิป:</span>
+            <span className="text-studio-primary">เลขอ้างอิงสลิป:</span>
             <span className="font-mono text-studio-primary font-bold">{paymentReference || activePayment?.paymentReference || '-'}</span>
           </div>
           <div className="flex justify-between">
-            <span className="text-studio-muted">ยอดมัดจำ:</span>
+            <span className="text-studio-primary">ยอดมัดจำ:</span>
             <span className="text-studio-red-bright font-bold">฿{depositAmount.toLocaleString()}</span>
           </div>
         </div>
@@ -131,7 +131,7 @@ export default function DepositCard({
         <h3 className="text-sm font-bold text-studio-primary mt-2">
           ยืนยันสิทธิ์คิวของคุณ
         </h3>
-        <p className="text-[10px] text-studio-secondary mt-0.5">
+        <p className="text-[10px] text-studio-primary mt-0.5">
           ช่างสัก: {artistName} • วันที่: {dateString} ({timeSlotString})
         </p>
       </div>
@@ -157,13 +157,13 @@ export default function DepositCard({
 
       {/* Deposit Amount display */}
       <div className="bg-studio-main border border-studio-border p-3.5 rounded-[4px] text-center">
-        <span className="text-[9px] text-studio-secondary block uppercase tracking-wider">
+        <span className="text-[9px] text-studio-primary block uppercase tracking-wider">
           ยอดเงินมัดจำที่ต้องชำระ
         </span>
         <span className="text-2xl font-bold text-studio-red block mt-0.5">
           ฿{depositAmount.toLocaleString()}
         </span>
-        <span className="text-[9px] text-studio-muted block mt-0.5">
+        <span className="text-[9px] text-studio-primary block mt-0.5">
           (ยอดมัดจำจะถูกนำไปหักออกจากราคาค่าสักจริงในวันรับบริการ)
         </span>
       </div>
@@ -174,7 +174,7 @@ export default function DepositCard({
           <QrCode size={13} />
           <span>ช่องทางการโอนชำระเงิน</span>
         </div>
-        <div className="space-y-1 text-[10px] text-studio-secondary">
+        <div className="space-y-1 text-[10px] text-studio-primary">
           <p>ธนาคาร: <strong className="text-studio-primary font-medium">กสิกรไทย (KBANK)</strong></p>
           <p>เลขที่บัญชี: <strong className="text-studio-primary font-mono font-medium">157-2-88990-1</strong></p>
           <p>ชื่อบัญชี: <strong className="text-studio-primary font-medium">สตูดิโอ 157 แทททู จำกัด</strong></p>
@@ -184,7 +184,7 @@ export default function DepositCard({
       {/* Submission Form */}
       <form onSubmit={handleSubmit} className="space-y-3">
         <div>
-          <label className="text-[9px] uppercase tracking-wider text-studio-secondary block mb-1 font-semibold">
+          <label className="text-[9px] uppercase tracking-wider text-studio-primary block mb-1 font-semibold">
             เลขอ้างอิงสลิปการโอนเงิน (Transfer Reference / Transaction ID) *
           </label>
           <input
@@ -198,7 +198,7 @@ export default function DepositCard({
         </div>
 
         <div>
-          <label className="text-[9px] uppercase tracking-wider text-studio-secondary block mb-1 font-semibold">
+          <label className="text-[9px] uppercase tracking-wider text-studio-primary block mb-1 font-semibold">
             หมายเหตุเพิ่มเติม (ถ้ามี)
           </label>
           <input

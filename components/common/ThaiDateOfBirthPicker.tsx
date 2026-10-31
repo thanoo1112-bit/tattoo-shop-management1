@@ -57,11 +57,12 @@ export default function ThaiDateOfBirthPicker({
   const currentAdYear = useMemo(() => new Date().getFullYear(), []);
   const currentBeYear = useMemo(() => currentAdYear + 543, [currentAdYear]);
 
-  // Generate Year Options in BE (พ.ศ.) from current BE year down to 120 years ago
+  // Generate Year Options in BE (พ.ศ.) for ages 18 to 100 years
   const yearOptions = useMemo(() => {
     const years: number[] = [];
-    const minBeYear = currentBeYear - 120;
-    for (let y = currentBeYear; y >= minBeYear; y--) {
+    const maxBeYear = currentBeYear - 18;
+    const minBeYear = currentBeYear - 100;
+    for (let y = maxBeYear; y >= minBeYear; y--) {
       years.push(y);
     }
     return years;
@@ -202,8 +203,8 @@ export default function ThaiDateOfBirthPicker({
   // Styling based on theme
   const selectBaseClass = theme === 'dark'
     ? `h-11 bg-[#0E0D0C] text-[#ECE4D3] border ${
-        hasError ? 'border-[#9C2F2F]' : 'border-[#4A443A]'
-      } hover:border-[#7A7265] focus:border-[#9C2F2F] rounded-[6px] text-xs outline-none transition-colors px-2 cursor-pointer`
+        hasError ? 'border-[#C12D2D]' : 'border-[#4A443A]'
+      } hover:border-[#7A7265] focus:border-[#C12D2D] rounded-[6px] text-xs outline-none transition-colors px-2 cursor-pointer`
     : `min-h-[50px] bg-studio-main text-studio-primary border ${
         hasError ? 'border-studio-red' : 'border-studio-border'
       } focus:border-studio-red rounded-[4px] text-xs sm:text-sm outline-none transition-colors px-2.5 cursor-pointer`;

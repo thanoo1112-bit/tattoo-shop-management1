@@ -723,7 +723,7 @@ export default function UnifiedActionQueue() {
             operational_status: s.status === 'IN_PROGRESS' ? {
               key: 'IN_PROGRESS',
               label: 'กำลังสัก',
-              badgeClass: 'bg-[#9C2F2F]/20 text-[#D64545] border border-[#9C2F2F]/60',
+              badgeClass: 'bg-[#C12D2D]/20 text-[#C12D2D] border border-[#C12D2D]/60',
             } : s.status === 'COMPLETED' ? {
               key: 'COMPLETED',
               label: 'งานเสร็จสิ้น',
@@ -883,7 +883,7 @@ export default function UnifiedActionQueue() {
                           <span className="text-[10px] bg-studio-red/15 text-studio-red-bright border border-studio-red/30 px-2 py-0.5 rounded font-bold uppercase tracking-wider">
                             คำขอจอง
                           </span>
-                          <span className="text-[10px] text-[#AFA79A] font-mono">#{item.id.slice(0, 8)}</span>
+                          <span className="text-[10px] text-[#ECE4D3] font-mono">#{item.id.slice(0, 8)}</span>
                           <span className="text-[10px] text-[#AFA79A] font-mono">
                             {formatDateBangkok(item.created_at, true)}
                           </span>
@@ -893,10 +893,10 @@ export default function UnifiedActionQueue() {
                           งานสักสไตล์ {est.style || 'Custom'} ({formatTattooSize(est.width_cm, est.height_cm)})
                         </h4>
 
-                        <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-[#CFC7BA]">
+                        <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-[#ECE4D3]">
                           <span>ลูกค้า: <strong className="text-[#ECE4D3]">{item.customerName}</strong></span>
                           <span>ช่างสัก: <strong className="text-[#ECE4D3]">{item.artistName}</strong></span>
-                          <span className="text-[#AFA79A]">ตำแหน่ง: {est.placement || 'ไม่ระบุ'}</span>
+                          <span className="text-[#ECE4D3]">ตำแหน่ง: {est.placement || 'ไม่ระบุ'}</span>
                         </div>
                       </div>
                     </div>
@@ -954,7 +954,7 @@ export default function UnifiedActionQueue() {
                         <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-[#CFC7BA]">
                           <span>ลูกค้า: <strong className="text-[#ECE4D3]">{item.customerName}</strong></span>
                           <span>ช่างสัก: <strong className="text-[#ECE4D3]">{item.artistName}</strong></span>
-                          <span className="text-[#AFA79A]">งาน: {sub.artwork_title || 'คิวจองสัก'}</span>
+                          <span className="text-[#ECE4D3]">งาน: {sub.artwork_title || 'คิวจองสัก'}</span>
                         </div>
                       </div>
                     </div>
@@ -1082,7 +1082,7 @@ export default function UnifiedActionQueue() {
                           </span>
                           <span className={`text-[10px] px-2 py-0.5 rounded font-semibold ${
                             s?.status === 'IN_PROGRESS'
-                              ? 'bg-[#9C2F2F]/20 text-[#D64545] border border-[#9C2F2F]/60'
+                              ? 'bg-[#C12D2D]/20 text-[#C12D2D] border border-[#C12D2D]/60'
                               : s?.status === 'COMPLETED'
                               ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-400/40'
                               : 'bg-sky-500/15 text-sky-300 border border-sky-400/40'
@@ -1090,7 +1090,7 @@ export default function UnifiedActionQueue() {
                             {s?.status === 'IN_PROGRESS' ? 'กำลังสัก' : s?.status === 'COMPLETED' ? 'งานเสร็จสิ้น' : 'นัดหมายแล้ว'}
                           </span>
                           <span className="text-[10px] text-[#ECE4D3] font-mono font-semibold flex items-center gap-1">
-                            <Clock size={11} className="text-[#B8B0A3]" /> {timeDisplay}
+                            <Clock size={11} className="text-[#ECE4D3]" /> {timeDisplay}
                           </span>
                           <span className="text-[10px] text-[#AFA79A] font-mono">#{b?.id?.slice(0, 8)}</span>
                         </div>
@@ -1102,7 +1102,7 @@ export default function UnifiedActionQueue() {
                         <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-[#CFC7BA]">
                           <span>ลูกค้า: <strong className="text-[#ECE4D3]">{item.customerName}</strong></span>
                           <span>ช่างสัก: <strong className="text-[#ECE4D3]">{item.artistName}</strong></span>
-                          <span className="text-[#AFA79A]">รอบที่ {s?.session_number || 1}</span>
+                          <span className="text-[#ECE4D3]">รอบที่ {s?.session_number || 1}</span>
                         </div>
                       </div>
                     </div>

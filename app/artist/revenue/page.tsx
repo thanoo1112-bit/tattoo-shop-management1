@@ -6,6 +6,13 @@ import { createClient } from '../../../lib/supabase/client';
 import ArtistHeader from '../../../components/artist/ArtistHeader';
 import ArtistMobileNav from '../../../components/artist/ArtistMobileNav';
 import { formatDateBangkok, getTodayBangkokStr, getDateStrBangkok } from '@/components/admin/calendar/calendarUtils';
+import RevenueFilters from '@/components/admin/revenue/RevenueFilters';
+import {
+  DateFilterPreset,
+  getBangkokToday,
+  getBangkokCurrentMonth,
+  getBangkokPreviousMonth,
+} from '@/components/admin/revenue/types';
 import { 
   DollarSign, 
   RefreshCw, 
@@ -34,11 +41,13 @@ export default function ArtistRevenuePage() {
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [dateFilter, setDateFilter] = useState<'this_month' | 'last_month' | 'all'>('this_month');
+  const [dateFilter, setDateFilter] = useState<DateFilterPreset>('this_month');
+  const [customStartDate, setCustomStartDate] = useState<string>(getBangkokToday());
+  const [customEndDate, setCustomEndDate] = useState<string>(getBangkokToday());
   
   const [jobRevenueRecords, setJobRevenueRecords] = useState<BookingJobRevenueRecord[]>([]);
   const [artistBookings, setArtistBookings] = useState<any[]>([]);
-  const [bookedFlashWorksCount, setBookedFlashWorksCount] = useState<number>(0);
+  const [artistFlashReservations, setArtistFlashReservations] = useState<any[]>([]);
 
   const activeArtistId = staffArtistId || (staffRole === 'ADMIN' ? 'd5af5064-d973-4bbb-b205-1ab6b2929abb' : null);
 
@@ -62,9 +71,9 @@ export default function ArtistRevenuePage() {
     setError(null);
 
     try {
-      // 0. Fetch Flash-only booked designs count for current artist in current month using flash_reservations.created_at (Asia/Bangkok)
-      const currentMonthStr = getTodayBangkokStr().slice(0, 7);
-      const bookedFlashIds = new Set<string>();
+      // 0. Fetch Flash-only booked designs for current artist
+
+
 
       const { data: dbArtistFlash, error: flashErr } = await supabase
         .from('flash_designs')
@@ -95,18 +104,10 @@ export default function ArtistRevenuePage() {
           return;
         }
 
-        (dbFlashRes || []).forEach((fr: any) => {
-          if (fr.flash_design_id && fr.created_at) {
-            // Filter strictly by customer reservation booking date (created_at) in Asia/Bangkok timezone for current month
-            const reservationMonthStr = getDateStrBangkok(fr.created_at).slice(0, 7);
-            if (reservationMonthStr === currentMonthStr) {
-              bookedFlashIds.add(fr.flash_design_id);
-            }
-          }
-        });
+        setArtistFlashReservations(dbFlashRes || []);
+      } else {
+        setArtistFlashReservations([]);
       }
-
-      setBookedFlashWorksCount(bookedFlashIds.size);
 
       // 1. Fetch bookings assigned to current artist
       const { data: dbBookings, error: bErr } = await supabase
@@ -169,6 +170,7 @@ export default function ArtistRevenuePage() {
           .from('flash_reservations')
           .select('id, flash_design_id, flash_designs(*)')
           .in('id', flashResIds);
+
 
         (dbFlashRes || []).forEach((fr: any) => {
           flashReservationsMap.set(fr.id, fr);
@@ -376,33 +378,29 @@ export default function ArtistRevenuePage() {
   }, [isAuthorized, activeArtistId, fetchArtistRevenue]);
 
   // Current Bangkok Month string (YYYY-MM)
-  const currentMonthStr = useMemo(() => {
-    const today = getTodayBangkokStr(); // YYYY-MM-DD
-    return today.slice(0, 7);
-  }, []);
+  const currentMonthStr = useMemo(() => getBangkokCurrentMonth(), []);
 
   // Previous Bangkok Month string (YYYY-MM)
-  const previousMonthStr = useMemo(() => {
-    const [yearStr, monthStr] = currentMonthStr.split('-');
-    let year = parseInt(yearStr, 10);
-    let month = parseInt(monthStr, 10) - 1;
-    if (month === 0) {
-      month = 12;
-      year -= 1;
-    }
-    return `${year}-${String(month).padStart(2, '0')}`;
-  }, [currentMonthStr]);
+  const previousMonthStr = useMemo(() => getBangkokPreviousMonth(), []);
 
   // Filter Job Records by Date Filter Tab
   const filteredJobRecords = useMemo(() => {
     if (dateFilter === 'this_month') {
-      return jobRevenueRecords.filter((r) => r.month_date_str.startsWith(currentMonthStr));
+      return jobRevenueRecords.filter((r) => r.month_date_str && r.month_date_str.startsWith(currentMonthStr));
     }
     if (dateFilter === 'last_month') {
-      return jobRevenueRecords.filter((r) => r.month_date_str.startsWith(previousMonthStr));
+      return jobRevenueRecords.filter((r) => r.month_date_str && r.month_date_str.startsWith(previousMonthStr));
     }
-    return jobRevenueRecords;
-  }, [jobRevenueRecords, dateFilter, currentMonthStr, previousMonthStr]);
+    if (dateFilter === 'custom') {
+      return jobRevenueRecords.filter((r) => {
+        if (!r.month_date_str) return false;
+        if (customStartDate && r.month_date_str < customStartDate) return false;
+        if (customEndDate && r.month_date_str > customEndDate) return false;
+        return true;
+      });
+    }
+    return [];
+  }, [jobRevenueRecords, dateFilter, currentMonthStr, previousMonthStr, customStartDate, customEndDate]);
 
   // Calculate Summary KPI Cards
   const monthRevenueTotal = useMemo(() => {
@@ -416,11 +414,55 @@ export default function ArtistRevenuePage() {
     return filteredJobRecords.filter((r) => r.booking_status === 'COMPLETED').length;
   }, [filteredJobRecords]);
 
-  // Count all confirmed jobs for current artist (all-time, not filtered by month)
+  // Count booked Flash designs based on active dateFilter
+  const bookedFlashWorksCount = useMemo(() => {
+    const bookedFlashIds = new Set<string>();
+    artistFlashReservations.forEach((fr: any) => {
+      if (!fr.flash_design_id || !fr.created_at) return;
+      const resDateStr = getDateStrBangkok(fr.created_at);
+      if (!resDateStr) return;
+
+      if (dateFilter === 'this_month') {
+        if (resDateStr.startsWith(currentMonthStr)) {
+          bookedFlashIds.add(fr.flash_design_id);
+        }
+      } else if (dateFilter === 'last_month') {
+        if (resDateStr.startsWith(previousMonthStr)) {
+          bookedFlashIds.add(fr.flash_design_id);
+        }
+      } else if (dateFilter === 'custom') {
+        if (customStartDate && resDateStr < customStartDate) return;
+        if (customEndDate && resDateStr > customEndDate) return;
+        bookedFlashIds.add(fr.flash_design_id);
+      }
+    });
+    return bookedFlashIds.size;
+  }, [artistFlashReservations, dateFilter, currentMonthStr, previousMonthStr, customStartDate, customEndDate]);
+
+  // Count confirmed jobs for current artist filtered by dateFilter
   const CONFIRMED_STATUSES = ['CONFIRMED', 'IN_PROGRESS', 'COMPLETED'];
   const confirmedJobsCount = useMemo(() => {
-    return artistBookings.filter((b: any) => CONFIRMED_STATUSES.includes(b.status)).length;
-  }, [artistBookings]);
+    const confirmed = artistBookings.filter((b: any) => CONFIRMED_STATUSES.includes(b.status));
+    return confirmed.filter((b: any) => {
+      const rawDate = b.requested_date || b.created_at;
+      if (!rawDate) return false;
+      const d = getDateStrBangkok(rawDate);
+      if (!d) return false;
+
+      if (dateFilter === 'this_month') {
+        return d.startsWith(currentMonthStr);
+      }
+      if (dateFilter === 'last_month') {
+        return d.startsWith(previousMonthStr);
+      }
+      if (dateFilter === 'custom') {
+        if (customStartDate && d < customStartDate) return false;
+        if (customEndDate && d > customEndDate) return false;
+        return true;
+      }
+      return false;
+    }).length;
+  }, [artistBookings, dateFilter, currentMonthStr, previousMonthStr, customStartDate, customEndDate]);
 
   if (authLoading || !isAuthorized) {
     return (
@@ -447,7 +489,7 @@ export default function ArtistRevenuePage() {
                 Artist Portal
               </span>
               <span className="text-studio-muted text-xs">•</span>
-              <span className="text-xs text-studio-secondary">
+              <span className="text-xs text-[#ECE4D3]">
                 {artistName}
               </span>
             </div>
@@ -460,7 +502,7 @@ export default function ArtistRevenuePage() {
           <button
             onClick={() => fetchArtistRevenue()}
             disabled={loading}
-            className="self-start sm:self-auto flex items-center space-x-1.5 px-3 py-1.5 bg-studio-card border border-studio-border hover:border-studio-red/50 text-xs text-studio-secondary hover:text-studio-primary rounded-lg transition-colors cursor-pointer disabled:opacity-50"
+            className="self-start sm:self-auto flex items-center space-x-1.5 px-3 py-1.5 bg-studio-card border border-studio-border hover:border-studio-red/50 text-xs text-[#ECE4D3] hover:text-white rounded-lg transition-colors cursor-pointer disabled:opacity-50"
           >
             <RefreshCw size={13} className={loading ? 'animate-spin text-studio-red-bright' : ''} />
             <span>อัปเดตข้อมูล</span>
@@ -469,12 +511,12 @@ export default function ArtistRevenuePage() {
 
         {/* Top 3 Summary Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          {/* Card 1: งานที่ยืนยันแล้วทั้งหมด */}
+          {/* Card 1: งานที่ยืนยัน */}
           <div className="bg-studio-card border border-studio-border p-5 rounded-xl flex items-center justify-between shadow-lg">
             <div className="space-y-1">
-              <span className="text-xs text-studio-secondary uppercase tracking-wider font-medium">งานที่ยืนยันแล้วทั้งหมด</span>
+              <span className="text-xs text-[#ECE4D3] uppercase tracking-wider font-medium">งานที่ยืนยัน</span>
               <div className="text-2xl sm:text-3xl font-bold font-mono text-blue-400">
-                {confirmedJobsCount} <span className="text-xs font-normal text-studio-muted">งาน</span>
+                {confirmedJobsCount} <span className="text-xs font-normal text-[#ECE4D3]">งาน</span>
               </div>
             </div>
             <div className="w-12 h-12 rounded-xl bg-blue-950/30 border border-blue-800/40 flex items-center justify-center text-blue-400">
@@ -485,13 +527,19 @@ export default function ArtistRevenuePage() {
           {/* Card 2: ผลงานที่จอง */}
           <div className="bg-studio-card border border-studio-border p-5 rounded-xl flex items-center justify-between shadow-lg">
             <div className="space-y-1">
-              <span className="text-xs text-studio-secondary uppercase tracking-wider font-medium">ผลงานที่จอง</span>
+              <span className="text-xs text-[#ECE4D3] uppercase tracking-wider font-medium">ผลงานที่จอง</span>
               <div className="text-2xl sm:text-3xl font-bold font-mono text-cyan-400">
-                {bookedFlashWorksCount} <span className="text-xs font-normal text-studio-muted">รายการ</span>
+                {bookedFlashWorksCount} <span className="text-xs font-normal text-[#ECE4D3]">รายการ</span>
               </div>
-              <p className="text-[11px] text-studio-muted">
-                {bookedFlashWorksCount === 0 ? 'เดือนนี้ยังไม่มีผลงานที่ถูกจอง' : 'ลาย Flash ที่ถูกจองในเดือนนี้'}
-              </p>
+              {bookedFlashWorksCount === 0 ? null : (
+                <p className="text-[11px] text-[#ECE4D3]">
+                  {dateFilter === 'this_month'
+                    ? 'ลาย Flash ที่ถูกจองในเดือนนี้'
+                    : dateFilter === 'last_month'
+                    ? 'ลาย Flash ที่ถูกจองในเดือนก่อน'
+                    : 'ลาย Flash ที่ถูกจองในช่วงที่เลือก'}
+                </p>
+              )}
             </div>
             <div className="w-12 h-12 rounded-xl bg-cyan-950/30 border border-cyan-800/40 flex items-center justify-center text-cyan-400">
               <CalendarCheck size={22} />
@@ -501,9 +549,9 @@ export default function ArtistRevenuePage() {
           {/* Card 3: งานเสร็จแล้ว */}
           <div className="bg-studio-card border border-studio-border p-5 rounded-xl flex items-center justify-between shadow-lg">
             <div className="space-y-1">
-              <span className="text-xs text-studio-secondary uppercase tracking-wider font-medium">งานเสร็จแล้ว</span>
+              <span className="text-xs text-[#ECE4D3] uppercase tracking-wider font-medium">งานเสร็จแล้ว</span>
               <div className="text-2xl sm:text-3xl font-bold font-mono text-amber-400">
-                {completedJobsCount} <span className="text-xs font-normal text-studio-muted">งาน</span>
+                {completedJobsCount} <span className="text-xs font-normal text-[#ECE4D3]">งาน</span>
               </div>
             </div>
             <div className="w-12 h-12 rounded-xl bg-amber-950/30 border border-amber-800/40 flex items-center justify-center text-amber-400">
@@ -512,50 +560,30 @@ export default function ArtistRevenuePage() {
           </div>
         </div>
 
+        {/* Date Filter Bar */}
+        <RevenueFilters
+          datePreset={dateFilter}
+          onDatePresetChange={setDateFilter}
+          customStartDate={customStartDate}
+          onCustomStartDateChange={setCustomStartDate}
+          customEndDate={customEndDate}
+          onCustomEndDateChange={setCustomEndDate}
+          onResetFilters={() => {
+            setDateFilter('this_month');
+            setCustomStartDate(getBangkokToday());
+            setCustomEndDate(getBangkokToday());
+          }}
+          customPresetLabel="ช่วงกำหนดเอง"
+        />
+
         {/* Revenue History Section */}
         <div className="space-y-4">
-          {/* Section Title & Filter Buttons */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-studio-border/60 pb-3">
-            <div className="flex items-center space-x-2">
-              <div className="w-2.5 h-2.5 rounded-full bg-studio-red-bright" />
-              <h2 className="text-base sm:text-lg font-heading font-semibold text-studio-primary">
-                ประวัติรายได้ ({filteredJobRecords.length})
-              </h2>
-            </div>
-
-            {/* Date Filter Tabs */}
-            <div className="flex items-center space-x-1.5 bg-studio-card p-1 rounded-lg border border-studio-border text-xs">
-              <button
-                onClick={() => setDateFilter('this_month')}
-                className={`px-3 py-1.5 rounded-md font-medium transition-colors cursor-pointer ${
-                  dateFilter === 'this_month'
-                    ? 'bg-studio-red text-white font-semibold'
-                    : 'text-studio-secondary hover:text-studio-primary'
-                }`}
-              >
-                เดือนนี้
-              </button>
-              <button
-                onClick={() => setDateFilter('last_month')}
-                className={`px-3 py-1.5 rounded-md font-medium transition-colors cursor-pointer ${
-                  dateFilter === 'last_month'
-                    ? 'bg-studio-red text-white font-semibold'
-                    : 'text-studio-secondary hover:text-studio-primary'
-                }`}
-              >
-                เดือนก่อน
-              </button>
-              <button
-                onClick={() => setDateFilter('all')}
-                className={`px-3 py-1.5 rounded-md font-medium transition-colors cursor-pointer ${
-                  dateFilter === 'all'
-                    ? 'bg-studio-red text-white font-semibold'
-                    : 'text-studio-secondary hover:text-studio-primary'
-                }`}
-              >
-                ทั้งหมด
-              </button>
-            </div>
+          {/* Section Title */}
+          <div className="flex items-center space-x-2 border-b border-studio-border/60 pb-3">
+            <div className="w-2.5 h-2.5 rounded-full bg-studio-red-bright" />
+            <h2 className="text-base sm:text-lg font-heading font-semibold text-studio-primary">
+              ประวัติรายได้ ({filteredJobRecords.length})
+            </h2>
           </div>
 
           {/* Table / List */}
@@ -569,7 +597,7 @@ export default function ArtistRevenuePage() {
                 <RefreshCw size={24} />
               </div>
               <h3 className="text-sm font-semibold text-red-400">{error}</h3>
-              <p className="text-xs text-studio-muted max-w-md mx-auto">
+              <p className="text-xs text-[#ECE4D3] max-w-md mx-auto">
                 เกิดข้อผิดพลาดในการดึงข้อมูลจากระบบ กรุณากดปุ่มเพื่อลองใหม่อีกครั้ง
               </p>
               <button
@@ -586,12 +614,12 @@ export default function ArtistRevenuePage() {
                 <Inbox size={24} />
               </div>
               <h3 className="text-sm font-semibold text-studio-primary">ยังไม่มีข้อมูลรายได้</h3>
-              <p className="text-xs text-studio-muted max-w-md mx-auto">
+              <p className="text-xs text-[#ECE4D3] max-w-md mx-auto">
                 {dateFilter === 'this_month'
                   ? 'ยังไม่มีรายการชำระเงินในเดือนนี้'
                   : dateFilter === 'last_month'
                   ? 'ไม่มีรายการชำระเงินในเดือนก่อน'
-                  : 'ยังไม่มีประวัติการชำระเงินในระบบ'}
+                  : 'ไม่มีรายการชำระเงินในช่วงเวลาที่เลือก'}
               </p>
             </div>
           ) : (
@@ -599,7 +627,7 @@ export default function ArtistRevenuePage() {
               {/* Desktop Table View */}
               <div className="hidden md:block bg-studio-card border border-studio-border rounded-xl overflow-hidden shadow-lg">
                 <table className="w-full text-left text-xs">
-                  <thead className="bg-studio-sec/80 border-b border-studio-border text-studio-secondary font-medium uppercase tracking-wider">
+                  <thead className="bg-studio-sec/80 border-b border-studio-border text-[#ECE4D3] font-medium uppercase tracking-wider">
                     <tr>
                       <th className="py-3 px-4">วันที่</th>
                       <th className="py-3 px-4">ลูกค้า</th>
@@ -611,13 +639,13 @@ export default function ArtistRevenuePage() {
                   <tbody className="divide-y divide-studio-border/60">
                     {filteredJobRecords.map((r) => (
                       <tr key={r.booking_id} className="hover:bg-studio-sec/40 transition-colors">
-                        <td className="py-3.5 px-4 font-mono text-studio-secondary">
+                        <td className="py-3.5 px-4 font-mono text-[#ECE4D3]">
                           {formatDateBangkok(r.date_display, true)}
                         </td>
                         <td className="py-3.5 px-4 font-medium text-studio-primary">
                           {r.customer_name}
                         </td>
-                        <td className="py-3.5 px-4 text-studio-secondary font-medium">
+                        <td className="py-3.5 px-4 text-[#ECE4D3] font-medium">
                           {r.artwork_title}
                         </td>
                         <td className="py-3.5 px-4 text-right font-mono text-amber-400">
@@ -655,7 +683,7 @@ export default function ArtistRevenuePage() {
                   >
                     {/* Card Header: Date (Left) & Status Badge (Right) */}
                     <div className="flex items-center justify-between gap-2">
-                      <span className="text-[11px] font-mono text-studio-muted">
+                      <span className="text-[11px] font-mono text-[#ECE4D3]">
                         {formatDateBangkok(r.date_display, true)}
                       </span>
                       {r.booking_status === 'COMPLETED' ? (
@@ -680,15 +708,15 @@ export default function ArtistRevenuePage() {
                       <h4 className="text-sm font-semibold text-studio-primary truncate">
                         {r.artwork_title}
                       </h4>
-                      <div className="flex items-center space-x-1.5 text-xs text-studio-secondary">
-                        <User size={12} className="text-studio-muted shrink-0" />
+                      <div className="flex items-center space-x-1.5 text-xs text-[#ECE4D3]">
+                        <User size={12} className="text-[#ECE4D3] shrink-0" />
                         <span className="truncate">{r.customer_name}</span>
                       </div>
                     </div>
 
                     {/* Deposit Row */}
                     <div className="flex items-center justify-between pt-2.5 border-t border-studio-border/40 font-mono">
-                      <span className="text-[10px] text-studio-muted font-sans">เงินมัดจำ</span>
+                      <span className="text-[10px] text-[#ECE4D3] font-sans">เงินมัดจำ</span>
                       <span className="text-xs font-semibold text-amber-400">
                         {r.deposit_paid > 0 ? `฿${r.deposit_paid.toLocaleString('th-TH')}` : '—'}
                       </span>

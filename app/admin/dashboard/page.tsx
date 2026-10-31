@@ -242,19 +242,19 @@ export default function AdminDashboardPage() {
         {/* Title */}
         <div className="border-b border-studio-border pb-4 flex justify-between items-end">
           <div>
-            <div className="inline-flex items-center space-x-2 bg-studio-sec border border-studio-border px-2.5 py-0.5 sm:px-3 sm:py-1 rounded text-[#AFA79A] text-[10px] uppercase font-heading tracking-widest mb-1">
+            <div className="inline-flex items-center space-x-2 bg-studio-sec border border-studio-border px-2.5 py-0.5 sm:px-3 sm:py-1 rounded text-[#ECE4D3] text-[10px] uppercase font-heading tracking-widest mb-1">
               <Sparkles size={12} className="text-studio-red-bright" />
               <span>Studio Management</span>
             </div>
             <h1 className="text-2xl sm:text-3xl md:text-4xl font-heading font-normal tracking-wide text-[#ECE4D3]">
               157 TATTOO ADMIN DASHBOARD
             </h1>
-            <p className="text-xs text-[#CFC7BA] mt-1 font-light">
+            <p className="text-xs text-[#ECE4D3] mt-1 font-light">
               ภาพรวมสตูดิโอ คิวงาน ช่างสัก และการตรวจสอบธุรกรรมเงินมัดจำ
             </p>
           </div>
-          <span className="text-xs text-[#AFA79A] hidden sm:inline font-heading tracking-wider">
-            157 TATTOO STUDIO • BANGKOK
+          <span className="text-xs text-[#ECE4D3] hidden sm:inline font-heading tracking-wider">
+            157 TATTOO STUDIO • CHIANG RAI
           </span>
         </div>
 

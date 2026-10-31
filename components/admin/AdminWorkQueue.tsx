@@ -228,7 +228,7 @@ export default function AdminWorkQueue({ embedded = false }: AdminWorkQueueProps
                     className={`px-3 py-1.5 text-xs rounded-md font-medium transition-colors border shrink-0 cursor-pointer ${
                       isSelected
                         ? 'bg-[#ECE4D3] text-[#0E0D0C] border-[#ECE4D3] shadow'
-                        : 'bg-[#0E0D0C] text-[#A89F91] border-[#4A443A] hover:text-[#ECE4D3] hover:border-[#7A7265]'
+                        : 'bg-[#0E0D0C] text-[#ECE4D3] border-[#4A443A] hover:border-[#C12D2D]'
                     }`}
                   >
                     {pill.label}
@@ -239,7 +239,7 @@ export default function AdminWorkQueue({ embedded = false }: AdminWorkQueueProps
 
             {/* Search Bar */}
             <div className="relative min-w-[220px]">
-              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#7A7265]" />
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#ECE4D3]" />
               <input
                 type="text"
                 value={searchQuery}
@@ -251,7 +251,7 @@ export default function AdminWorkQueue({ embedded = false }: AdminWorkQueueProps
                 <button
                   type="button"
                   onClick={() => setSearchQuery('')}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-[#A89F91] hover:text-white"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-[#ECE4D3] hover:text-white"
                 >
                   ล้าง
                 </button>
@@ -269,7 +269,7 @@ export default function AdminWorkQueue({ embedded = false }: AdminWorkQueueProps
             <div className="py-12 text-center border border-dashed border-[#4A443A]/60 rounded-lg bg-[#0E0D0C]/40 space-y-2">
               <CalendarCheck size={28} className="text-[#7A7265] mx-auto opacity-60" />
               <h4 className="text-xs sm:text-sm font-semibold text-[#ECE4D3]">ไม่พบรายการคิวงาน</h4>
-              <p className="text-[11px] text-[#7A7265] max-w-sm mx-auto">
+              <p className="text-[11px] text-[#ECE4D3] max-w-sm mx-auto">
                 {searchQuery
                   ? 'ลองค้นหาด้วยคำอื่น หรือกดล้างช่องค้นหา'
                   : 'ไม่มีคิวงานในสถานะที่เลือกในขณะนี้'}
@@ -280,7 +280,7 @@ export default function AdminWorkQueue({ embedded = false }: AdminWorkQueueProps
               {/* Desktop Compact Table */}
               <div className="hidden md:block overflow-x-auto">
                 <table className="w-full text-left text-xs text-[#ECE4D3]">
-                  <thead className="bg-[#0E0D0C] text-[#7A7265] uppercase text-[10px] tracking-wider border-b border-[#4A443A]">
+                  <thead className="bg-[#0E0D0C] text-[#ECE4D3] uppercase text-[10px] tracking-wider border-b border-[#4A443A]">
                     <tr>
                       <th className="py-3 px-3">รหัส / ลูกค้า</th>
                       <th className="py-3 px-3">งานที่จองและขนาด</th>
@@ -326,7 +326,7 @@ export default function AdminWorkQueue({ embedded = false }: AdminWorkQueueProps
                             <div className={`font-semibold ${isInactive ? 'text-zinc-300' : 'text-[#ECE4D3]'}`}>
                               {b.customer_name}
                             </div>
-                            <div className="text-[10px] text-[#7A7265] font-mono">
+                            <div className="text-[10px] text-[#ECE4D3] font-mono">
                               ID: {b.id ? (b.id.length > 8 ? b.id.slice(0, 8).toUpperCase() : b.id.toUpperCase()) : '-'}
                             </div>
                           </td>
@@ -355,7 +355,7 @@ export default function AdminWorkQueue({ embedded = false }: AdminWorkQueueProps
                                 <span className={`block font-medium truncate ${isInactive ? 'text-zinc-300' : 'text-[#ECE4D3]'}`}>
                                   {b.artwork_title || (isFlash ? 'งานสัก Flash' : 'งานสัก Custom')}
                                 </span>
-                                <span className={`text-[10px] ${isInactive ? 'text-zinc-500' : 'text-[#7A7265]'} block truncate`}>
+                                <span className={`text-[10px] ${isInactive ? 'text-zinc-500' : 'text-[#ECE4D3]'} block truncate`}>
                                   {b.placement || 'ไม่ระบุตำแหน่ง'}
                                   {formatTattooSize(b.width_cm, b.height_cm, b.estimated_size_tier || b.size_label) !== 'ไม่ระบุขนาด' &&
                                     ` • ${formatTattooSize(b.width_cm, b.height_cm, b.estimated_size_tier || b.size_label)}`}
@@ -369,7 +369,7 @@ export default function AdminWorkQueue({ embedded = false }: AdminWorkQueueProps
                             <span className={`${isInactive ? 'text-zinc-300' : 'text-[#ECE4D3]'} block font-medium`}>
                               {b.artist_name}
                             </span>
-                            <span className={`text-[10px] ${isInactive ? 'text-zinc-500' : 'text-[#7A7265]'} block`}>
+                            <span className={`text-[10px] ${isInactive ? 'text-zinc-500' : 'text-[#ECE4D3]'} block`}>
                               {b.style_preference || 'ไม่ระบุ'}
                             </span>
                           </td>
@@ -380,7 +380,7 @@ export default function AdminWorkQueue({ embedded = false }: AdminWorkQueueProps
                               {dateDisplay}
                             </span>
                             {timeDisplay && (
-                              <span className={`text-[10px] ${isInactive ? 'text-zinc-500' : 'text-[#7A7265]'} block`}>
+                              <span className={`text-[10px] ${isInactive ? 'text-zinc-500' : 'text-[#ECE4D3]'} block`}>
                                 {timeDisplay}
                               </span>
                             )}
@@ -495,11 +495,11 @@ export default function AdminWorkQueue({ embedded = false }: AdminWorkQueueProps
                       {/* Info Row: Date & Customer */}
                       <div className="flex items-center justify-between text-xs border-y border-[#4A443A]/40 py-2 my-1">
                         <div>
-                          <span className="text-[10px] text-[#7A7265] block">วัน/เวลานัดหมาย</span>
+                          <span className="text-[10px] text-[#ECE4D3] block font-medium">วัน/เวลานัดหมาย</span>
                           <span className="font-semibold text-[#ECE4D3]">{dateDisplay} {timeDisplay}</span>
                         </div>
                         <div className="text-right">
-                          <span className="text-[10px] text-[#7A7265] block">ลูกค้า</span>
+                          <span className="text-[10px] text-[#ECE4D3] block">ลูกค้า</span>
                           <span className="font-semibold text-[#ECE4D3]">{b.customer_name}</span>
                         </div>
                       </div>
@@ -507,11 +507,11 @@ export default function AdminWorkQueue({ embedded = false }: AdminWorkQueueProps
                       {/* Bottom Row: Artist/Style, Placement/Size & Action Button */}
                       <div className="flex items-center justify-between text-xs gap-2">
                         <div className="min-w-0 flex-1">
-                          <span className="text-[10px] text-[#7A7265] block">ช่างสัก / สไตล์ • ตำแหน่งและขนาด</span>
+                          <span className="text-[10px] text-[#ECE4D3] block font-medium">ช่างสัก / สไตล์ • ตำแหน่งและขนาด</span>
                           <p className="font-medium text-[#ECE4D3] truncate">
                             {artistAndStyle}
                           </p>
-                          <p className="text-[11px] text-[#A89F91] truncate">
+                          <p className="text-[11px] text-[#ECE4D3] truncate">
                             {placementAndSize}
                           </p>
                         </div>
@@ -522,7 +522,7 @@ export default function AdminWorkQueue({ embedded = false }: AdminWorkQueueProps
                               e.stopPropagation();
                               setSelectedBooking(b);
                             }}
-                            className={isInactive ? "text-xs font-medium text-zinc-400 hover:text-zinc-300 flex items-center gap-0.5" : "text-xs font-medium text-[#A89F91] hover:text-[#ECE4D3] flex items-center gap-0.5"}
+                            className={isInactive ? "text-xs font-medium text-zinc-400 hover:text-zinc-300 flex items-center gap-0.5" : "text-xs font-medium text-[#ECE4D3] hover:text-white flex items-center gap-0.5"}
                           >
                             <span>ดูรายละเอียด</span>
                             <ChevronRight size={14} />
@@ -563,14 +563,14 @@ export default function AdminWorkQueue({ embedded = false }: AdminWorkQueueProps
         {/* Page Header (Aligned with Requests Page) */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#4A443A]/60 pb-4">
           <div>
-            <span className="text-[10px] text-[#A89F91] uppercase tracking-wider font-semibold block">
+            <span className="text-[10px] text-[#ECE4D3] uppercase tracking-wider font-semibold block">
               WORK QUEUE MANAGEMENT • จัดการคิวงาน
             </span>
             <h1 className="text-xl sm:text-2xl font-bold text-[#ECE4D3] flex items-center gap-2.5 mt-0.5">
               <CalendarCheck className="text-studio-red-bright" size={26} />
               <span>จัดการคิวงาน</span>
             </h1>
-            <p className="text-xs sm:text-sm text-[#A89F91] mt-1">
+            <p className="text-xs sm:text-sm text-[#ECE4D3] mt-1">
               ติดตาม ค้นหา และจัดการคิวนัดหมายที่ยืนยันแล้วของร้าน
             </p>
           </div>

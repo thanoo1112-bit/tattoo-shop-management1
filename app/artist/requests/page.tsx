@@ -395,6 +395,12 @@ export default function ArtistRequestsPage() {
   useEffect(() => {
     if (isAuthorized && staffArtistId) {
       fetchArtistRequests();
+
+      const handleRealtime = () => {
+        fetchArtistRequests();
+      };
+      window.addEventListener('artist:realtime', handleRealtime);
+      return () => window.removeEventListener('artist:realtime', handleRealtime);
     }
   }, [isAuthorized, staffArtistId, fetchArtistRequests]);
 
@@ -603,7 +609,7 @@ export default function ArtistRequestsPage() {
                 งานของฉัน
               </span>
               <span className="text-studio-muted text-xs">•</span>
-              <span className="text-xs text-studio-secondary">
+              <span className="text-xs text-[#ECE4D3]">
                 คำขอจากลูกค้า
               </span>
             </div>
@@ -615,7 +621,7 @@ export default function ArtistRequestsPage() {
           <button
             onClick={() => fetchArtistRequests()}
             disabled={loading}
-            className="self-start sm:self-auto flex items-center space-x-1.5 px-3 py-1.5 bg-studio-card border border-studio-border hover:border-studio-red/50 text-xs text-studio-secondary hover:text-studio-primary rounded-lg transition-colors cursor-pointer disabled:opacity-50"
+            className="self-start sm:self-auto flex items-center space-x-1.5 px-3 py-1.5 bg-studio-card border border-studio-border hover:border-studio-red/50 text-xs text-[#ECE4D3] hover:text-studio-primary rounded-lg transition-colors cursor-pointer disabled:opacity-50"
           >
             <RefreshCw size={13} className={loading ? 'animate-spin text-studio-red-bright' : ''} />
             <span>อัปเดตข้อมูล</span>
@@ -642,7 +648,7 @@ export default function ArtistRequestsPage() {
                 className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all cursor-pointer border shrink-0 ${
                   isActive
                     ? 'bg-[#ECE4D3] text-[#0E0D0C] border-[#ECE4D3] shadow-xs'
-                    : 'bg-studio-card hover:bg-studio-sec text-studio-secondary hover:text-studio-primary border-studio-border'
+                    : 'bg-studio-card hover:bg-studio-sec text-[#ECE4D3] hover:text-studio-primary border-studio-border'
                 }`}
               >
                 {tab.label}
@@ -673,7 +679,7 @@ export default function ArtistRequestsPage() {
                     <Inbox size={18} />
                   </div>
                   <p className="text-sm font-medium text-studio-primary">ไม่มีรายการคำขอในหมวดหมู่นี้</p>
-                  <p className="text-xs text-studio-muted">
+                  <p className="text-xs text-[#ECE4D3]">
                     รายการคำขอจากลูกค้าตามสถานะที่เลือกจะปรากฏในส่วนนี้
                   </p>
                 </div>
@@ -685,7 +691,7 @@ export default function ArtistRequestsPage() {
                 {/* Desktop Table View */}
                 <div className="hidden md:block overflow-x-auto rounded-xl border border-studio-border bg-studio-card shadow-md">
                   <table className="w-full text-left text-xs font-prompt text-studio-primary">
-                    <thead className="bg-studio-sec/80 text-studio-muted uppercase text-[10px] tracking-wider border-b border-studio-border">
+                    <thead className="bg-studio-sec/80 text-[#ECE4D3] uppercase text-[10px] tracking-wider border-b border-studio-border">
                       <tr>
                         <th className="py-3 px-4 font-semibold">รหัส / ลูกค้า</th>
                         <th className="py-3 px-4 font-semibold">ยื่นคำขอเมื่อ</th>
@@ -873,7 +879,7 @@ export default function ArtistRequestsPage() {
                           >
                             <td className="py-3 px-4">
                               <div className="flex items-center space-x-1.5">
-                                <span className="text-[10px] text-[#7A7265] font-mono font-semibold">
+                                <span className="text-[10px] text-[#ECE4D3] font-mono font-semibold">
                                   #{item.id.slice(0, 8).toUpperCase()}
                                 </span>
                               </div>
@@ -893,7 +899,7 @@ export default function ArtistRequestsPage() {
                                     <div className="font-mono text-studio-primary">
                                       {formatDateBangkok(submitTime)}
                                     </div>
-                                    <div className="text-[11px] text-studio-muted font-mono">
+                                    <div className="text-[11px] text-[#ECE4D3] font-mono">
                                       {formatTimeBangkok(submitTime)}
                                     </div>
                                   </>
@@ -914,7 +920,7 @@ export default function ArtistRequestsPage() {
                                   <div className={isInactive ? "font-medium text-zinc-300 truncate" : "font-medium text-studio-primary truncate"}>
                                     {workTitle}
                                   </div>
-                                  <div className="text-[11px] text-[#A89F91] truncate max-w-[180px]">
+                                  <div className="text-[11px] text-[#ECE4D3] truncate max-w-[180px]">
                                     {placement !== 'ไม่ระบุตำแหน่ง'
                                       ? (sizeDisplay && sizeDisplay !== 'ไม่ระบุขนาด' ? `${placement} · ${sizeDisplay}` : placement)
                                       : (sizeDisplay && sizeDisplay !== 'ไม่ระบุขนาด' ? sizeDisplay : 'ไม่ระบุตำแหน่ง')}
@@ -923,7 +929,7 @@ export default function ArtistRequestsPage() {
                               </div>
                             </td>
 
-                            <td className="py-3 px-4 text-[#A89F91]">
+                            <td className="py-3 px-4 text-[#ECE4D3]">
                               <div className="font-medium text-xs text-[#ECE4D3]">
                                 {styleName || (isFlash ? 'Flash' : 'ไม่ระบุสไตล์')}
                               </div>
@@ -951,7 +957,7 @@ export default function ArtistRequestsPage() {
                                 {targetDate ? formatDateBangkok(targetDate) : 'ไม่ระบุวัน'}
                               </div>
                               {formattedTime && (
-                                <div className="text-[11px] text-studio-muted font-mono">{formattedTime}</div>
+                                <div className="text-[11px] text-[#ECE4D3] font-mono">{formattedTime}</div>
                               )}
                             </td>
 
@@ -1008,7 +1014,7 @@ export default function ArtistRequestsPage() {
                               <h4 className="text-sm font-semibold text-studio-primary">
                                 แจ้งโอนมัดจำ: ฿{(claimedAmount || depositRequired || 500).toLocaleString('th-TH')}
                               </h4>
-                              <div className="text-xs text-studio-secondary">
+                              <div className="text-xs text-[#ECE4D3]">
                                 ลูกค้า: <strong className="text-studio-primary">{customerName}</strong>
                               </div>
                             </div>
@@ -1079,7 +1085,7 @@ export default function ArtistRequestsPage() {
                         {/* 1. แถวบน: รหัสคำขอด้านซ้าย และสถานะคำขอด้านขวา */}
                         <div className="flex items-center justify-between gap-2">
                           <div className="flex items-center gap-2 min-w-0">
-                            <span className={`text-xs font-mono font-bold ${isInactive ? 'text-zinc-500' : 'text-[#9C2F2F]'}`}>
+                            <span className={`text-xs font-mono font-bold ${isInactive ? 'text-zinc-500' : 'text-[#C12D2D]'}`}>
                               #{item.id.slice(0, 8)}
                             </span>
                           </div>
@@ -1107,14 +1113,14 @@ export default function ArtistRequestsPage() {
                         {/* 2. แถวถัดมา: วันที่ลูกค้าเลือกและชื่อลูกค้า */}
                         <div className="flex items-center justify-between text-xs border-y border-studio-border/50 py-2 my-1">
                           <div>
-                            <span className="text-[10px] text-[#CFC7BA] block">วันที่ลูกค้าเลือก</span>
+                            <span className="text-[10px] text-[#ECE4D3] block">วันที่ลูกค้าเลือก</span>
                             <span className="font-semibold text-[#ECE4D3]">
                               {targetDate ? formatDateBangkok(targetDate) : 'ไม่ได้ระบุ'}
                               {formattedTime ? ` · ${formattedTime}` : ''}
                             </span>
                           </div>
                           <div className="text-right">
-                            <span className="text-[10px] text-[#CFC7BA] block">ลูกค้า</span>
+                            <span className="text-[10px] text-[#ECE4D3] block">ลูกค้า</span>
                             <span className="font-semibold text-[#ECE4D3] truncate block max-w-[140px] sm:max-w-[180px]">
                               {customerName}
                             </span>
@@ -1124,11 +1130,11 @@ export default function ArtistRequestsPage() {
                         {/* 3. แถวล่าง: ช่างสักและสไตล์งาน พร้อมตำแหน่งและขนาดในรูปแบบกระชับ */}
                         <div className="flex items-center justify-between text-xs gap-2">
                           <div className="min-w-0 flex-1">
-                            <span className="text-[10px] text-[#CFC7BA] block">{workTitle}</span>
+                            <span className="text-[10px] text-[#ECE4D3] block">{workTitle}</span>
                             <p className="font-medium text-[#ECE4D3] truncate">
                               {artistAndStyle}
                             </p>
-                            <p className="text-[11px] text-[#A89F91] truncate">
+                            <p className="text-[11px] text-[#ECE4D3] truncate">
                               {placementAndSize}
                             </p>
                           </div>

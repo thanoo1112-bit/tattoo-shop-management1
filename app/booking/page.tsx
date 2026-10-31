@@ -107,7 +107,7 @@ function BookingContent() {
                 ? (flashParam ? 'ส่งคำขอจองแบบลายสัก Flash' : 'เลือกลายสักสำเร็จรูป')
                 : 'ส่งคำขอจองคิว'}
             </h1>
-            <p className="text-xs text-studio-secondary mt-1 font-light">
+            <p className="text-xs text-studio-primary mt-1 font-light">
               {bookingMode === 'FLASH'
                 ? (flashParam
                     ? 'จองแบบลายสักพร้อมสัก ชำระเงินมัดจำ 500 บาทเพื่อยืนยันคำขอจองคิวงาน'

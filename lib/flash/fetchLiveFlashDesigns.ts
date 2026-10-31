@@ -1,17 +1,24 @@
 import { createClient } from '@/lib/supabase/client';
 import type { FlashDesignData } from '@/components/flash/FlashReservationModal';
+import { getCachedFlash, setCachedFlash } from '@/lib/cache/customerGalleryCache';
 
 export interface FlashDesignWithMeta extends FlashDesignData {
   created_at?: string;
 }
 
 /**
- * Shared data source for live Flash designs.
- * Extracted verbatim from app/flash/page.tsx so that /flash and /booking
- * read the exact same query and apply the exact same visibility filtering.
+ * Shared data source for live Flash designs with in-memory caching.
+ * Used by /flash and /booking (FlashDesignPicker) to prevent redundant queries.
  * Throws on query error (callers handle error UI).
  */
-export async function fetchLiveFlashDesigns(): Promise<FlashDesignWithMeta[]> {
+export async function fetchLiveFlashDesigns(options?: { forceRefresh?: boolean }): Promise<FlashDesignWithMeta[]> {
+  if (!options?.forceRefresh) {
+    const cached = getCachedFlash<FlashDesignWithMeta[]>();
+    if (cached && cached.isFresh) {
+      return cached.data;
+    }
+  }
+
   const supabase = createClient();
   const { data: designs, error: fetchErr } = await supabase
     .from('flash_designs')
@@ -46,7 +53,7 @@ export async function fetchLiveFlashDesigns(): Promise<FlashDesignWithMeta[]> {
 
   if (fetchErr) throw fetchErr;
 
-  return (designs || [])
+  const result: FlashDesignWithMeta[] = (designs || [])
     .map((d: any) => ({
       id: d.id,
       artist_id: d.artist_id,
@@ -76,4 +83,7 @@ export async function fetchLiveFlashDesigns(): Promise<FlashDesignWithMeta[]> {
       if (d.artist.is_active === false || d.artist.is_visible === false) return false;
       return true;
     });
+
+  setCachedFlash(result);
+  return result;
 }

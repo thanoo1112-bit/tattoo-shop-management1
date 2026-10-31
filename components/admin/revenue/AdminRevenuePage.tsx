@@ -384,13 +384,13 @@ export default function AdminRevenuePage() {
       <div className="border-b border-[#4A443A] pb-4 flex flex-col sm:flex-row justify-between items-start sm:items-end gap-3">
         <div>
           <div className="inline-flex items-center space-x-2 bg-[#171512] border border-[#4A443A] px-2.5 py-0.5 rounded text-[#ECE4D3] text-[10px] uppercase font-heading tracking-widest mb-1.5">
-            <DollarSign size={12} className="text-[#9C2F2F]" />
+            <DollarSign size={12} className="text-[#C12D2D]" />
             <span>Revenue Dashboard</span>
           </div>
           <h1 className="text-2xl sm:text-3xl md:text-4xl font-heading font-normal tracking-wide text-[#ECE4D3]">
             รายได้ร้าน
           </h1>
-          <p className="text-xs text-[#A89F91] mt-1 font-light">
+          <p className="text-xs text-[#ECE4D3] mt-1 font-light">
             สรุปเงินจริงที่ร้านได้รับจากงานสัก (คำนวณจากสถานะ RECORDED เท่านั้น)
           </p>
         </div>
@@ -432,7 +432,7 @@ export default function AdminRevenuePage() {
             <DollarSign size={20} />
           </div>
           <h3 className="text-sm font-semibold text-[#ECE4D3]">ยังไม่มีข้อมูลรายได้</h3>
-          <p className="text-xs text-[#7A7265] max-w-md mx-auto">
+          <p className="text-xs text-[#ECE4D3] max-w-md mx-auto">
             เมื่อร้านมีการบันทึกรับเงินจริง ข้อมูลสรุปรายได้ กราฟแนวโน้ม และสัดส่วนยอดเงินจะแสดงที่นี่
           </p>
         </div>

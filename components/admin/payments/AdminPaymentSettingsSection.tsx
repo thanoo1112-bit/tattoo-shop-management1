@@ -255,15 +255,15 @@ export default function AdminPaymentSettingsSection({
           <div className="border-b border-[#4A443A] pb-3 flex justify-between items-center">
             <div>
               <h2 className="text-base font-bold text-[#ECE4D3] flex items-center gap-2">
-                <CreditCard size={17} className="text-[#9C2F2F]" />
+                <CreditCard size={17} className="text-[#C12D2D]" />
                 <span>ตั้งค่าบัญชีและ QR Code รับชำระเงิน</span>
               </h2>
-              <p className="text-[11px] text-[#A89F91] mt-0.5 font-light">
+              <p className="text-[11px] text-[#ECE4D3] mt-0.5 font-light">
                 ข้อมูลที่ระบุจะแสดงให้ลูกค้าเห็นในหน้า Customer Portal สำหรับการโอนเงินมัดจำ
               </p>
             </div>
             {settingId && (
-              <span className="text-[10px] text-[#B8B0A3] font-mono">
+              <span className="text-[10px] text-[#ECE4D3] font-mono">
                 ID: {settingId.slice(0, 8)}
               </span>
             )}
@@ -276,7 +276,7 @@ export default function AdminPaymentSettingsSection({
                 <label className="text-xs font-bold text-[#ECE4D3] block cursor-pointer">
                   สถานะการเปิดรับชำระเงินผ่านระบบ
                 </label>
-                <p className="text-[10px] text-[#A89F91] font-light">
+                <p className="text-[10px] text-[#ECE4D3] font-light">
                   {isActive
                     ? 'เปิดใช้งานอยู่ — ลูกค้าสามารถดู QR และโอนเงินมัดจำได้ทันที'
                     : 'ปิดการใช้งาน — ลูกค้าจะเห็นข้อความแนะนำให้ติดต่อร้านโดยตรง'}
@@ -289,7 +289,7 @@ export default function AdminPaymentSettingsSection({
                   onChange={(e) => setIsActive(e.target.checked)}
                   className="sr-only peer"
                 />
-                <div className="w-11 h-6 bg-[#4A443A] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#9C2F2F]"></div>
+                <div className="w-11 h-6 bg-[#4A443A] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#C12D2D]"></div>
               </label>
             </div>
 
@@ -303,7 +303,7 @@ export default function AdminPaymentSettingsSection({
                 value={displayName}
                 onChange={(e) => setDisplayName(e.target.value)}
                 placeholder="เช่น 157 TATTOO STUDIO"
-                className="w-full bg-[#1C1A17] border border-[#4A443A] focus:border-[#9C2F2F] focus:outline-none px-3 py-2 rounded-[4px] text-xs text-[#ECE4D3]"
+                className="w-full bg-[#1C1A17] border border-[#4A443A] focus:border-[#C12D2D] focus:outline-none px-3 py-2 rounded-[4px] text-xs text-[#ECE4D3]"
               />
             </div>
 
@@ -318,7 +318,7 @@ export default function AdminPaymentSettingsSection({
                   value={bankName}
                   onChange={(e) => setBankName(e.target.value)}
                   placeholder="เช่น ธนาคารกสิกรไทย (KBANK)"
-                  className="w-full bg-[#1C1A17] border border-[#4A443A] focus:border-[#9C2F2F] focus:outline-none px-3 py-2 rounded-[4px] text-xs text-[#ECE4D3]"
+                  className="w-full bg-[#1C1A17] border border-[#4A443A] focus:border-[#C12D2D] focus:outline-none px-3 py-2 rounded-[4px] text-xs text-[#ECE4D3]"
                 />
               </div>
 
@@ -331,7 +331,7 @@ export default function AdminPaymentSettingsSection({
                   value={accountNo}
                   onChange={(e) => setAccountNo(e.target.value)}
                   placeholder="เช่น 123-4-56789-0"
-                  className="w-full bg-[#1C1A17] border border-[#4A443A] focus:border-[#9C2F2F] focus:outline-none px-3 py-2 rounded-[4px] text-xs text-[#ECE4D3] font-mono"
+                  className="w-full bg-[#1C1A17] border border-[#4A443A] focus:border-[#C12D2D] focus:outline-none px-3 py-2 rounded-[4px] text-xs text-[#ECE4D3] font-mono"
                 />
               </div>
             </div>
@@ -347,20 +347,20 @@ export default function AdminPaymentSettingsSection({
                   value={accountName}
                   onChange={(e) => setAccountName(e.target.value)}
                   placeholder="เช่น บจก. สตูดิโอ 157 แทททู"
-                  className="w-full bg-[#1C1A17] border border-[#4A443A] focus:border-[#9C2F2F] focus:outline-none px-3 py-2 rounded-[4px] text-xs text-[#ECE4D3]"
+                  className="w-full bg-[#1C1A17] border border-[#4A443A] focus:border-[#C12D2D] focus:outline-none px-3 py-2 rounded-[4px] text-xs text-[#ECE4D3]"
                 />
               </div>
 
               <div className="space-y-1">
                 <label className="text-xs font-semibold text-[#ECE4D3] block">
-                  พร้อมเพย์ (PromptPay ID) <span className="text-[10px] text-[#B8B0A3] font-normal">(ถ้ามี)</span>
+                  พร้อมเพย์ (PromptPay ID) <span className="text-[10px] text-[#ECE4D3] font-normal">(ถ้ามี)</span>
                 </label>
                 <input
                   type="text"
                   value={promptpayId}
                   onChange={(e) => setPromptpayId(e.target.value)}
                   placeholder="เบอร์โทรศัพท์ หรือ เลขประจำตัวผู้เสียภาษี"
-                  className="w-full bg-[#1C1A17] border border-[#4A443A] focus:border-[#9C2F2F] focus:outline-none px-3 py-2 rounded-[4px] text-xs text-[#ECE4D3] font-mono"
+                  className="w-full bg-[#1C1A17] border border-[#4A443A] focus:border-[#C12D2D] focus:outline-none px-3 py-2 rounded-[4px] text-xs text-[#ECE4D3] font-mono"
                 />
               </div>
             </div>
@@ -375,7 +375,7 @@ export default function AdminPaymentSettingsSection({
                 value={paymentInstruction}
                 onChange={(e) => setPaymentInstruction(e.target.value)}
                 placeholder="ระบุคำแนะนำเพิ่มเติมสำหรับลูกค้า เช่น สแกนและแนบสลิป..."
-                className="w-full bg-[#1C1A17] border border-[#4A443A] focus:border-[#9C2F2F] focus:outline-none px-3 py-2 rounded-[4px] text-xs text-[#ECE4D3] font-light resize-none"
+                className="w-full bg-[#1C1A17] border border-[#4A443A] focus:border-[#C12D2D] focus:outline-none px-3 py-2 rounded-[4px] text-xs text-[#ECE4D3] font-light resize-none"
               />
             </div>
 
@@ -383,19 +383,19 @@ export default function AdminPaymentSettingsSection({
             <div className="space-y-2 pt-2 border-t border-[#4A443A]/60">
               <label className="text-xs font-semibold text-[#ECE4D3] flex items-center justify-between">
                 <span className="flex items-center gap-1.5">
-                  <QrCode size={14} className="text-[#9C2F2F]" />
+                  <QrCode size={14} className="text-[#C12D2D]" />
                   <span>รูปภาพ QR Code ของร้าน</span>
                 </span>
-                <span className="text-[10px] text-[#7A7265] font-normal">Private Storage Bucket: shop-payment-assets</span>
+                <span className="text-[10px] text-[#ECE4D3] font-normal">Private Storage Bucket: shop-payment-assets</span>
               </label>
 
               <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
-                  className="px-3.5 py-2 bg-[#1C1A17] border border-[#4A443A] hover:border-[#9C2F2F] text-xs text-[#ECE4D3] rounded-[4px] transition-colors flex items-center gap-1.5 font-medium"
+                  className="px-3.5 py-2 bg-[#1C1A17] border border-[#4A443A] hover:border-[#C12D2D] text-xs text-[#ECE4D3] rounded-[4px] transition-colors flex items-center gap-1.5 font-medium"
                 >
-                  <UploadCloud size={14} className="text-[#9C2F2F]" />
+                  <UploadCloud size={14} className="text-[#C12D2D]" />
                   <span>{currentQrPath || selectedQrFile ? 'เปลี่ยนรูป QR Code' : 'อัปโหลด QR Code'}</span>
                 </button>
 
@@ -405,7 +405,7 @@ export default function AdminPaymentSettingsSection({
                     <button
                       type="button"
                       onClick={handleClearSelectedQr}
-                      className="text-[#7A7265] hover:text-red-400"
+                      className="text-[#7A7265] hover:text-[#C12D2D]"
                     >
                       <Trash2 size={13} />
                     </button>
@@ -427,7 +427,7 @@ export default function AdminPaymentSettingsSection({
               <button
                 type="submit"
                 disabled={saving}
-                className="px-5 py-2.5 bg-[#9C2F2F] hover:bg-red-700 disabled:opacity-50 text-white text-xs font-bold rounded-[4px] transition-colors flex items-center gap-2 shadow-md"
+                className="px-5 py-2.5 bg-[#C12D2D] hover:bg-[#852727] disabled:opacity-50 text-white text-xs font-bold rounded-[4px] transition-colors flex items-center gap-2 shadow-md"
               >
                 {saving ? (
                   <>
@@ -448,8 +448,8 @@ export default function AdminPaymentSettingsSection({
         {/* Right Column: Live Customer Preview (5 cols) */}
         <div className="lg:col-span-5 space-y-3">
           <div className="flex items-center justify-between">
-            <span className="text-xs uppercase tracking-wider font-bold text-[#A89F91] flex items-center gap-1.5">
-              <Eye size={13} className="text-[#9C2F2F]" /> ตัวอย่างที่ลูกค้าจะเห็น (Live Preview)
+            <span className="text-xs uppercase tracking-wider font-bold text-[#ECE4D3] flex items-center gap-1.5">
+              <Eye size={13} className="text-[#C12D2D]" /> ตัวอย่างที่ลูกค้าจะเห็น (Live Preview)
             </span>
             <span
               className={
@@ -465,11 +465,11 @@ export default function AdminPaymentSettingsSection({
 
           <div className="bg-[#171512] border border-[#4A443A] p-4 rounded-[8px] space-y-4">
             <div className="border-b border-[#4A443A]/40 pb-2 flex items-center justify-between">
-              <span className="text-[11px] uppercase tracking-wider font-bold text-[#A89F91] flex items-center gap-1.5">
-                <QrCode size={13} className="text-[#9C2F2F]" /> ช่องทางการชำระเงินมัดจำ
+              <span className="text-[11px] uppercase tracking-wider font-bold text-[#ECE4D3] flex items-center gap-1.5">
+                <QrCode size={13} className="text-[#C12D2D]" /> ช่องทางการชำระเงินมัดจำ
               </span>
-              <span className="text-[10px] text-[#7A7265]">
-                ยอดชำระ: <strong className="text-[#9C2F2F]">฿500</strong>
+              <span className="text-[10px] text-[#ECE4D3]">
+                ยอดชำระ: <strong className="text-[#C12D2D]">฿500</strong>
               </span>
             </div>
 
@@ -479,7 +479,7 @@ export default function AdminPaymentSettingsSection({
                 <p className="text-xs font-semibold text-[#ECE4D3]">
                   กรุณาติดต่อร้านเพื่อขอข้อมูลการชำระเงิน
                 </p>
-                <p className="text-[10px] text-[#A89F91] font-light">
+                <p className="text-[10px] text-[#ECE4D3] font-light">
                   (ระบบปิดการรับชำระผ่าน QR อัตโนมัติชั่วคราว)
                 </p>
               </div>
@@ -502,13 +502,13 @@ export default function AdminPaymentSettingsSection({
                       <p className="text-xs font-bold text-[#ECE4D3]">
                         สแกน QR ด้วยแอปธนาคารของคุณ
                       </p>
-                      <p className="text-[10px] text-[#9C2F2F] font-semibold">
+                      <p className="text-[10px] text-[#C12D2D] font-semibold">
                         ยอดที่ต้องชำระ: ฿500 (มัดจำ)
                       </p>
                     </div>
                   </div>
                 ) : (
-                  <div className="p-4 bg-[#1C1A17] rounded-[6px] border border-dashed border-[#4A443A] text-center text-[11px] text-[#B8B0A3]">
+                  <div className="p-4 bg-[#1C1A17] rounded-[6px] border border-dashed border-[#4A443A] text-center text-[11px] text-[#ECE4D3]">
                     ยังไม่ได้ตั้งค่ารูป QR Code
                   </div>
                 )}
@@ -517,7 +517,7 @@ export default function AdminPaymentSettingsSection({
                 <div className="space-y-2 text-xs">
                   {bankName && (
                     <div className="flex justify-between items-center bg-[#1C1A17] p-2.5 rounded-[4px] border border-[#4A443A]/40">
-                      <span className="text-[#A89F91] flex items-center gap-1.5 text-[11px]">
+                      <span className="text-[#ECE4D3] flex items-center gap-1.5 text-[11px]">
                         <Building2 size={13} /> ธนาคาร
                       </span>
                       <span className="font-semibold text-[#ECE4D3] text-[11px]">
@@ -528,7 +528,7 @@ export default function AdminPaymentSettingsSection({
 
                   {accountNo && (
                     <div className="flex justify-between items-center bg-[#1C1A17] p-2.5 rounded-[4px] border border-[#4A443A]/40">
-                      <span className="text-[#A89F91] flex items-center gap-1.5 text-[11px]">
+                      <span className="text-[#ECE4D3] flex items-center gap-1.5 text-[11px]">
                         <CreditCard size={13} /> เลขที่บัญชี
                       </span>
                       <div className="flex items-center gap-2">
@@ -548,7 +548,7 @@ export default function AdminPaymentSettingsSection({
 
                   {accountName && (
                     <div className="flex justify-between items-center bg-[#1C1A17] p-2.5 rounded-[4px] border border-[#4A443A]/40">
-                      <span className="text-[#A89F91] text-[11px]">ชื่อบัญชี</span>
+                      <span className="text-[#ECE4D3] text-[11px]">ชื่อบัญชี</span>
                       <span className="font-semibold text-[#ECE4D3] text-[11px]">
                         {accountName}
                       </span>
@@ -557,7 +557,7 @@ export default function AdminPaymentSettingsSection({
 
                   {promptpayId && (
                     <div className="flex justify-between items-center bg-[#1C1A17] p-2.5 rounded-[4px] border border-[#4A443A]/40">
-                      <span className="text-[#A89F91] text-[11px]">พร้อมเพย์</span>
+                      <span className="text-[#ECE4D3] text-[11px]">พร้อมเพย์</span>
                       <div className="flex items-center gap-2">
                         <span className="font-mono font-bold text-[#ECE4D3] text-xs">
                           {promptpayId}
@@ -574,7 +574,7 @@ export default function AdminPaymentSettingsSection({
                   )}
 
                   {paymentInstruction && (
-                    <div className="bg-[#171512] border border-[#4A443A]/40 p-2.5 rounded-[4px] text-[10px] text-[#A89F91] leading-relaxed font-light">
+                    <div className="bg-[#171512] border border-[#4A443A]/40 p-2.5 rounded-[4px] text-[10px] text-[#ECE4D3] leading-relaxed font-light">
                       💡 {paymentInstruction}
                     </div>
                   )}

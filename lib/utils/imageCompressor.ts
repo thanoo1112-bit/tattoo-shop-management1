@@ -1,15 +1,43 @@
 /**
- * 157 TATTOO — Global Client-Side Image Compression Utility
+ * 157 TATTOO — Global Client-Side Image Compression & Resizing Utility
+ * 
+ * Standard Dimensions (Longest Side):
+ * - Portfolio images: max 2200 px, quality 0.82
+ * - Flash design images: max 2200 px, quality 0.82
+ * - Customer reference images: max 1800 px, quality 0.82
+ * - Artist avatar/profile images: max 1000 px, quality 0.82
+ * - Payment slip images: max 1400 px, quality 0.85 (ensures bank digits/text remain clear)
+ * - Thumbnails: max 480 px, quality 0.78
  * 
  * Rules:
- * 1. Compress file size without resizing pixel dimensions.
- * 2. Keep 100% original width, height, aspect ratio, and orientation.
- * 3. Default quality range: 0.80 - 0.85 (default 0.82).
- * 4. Supports JPG, JPEG, PNG, WEBP.
+ * 1. Resizes image constrained to maxDimension (longest side) only when image is larger than maxDimension.
+ * 2. Strictly preserves original aspect ratio (100%), orientation, and alpha transparency.
+ * 3. Never upscales smaller images.
+ * 4. Compresses file size using WebP or JPEG based on format.
  * 5. Returns a standard File object ready for Supabase Storage.
  */
 
+export const IMAGE_MAX_DIMENSIONS = {
+  PORTFOLIO: 2200,
+  FLASH: 2200,
+  CUSTOMER_REFERENCE: 1800,
+  ARTIST_AVATAR: 1000,
+  PAYMENT_SLIP: 1400,
+  THUMBNAIL: 480,
+} as const;
+
+export const IMAGE_COMPRESSION_QUALITY = {
+  DEFAULT: 0.82,
+  PORTFOLIO: 0.82,
+  FLASH: 0.82,
+  CUSTOMER_REFERENCE: 0.82,
+  ARTIST_AVATAR: 0.82,
+  PAYMENT_SLIP: 0.85,
+  THUMBNAIL: 0.78,
+} as const;
+
 export interface CompressionOptions {
+  maxDimension?: number;
   quality?: number;
   outputFormat?: 'image/webp' | 'image/jpeg' | 'image/png';
 }
@@ -24,13 +52,15 @@ export interface CompressionResult {
 }
 
 /**
- * Compresses an image File in the browser while strictly preserving its original pixel dimensions.
+ * Compresses and resizes an image File in the browser according to the 157 Tattoo standard.
+ * Strictly preserves aspect ratio, orientation, and avoids upscaling.
  */
 export async function compressImage(
   file: File,
   options: CompressionOptions = {}
 ): Promise<File> {
-  const quality = options.quality ?? 0.82;
+  const quality = options.quality ?? IMAGE_COMPRESSION_QUALITY.DEFAULT;
+  const maxDimension = options.maxDimension;
 
   // Validate MIME type
   const validTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/jpg'];
@@ -61,22 +91,37 @@ export async function compressImage(
             throw new Error('ไม่สามารถอ่านขนาดรูปภาพได้');
           }
 
-          // Create canvas matching EXACT original dimensions (DO NOT RESIZE!)
+          // Compute target dimensions:
+          // Strictly preserve aspect ratio, no crop, no stretch, no upscale
+          let targetWidth = originalWidth;
+          let targetHeight = originalHeight;
+
+          if (maxDimension && (originalWidth > maxDimension || originalHeight > maxDimension)) {
+            const ratio = Math.min(maxDimension / originalWidth, maxDimension / originalHeight);
+            targetWidth = Math.round(originalWidth * ratio);
+            targetHeight = Math.round(originalHeight * ratio);
+          }
+
           const canvas = document.createElement('canvas');
-          canvas.width = originalWidth;
-          canvas.height = originalHeight;
+          canvas.width = targetWidth;
+          canvas.height = targetHeight;
 
           const ctx = canvas.getContext('2d');
           if (!ctx) {
             throw new Error('Canvas 2D context unavailable');
           }
 
-          // Draw full resolution image 1:1
-          ctx.drawImage(img, 0, 0, originalWidth, originalHeight);
+          // High quality image smoothing
+          ctx.imageSmoothingEnabled = true;
+          ctx.imageSmoothingQuality = 'high';
+
+          // Draw image to target canvas
+          ctx.drawImage(img, 0, 0, targetWidth, targetHeight);
 
           // Determine target MIME type
           // WebP preserves alpha/transparency while offering superior compression
-          const targetMime = options.outputFormat || (file.type === 'image/png' ? 'image/webp' : 'image/jpeg');
+          const isTransparentSource = file.type === 'image/png' || file.type === 'image/webp';
+          const targetMime = options.outputFormat || (isTransparentSource ? 'image/webp' : 'image/jpeg');
           const ext = targetMime === 'image/webp' ? '.webp' : targetMime === 'image/jpeg' ? '.jpg' : '.png';
           const cleanBaseName = file.name.substring(0, file.name.lastIndexOf('.')) || file.name;
           const outputFileName = `${cleanBaseName}${ext}`;
@@ -146,10 +191,10 @@ export async function compressImageWithMetrics(
  */
 export async function generateThumbnail(
   file: File,
-  maxDimension: number = 480,
+  maxDimension: number = IMAGE_MAX_DIMENSIONS.THUMBNAIL,
   options: CompressionOptions = {}
 ): Promise<File> {
-  const quality = options.quality ?? 0.78;
+  const quality = options.quality ?? IMAGE_COMPRESSION_QUALITY.THUMBNAIL;
 
   const validTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/jpg'];
   if (!validTypes.includes(file.type.toLowerCase())) {
@@ -197,6 +242,10 @@ export async function generateThumbnail(
             throw new Error('Canvas 2D context unavailable');
           }
 
+          // High quality image smoothing
+          ctx.imageSmoothingEnabled = true;
+          ctx.imageSmoothingQuality = 'high';
+
           ctx.drawImage(img, 0, 0, targetWidth, targetHeight);
 
           const targetMime = options.outputFormat || 'image/webp';
@@ -233,4 +282,3 @@ export async function generateThumbnail(
     reader.readAsDataURL(file);
   });
 }
-

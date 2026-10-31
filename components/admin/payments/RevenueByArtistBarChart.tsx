@@ -47,7 +47,7 @@ export default function RevenueByArtistBarChart({
             <h3 className="text-sm sm:text-base font-heading font-semibold text-[#ECE4D3] leading-tight">
               งานตามช่าง
             </h3>
-            <p className="text-[10px] sm:text-[11px] text-[#A89F91] leading-tight mt-0.5">
+            <p className="text-[10px] sm:text-[11px] text-[#ECE4D3] leading-tight mt-0.5">
               จำนวนงานของช่างสักแต่ละคน
             </p>
           </div>
@@ -55,7 +55,7 @@ export default function RevenueByArtistBarChart({
 
         {/* Full-width Row: Label Left, Total Count Right */}
         <div className="flex items-center justify-between pt-1 border-t border-[#4A443A]/40">
-          <span className="text-xs text-[#A89F91] font-medium">
+          <span className="text-xs text-[#ECE4D3] font-medium">
             งานรวมทุกช่าง
           </span>
           <span className="text-sm sm:text-base font-heading font-bold text-amber-400">
@@ -91,14 +91,14 @@ export default function RevenueByArtistBarChart({
                       {art.name}
                     </span>
                     {art.nickname && (
-                      <span className="text-[10px] text-[#A89F91] font-normal bg-[#171512] px-1.5 py-0.5 rounded border border-[#4A443A]/50 shrink-0">
+                      <span className="text-[10px] text-[#ECE4D3] font-normal bg-[#171512] px-1.5 py-0.5 rounded border border-[#4A443A]/50 shrink-0">
                         {art.nickname}
                       </span>
                     )}
                   </div>
 
                   <div className="text-right shrink-0">
-                    <span className={`font-heading text-sm ${hasJobs ? 'text-amber-400 font-bold' : 'text-[#7A7265]'}`}>
+                    <span className={`font-heading text-sm ${hasJobs ? 'text-amber-400 font-bold' : 'text-[#ECE4D3]'}`}>
                       {count} งาน
                     </span>
                   </div>

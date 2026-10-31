@@ -101,7 +101,7 @@ export default function BookingRequestQueue({ singleArtistId = null }: BookingRe
       <div className="overflow-x-auto">
         <table className="w-full text-left border-collapse">
           <thead>
-            <tr className="border-b border-studio-border text-[10px] uppercase tracking-wider text-studio-secondary bg-studio-main/30">
+            <tr className="border-b border-studio-border text-[10px] uppercase tracking-wider text-[#ECE4D3] bg-studio-main/30">
               <th className="p-4 font-semibold">ลูกค้า</th>
               {!singleArtistId && <th className="p-4 font-semibold">ช่าง</th>}
               <th className="p-4 font-semibold">งานศิลปะ</th>
@@ -116,13 +116,13 @@ export default function BookingRequestQueue({ singleArtistId = null }: BookingRe
               <tr key={book.id} className="hover:bg-studio-sec/40 transition-colors">
                 <td className="p-4">
                   <div className="font-bold">{book.customerName}</div>
-                  <div className="text-[10px] text-studio-secondary flex items-center space-x-1 mt-0.5">
+                  <div className="text-[10px] text-[#ECE4D3] flex items-center space-x-1 mt-0.5">
                     <Mail size={10} />
                     <span className="font-mono">{book.customerEmail}</span>
                   </div>
                 </td>
                 {!singleArtistId && (
-                  <td className="p-4 font-semibold text-studio-secondary">
+                  <td className="p-4 font-semibold text-[#ECE4D3]">
                     {book.artistName}
                   </td>
                 )}
@@ -144,7 +144,7 @@ export default function BookingRequestQueue({ singleArtistId = null }: BookingRe
                   </div>
                   <div className="flex items-center space-x-1">
                     <Clock size={11} className="text-studio-red-bright" />
-                    <span className="text-studio-secondary font-mono">
+                    <span className="text-[#ECE4D3] font-mono">
                       {book.startTime} - {book.endTime}
                       {calculateDurationTextFromTimes(book.startTime, book.endTime) && (
                         ` (${calculateDurationTextFromTimes(book.startTime, book.endTime)})`
@@ -154,12 +154,12 @@ export default function BookingRequestQueue({ singleArtistId = null }: BookingRe
                 </td>
                 <td className="p-4 space-y-0.5">
                   <div>ยอดรวม: <span className="font-bold">฿{book.price.toLocaleString()}</span></div>
-                  <div className="text-[10px] text-studio-secondary">มัดจำ: ฿{book.deposit.toLocaleString()}</div>
+                  <div className="text-[10px] text-[#ECE4D3]">มัดจำ: ฿{book.deposit.toLocaleString()}</div>
                 </td>
                 <td className="p-4">
                   <div className="flex flex-col items-start gap-1">
                     <BookingStatusBadge status={book.status} type="booking" />
-                    <span className="text-[9px] text-studio-secondary uppercase tracking-wider">
+                    <span className="text-[9px] text-[#ECE4D3] uppercase tracking-wider">
                       {book.depositStatus === 'VERIFIED' ? 'มัดจำแล้ว' :
                        book.depositStatus === 'SUBMITTED' ? 'แจ้งชำระแล้ว' : 'รอมัดจำ'}
                     </span>
@@ -171,7 +171,7 @@ export default function BookingRequestQueue({ singleArtistId = null }: BookingRe
                       <button
                         onClick={() => handleApprove(book)}
                         disabled={loadingId === book.id}
-                        className="bg-studio-red text-studio-paper hover:bg-tattoo-red-dark text-[10px] font-bold tracking-wide uppercase px-2.5 py-1.5 rounded-[3px] transition-colors flex items-center space-x-1 disabled:opacity-50"
+                        className="bg-[#C12D2D] text-white hover:bg-[#A82525] text-[10px] font-bold tracking-wide uppercase px-2.5 py-1.5 rounded-[3px] transition-colors flex items-center space-x-1 disabled:opacity-50"
                       >
                         {loadingId === book.id ? (
                           <Loader2 size={10} className="animate-spin" />
@@ -195,10 +195,10 @@ export default function BookingRequestQueue({ singleArtistId = null }: BookingRe
                   )}
 
                   {book.status === 'APPROVED' && (
-                    <span className="text-[10px] text-studio-secondary font-semibold italic">อนุมัติแล้ว</span>
+                    <span className="text-[10px] text-emerald-400 font-semibold italic">อนุมัติแล้ว</span>
                   )}
                   {book.status === 'WAITING_DEPOSIT' && (
-                    <span className="text-[10px] text-studio-secondary font-semibold italic">อนุมัติแล้ว รอมัดจำ</span>
+                    <span className="text-[10px] text-amber-400 font-semibold italic">อนุมัติแล้ว รอมัดจำ</span>
                   )}
                   {book.status === 'CONFIRMED' && (
                     <span className="text-[10px] text-green-500 font-bold uppercase tracking-wider">คอนเฟิร์มคิวแล้ว</span>
@@ -215,7 +215,7 @@ export default function BookingRequestQueue({ singleArtistId = null }: BookingRe
 
             {displayedBookings.length === 0 && (
               <tr>
-                <td colSpan={7} className="p-8 text-center text-studio-secondary italic">
+                <td colSpan={7} className="p-8 text-center text-[#ECE4D3] italic">
                   ไม่มีรายการคำขอจองคิวใหม่เข้ามาในขณะนี้
                 </td>
               </tr>
@@ -242,7 +242,7 @@ export default function BookingRequestQueue({ singleArtistId = null }: BookingRe
                 <X size={16} />
               </button>
             </div>
-            <p className="text-xs text-studio-secondary">
+            <p className="text-xs text-[#ECE4D3]">
               ลูกค้า: <strong>{rejectingBooking.customerName}</strong> ({rejectingBooking.artworkTitle})
             </p>
             <textarea
@@ -260,7 +260,7 @@ export default function BookingRequestQueue({ singleArtistId = null }: BookingRe
                   resetRejectState();
                   setRejectingBooking(null);
                 }}
-                className="px-3 py-1.5 bg-transparent border border-studio-border text-xs text-studio-secondary rounded hover:text-studio-primary cursor-pointer"
+                className="px-3 py-1.5 bg-transparent border border-studio-border text-xs text-[#ECE4D3] rounded hover:text-white cursor-pointer"
               >
                 ยกเลิก
               </button>
@@ -268,7 +268,7 @@ export default function BookingRequestQueue({ singleArtistId = null }: BookingRe
                 type="button"
                 onClick={confirmDecline}
                 disabled={loadingId === rejectingBooking.id || !rejectionReason.trim()}
-                className="px-4 py-1.5 bg-studio-red hover:bg-tattoo-red-dark text-xs text-studio-paper font-semibold rounded cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-4 py-1.5 bg-[#C12D2D] hover:bg-[#A82525] text-xs text-white font-semibold rounded cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {loadingId === rejectingBooking.id ? 'กำลังบันทึก...' : 'ยืนยันการปฏิเสธ'}
               </button>

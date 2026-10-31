@@ -614,7 +614,7 @@ export default function ArtistDashboardPage() {
                 Artist Portal
               </span>
               <span className="text-studio-muted text-xs">•</span>
-              <span className="text-xs text-studio-secondary">
+              <span className="text-xs text-[#ECE4D3]">
                 {formatDateBangkok(new Date().toISOString(), true)}
               </span>
             </div>
@@ -626,7 +626,7 @@ export default function ArtistDashboardPage() {
           <button
             onClick={() => fetchArtistData()}
             disabled={loading}
-            className="self-start sm:self-auto flex items-center space-x-1.5 px-3 py-1.5 bg-studio-card border border-studio-border hover:border-studio-red/50 text-xs text-studio-secondary hover:text-studio-primary rounded-xl transition-colors cursor-pointer disabled:opacity-50 shadow-xs"
+            className="self-start sm:self-auto flex items-center space-x-1.5 px-3 py-1.5 bg-studio-card border border-studio-border hover:border-studio-red/50 text-xs text-[#ECE4D3] hover:text-studio-primary rounded-xl transition-colors cursor-pointer disabled:opacity-50 shadow-xs"
           >
             <RefreshCw size={13} className={loading ? 'animate-spin text-studio-red-bright' : ''} />
             <span>อัปเดตข้อมูล</span>
@@ -643,11 +643,11 @@ export default function ArtistDashboardPage() {
             className="bg-studio-card border border-studio-border hover:border-amber-500/50 p-4 rounded-xl flex items-center justify-between shadow-md transition-all cursor-pointer group"
           >
             <div className="space-y-0.5 min-w-0 pr-1">
-              <span className="text-[11px] text-studio-secondary uppercase tracking-wider font-medium block truncate">
+              <span className="text-[11px] text-[#ECE4D3] uppercase tracking-wider font-medium block truncate">
                 คำขอใหม่
               </span>
               <div className="text-xl sm:text-2xl font-bold font-mono text-amber-400 truncate">
-                {statusCounts.new} <span className="text-xs font-normal text-studio-muted">รายการ</span>
+                {statusCounts.new} <span className="text-xs font-normal text-[#ECE4D3]">รายการ</span>
               </div>
             </div>
             <div className="w-9 h-9 rounded-lg bg-amber-950/30 border border-amber-800/40 flex items-center justify-center text-amber-400 shrink-0 group-hover:scale-105 transition-transform">
@@ -661,11 +661,11 @@ export default function ArtistDashboardPage() {
             className="bg-studio-card border border-studio-border hover:border-orange-500/50 p-4 rounded-xl flex items-center justify-between shadow-md transition-all cursor-pointer group"
           >
             <div className="space-y-0.5 min-w-0 pr-1">
-              <span className="text-[11px] text-studio-secondary uppercase tracking-wider font-medium block truncate">
+              <span className="text-[11px] text-[#ECE4D3] uppercase tracking-wider font-medium block truncate">
                 รอตรวจสอบสลิป
               </span>
               <div className="text-xl sm:text-2xl font-bold font-mono text-orange-400 truncate">
-                {statusCounts.pendingSlip} <span className="text-xs font-normal text-studio-muted">รายการ</span>
+                {statusCounts.pendingSlip} <span className="text-xs font-normal text-[#ECE4D3]">รายการ</span>
               </div>
             </div>
             <div className="w-9 h-9 rounded-lg bg-orange-950/30 border border-orange-800/40 flex items-center justify-center text-orange-400 shrink-0 group-hover:scale-105 transition-transform">
@@ -679,11 +679,11 @@ export default function ArtistDashboardPage() {
             className="bg-studio-card border border-studio-border hover:border-blue-500/50 p-4 rounded-xl flex items-center justify-between shadow-md transition-all cursor-pointer group"
           >
             <div className="space-y-0.5 min-w-0 pr-1">
-              <span className="text-[11px] text-studio-secondary uppercase tracking-wider font-medium block truncate">
+              <span className="text-[11px] text-[#ECE4D3] uppercase tracking-wider font-medium block truncate">
                 คิวงาน
               </span>
               <div className="text-xl sm:text-2xl font-bold font-mono text-blue-400 truncate">
-                {Array.from(bookingsMap.values()).filter((b: any) => ['CONFIRMED', 'IN_PROGRESS'].includes(b.status)).length} <span className="text-xs font-normal text-studio-muted">งาน</span>
+                {Array.from(bookingsMap.values()).filter((b: any) => ['CONFIRMED', 'IN_PROGRESS'].includes(b.status)).length} <span className="text-xs font-normal text-[#ECE4D3]">งาน</span>
               </div>
             </div>
             <div className="w-9 h-9 rounded-lg bg-blue-950/30 border border-blue-800/40 flex items-center justify-center text-blue-400 shrink-0 group-hover:scale-105 transition-transform">
@@ -710,7 +710,7 @@ export default function ArtistDashboardPage() {
                   <h2 className="text-sm sm:text-base font-heading font-bold text-[#ECE4D3] uppercase tracking-wider flex items-center gap-2">
                     <span>งานวันนี้</span>
                   </h2>
-                  <p className="text-[11px] text-studio-secondary mt-0.5">
+                  <p className="text-[11px] text-[#ECE4D3] mt-0.5">
                     คิวงานของคุณในวันนี้ ทั้งหมด {todaySessions.length} รายการ
                   </p>
                 </div>
@@ -763,8 +763,8 @@ export default function ArtistDashboardPage() {
                           รอบที่ {activeTodaySession.session_number || 1}
                         </span>
                         {activeTodaySession.status === 'IN_PROGRESS' ? (
-                          <span className="text-[10px] font-mono font-semibold px-2.5 py-0.5 rounded-full bg-[#9C2F2F]/20 text-[#D64545] border border-[#9C2F2F]/60 inline-flex items-center gap-1 animate-pulse">
-                            <span className="w-1.5 h-1.5 rounded-full bg-[#D64545] animate-pulse" />
+                          <span className="text-[10px] font-mono font-semibold px-2.5 py-0.5 rounded-full bg-[#C12D2D]/20 text-[#C12D2D] border border-[#C12D2D]/60 inline-flex items-center gap-1 animate-pulse">
+                            <span className="w-1.5 h-1.5 rounded-full bg-[#C12D2D] animate-pulse" />
                             กำลังสัก
                           </span>
                         ) : activeTodaySession.status === 'COMPLETED' ? (
@@ -781,7 +781,7 @@ export default function ArtistDashboardPage() {
                             <Sparkles size={10} /> Flash
                           </span>
                         )}
-                        <span className="sm:hidden text-xs font-mono text-[#B8B0A3] ml-1 font-normal">
+                        <span className="sm:hidden text-xs font-mono text-[#ECE4D3] ml-1 font-normal">
                           #{activeSessionBooking.id.slice(0, 8).toUpperCase()}
                         </span>
                       </div>
@@ -791,7 +791,7 @@ export default function ArtistDashboardPage() {
                       </h3>
 
                       {activeSessionCustomerPhone && (
-                        <div className="flex items-center space-x-1.5 text-xs text-studio-secondary font-mono">
+                        <div className="flex items-center space-x-1.5 text-xs text-[#ECE4D3] font-mono">
                           <Phone size={12} className="text-amber-400/80 shrink-0" />
                           <span>{activeSessionCustomerPhone}</span>
                         </div>
@@ -801,7 +801,7 @@ export default function ArtistDashboardPage() {
 
                   {/* Right Top: Booking Code (Desktop only) */}
                   <div className="hidden sm:block self-start shrink-0 text-right">
-                    <span className="text-xs font-mono text-[#B8B0A3] bg-studio-card/80 px-2.5 py-1 rounded-lg border border-studio-border/60 inline-block">
+                    <span className="text-xs font-mono text-[#ECE4D3] bg-studio-card/80 px-2.5 py-1 rounded-lg border border-studio-border/60 inline-block">
                       #{activeSessionBooking.id.slice(0, 8).toUpperCase()}
                     </span>
                   </div>
@@ -815,7 +815,7 @@ export default function ArtistDashboardPage() {
                       <Layers size={14} />
                     </div>
                     <div className="min-w-0 flex-1">
-                      <span className="text-[10px] text-[#B8B0A3] block uppercase tracking-wider font-medium leading-none mb-1">ประเภทงาน</span>
+                      <span className="text-[10px] text-[#ECE4D3] block uppercase tracking-wider font-medium leading-none mb-1">ประเภทงาน</span>
                       <span className="text-xs font-semibold text-[#ECE4D3] leading-tight block break-words">
                         {activeSessionDetails?.isFlash ? 'Flash' : 'Custom'}
                       </span>
@@ -828,7 +828,7 @@ export default function ArtistDashboardPage() {
                       <Palette size={14} />
                     </div>
                     <div className="min-w-0 flex-1">
-                      <span className="text-[10px] text-[#B8B0A3] block uppercase tracking-wider font-medium leading-none mb-1">สไตล์</span>
+                      <span className="text-[10px] text-[#ECE4D3] block uppercase tracking-wider font-medium leading-none mb-1">สไตล์</span>
                       <span className="text-xs font-semibold text-[#ECE4D3] leading-tight block break-words">
                         {activeSessionDetails?.styleName || 'ไม่ระบุ'}
                       </span>
@@ -841,7 +841,7 @@ export default function ArtistDashboardPage() {
                       <MapPin size={14} />
                     </div>
                     <div className="min-w-0 flex-1">
-                      <span className="text-[10px] text-[#B8B0A3] block uppercase tracking-wider font-medium leading-none mb-1">ตำแหน่ง</span>
+                      <span className="text-[10px] text-[#ECE4D3] block uppercase tracking-wider font-medium leading-none mb-1">ตำแหน่ง</span>
                       <span className="text-xs font-semibold text-[#ECE4D3] leading-tight block break-words">
                         {activeSessionDetails?.placement || 'ไม่ระบุ'}
                       </span>
@@ -854,7 +854,7 @@ export default function ArtistDashboardPage() {
                       <Maximize2 size={14} />
                     </div>
                     <div className="min-w-0 flex-1">
-                      <span className="text-[10px] text-[#B8B0A3] block uppercase tracking-wider font-medium leading-none mb-1">
+                      <span className="text-[10px] text-[#ECE4D3] block uppercase tracking-wider font-medium leading-none mb-1">
                         ขนาดงาน
                       </span>
                       {activeSessionDetails?.sizeTier || activeSessionDetails?.sizeDimension ? (
@@ -871,7 +871,7 @@ export default function ArtistDashboardPage() {
                           )}
                         </div>
                       ) : (
-                        <span className="text-xs font-semibold text-[#B8B0A3] block">
+                        <span className="text-xs font-semibold text-[#ECE4D3] block">
                           ไม่ระบุ
                         </span>
                       )}
@@ -918,7 +918,7 @@ export default function ArtistDashboardPage() {
                         <span>ภาพตัวอย่างงาน</span>
                       </h4>
                       {/* Subtitle (Desktop only) */}
-                      <p className="hidden sm:block text-[10px] text-[#B8B0A3] mt-0.5">
+                      <p className="hidden sm:block text-[10px] text-[#ECE4D3] mt-0.5">
                         คลิกเพื่อดูภาพขนาดใหญ่
                       </p>
                     </div>
@@ -942,7 +942,7 @@ export default function ArtistDashboardPage() {
                 </div>
                 <div>
                   <h3 className="text-sm font-semibold text-[#ECE4D3]">วันนี้ไม่มีคิวงาน</h3>
-                  <p className="text-xs text-[#B8B0A3] mt-1">เมื่อมีคิวนัดหมายสำหรับวันนี้ ข้อมูลจะแสดงในส่วนนี้</p>
+                  <p className="text-xs text-[#ECE4D3] mt-1">เมื่อมีคิวนัดหมายสำหรับวันนี้ ข้อมูลจะแสดงในส่วนนี้</p>
                 </div>
                 <a
                   href="/artist/queue"
@@ -974,14 +974,14 @@ export default function ArtistDashboardPage() {
             <div className="space-y-3">
               <div className="flex items-center justify-between border-b border-studio-border/50 pb-2.5">
                 <div className="flex items-center space-x-2">
-                  <CalendarIcon size={16} className="text-studio-muted" />
+                  <CalendarIcon size={16} className="text-[#ECE4D3]" />
                   <h2 className="text-sm sm:text-base font-heading font-semibold text-studio-primary">
                     นัดหมายถัดไป
                   </h2>
                 </div>
                 <a
                   href="/artist/calendar"
-                  className="text-xs text-studio-secondary hover:text-studio-primary flex items-center space-x-1"
+                  className="text-xs text-[#ECE4D3] hover:text-studio-primary flex items-center space-x-1"
                 >
                   <span>ปฏิทิน</span>
                   <ChevronRight size={13} />
@@ -1032,12 +1032,12 @@ export default function ArtistDashboardPage() {
                               </span>
                             )}
                           </div>
-                          <p className="text-[11px] text-studio-secondary truncate">{artworkTitle}</p>
+                          <p className="text-[11px] text-[#ECE4D3] truncate">{artworkTitle}</p>
                         </div>
 
                         <div className="text-right shrink-0">
                           <span className={`text-[10px] font-mono font-semibold px-2 py-0.5 rounded ${
-                            isToday ? 'bg-amber-950/60 text-amber-400 border border-amber-800/60' : 'bg-studio-card text-studio-secondary border border-studio-border'
+                            isToday ? 'bg-amber-950/60 text-amber-400 border border-amber-800/60' : 'bg-studio-card text-[#ECE4D3] border border-studio-border'
                           }`}>
                             {isToday ? 'วันนี้' : formatDateBangkok(sess.start_at)} • {formatTimeBangkok(sess.start_at)}
                           </span>
@@ -1051,7 +1051,7 @@ export default function ArtistDashboardPage() {
 
             <a
               href="/artist/queue"
-              className="w-full py-2 bg-studio-sec hover:bg-studio-border text-studio-secondary hover:text-studio-primary text-xs font-semibold rounded-xl border border-studio-border transition-colors flex items-center justify-center space-x-1.5 cursor-pointer"
+              className="w-full py-2 bg-studio-sec hover:bg-studio-border text-[#ECE4D3] hover:text-studio-primary text-xs font-semibold rounded-xl border border-studio-border transition-colors flex items-center justify-center space-x-1.5 cursor-pointer"
             >
               <span>ดูคิวงานทั้งหมด ({upcomingSessions.length})</span>
               <ChevronRight size={14} />

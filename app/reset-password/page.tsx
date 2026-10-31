@@ -207,7 +207,7 @@ export default function ResetPasswordPage() {
               <h3 className="text-sm font-semibold text-red-400">
                 ลิงก์ตั้งรหัสผ่านไม่ถูกต้องหรือหมดอายุแล้ว
               </h3>
-              <p className="text-xs text-studio-secondary leading-relaxed max-w-xs">
+              <p className="text-xs text-[#ECE4D3] leading-relaxed max-w-xs">
                 ลิงก์สำหรับการตั้งรหัสผ่านใหม่อาจถูกใช้งานไปแล้วหรือหมดอายุ กรุณาทำรายการขอส่งลิงก์ใหม่อีกครั้ง
               </p>
             </div>
@@ -229,7 +229,7 @@ export default function ResetPasswordPage() {
               <h3 className="text-sm font-semibold text-emerald-300">
                 ตั้งรหัสผ่านใหม่เรียบร้อยแล้ว
               </h3>
-              <p className="text-xs text-studio-secondary leading-relaxed max-w-xs">
+              <p className="text-xs text-[#ECE4D3] leading-relaxed max-w-xs">
                 รหัสผ่านของคุณได้รับการเปลี่ยนเรียบร้อยแล้ว สามารถใช้รหัสผ่านใหม่เพื่อเข้าสู่ระบบได้ทันที
               </p>
             </div>
@@ -255,7 +255,7 @@ export default function ResetPasswordPage() {
             <div>
               <label 
                 htmlFor="new-password-input"
-                className="text-[11px] uppercase tracking-wider text-studio-secondary block mb-2 font-medium"
+                className="text-[11px] uppercase tracking-wider text-[#ECE4D3] block mb-2 font-medium"
               >
                 รหัสผ่านใหม่ (NEW PASSWORD)
               </label>

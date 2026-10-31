@@ -1,9 +1,15 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useApp } from '../AppContext';
+import { createClient } from '@/lib/supabase/client';
+import {
+  readAll,
+  subscribeRescheduleRequests,
+  isRescheduleRequestUiEnabled,
+} from '@/lib/reschedule/rescheduleRequestStore';
 import {
   ShieldCheck,
   LogOut,
@@ -21,12 +27,88 @@ import {
 
 export default function AdminHeader() {
   const pathname = usePathname();
-  const { staffRole, logoutStaff, bookingPayments, estimateRequests, flashReservations } = useApp();
+  const { staffRole, logoutStaff, estimateRequests, flashReservations } = useApp();
 
-  const pendingDepositsCount =
-    bookingPayments.filter((d) => d.paymentType === 'DEPOSIT' && d.status === 'SUBMITTED').length +
-    estimateRequests.filter((e) => e.status === 'PENDING' && e.request_type !== 'DIRECT_BOOKING').length +
-    (flashReservations || []).filter((r: any) => r.status === 'PENDING').length;
+  // Category 2: Pending deposit slips from booking_payment_submissions
+  const [pendingSlipCount, setPendingSlipCount] = useState<number>(0);
+
+  // Category 3: Pending reschedule requests
+  const [pendingRescheduleCount, setPendingRescheduleCount] = useState<number>(0);
+
+  // 1. Group 1: New Requests (Custom requests + Flash reservations with status = 'PENDING')
+  const newCustomRequestCount = (estimateRequests || []).filter(
+    (e) => e.status === 'PENDING' && e.request_type !== 'DIRECT_BOOKING'
+  ).length;
+
+  const newFlashRequestCount = (flashReservations || []).filter(
+    (r: any) => r.status === 'PENDING'
+  ).length;
+
+  const newRequestCount = newCustomRequestCount + newFlashRequestCount;
+
+  // 2. Group 2: New Deposit Slips (booking_payment_submissions with status = 'PENDING')
+  const fetchPendingSlipCount = useCallback(async () => {
+    try {
+      const supabase = createClient();
+      const { count, error } = await supabase
+        .from('booking_payment_submissions')
+        .select('id', { count: 'exact', head: true })
+        .eq('status', 'PENDING');
+      if (!error && typeof count === 'number') {
+        setPendingSlipCount(count);
+      }
+    } catch (err) {
+      console.error('Failed to fetch pending slip count in AdminHeader:', err);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchPendingSlipCount();
+
+    const handleRealtime = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (detail?.table === 'booking_payment_submissions') {
+        fetchPendingSlipCount();
+      }
+    };
+
+    const handleFocus = () => {
+      fetchPendingSlipCount();
+    };
+
+    if (typeof window !== 'undefined') {
+      window.addEventListener('admin:realtime', handleRealtime);
+      window.addEventListener('focus', handleFocus);
+      return () => {
+        window.removeEventListener('admin:realtime', handleRealtime);
+        window.removeEventListener('focus', handleFocus);
+      };
+    }
+  }, [fetchPendingSlipCount]);
+
+  // 3. Group 3: New Reschedule Requests (rescheduleRequestStore with status = 'PENDING')
+  useEffect(() => {
+    const updateRescheduleCount = () => {
+      if (!isRescheduleRequestUiEnabled()) {
+        setPendingRescheduleCount(0);
+        return;
+      }
+      try {
+        const all = readAll();
+        const pending = all.filter((r) => r.status === 'PENDING').length;
+        setPendingRescheduleCount(pending);
+      } catch (_) {
+        setPendingRescheduleCount(0);
+      }
+    };
+
+    updateRescheduleCount();
+    const unsubscribe = subscribeRescheduleRequests(updateRescheduleCount);
+    return () => unsubscribe();
+  }, []);
+
+  // Total unified notification count: Group 1 + Group 2 + Group 3
+  const totalNotificationCount = newRequestCount + pendingSlipCount + pendingRescheduleCount;
 
   const navItems = [
     { name: 'ภาพรวม', href: '/admin/dashboard', icon: LayoutDashboard },
@@ -61,17 +143,17 @@ export default function AdminHeader() {
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src="/157-tattoo-logo.png" alt="157 TATTOO logo" className="h-8 w-auto object-contain shrink-0" />
             <span className="text-xl font-heading tracking-[0.1em] text-[#ECE4D3]">157</span>
-            <span className="text-xl font-heading tracking-[0.1em] text-[#9C2F2F]">TATTOO</span>
+            <span className="text-xl font-heading tracking-[0.1em] text-[#C12D2D]">TATTOO</span>
           </Link>
           <Link
             href="/admin/requests"
             className="relative text-[#A89F91] hover:text-studio-red-bright p-1.5 transition-colors"
             title="การแจ้งเตือน"
           >
-            <Bell size={18} className={pendingDepositsCount > 0 ? 'text-studio-red-bright' : 'text-[#A89F91]'} />
-            {pendingDepositsCount > 0 && (
-              <span className="absolute top-0.5 right-0.5 min-w-[16px] h-4 px-1 bg-[#9C2F2F] text-[#ECE4D3] text-[9px] font-bold rounded-full flex items-center justify-center ring-2 ring-[#0E0D0C] animate-pulse">
-                {pendingDepositsCount}
+            <Bell size={18} className={totalNotificationCount > 0 ? 'text-studio-red-bright' : 'text-[#A89F91]'} />
+            {totalNotificationCount > 0 && (
+              <span className="absolute top-0.5 right-0.5 min-w-[16px] h-4 px-1 bg-[#C12D2D] text-[#ECE4D3] text-[9px] font-bold rounded-full flex items-center justify-center ring-2 ring-[#0E0D0C] animate-pulse">
+                {totalNotificationCount}
               </span>
             )}
           </Link>
@@ -92,11 +174,11 @@ export default function AdminHeader() {
                     : 'border-l-4 border-transparent text-[#A89F91] hover:text-[#ECE4D3] hover:bg-[#171512]/60 font-medium'
                 }`}
               >
-                <Icon size={18} className={active ? 'text-studio-red-bright' : 'text-[#B8B0A3]'} />
+                <Icon size={18} className={active ? 'text-studio-red-bright' : 'text-[#ECE4D3]'} />
                 <span>{item.name}</span>
-                {item.name === 'คำขอ' && pendingDepositsCount > 0 && (
-                  <span className="ml-auto bg-[#9C2F2F] text-[#ECE4D3] text-[10px] font-bold px-2 py-0.5 rounded-full">
-                    {pendingDepositsCount}
+                {item.name === 'คำขอ' && totalNotificationCount > 0 && (
+                  <span className="ml-auto bg-[#C12D2D] text-[#ECE4D3] text-[10px] font-bold px-2 py-0.5 rounded-full">
+                    {totalNotificationCount}
                   </span>
                 )}
               </Link>
@@ -108,14 +190,14 @@ export default function AdminHeader() {
         <div className="border-t border-[#4A443A]/60 p-4 space-y-3 shrink-0 bg-[#0E0D0C]">
           {/* Admin Profile Info */}
           <div className="flex items-center space-x-2.5 py-1 px-2">
-            <div className="w-8 h-8 rounded-full bg-[#9C2F2F]/15 border border-[#9C2F2F]/30 flex items-center justify-center text-studio-red-bright shrink-0">
+            <div className="w-8 h-8 rounded-full bg-[#C12D2D]/15 border border-[#C12D2D]/30 flex items-center justify-center text-studio-red-bright shrink-0">
               <ShieldCheck size={16} />
             </div>
             <div className="min-w-0 flex-1">
               <p className="text-xs font-semibold text-[#ECE4D3] truncate">
                 {staffRole === 'ADMIN' ? 'เจ้าของร้าน (Admin)' : 'ช่างสักประจำร้าน'}
               </p>
-              <p className="text-[10px] text-[#B8B0A3]">ผู้ดูแลระบบ</p>
+              <p className="text-[10px] text-[#ECE4D3]">ผู้ดูแลระบบ</p>
             </div>
           </div>
 
@@ -123,7 +205,7 @@ export default function AdminHeader() {
           <button
             type="button"
             onClick={logoutStaff}
-            className="w-full flex items-center space-x-2.5 text-xs text-[#B8B0A3] hover:text-studio-red-bright py-2 px-2 rounded hover:bg-[#9C2F2F]/10 transition-colors font-medium text-left"
+            className="w-full flex items-center space-x-2.5 text-xs text-[#ECE4D3] hover:text-studio-red-bright py-2 px-2 rounded hover:bg-[#C12D2D]/10 transition-colors font-medium text-left"
             title="ออกจากระบบ"
           >
             <LogOut size={16} />
@@ -140,8 +222,8 @@ export default function AdminHeader() {
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/157-tattoo-logo.png" alt="157 TATTOO logo" className="h-7 w-auto object-contain shrink-0" />
           <span className="text-lg font-heading tracking-[0.1em] text-[#ECE4D3]">157</span>
-          <span className="text-lg font-heading tracking-[0.1em] text-[#9C2F2F]">TATTOO</span>
-          <span className="text-[9px] bg-[#9C2F2F]/15 text-studio-red-bright border border-[#9C2F2F]/30 px-1.5 py-0.5 rounded font-bold uppercase tracking-widest">
+          <span className="text-lg font-heading tracking-[0.1em] text-[#C12D2D]">TATTOO</span>
+          <span className="text-[9px] bg-[#C12D2D]/15 text-studio-red-bright border border-[#C12D2D]/30 px-1.5 py-0.5 rounded font-bold uppercase tracking-widest">
             {staffRole || 'ADMIN'}
           </span>
         </Link>
@@ -152,9 +234,11 @@ export default function AdminHeader() {
             className="relative text-[#A89F91] hover:text-studio-red-bright p-1.5"
             title="การแจ้งเตือน"
           >
-            <Bell size={18} />
-            {pendingDepositsCount > 0 && (
-              <span className="absolute top-1 right-1 w-2 h-2 bg-[#9C2F2F] rounded-full ring-2 ring-[#171512] animate-pulse" />
+            <Bell size={18} className={totalNotificationCount > 0 ? 'text-studio-red-bright' : 'text-[#A89F91]'} />
+            {totalNotificationCount > 0 && (
+              <span className="absolute top-0.5 right-0.5 min-w-[16px] h-4 px-1 bg-[#C12D2D] text-[#ECE4D3] text-[9px] font-bold rounded-full flex items-center justify-center ring-2 ring-[#171512] animate-pulse">
+                {totalNotificationCount}
+              </span>
             )}
           </Link>
 

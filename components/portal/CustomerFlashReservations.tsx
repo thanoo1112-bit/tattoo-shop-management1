@@ -270,7 +270,7 @@ export default function CustomerFlashReservations() {
             <Sparkles size={16} className="text-studio-red" />
             <span>คำขอจองลายสักพร้อมจอง (Flash Reservations)</span>
           </h3>
-          <p className="text-[11px] text-studio-secondary font-light">
+          <p className="text-[11px] text-studio-primary font-light">
             รายการคำขอจองแบบลายสัก Flash ของท่าน ติดตามสถานะและรอบยืนยันจากทางร้าน
           </p>
         </div>
@@ -300,7 +300,7 @@ export default function CustomerFlashReservations() {
         <div className="bg-studio-card border border-studio-border p-10 rounded-[6px] text-center space-y-3">
           <Sparkles size={28} className="text-[#B8B0A3] mx-auto" />
           <h4 className="text-sm font-bold text-studio-primary">ยังไม่มีรายการจองลายสัก Flash</h4>
-          <p className="text-xs text-studio-secondary max-w-sm mx-auto font-light">
+          <p className="text-xs text-studio-primary max-w-sm mx-auto font-light">
             ท่านสามารถเลือกชมแบบลายสักพร้อมจอง (Fixed Price) ลิขสิทธิ์เฉพาะของช่างประจำร้านได้ที่แกลเลอรี Flash
           </p>
           <Link
@@ -345,9 +345,18 @@ export default function CustomerFlashReservations() {
                     <span className="text-[10px] uppercase font-bold text-studio-red tracking-wider">
                       FLASH #{res.id.slice(0, 8)}
                     </span>
-                    <span className="text-[10px] text-[#B8B0A3]">
+                    <span className="text-[10px] text-[#ECE4D3]">
                       • ส่งเมื่อ: {formatThaiDate(res.created_at)}
                     </span>
+                    {design && (
+                      <span className={`text-[10px] px-1.5 py-0.2 rounded font-medium ${
+                        design.is_repeatable
+                          ? 'bg-[#171512]/95 border border-[#6A6256] text-[#ECE4D3]'
+                          : 'bg-[#6F1F1F]/95 border border-[#C12D2D] text-[#ECE4D3]'
+                      }`}>
+                        {design.is_repeatable ? 'สักซ้ำได้' : 'ลายเดียว'}
+                      </span>
+                    )}
                   </div>
 
                   {/* Status Badge */}
@@ -405,7 +414,7 @@ export default function CustomerFlashReservations() {
                       <h4 className="font-bold text-studio-primary text-sm truncate">
                         {design?.title || 'แบบลายสัก Flash'}
                       </h4>
-                      <p className="text-[11px] text-studio-secondary font-light">
+                      <p className="text-[11px] text-studio-primary font-light">
                         ลายสัก Flash พร้อมสักราคาคงที่ (Fixed Price)
                       </p>
                     </div>
@@ -413,13 +422,13 @@ export default function CustomerFlashReservations() {
 
                   {/* กล่อง “รายละเอียดงานสัก” รูปแบบเดียวกับการจองคิวสักปกติ */}
                   <div className="bg-studio-main border border-studio-border p-3.5 rounded-[6px] space-y-2.5 text-xs text-studio-primary">
-                    <div className="text-[11px] font-bold text-studio-secondary uppercase tracking-wider border-b border-studio-border/40 pb-1.5 mb-1">
+                    <div className="text-[11px] font-bold text-studio-primary uppercase tracking-wider border-b border-studio-border/40 pb-1.5 mb-1">
                       รายละเอียดงานสัก
                     </div>
 
                     {/* 1. ช่างสัก */}
                     <div className="flex justify-between items-center">
-                      <span className="text-studio-secondary flex items-center gap-1.5">
+                      <span className="text-studio-primary flex items-center gap-1.5">
                         <User size={13} className="text-studio-red" /> ช่างสัก
                       </span>
                       <span className="font-semibold text-studio-primary">{artistName}</span>
@@ -427,7 +436,7 @@ export default function CustomerFlashReservations() {
 
                     {/* 2. สไตล์ลายสัก */}
                     <div className="flex justify-between items-center">
-                      <span className="text-studio-secondary flex items-center gap-1.5">
+                      <span className="text-studio-primary flex items-center gap-1.5">
                         <Palette size={13} className="text-studio-red" /> สไตล์ลายสัก
                       </span>
                       <span className="font-semibold text-studio-primary">{design?.style || '-'}</span>
@@ -435,7 +444,7 @@ export default function CustomerFlashReservations() {
 
                     {/* 3. ตำแหน่งที่สัก */}
                     <div className="flex justify-between items-center">
-                      <span className="text-studio-secondary flex items-center gap-1.5">
+                      <span className="text-studio-primary flex items-center gap-1.5">
                         <MapPin size={13} className="text-studio-red" /> ตำแหน่งที่สัก
                       </span>
                       <span className="font-semibold text-studio-primary">{placementDisplay}</span>
@@ -444,7 +453,7 @@ export default function CustomerFlashReservations() {
                     {/* 4. ขนาดงานสัก */}
                     {hasSize && (
                       <div className="flex justify-between items-center">
-                        <span className="text-studio-secondary flex items-center gap-1.5">
+                        <span className="text-studio-primary flex items-center gap-1.5">
                           <Maximize2 size={13} className="text-studio-red" /> ขนาดงานสัก
                         </span>
                         <span className="font-semibold text-studio-primary">
@@ -455,7 +464,7 @@ export default function CustomerFlashReservations() {
 
                     {/* 5. วันนัด */}
                     <div className="flex justify-between items-center">
-                      <span className="text-studio-secondary flex items-center gap-1.5">
+                      <span className="text-studio-primary flex items-center gap-1.5">
                         <Calendar size={13} className="text-studio-red" /> วันนัด
                       </span>
                       <span className="font-semibold text-studio-primary">
@@ -465,7 +474,7 @@ export default function CustomerFlashReservations() {
 
                     {/* 6. เวลาเริ่ม */}
                     <div className="flex justify-between items-center">
-                      <span className="text-studio-secondary flex items-center gap-1.5">
+                      <span className="text-studio-primary flex items-center gap-1.5">
                         <Clock size={13} className="text-studio-red" /> เวลาเริ่ม
                       </span>
                       <span className="font-semibold text-studio-primary">
@@ -476,7 +485,7 @@ export default function CustomerFlashReservations() {
                     {/* 7. รายละเอียดเพิ่มเติม */}
                     {res.customer_note && (
                       <div className="pt-2 border-t border-studio-border/30 text-[11px]">
-                        <span className="text-studio-secondary block mb-1 flex items-center gap-1.5 font-medium">
+                        <span className="text-studio-primary block mb-1 flex items-center gap-1.5 font-medium">
                           <FileText size={12} className="text-studio-red" /> รายละเอียดเพิ่มเติม:
                         </span>
                         <p className="text-studio-primary bg-studio-card/80 p-2 rounded border border-studio-border/40 font-light whitespace-pre-wrap">
@@ -503,7 +512,7 @@ export default function CustomerFlashReservations() {
 
                 {/* Status Notice & Customer Action */}
                 <div className="pt-2 border-t border-studio-border/40 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
-                  <div className="text-[11px] text-[#B8B0A3] font-light">
+                  <div className="text-[11px] text-[#ECE4D3] font-light">
                     {isPending && (
                       <span className="text-amber-300/80">
                         • ลายนี้ถูก Hold ไว้ชั่วคราว ร้านกำลังตรวจสอบคิวงาน

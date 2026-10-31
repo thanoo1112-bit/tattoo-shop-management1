@@ -89,7 +89,7 @@ export default function DepositVerificationQueue() {
               className={`px-2.5 py-1 rounded-[3px] font-semibold transition-colors ${
                 filterStatus === st 
                   ? 'bg-studio-red text-studio-primary' 
-                  : 'text-studio-secondary hover:text-studio-primary'
+                  : 'text-[#ECE4D3]/70 hover:text-[#ECE4D3]'
               }`}
             >
               {st === 'SUBMITTED' ? `รอตรวจสอบ (${submittedCount})` :
@@ -111,7 +111,7 @@ export default function DepositVerificationQueue() {
       <div className="overflow-x-auto">
         <table className="w-full text-left border-collapse">
           <thead>
-            <tr className="border-b border-studio-border text-[10px] uppercase tracking-wider text-studio-secondary bg-studio-main/30">
+            <tr className="border-b border-studio-border text-[10px] uppercase tracking-wider text-[#ECE4D3] bg-studio-main/30">
               <th className="p-4 font-semibold">ลูกค้า / คิวจอง</th>
               <th className="p-4 font-semibold">ช่างสัก</th>
               <th className="p-4 font-semibold">ยอดมัดจำ</th>
@@ -129,7 +129,7 @@ export default function DepositVerificationQueue() {
                 <tr key={payment.id} className="hover:bg-studio-sec/40 transition-colors">
                   <td className="p-4">
                     <div className="font-bold">{linkedBooking?.customerName || 'ลูกค้า'}</div>
-                    <div className="text-[10px] text-studio-secondary flex items-center space-x-1 mt-0.5">
+                    <div className="text-[10px] text-[#ECE4D3] flex items-center space-x-1 mt-0.5">
                       <Mail size={10} />
                       <span className="font-mono">{linkedBooking?.customerEmail}</span>
                     </div>
@@ -137,7 +137,7 @@ export default function DepositVerificationQueue() {
                       คิว: {linkedBooking?.artworkTitle || 'งานสัก'} ({linkedBooking?.date})
                     </div>
                   </td>
-                  <td className="p-4 font-semibold text-studio-secondary">
+                  <td className="p-4 font-semibold text-[#ECE4D3]">
                     {linkedBooking?.artistName || '-'}
                   </td>
                   <td className="p-4">
@@ -150,12 +150,12 @@ export default function DepositVerificationQueue() {
                       {payment.paymentReference || '-'}
                     </div>
                     {payment.customerNote && (
-                      <div className="text-[10px] text-studio-secondary italic">
+                      <div className="text-[10px] text-[#ECE4D3] italic">
                         “{payment.customerNote}”
                       </div>
                     )}
                   </td>
-                  <td className="p-4 text-[10px] text-studio-secondary font-mono">
+                  <td className="p-4 text-[10px] text-[#ECE4D3] font-mono">
                     {formatThaiDate(payment.submittedAt || payment.createdAt)}
                   </td>
                   <td className="p-4">
@@ -181,7 +181,7 @@ export default function DepositVerificationQueue() {
                         <button
                           onClick={() => handleVerify(payment.id)}
                           disabled={loadingId === payment.id}
-                          className="bg-studio-red text-studio-primary hover:bg-studio-red/80 text-[10px] font-bold tracking-wide uppercase px-2.5 py-1.5 rounded-[3px] transition-colors flex items-center space-x-1 disabled:opacity-50"
+                          className="bg-[#C12D2D] text-white hover:bg-[#A82525] text-[10px] font-bold tracking-wide uppercase px-2.5 py-1.5 rounded-[3px] transition-colors flex items-center space-x-1 disabled:opacity-50"
                         >
                           {loadingId === payment.id ? (
                             <Loader2 size={10} className="animate-spin" />
@@ -211,7 +211,7 @@ export default function DepositVerificationQueue() {
 
             {displayedPayments.length === 0 && (
               <tr>
-                <td colSpan={7} className="p-8 text-center text-studio-secondary italic">
+                <td colSpan={7} className="p-8 text-center text-[#ECE4D3] italic">
                   ไม่มีรายการแจ้งชำระเงินมัดจำในหมวดหมู่นี้
                 </td>
               </tr>

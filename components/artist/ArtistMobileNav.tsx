@@ -56,12 +56,12 @@ export default function ArtistMobileNav() {
                 >
                   {/* Elevated Circle Icon (Elevated 12px above the bar line) */}
                   <div
-                    className="w-[46px] h-[46px] rounded-full bg-[#9C2F2F] text-[#ECE4D3] flex items-center justify-center border-2 border-[#171512] shadow-[0_4px_14px_rgba(156,47,47,0.45)] transition-transform duration-200"
+                    className="w-[46px] h-[46px] rounded-full bg-[#C12D2D] text-[#ECE4D3] flex items-center justify-center border-2 border-[#171512] shadow-[0_4px_14px_rgba(156,47,47,0.45)] transition-transform duration-200"
                   >
                     <Icon size={21} className="stroke-[2.2px]" />
                   </div>
                   {/* Active Label */}
-                  <span className="text-[10px] font-bold text-[#D64545] whitespace-nowrap mt-1 tracking-tight leading-none">
+                  <span className="text-[10px] font-bold text-[#C12D2D] whitespace-nowrap mt-1 tracking-tight leading-none">
                     {item.label}
                   </span>
                 </Link>
@@ -76,7 +76,7 @@ export default function ArtistMobileNav() {
               >
                 {/* Standard Inactive Icon */}
                 <div className="w-[32px] h-[32px] flex items-center justify-center">
-                  <Icon size={18} className="text-[#7A7265] group-hover:text-[#ECE4D3] transition-colors stroke-[1.8px]" />
+                  <Icon size={18} className="text-[#A89F91] group-hover:text-[#ECE4D3] transition-colors stroke-[1.8px]" />
                 </div>
                 {/* Inactive Label */}
                 <span className="text-[10px] font-medium text-[#7A7265] group-hover:text-[#ECE4D3] whitespace-nowrap mt-1 tracking-tight leading-none transition-colors">

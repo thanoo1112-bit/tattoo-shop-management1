@@ -54,9 +54,9 @@ export default function AdminAppointmentDrawer({
     },
     IN_PROGRESS: {
       label: 'กำลังสัก',
-      bg: 'bg-[#9C2F2F]/20',
-      text: 'text-[#9C2F2F]',
-      border: 'border-[#9C2F2F]',
+      bg: 'bg-[#C12D2D]/20',
+      text: 'text-[#C12D2D]',
+      border: 'border-[#C12D2D]',
     },
     WAITING_DEPOSIT: {
       label: 'รอมัดจำ',
@@ -73,7 +73,7 @@ export default function AdminAppointmentDrawer({
     COMPLETED: {
       label: 'เสร็จสิ้น',
       bg: 'bg-zinc-900',
-      text: 'text-[#A89F91]',
+      text: 'text-[#ECE4D3]',
       border: 'border-[#4A443A]',
     },
     CANCELLED: {
@@ -153,7 +153,7 @@ export default function AdminAppointmentDrawer({
               </div>
             )}
             <div className="min-w-0">
-              <span className="text-[10px] uppercase font-mono tracking-wider bg-[#0E0D0C] text-[#A89F91] px-2 py-0.5 rounded border border-[#4A443A] inline-block mb-1">
+              <span className="text-[10px] uppercase font-mono tracking-wider bg-[#0E0D0C] text-[#ECE4D3] px-2 py-0.5 rounded border border-[#4A443A] inline-block mb-1">
                 {booking.bookingType === 'flash' ? 'Flash Design' : 'Custom Tattoo Design'}
               </span>
               <h2 className="text-lg sm:text-2xl font-heading font-normal tracking-wide text-[#ECE4D3] truncate">
@@ -165,7 +165,7 @@ export default function AdminAppointmentDrawer({
                 >
                   ● {currentStatus.label}
                 </span>
-                <span className="text-[11px] text-[#7A7265] font-mono">
+                <span className="text-[11px] text-[#ECE4D3] font-mono">
                   #{booking.id}
                 </span>
               </div>
@@ -185,14 +185,14 @@ export default function AdminAppointmentDrawer({
             </div>
             <div className="grid grid-cols-2 gap-2 text-xs">
               <div>
-                <span className="text-[#7A7265] block text-[10px]">ชื่อลูกค้า:</span>
+                <span className="text-[#ECE4D3] block text-[10px]">ชื่อลูกค้า:</span>
                 <strong className="text-[#ECE4D3] font-medium">
                   {booking.customerName || 'ไม่ระบุ'}
                 </strong>
               </div>
               <div>
-                <span className="text-[#7A7265] block text-[10px]">อีเมลติดต่อ:</span>
-                <span className="text-[#A89F91] font-mono truncate block">
+                <span className="text-[#ECE4D3] block text-[10px]">อีเมลติดต่อ:</span>
+                <span className="text-[#ECE4D3] font-mono truncate block">
                   {booking.customerEmail || 'ไม่มีข้อมูล'}
                 </span>
               </div>
@@ -240,13 +240,13 @@ export default function AdminAppointmentDrawer({
             </div>
             <div className="grid grid-cols-2 gap-3 text-xs">
               <div>
-                <span className="text-[#7A7265] text-[10px] block">วันที่นัดสัก:</span>
+                <span className="text-[#ECE4D3] text-[10px] block">วันที่นัดสัก:</span>
                 <span className="text-[#ECE4D3] font-medium">
                   {formatThaiDate(booking.date)}
                 </span>
               </div>
               <div>
-                <span className="text-[#7A7265] text-[10px] block">ช่วงเวลาสัก:</span>
+                <span className="text-[#ECE4D3] text-[10px] block">ช่วงเวลาสัก:</span>
                 <span className="text-[#ECE4D3] font-medium font-mono">
                   {booking.startTime} – {booking.endTime}
                   {calculateDurationTextFromTimes(booking.startTime, booking.endTime) && (
@@ -267,13 +267,13 @@ export default function AdminAppointmentDrawer({
             </div>
             <div className="grid grid-cols-2 gap-3 text-xs">
               <div>
-                <span className="text-[#7A7265] text-[10px] block">ตำแหน่งบนร่างกาย:</span>
+                <span className="text-[#ECE4D3] text-[10px] block">ตำแหน่งบนร่างกาย:</span>
                 <span className="text-[#ECE4D3]">
                   {booking.placement || 'ตามที่ตกลงกับช่าง'}
                 </span>
               </div>
               <div>
-                <span className="text-[#7A7265] text-[10px] block">ขนาดผลงาน:</span>
+                <span className="text-[#ECE4D3] text-[10px] block">ขนาดผลงาน:</span>
                 <span className="text-[#ECE4D3]">
                   {formatTattooSize(booking.width, booking.height)}
                 </span>
@@ -281,8 +281,8 @@ export default function AdminAppointmentDrawer({
             </div>
             {booking.description && (
               <div className="pt-2 border-t border-[#4A443A]/30">
-                <span className="text-[#7A7265] text-[10px] block">รายละเอียดงาน:</span>
-                <p className="text-[#A89F91] text-xs leading-relaxed mt-0.5">
+                <span className="text-[#ECE4D3] text-[10px] block">รายละเอียดงาน:</span>
+                <p className="text-[#ECE4D3] text-xs leading-relaxed mt-0.5">
                   {booking.description}
                 </p>
               </div>
@@ -299,13 +299,13 @@ export default function AdminAppointmentDrawer({
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="p-2.5 rounded bg-[#171512] border border-[#4A443A]/50">
-                <span className="text-[10px] text-[#7A7265] block uppercase">ราคางานสัก:</span>
+                <span className="text-[10px] text-[#ECE4D3] block uppercase">ราคางานสัก:</span>
                 <strong className="text-sm text-[#ECE4D3] font-mono">
                   ฿{booking.price?.toLocaleString() || '0'}
                 </strong>
               </div>
               <div className="p-2.5 rounded bg-[#171512] border border-[#4A443A]/50">
-                <span className="text-[10px] text-[#7A7265] block uppercase">ยอดมัดจำ:</span>
+                <span className="text-[10px] text-[#ECE4D3] block uppercase">ยอดมัดจำ:</span>
                 <strong className="text-sm text-green-400 font-mono">
                   ฿{booking.deposit?.toLocaleString() || '0'}
                 </strong>
@@ -323,7 +323,7 @@ export default function AdminAppointmentDrawer({
                   updateBookingStatus(booking.id, 'APPROVED');
                   onClose();
                 }}
-                className="flex-1 min-h-[44px] bg-[#9C2F2F] hover:bg-[#7F2424] text-[#ECE4D3] rounded-[4px] text-xs font-semibold flex items-center justify-center space-x-1.5 transition-colors shadow-md"
+                className="flex-1 min-h-[44px] bg-[#C12D2D] hover:bg-[#7F2424] text-[#ECE4D3] rounded-[4px] text-xs font-semibold flex items-center justify-center space-x-1.5 transition-colors shadow-md"
               >
                 <CheckCircle2 size={15} />
                 <span>อนุมัติคำขอคิวสัก</span>
@@ -347,7 +347,7 @@ export default function AdminAppointmentDrawer({
                 updateBookingStatus(booking.id, 'CONFIRMED');
                 onClose();
               }}
-              className="w-full min-h-[44px] bg-[#9C2F2F] hover:bg-[#7F2424] text-[#ECE4D3] rounded-[4px] text-xs font-semibold flex items-center justify-center space-x-1.5 transition-colors shadow-md"
+              className="w-full min-h-[44px] bg-[#C12D2D] hover:bg-[#7F2424] text-[#ECE4D3] rounded-[4px] text-xs font-semibold flex items-center justify-center space-x-1.5 transition-colors shadow-md"
             >
               <CheckCircle2 size={15} />
               <span>ยืนยันมัดจำ & ล็อกคิวงาน</span>
@@ -361,7 +361,7 @@ export default function AdminAppointmentDrawer({
                   updateBookingStatus(booking.id, 'IN_PROGRESS');
                   onClose();
                 }}
-                className="flex-1 min-h-[44px] bg-[#9C2F2F] hover:bg-[#7F2424] text-[#ECE4D3] rounded-[4px] text-xs font-semibold flex items-center justify-center space-x-1.5 transition-colors shadow-md"
+                className="flex-1 min-h-[44px] bg-[#C12D2D] hover:bg-[#7F2424] text-[#ECE4D3] rounded-[4px] text-xs font-semibold flex items-center justify-center space-x-1.5 transition-colors shadow-md"
               >
                 <Clock3 size={15} />
                 <span>เริ่มรอบการสัก (In Progress)</span>
@@ -403,7 +403,7 @@ export default function AdminAppointmentDrawer({
 
           <button
             onClick={onClose}
-            className="min-h-[44px] px-5 bg-transparent hover:bg-[#0E0D0C] border border-[#4A443A] text-[#A89F91] hover:text-[#ECE4D3] rounded-[4px] text-xs font-medium transition-colors"
+            className="min-h-[44px] px-5 bg-transparent hover:bg-[#0E0D0C] border border-[#4A443A] text-[#ECE4D3] hover:text-white rounded-[4px] text-xs font-medium transition-colors"
           >
             ปิดหน้าต่าง
           </button>

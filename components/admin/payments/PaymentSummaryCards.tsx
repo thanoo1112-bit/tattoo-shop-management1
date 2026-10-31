@@ -17,8 +17,7 @@ export default function PaymentSummaryCards({
 }: PaymentSummaryCardsProps) {
   const cards = [
     {
-      title: 'งานที่ยืนยันแล้วทั้งหมด',
-      subtitle: 'จำนวน booking ที่ยืนยันคิวแล้ว',
+      title: 'งานที่ยืนยัน',
       value: `${totalActiveBookingsCount} คิว`,
       hint: '',
       icon: Layers,
@@ -27,8 +26,7 @@ export default function PaymentSummaryCards({
       accentColor: 'text-cyan-400',
     },
     {
-      title: 'ลาย Flash ที่ถูกจอง',
-      subtitle: 'จำนวนลาย Flash ที่ลูกค้าจองแล้ว',
+      title: 'ผลงานที่จอง',
       value: `${bookedFlashCount} ลาย`,
       hint: '',
       icon: Clock3,
@@ -37,9 +35,8 @@ export default function PaymentSummaryCards({
       accentColor: 'text-amber-400',
     },
     {
-      title: 'งานเสร็จสิ้น',
-      subtitle: 'ปิดงานและบันทึกยอดเรียบร้อย',
-      value: `${completedBookingsCount} คิว`,
+      title: 'งานเสร็จแล้ว',
+      value: `${completedBookingsCount} งาน`,
       hint: '',
       icon: CheckCircle2,
       borderColor: 'border-teal-900/40',
@@ -59,30 +56,25 @@ export default function PaymentSummaryCards({
           >
             <div className="flex items-start justify-between gap-2">
               <div>
-                <p className="text-[11px] sm:text-xs text-[#A89F91] font-medium tracking-wide">
+                <p className="text-[11px] sm:text-xs text-[#ECE4D3] font-medium tracking-wide">
                   {card.title}
                 </p>
-                {card.subtitle ? (
-                  <p className="text-[10px] text-[#7A7265] font-light mt-0.5 truncate max-w-[120px] sm:max-w-none">
-                    {card.subtitle}
-                  </p>
-                ) : null}
+                <div className={`text-lg sm:text-2xl font-heading font-semibold tracking-tight mt-1 sm:mt-1.5 ${card.accentColor}`}>
+                  {card.value}
+                </div>
               </div>
               <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${card.iconBg}`}>
                 <Icon size={16} />
               </div>
             </div>
 
-            <div className="mt-3 sm:mt-4">
-              <div className={`text-lg sm:text-2xl font-heading font-semibold tracking-tight ${card.accentColor}`}>
-                {card.value}
-              </div>
-              {card.hint ? (
-                <p className="text-[10px] text-[#7A7265] mt-1 font-light truncate">
+            {card.hint ? (
+              <div className="mt-2.5 sm:mt-3">
+                <p className="text-[10px] text-[#ECE4D3] mt-1 font-light truncate">
                   {card.hint}
                 </p>
-              ) : null}
-            </div>
+              </div>
+            ) : null}
           </div>
         );
       })}

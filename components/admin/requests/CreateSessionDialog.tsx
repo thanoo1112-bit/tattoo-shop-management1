@@ -327,7 +327,7 @@ export default function CreateSessionDialog({
               <h3 className="text-sm font-heading font-semibold text-[#ECE4D3]">
                 เพิ่มรอบการสัก (รอบที่ {existingSessionCount + 1})
               </h3>
-              <p className="text-[11px] text-[#B8B0A3]">
+              <p className="text-[11px] text-[#ECE4D3]">
                 ช่าง: {booking.artist_name} • คิว #{booking.id.slice(0, 8)}
               </p>
             </div>
@@ -363,7 +363,7 @@ export default function CreateSessionDialog({
           {/* Date */}
           <div>
             <label className="block text-xs font-medium text-[#ECE4D3] mb-1">
-              วันที่นัดหมายรอบสัก <span className="text-[#9C2F2F]">*</span>
+              วันที่นัดหมายรอบสัก <span className="text-[#C12D2D]">*</span>
             </label>
             <input
               id="input-session-date"
@@ -371,14 +371,14 @@ export default function CreateSessionDialog({
               required
               value={sessionDate}
               onChange={(e) => setSessionDate(e.target.value)}
-              className="w-full bg-[#0E0D0C] border border-[#4A443A] rounded-lg px-3 py-2 text-xs text-[#ECE4D3] focus:outline-none focus:border-emerald-400"
+              className="w-full bg-[#0E0D0C] border border-[#4A443A] rounded-lg px-3 py-2 text-xs text-[#ECE4D3] focus:outline-none focus:border-emerald-400 cursor-pointer"
             />
           </div>
 
           {/* Appointment Time */}
           <div>
             <label className="block text-xs font-medium text-[#ECE4D3] mb-1">
-              เวลานัด <span className="text-[#9C2F2F]">*</span>
+              เวลานัด <span className="text-[#C12D2D]">*</span>
             </label>
             <input
               id="input-session-start"
@@ -386,7 +386,7 @@ export default function CreateSessionDialog({
               required
               value={startTime}
               onChange={(e) => setStartTime(e.target.value)}
-              className="w-full bg-[#0E0D0C] border border-[#4A443A] rounded-lg px-3 py-2 text-xs text-[#ECE4D3] focus:outline-none focus:border-emerald-400 font-mono"
+              className="w-full bg-[#0E0D0C] border border-[#4A443A] rounded-lg px-3 py-2 text-xs text-[#ECE4D3] focus:outline-none focus:border-emerald-400 font-mono cursor-pointer"
             />
           </div>
 
@@ -436,7 +436,7 @@ export default function CreateSessionDialog({
             <button
               type="button"
               onClick={onCancel}
-              className="px-3 py-1.5 bg-[#0E0D0C] border border-[#4A443A] hover:border-[#7A7265] text-xs text-[#B8B0A3] hover:text-[#ECE4D3] rounded-md transition-colors cursor-pointer"
+              className="px-3 py-1.5 bg-[#0E0D0C] border border-[#4A443A] hover:border-[#7A7265] text-xs text-[#ECE4D3] hover:text-white rounded-md transition-colors cursor-pointer"
             >
               ยกเลิก
             </button>

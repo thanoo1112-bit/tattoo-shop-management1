@@ -583,7 +583,7 @@ export function resolveEstimateOperationalStatus(
       return {
         key: 'IN_PROGRESS',
         label: 'กำลังสัก',
-        badgeClass: 'bg-[#9C2F2F]/20 text-[#D64545] border border-[#9C2F2F]/60 animate-pulse',
+        badgeClass: 'bg-[#C12D2D]/20 text-[#C12D2D] border border-[#C12D2D]/60 animate-pulse',
       };
     }
 
@@ -708,7 +708,7 @@ export function resolveBookingOperationalStatus(
     return {
       key: 'IN_PROGRESS',
       label: 'กำลังสัก',
-      badgeClass: 'bg-[#9C2F2F]/20 text-[#D64545] border border-[#9C2F2F]/60 animate-pulse',
+      badgeClass: 'bg-[#C12D2D]/20 text-[#C12D2D] border border-[#C12D2D]/60 animate-pulse',
     };
   }
 

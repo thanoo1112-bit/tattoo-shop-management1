@@ -28,6 +28,7 @@ import {
 } from 'lucide-react';
 import Image from 'next/image';
 import PaymentSlipLightbox from '@/components/common/PaymentSlipLightbox';
+import { compressPaymentSlip } from '@/lib/utils/storageUploader';
 import CustomerRescheduleRequestCard from './CustomerRescheduleRequestCard';
 
 interface CustomerDepositPaymentSectionProps {
@@ -160,8 +161,8 @@ export default function CustomerDepositPaymentSection({
       return;
     }
 
-    if (file.size > 5 * 1024 * 1024) {
-      setFormError('ไฟล์ต้องมีขนาดไม่เกิน 5 MB');
+    if (file.size > 10 * 1024 * 1024) {
+      setFormError('ไฟล์ต้องมีขนาดไม่เกิน 10 MB');
       return;
     }
 
@@ -208,16 +209,19 @@ export default function CustomerDepositPaymentSection({
       } = await supabase.auth.getUser();
       if (!user) throw new Error('กรุณาเข้าสู่ระบบก่อนทำรายการ');
 
-      // 1. Generate path: {auth.uid()}/{booking_id}/{uuid}.{ext}
-      const fileExt = selectedFile.name.split('.').pop()?.toLowerCase() || 'jpg';
+      // 1. Compress & resize payment slip (max 1400 px, quality 0.85)
+      const compressedSlip = await compressPaymentSlip(selectedFile);
+
+      // 2. Generate path: {auth.uid()}/{booking_id}/{uuid}.{ext}
+      const fileExt = compressedSlip.name.split('.').pop()?.toLowerCase() || 'jpg';
       const randomId = crypto.randomUUID();
       const storagePath = user.id + '/' + booking.id + '/' + randomId + '.' + fileExt;
 
-      // 2. Upload slip to private bucket 'booking-payment-slips'
+      // 3. Upload slip to private bucket 'booking-payment-slips'
       const { error: uploadErr } = await supabase.storage
         .from('booking-payment-slips')
-        .upload(storagePath, selectedFile, {
-          contentType: selectedFile.type,
+        .upload(storagePath, compressedSlip, {
+          contentType: compressedSlip.type,
           upsert: false,
         });
 
@@ -502,7 +506,7 @@ export default function CustomerDepositPaymentSection({
             <CheckCircle2 size={14} />
             <span>ยืนยันคิวเรียบร้อยแล้ว</span>
           </div>
-          <p className="text-[11px] text-[#A89F91] leading-relaxed font-light">
+          <p className="text-[11px] text-[#ECE4D3] leading-relaxed font-light">
             การชำระเงินมัดจำได้รับการตรวจสอบและยืนยันคิวเรียบร้อยแล้ว พบกันในวันนัดหมายตามกำหนดเวลา
           </p>
         </div>
@@ -553,7 +557,7 @@ export default function CustomerDepositPaymentSection({
               เหลือเวลา {deadlineInfo.remainingText}
             </span>
           </div>
-          <p className="text-[11px] text-[#A89F91] leading-relaxed font-light">
+          <p className="text-[11px] text-[#ECE4D3] leading-relaxed font-light">
             มัดจำที่ต้องชำระ <span className="font-bold text-[#ECE4D3]">฿{formatCurrency(depositOutstanding)}</span> ภายใน{' '}
             <span className="font-medium text-[#ECE4D3]">{deadlineInfo.deadlineDateStr}</span>
           </p>
@@ -564,10 +568,10 @@ export default function CustomerDepositPaymentSection({
       {isBookingWaitingDeposit && !pendingSubmission && !isDeadlineExpired && (
         <div className="bg-studio-main border border-studio-border p-4 rounded-[6px] space-y-4">
           <div className="border-b border-studio-border/40 pb-2 flex items-center justify-between">
-            <span className="text-[11px] uppercase tracking-wider font-bold text-studio-secondary flex items-center gap-1.5">
+            <span className="text-[11px] uppercase tracking-wider font-bold text-studio-primary flex items-center gap-1.5">
               <QrCode size={13} className="text-[#D9A441]" /> ช่องทางการชำระเงินมัดจำ
             </span>
-            <span className="text-[10px] text-[#B8B0A3]">
+            <span className="text-[10px] text-[#ECE4D3]">
               ยอดชำระ: <strong className="text-[#D9A441]">฿{formatCurrency(depositOutstanding)}</strong>
             </span>
           </div>
@@ -578,7 +582,7 @@ export default function CustomerDepositPaymentSection({
               <p className="text-xs font-semibold text-studio-primary">
                 กรุณาติดต่อร้านเพื่อขอข้อมูลการชำระเงิน
               </p>
-              <p className="text-[11px] text-studio-secondary font-light">
+              <p className="text-[11px] text-studio-primary font-light">
                 ทางร้านยังไม่ได้เปิดใช้งานช่องทางชำระเงินอัตโนมัติ กรุณาติดต่อทางร้านโดยตรง
               </p>
             </div>
@@ -612,7 +616,7 @@ export default function CustomerDepositPaymentSection({
               <div className="space-y-2 text-xs">
                 {paymentSettings?.bank_name && (
                   <div className="flex justify-between items-center bg-studio-card/80 p-2.5 rounded-[4px] border border-studio-border/40">
-                    <span className="text-studio-secondary flex items-center gap-1.5 text-[11px]">
+                    <span className="text-studio-primary flex items-center gap-1.5 text-[11px]">
                       <Building2 size={13} /> ธนาคาร
                     </span>
                     <span className="font-semibold text-studio-primary text-[11px]">
@@ -623,7 +627,7 @@ export default function CustomerDepositPaymentSection({
 
                 {paymentSettings?.account_no && (
                   <div className="flex justify-between items-center bg-studio-card/80 p-2.5 rounded-[4px] border border-studio-border/40">
-                    <span className="text-studio-secondary flex items-center gap-1.5 text-[11px]">
+                    <span className="text-studio-primary flex items-center gap-1.5 text-[11px]">
                       <CreditCard size={13} /> เลขที่บัญชี
                     </span>
                     <div className="flex items-center gap-2">
@@ -648,7 +652,7 @@ export default function CustomerDepositPaymentSection({
 
                 {paymentSettings?.account_name && (
                   <div className="flex justify-between items-center bg-studio-card/80 p-2.5 rounded-[4px] border border-studio-border/40">
-                    <span className="text-studio-secondary text-[11px]">ชื่อบัญชี</span>
+                    <span className="text-studio-primary text-[11px]">ชื่อบัญชี</span>
                     <span className="font-semibold text-studio-primary text-[11px]">
                       {paymentSettings.account_name}
                     </span>
@@ -657,7 +661,7 @@ export default function CustomerDepositPaymentSection({
 
                 {paymentSettings?.promptpay_id && (
                   <div className="flex justify-between items-center bg-studio-card/80 p-2.5 rounded-[4px] border border-studio-border/40">
-                    <span className="text-studio-secondary text-[11px]">พร้อมเพย์</span>
+                    <span className="text-studio-primary text-[11px]">พร้อมเพย์</span>
                     <div className="flex items-center gap-2">
                       <span className="font-mono font-bold text-studio-primary text-xs">
                         {paymentSettings.promptpay_id}
@@ -679,7 +683,7 @@ export default function CustomerDepositPaymentSection({
                 )}
 
                 {paymentSettings?.payment_instruction && (
-                  <div className="bg-[#171512] border border-studio-border/40 p-2.5 rounded-[4px] text-[10px] text-studio-secondary leading-relaxed font-light">
+                  <div className="bg-[#171512] border border-studio-border/40 p-2.5 rounded-[4px] text-[10px] text-studio-primary leading-relaxed font-light">
                     💡 {paymentSettings.payment_instruction}
                   </div>
                 )}
@@ -693,10 +697,10 @@ export default function CustomerDepositPaymentSection({
       {(isBookingWaitingDeposit || showReUploadForm) && !pendingSubmission && !isDeadlineExpired && (
         <div className="bg-studio-main border border-studio-border p-4 rounded-[6px] space-y-4">
           <div className="border-b border-studio-border/40 pb-2 flex items-center justify-between">
-            <span className="text-[11px] uppercase tracking-wider font-bold text-studio-secondary flex items-center gap-1.5">
+            <span className="text-[11px] uppercase tracking-wider font-bold text-studio-primary flex items-center gap-1.5">
               <UploadCloud size={13} className="text-studio-red" /> แจ้งชำระเงินมัดจำ
             </span>
-            <span className="text-[10px] text-[#B8B0A3] font-light">แนบหลักฐานสลิปโอนเงิน</span>
+            <span className="text-[10px] text-[#ECE4D3] font-light">แนบหลักฐานสลิปโอนเงิน</span>
           </div>
 
           {formError && (
@@ -716,7 +720,7 @@ export default function CustomerDepositPaymentSection({
           <form onSubmit={handleSubmit} className="space-y-3.5">
             {/* File Upload Box */}
             <div className="space-y-1.5">
-              <label className="text-[11px] font-semibold text-studio-secondary block">
+              <label className="text-[11px] font-semibold text-studio-primary block">
                 รูปภาพสลิปโอนเงิน <span className="text-studio-red">*</span>
               </label>
 
@@ -730,7 +734,7 @@ export default function CustomerDepositPaymentSection({
                     <p className="text-xs font-semibold text-studio-primary">
                       คลิกเพื่อเลือกรูปสลิป
                     </p>
-                    <p className="text-[10px] text-[#B8B0A3]">
+                    <p className="text-[10px] text-[#ECE4D3]">
                       รองรับ JPG, PNG, WEBP (ไม่เกิน 5 MB)
                     </p>
                   </div>
@@ -748,7 +752,7 @@ export default function CustomerDepositPaymentSection({
                     />
                   </div>
                   <div className="flex items-center justify-between pt-1 text-[11px]">
-                    <span className="text-studio-secondary truncate max-w-[180px]">
+                    <span className="text-studio-primary truncate max-w-[180px]">
                       {selectedFile?.name}
                     </span>
                     <div className="flex items-center gap-2">
@@ -806,7 +810,7 @@ export default function CustomerDepositPaymentSection({
       {!isBookingCompleted && submissions.length > 0 && (
         <div className="bg-studio-main border border-studio-border p-4 rounded-[6px] space-y-3">
           <div className="border-b border-studio-border/40 pb-2 flex items-center justify-between">
-            <span className="text-[11px] uppercase tracking-wider font-bold text-studio-secondary flex items-center gap-1.5">
+            <span className="text-[11px] uppercase tracking-wider font-bold text-studio-primary flex items-center gap-1.5">
               <FileText size={13} className="text-studio-red" />{' '}
               {isBookingCompleted ? 'หลักฐานการชำระมัดจำ' : 'ประวัติการแจ้งชำระเงิน'} ({submissions.length})
             </span>
@@ -823,7 +827,7 @@ export default function CustomerDepositPaymentSection({
                     <span className="font-bold text-studio-primary text-xs">
                       ฿{formatCurrency(sub.claimed_amount)}
                     </span>
-                    <span className="text-[10px] text-studio-secondary block font-light">
+                    <span className="text-[10px] text-studio-primary block font-light">
                       {formatThaiDate(sub.submitted_at)} {formatTimeBangkok(sub.submitted_at)}
                     </span>
                   </div>
@@ -858,7 +862,7 @@ export default function CustomerDepositPaymentSection({
                 </div>
 
                 {sub.reference_no && (
-                  <p className="text-[10px] text-studio-secondary font-mono">
+                  <p className="text-[10px] text-studio-primary font-mono">
                     Ref: {sub.reference_no}
                   </p>
                 )}

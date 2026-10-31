@@ -1,5 +1,11 @@
 import { createClient } from '@/lib/supabase/client';
-import { compressImage, generateThumbnail } from './imageCompressor';
+import {
+  compressImage,
+  generateThumbnail,
+  IMAGE_MAX_DIMENSIONS,
+  IMAGE_COMPRESSION_QUALITY,
+  CompressionOptions,
+} from './imageCompressor';
 
 export type StudioAssetFolder = 'artists' | 'flash' | 'portfolio';
 
@@ -22,12 +28,14 @@ export interface CustomerReferenceUploadResult {
 }
 
 export interface UploadOptions {
+  maxDimension?: number;
   quality?: number;
   outputFormat?: 'image/webp' | 'image/jpeg' | 'image/png';
 }
 
-const CLIENT_MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB for Studio Assets (artists, flash, portfolio)
+const CLIENT_MAX_FILE_SIZE = 15 * 1024 * 1024; // 15 MB for Studio Assets (artists, flash, portfolio) before client resize
 const CUSTOMER_REF_MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB for Customer References
+const PAYMENT_SLIP_MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB for Payment Slips before client resize
 const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/jpg'];
 
 /**
@@ -61,6 +69,12 @@ function generateUuidFilename(file: File): string {
 /**
  * Uploads a public business asset to the 'studio-assets' bucket under the specified folder.
  * Folders: 'artists', 'flash', 'portfolio'
+ * 
+ * Size Standards:
+ * - Portfolio: max 2200 px, quality 0.82
+ * - Flash: max 2200 px, quality 0.82
+ * - Artists (Avatar): max 1000 px, quality 0.82
+ * - Thumbnail (Portfolio & Flash): max 480 px, quality 0.78
  */
 export async function uploadStudioImage(
   file: File,
@@ -77,15 +91,36 @@ export async function uploadStudioImage(
 
   const originalSize = file.size;
 
-  // 2. Compress image client-side preserving 1:1 original pixel dimensions
-  const compressedFile = await compressImage(file, options);
+  // 2. Determine standard maxDimension and quality based on asset folder
+  let defaultMaxDimension: number = IMAGE_MAX_DIMENSIONS.PORTFOLIO;
+  let defaultQuality: number = IMAGE_COMPRESSION_QUALITY.DEFAULT;
+
+  if (folder === 'artists') {
+    defaultMaxDimension = IMAGE_MAX_DIMENSIONS.ARTIST_AVATAR; // max 1000 px
+    defaultQuality = IMAGE_COMPRESSION_QUALITY.ARTIST_AVATAR; // quality 0.82
+  } else if (folder === 'flash') {
+    defaultMaxDimension = IMAGE_MAX_DIMENSIONS.FLASH; // max 2200 px
+    defaultQuality = IMAGE_COMPRESSION_QUALITY.FLASH; // quality 0.82
+  } else if (folder === 'portfolio') {
+    defaultMaxDimension = IMAGE_MAX_DIMENSIONS.PORTFOLIO; // max 2200 px
+    defaultQuality = IMAGE_COMPRESSION_QUALITY.PORTFOLIO; // quality 0.82
+  }
+
+  const compressionOptions: CompressionOptions = {
+    maxDimension: options.maxDimension ?? defaultMaxDimension,
+    quality: options.quality ?? defaultQuality,
+    outputFormat: options.outputFormat,
+  };
+
+  // 3. Compress & resize image client-side preserving 1:1 original aspect ratio without upscaling
+  const compressedFile = await compressImage(file, compressionOptions);
   const compressedSize = compressedFile.size;
 
-  // 3. Generate UUID filename
+  // 4. Generate UUID filename
   const filename = generateUuidFilename(compressedFile);
   const storagePath = `${folder}/${filename}`;
 
-  // 4. Upload to studio-assets bucket using authenticated client (RLS: Admin only)
+  // 5. Upload to studio-assets bucket using authenticated client (RLS: Admin/Artist)
   const supabase = createClient();
   const { error: uploadError } = await supabase.storage
     .from('studio-assets')
@@ -99,7 +134,7 @@ export async function uploadStudioImage(
     throw new Error(`อัปโหลดรูปภาพไม่สำเร็จ: ${uploadError.message}`);
   }
 
-  // 5. Retrieve public URL
+  // 6. Retrieve public URL
   const { data: publicUrlData } = supabase.storage
     .from('studio-assets')
     .getPublicUrl(storagePath);
@@ -108,10 +143,10 @@ export async function uploadStudioImage(
   let thumbnailUrl: string | undefined = undefined;
   let thumbnailSize: number | undefined = undefined;
 
-  // 6. Generate & upload Thumbnail for 'flash' and 'portfolio' assets
+  // 7. Generate & upload Thumbnail for 'flash' and 'portfolio' assets (constrained to 480px WebP)
   if (folder === 'flash' || folder === 'portfolio') {
     try {
-      const thumbFile = await generateThumbnail(file, 480, options);
+      const thumbFile = await generateThumbnail(compressedFile, IMAGE_MAX_DIMENSIONS.THUMBNAIL, options);
       thumbnailSize = thumbFile.size;
       const baseName = filename.substring(0, filename.lastIndexOf('.')) || filename;
       const thumbFilename = `thumb_${baseName}.webp`;
@@ -149,10 +184,12 @@ export async function uploadStudioImage(
   };
 }
 
-
 /**
  * Uploads a customer tattoo reference image to the private 'customer-references' bucket.
  * Canonical path: <auth.uid()>/<uuid>.<ext>
+ * 
+ * Size Standard:
+ * - Customer reference images: max 1800 px, quality 0.82
  */
 export async function uploadCustomerReference(
   file: File,
@@ -171,8 +208,14 @@ export async function uploadCustomerReference(
 
   const originalSize = file.size;
 
-  // 3. Compress image client-side
-  const compressedFile = await compressImage(file, options);
+  // 3. Compress & resize customer reference: max 1800 px, quality 0.82
+  const compressionOptions: CompressionOptions = {
+    maxDimension: options.maxDimension ?? IMAGE_MAX_DIMENSIONS.CUSTOMER_REFERENCE, // max 1800 px
+    quality: options.quality ?? IMAGE_COMPRESSION_QUALITY.CUSTOMER_REFERENCE, // quality 0.82
+    outputFormat: options.outputFormat,
+  };
+
+  const compressedFile = await compressImage(file, compressionOptions);
   const compressedSize = compressedFile.size;
 
   // 4. Generate UUID filename & construct user-isolated path
@@ -198,6 +241,23 @@ export async function uploadCustomerReference(
     originalSize,
     compressedSize,
   };
+}
+
+/**
+ * Compresses and resizes a payment slip image according to the 157 Tattoo standard:
+ * - Max dimension: 1400 px (longest side, no upscale, preserve aspect ratio)
+ * - Quality: 0.85 (balanced to ensure numbers/text on slip are razor-sharp)
+ */
+export async function compressPaymentSlip(
+  file: File,
+  options: UploadOptions = {}
+): Promise<File> {
+  validateImageFile(file, PAYMENT_SLIP_MAX_FILE_SIZE);
+  return compressImage(file, {
+    maxDimension: options.maxDimension ?? IMAGE_MAX_DIMENSIONS.PAYMENT_SLIP, // max 1400 px
+    quality: options.quality ?? IMAGE_COMPRESSION_QUALITY.PAYMENT_SLIP, // quality 0.85
+    outputFormat: options.outputFormat,
+  });
 }
 
 /**
@@ -240,4 +300,108 @@ export async function getCustomerReferenceSignedUrls(
   const promises = paths.map((p) => getCustomerReferenceSignedUrl(p, expiresIn));
   const results = await Promise.all(promises);
   return results.filter(Boolean);
+}
+
+/**
+ * Extracts relative storage path within 'studio-assets' bucket from a full URL or partial path.
+ * Examples:
+ *   "https://xyz.supabase.co/storage/v1/object/public/studio-assets/portfolio/abc.webp" -> "portfolio/abc.webp"
+ *   "https://xyz.supabase.co/storage/v1/object/public/studio-assets/flash/xyz.webp" -> "flash/xyz.webp"
+ *   "portfolio/abc.webp" -> "portfolio/abc.webp"
+ *   "flash/xyz.webp" -> "flash/xyz.webp"
+ */
+export function extractStudioStoragePath(urlOrPath: string | null | undefined): string | null {
+  if (!urlOrPath || typeof urlOrPath !== 'string') return null;
+  const trimmed = urlOrPath.trim();
+  if (!trimmed) return null;
+
+  const bucketMarker = '/studio-assets/';
+  const idx = trimmed.indexOf(bucketMarker);
+  if (idx !== -1) {
+    const extracted = trimmed.substring(idx + bucketMarker.length).split('?')[0];
+    return decodeURIComponent(extracted).replace(/^\/+/, '');
+  }
+
+  if (trimmed.startsWith('studio-assets/')) {
+    return trimmed.substring('studio-assets/'.length).split('?')[0];
+  }
+
+  const validFolders = ['portfolio/', 'flash/', 'artists/'];
+  for (const folder of validFolders) {
+    const fIdx = trimmed.indexOf(folder);
+    if (fIdx !== -1) {
+      return trimmed.substring(fIdx).split('?')[0];
+    }
+  }
+
+  if (!trimmed.includes('://') && !trimmed.startsWith('/')) {
+    return trimmed.split('?')[0];
+  }
+
+  return null;
+}
+
+/**
+ * Derives the expected thumbnail path (e.g. portfolio/thumb_baseName.webp) from a main image path or URL.
+ */
+export function getStudioThumbnailStoragePath(urlOrPath: string | null | undefined): string | null {
+  const mainPath = extractStudioStoragePath(urlOrPath);
+  if (!mainPath) return null;
+
+  const parts = mainPath.split('/');
+  if (parts.length < 2) return null;
+
+  const folder = parts.slice(0, -1).join('/');
+  const filename = parts[parts.length - 1];
+
+  if (filename.startsWith('thumb_')) {
+    return mainPath;
+  }
+
+  const baseName = filename.substring(0, filename.lastIndexOf('.')) || filename;
+  return `${folder}/thumb_${baseName}.webp`;
+}
+
+/**
+ * Deletes studio assets (main image + derived thumbnail) from 'studio-assets' bucket.
+ * Returns an object with the list of requested paths and any error message.
+ */
+export async function deleteStudioAssets(
+  pathsOrUrls: (string | null | undefined)[],
+  supabaseClient?: any
+): Promise<{ paths: string[]; error: string | null }> {
+  const pathsToDelete: string[] = [];
+
+  for (const item of pathsOrUrls) {
+    if (!item) continue;
+    const mainPath = extractStudioStoragePath(item);
+    if (mainPath && !pathsToDelete.includes(mainPath)) {
+      pathsToDelete.push(mainPath);
+    }
+    const thumbPath = getStudioThumbnailStoragePath(item);
+    if (thumbPath && !pathsToDelete.includes(thumbPath)) {
+      pathsToDelete.push(thumbPath);
+    }
+  }
+
+  if (pathsToDelete.length === 0) {
+    return { paths: [], error: null };
+  }
+
+  try {
+    const supabase = supabaseClient || createClient();
+    const { error } = await supabase.storage
+      .from('studio-assets')
+      .remove(pathsToDelete);
+
+    if (error) {
+      console.warn('[storageUploader] deleteStudioAssets warning:', error);
+      return { paths: pathsToDelete, error: error.message };
+    }
+
+    return { paths: pathsToDelete, error: null };
+  } catch (err: any) {
+    console.warn('[storageUploader] deleteStudioAssets exception:', err);
+    return { paths: pathsToDelete, error: err?.message || 'Storage cleanup failed' };
+  }
 }

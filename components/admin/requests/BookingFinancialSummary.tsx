@@ -156,7 +156,7 @@ export default function BookingFinancialSummary({
         {/* Top: Pricing Breakdown */}
         <div className="grid grid-cols-2 gap-3 pb-2.5 border-b border-[#4A443A]/40">
           <div>
-            <span className="text-[10px] text-[#7A7265] block font-medium">ราคาเบื้องต้น</span>
+            <span className="text-[10px] text-[#ECE4D3] block font-medium">ราคาเบื้องต้น</span>
             <span className="text-sm font-heading font-semibold text-[#ECE4D3] mt-0.5 block">
               {initialPrice && initialPrice > 0 ? `฿${formatCurrency(initialPrice)}` : 'ยังไม่กำหนดราคา'}
             </span>
@@ -174,14 +174,14 @@ export default function BookingFinancialSummary({
         {/* Bottom: Payment Breakdown */}
         <div className="grid grid-cols-3 gap-2 items-center">
           <div>
-            <span className="text-[10px] text-[#7A7265] block font-medium">มัดจำที่กำหนด</span>
+            <span className="text-[10px] text-[#ECE4D3] block font-medium">มัดจำที่กำหนด</span>
             <span className="text-xs sm:text-sm font-heading font-semibold text-blue-400 mt-0.5 block">
               ฿{formatCurrency(fin.deposit_required)}
             </span>
           </div>
 
           <div className="text-center">
-            <span className="text-[10px] text-[#7A7265] block font-medium">ชำระแล้ว</span>
+            <span className="text-[10px] text-[#ECE4D3] block font-medium">ชำระแล้ว</span>
             <span className="text-xs sm:text-sm font-heading font-semibold text-emerald-400 mt-0.5 block">
               ฿{formatCurrency(fin.total_paid)}
             </span>

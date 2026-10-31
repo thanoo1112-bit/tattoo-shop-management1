@@ -53,7 +53,7 @@ const PRESET_SPECIALTIES = [
 
 const STATUS_CONFIG: Record<string, { label: string; dot: string; badge: string }> = {
   AVAILABLE: { label: 'ว่าง', dot: 'bg-[#4E9F6E]', badge: 'text-emerald-400 bg-emerald-950/60 border-emerald-800' },
-  TATTOOING: { label: 'กำลังสัก', dot: 'bg-[#9C2F2F]', badge: 'text-[#9C2F2F] bg-[#9C2F2F]/20 border-[#9C2F2F]' },
+  TATTOOING: { label: 'กำลังสัก', dot: 'bg-[#C12D2D]', badge: 'text-[#C12D2D] bg-[#C12D2D]/20 border-[#C12D2D]' },
   BREAK: { label: 'พัก', dot: 'bg-[#C9A86A]', badge: 'text-amber-300 bg-amber-950/60 border-amber-800' },
   OFF_DUTY: { label: 'หยุด', dot: 'bg-[#7A7265]', badge: 'text-[#A89F91] bg-[#171512] border-[#4A443A]' },
 };
@@ -133,7 +133,7 @@ function ArtistAvatarUploader({
 
   return (
     <div className="space-y-1.5">
-      <label className="block text-[#A89F91] text-xs font-medium">
+      <label className="block text-[#ECE4D3] text-xs font-medium">
         รูปโปรไฟล์ช่าง (Artist Avatar)
       </label>
 
@@ -147,7 +147,7 @@ function ArtistAvatarUploader({
 
       {isCompressing ? (
         <div className="p-4 bg-[#0E0D0C] border border-[#4A443A] rounded-[6px] flex items-center justify-center space-x-2 text-xs text-[#A89F91]">
-          <Loader2 size={16} className="animate-spin text-[#9C2F2F]" />
+          <Loader2 size={16} className="animate-spin text-[#C12D2D]" />
           <span>กำลังบีบอัดรูปภาพ (คงขนาดความละเอียดเดิม)...</span>
         </div>
       ) : previewUrl ? (
@@ -164,7 +164,7 @@ function ArtistAvatarUploader({
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                className="px-3 py-1.5 bg-[#171512] hover:bg-[#25211D] border border-[#4A443A] hover:border-[#9C2F2F] text-xs text-[#ECE4D3] rounded transition-colors flex items-center space-x-1.5"
+                className="px-3 py-1.5 bg-[#171512] hover:bg-[#25211D] border border-[#4A443A] hover:border-[#C12D2D] text-xs text-[#ECE4D3] rounded transition-colors flex items-center space-x-1.5"
               >
                 <Camera size={13} className="text-studio-red-bright" />
                 <span>เปลี่ยนรูป</span>
@@ -183,7 +183,7 @@ function ArtistAvatarUploader({
                 ✓ บีบอัดแล้ว: {compressionMetrics.width}×{compressionMetrics.height}px ({compressionMetrics.compKb} KB จาก {compressionMetrics.origKb} KB)
               </p>
             ) : (
-              <p className="text-[10px] text-[#B8B0A3] leading-tight font-light">
+              <p className="text-[10px] text-[#ECE4D3] leading-tight font-light">
                 รูปตัวอย่างพร้อมใช้งาน กดบันทึกเพื่ออัปโหลด
               </p>
             )}
@@ -192,16 +192,16 @@ function ArtistAvatarUploader({
       ) : (
         <div
           onClick={() => fileInputRef.current?.click()}
-          className="border border-dashed border-[#4A443A] hover:border-[#9C2F2F] bg-[#0E0D0C] hover:bg-[#141210] p-4 rounded-[6px] text-center cursor-pointer transition-colors flex flex-col items-center justify-center space-y-2 group"
+          className="border border-dashed border-[#4A443A] hover:border-[#C12D2D] bg-[#0E0D0C] hover:bg-[#141210] p-4 rounded-[6px] text-center cursor-pointer transition-colors flex flex-col items-center justify-center space-y-2 group"
         >
-          <div className="w-10 h-10 rounded-full bg-[#171512] border border-[#4A443A] group-hover:border-[#9C2F2F] flex items-center justify-center text-[#A89F91] group-hover:text-[#ECE4D3] transition-colors">
+          <div className="w-10 h-10 rounded-full bg-[#171512] border border-[#4A443A] group-hover:border-[#C12D2D] flex items-center justify-center text-[#A89F91] group-hover:text-[#ECE4D3] transition-colors">
             <Upload size={18} />
           </div>
           <div>
             <span className="text-xs text-[#ECE4D3] font-medium block">
               + อัปโหลดรูปภาพโปรไฟล์
             </span>
-            <span className="text-[10px] text-[#B8B0A3] block mt-0.5">
+            <span className="text-[10px] text-[#ECE4D3] block mt-0.5">
               รองรับ JPG, PNG, WEBP (บีบอัดอัตโนมัติ ไม่ลดมิติภาพ)
             </span>
           </div>
@@ -335,9 +335,9 @@ function ArtistForm({
         <div className="flex justify-between items-center border-b border-[#4A443A]/60 pb-4 mb-5">
           <div className="flex items-center space-x-2">
             {mode === 'create' ? (
-              <Plus size={16} className="text-[#9C2F2F]" />
+              <Plus size={16} className="text-[#C12D2D]" />
             ) : (
-              <Edit3 size={15} className="text-[#9C2F2F]" />
+              <Edit3 size={15} className="text-[#C12D2D]" />
             )}
             <h2 className="text-lg font-heading tracking-wide text-[#ECE4D3]">
               {mode === 'create'
@@ -355,16 +355,16 @@ function ArtistForm({
         </div>
 
         {isAuthValid === false && (
-          <div className="p-3 bg-[#9C2F2F]/20 border border-[#9C2F2F] rounded text-xs text-[#ECE4D3] mb-4 flex items-center justify-between">
+          <div className="p-3 bg-[#C12D2D]/20 border border-[#C12D2D] rounded text-xs text-[#ECE4D3] mb-4 flex items-center justify-between">
             <span>เซสชันผู้ดูแลระบบหมดอายุ กรุณาเข้าสู่ระบบใหม่</span>
-            <a href="/staff/login" className="px-2 py-1 bg-[#9C2F2F] text-white rounded text-[11px] font-bold hover:bg-[#802222]">
+            <a href="/staff/login" className="px-2 py-1 bg-[#C12D2D] text-white rounded text-[11px] font-bold hover:bg-[#802222]">
               เข้าสู่ระบบ
             </a>
           </div>
         )}
 
         {formError && (
-          <div className="p-3 bg-[#9C2F2F]/20 border border-[#9C2F2F] rounded text-xs text-[#ECE4D3] mb-4">
+          <div className="p-3 bg-[#C12D2D]/20 border border-[#C12D2D] rounded text-xs text-[#ECE4D3] mb-4">
             {formError}
           </div>
         )}
@@ -384,7 +384,7 @@ function ArtistForm({
 
           {/* 2. ชื่อช่าง * */}
           <div>
-            <label className="block text-[#A89F91] mb-1 font-medium">
+            <label className="block text-[#ECE4D3] mb-1 font-medium">
               ชื่อช่าง *
             </label>
             <input
@@ -393,13 +393,13 @@ function ArtistForm({
               value={formName}
               onChange={(e) => setFormName(e.target.value)}
               placeholder="เช่น ช่างปอนด์ (Pond)"
-              className="w-full h-9 px-3 bg-[#0E0D0C] border border-[#4A443A] focus:border-[#9C2F2F] rounded text-xs text-[#ECE4D3] outline-none"
+              className="w-full h-9 px-3 bg-[#0E0D0C] border border-[#4A443A] focus:border-[#C12D2D] rounded text-xs text-[#ECE4D3] outline-none"
             />
           </div>
 
           {/* 3. ประวัติ (Bio) */}
           <div>
-            <label className="block text-[#A89F91] mb-1 font-medium">
+            <label className="block text-[#ECE4D3] mb-1 font-medium">
               ประวัติ (Bio)
             </label>
             <textarea
@@ -407,13 +407,13 @@ function ArtistForm({
               value={formBio}
               onChange={(e) => setFormBio(e.target.value)}
               placeholder="อธิบายความเชี่ยวชาญ สไตล์ และประสบการณ์ของช่าง..."
-              className="w-full p-2.5 bg-[#0E0D0C] border border-[#4A443A] focus:border-[#9C2F2F] rounded text-xs text-[#ECE4D3] outline-none resize-none leading-relaxed"
+              className="w-full p-2.5 bg-[#0E0D0C] border border-[#4A443A] focus:border-[#C12D2D] rounded text-xs text-[#ECE4D3] outline-none resize-none leading-relaxed"
             />
           </div>
 
           {/* 4. สไตล์ที่ถนัด (Specialties) */}
           <div>
-            <label className="block text-[#A89F91] mb-1.5 font-medium">
+            <label className="block text-[#ECE4D3] mb-1.5 font-medium">
               สไตล์ที่ถนัด (Specialties)
             </label>
             <div className="flex flex-wrap gap-1.5 mb-2">
@@ -429,8 +429,8 @@ function ArtistForm({
                       onClick={() => handleToggleSpecialty(spec)}
                       className={`pl-2.5 pr-5 py-1 rounded text-[11px] font-heading tracking-wider transition-colors select-none ${
                         active
-                          ? 'bg-[#9C2F2F] text-[#ECE4D3] border border-[#9C2F2F]'
-                          : 'bg-[#0E0D0C] text-[#7A7265] border border-[#4A443A] hover:border-[#7A7265]'
+                          ? 'bg-[#C12D2D] text-[#ECE4D3] border border-[#C12D2D]'
+                          : 'bg-[#0E0D0C] text-[#ECE4D3] border border-[#4A443A] hover:border-[#7A7265]'
                       }`}
                     >
                       {active && '✓ '}
@@ -466,7 +466,7 @@ function ArtistForm({
                   }
                 }}
                 placeholder="เพิ่มสไตล์อื่น ๆ..."
-                className="flex-1 h-8 px-2.5 bg-[#0E0D0C] border border-[#4A443A] focus:border-[#9C2F2F] rounded text-xs text-[#ECE4D3] outline-none"
+                className="flex-1 h-8 px-2.5 bg-[#0E0D0C] border border-[#4A443A] focus:border-[#C12D2D] rounded text-xs text-[#ECE4D3] outline-none"
               />
               <button
                 type="button"
@@ -487,7 +487,7 @@ function ArtistForm({
         <button
           type="button"
           onClick={onCancel}
-          className="flex-1 h-10 bg-transparent hover:bg-[#0E0D0C] border border-[#4A443A] text-[#A89F91] rounded text-xs font-medium transition-colors"
+          className="flex-1 h-10 bg-transparent hover:bg-[#0E0D0C] border border-[#4A443A] text-[#ECE4D3] rounded text-xs font-medium transition-colors"
         >
           ยกเลิก
         </button>
@@ -497,7 +497,7 @@ function ArtistForm({
           className={`flex-1 h-10 text-[#ECE4D3] rounded text-xs font-semibold transition-colors flex items-center justify-center space-x-1.5 shadow ${
             isAuthValid === false
               ? 'bg-[#4A443A] opacity-50 cursor-not-allowed'
-              : 'bg-[#9C2F2F] hover:bg-[#802222]'
+              : 'bg-[#C12D2D] hover:bg-[#802222]'
           }`}
           title={isAuthValid === false ? 'เซสชันผู้ดูแลระบบหมดอายุ กรุณาเข้าสู่ระบบใหม่' : undefined}
         >
@@ -1186,7 +1186,7 @@ export default function AdminArtistManagement() {
           <h1 className="text-3xl md:text-4xl font-heading font-normal tracking-wide text-[#ECE4D3]">
             ช่างสักประจำร้าน
           </h1>
-          <p className="text-xs text-[#A89F91] mt-0.5 font-light">
+          <p className="text-xs text-[#ECE4D3] mt-0.5 font-light">
             เพิ่ม แก้ไข และกำหนดสถานะการทำงานของช่างสักในร้าน 157 TATTOO
           </p>
         </div>
@@ -1203,7 +1203,7 @@ export default function AdminArtistManagement() {
           <button
             type="button"
             onClick={handleOpenAddDrawer}
-            className="h-[38px] px-4 bg-[#9C2F2F] hover:bg-[#802222] text-[#ECE4D3] rounded-[6px] text-xs font-semibold tracking-wide transition-all shadow-md flex items-center space-x-1.5 active:scale-95"
+            className="h-[38px] px-4 bg-[#C12D2D] hover:bg-[#802222] text-[#ECE4D3] rounded-[6px] text-xs font-semibold tracking-wide transition-all shadow-md flex items-center space-x-1.5 active:scale-95"
           >
             <Plus size={15} />
             <span>เพิ่มช่างใหม่</span>
@@ -1224,7 +1224,7 @@ export default function AdminArtistManagement() {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="ค้นหาช่างหรือสไตล์..."
-            className="w-full h-[38px] pl-9 pr-8 bg-[#0E0D0C] border border-[#4A443A] hover:border-[#7A7265] focus:border-[#9C2F2F] rounded-[6px] text-xs text-[#ECE4D3] placeholder-[#7A7265] outline-none transition-colors"
+            className="w-full h-[38px] pl-9 pr-8 bg-[#0E0D0C] border border-[#4A443A] hover:border-[#7A7265] focus:border-[#C12D2D] rounded-[6px] text-xs text-[#ECE4D3] placeholder-[#7A7265] outline-none transition-colors"
           />
           {searchQuery && (
             <button
@@ -1243,9 +1243,9 @@ export default function AdminArtistManagement() {
             <button
               type="button"
               onClick={() => setIsStatusDropdownOpen((prev) => !prev)}
-              className="h-[38px] px-3 bg-[#0E0D0C] border border-[#4A443A] hover:border-[#7A7265] rounded-[6px] text-xs font-medium text-[#ECE4D3] flex items-center space-x-2 transition-colors outline-none focus:ring-1 focus:ring-[#9C2F2F]"
+              className="h-[38px] px-3 bg-[#0E0D0C] border border-[#4A443A] hover:border-[#7A7265] rounded-[6px] text-xs font-medium text-[#ECE4D3] flex items-center space-x-2 transition-colors outline-none focus:ring-1 focus:ring-[#C12D2D]"
             >
-              <span className="w-1.5 h-1.5 rounded-full bg-[#9C2F2F]" />
+              <span className="w-1.5 h-1.5 rounded-full bg-[#C12D2D]" />
               <span>
                 {selectedStatusFilter === 'ALL' && 'สถานะทั้งหมด'}
                 {selectedStatusFilter === 'AVAILABLE' && 'ว่าง'}
@@ -1274,7 +1274,7 @@ export default function AdminArtistManagement() {
                     }}
                     className={`w-full h-[34px] px-2.5 rounded-[4px] flex items-center justify-between text-left text-xs font-medium transition-colors ${
                       selectedStatusFilter === item.id
-                        ? 'bg-[#9C2F2F]/[0.14] text-[#ECE4D3]'
+                        ? 'bg-[#C12D2D]/[0.14] text-[#ECE4D3]'
                         : 'text-[#ECE4D3] hover:bg-[#ECE4D3]/[0.06]'
                     }`}
                   >
@@ -1294,7 +1294,7 @@ export default function AdminArtistManagement() {
               <button
                 type="button"
                 onClick={() => setIsSpecialtyDropdownOpen((prev) => !prev)}
-                className="h-[38px] px-3 bg-[#0E0D0C] border border-[#4A443A] hover:border-[#7A7265] rounded-[6px] text-xs font-medium text-[#ECE4D3] flex items-center space-x-2 transition-colors outline-none focus:ring-1 focus:ring-[#9C2F2F]"
+                className="h-[38px] px-3 bg-[#0E0D0C] border border-[#4A443A] hover:border-[#7A7265] rounded-[6px] text-xs font-medium text-[#ECE4D3] flex items-center space-x-2 transition-colors outline-none focus:ring-1 focus:ring-[#C12D2D]"
               >
                 <Palette size={13} className="text-studio-red-bright" />
                 <span className="truncate max-w-[120px]">
@@ -1315,7 +1315,7 @@ export default function AdminArtistManagement() {
                     }}
                     className={`w-full h-[34px] px-2.5 rounded-[4px] flex items-center justify-between text-left text-xs font-medium transition-colors ${
                       selectedSpecialtyFilter === 'ALL'
-                        ? 'bg-[#9C2F2F]/[0.14] text-[#ECE4D3]'
+                        ? 'bg-[#C12D2D]/[0.14] text-[#ECE4D3]'
                         : 'text-[#ECE4D3] hover:bg-[#ECE4D3]/[0.06]'
                     }`}
                   >
@@ -1334,7 +1334,7 @@ export default function AdminArtistManagement() {
                       }}
                       className={`w-full h-[34px] px-2.5 rounded-[4px] flex items-center justify-between text-left text-xs font-medium transition-colors ${
                         selectedSpecialtyFilter === spec
-                          ? 'bg-[#9C2F2F]/[0.14] text-[#ECE4D3]'
+                          ? 'bg-[#C12D2D]/[0.14] text-[#ECE4D3]'
                           : 'text-[#ECE4D3] hover:bg-[#ECE4D3]/[0.06]'
                       }`}
                     >
@@ -1386,19 +1386,19 @@ export default function AdminArtistManagement() {
       {/* 3. LOADING STATE */}
       {loading && artists.length === 0 && (
         <div className="py-24 text-center space-y-3 bg-[#171512] border border-[#4A443A] rounded-[8px]">
-          <Loader2 size={24} className="text-[#9C2F2F] animate-spin mx-auto" />
+          <Loader2 size={24} className="text-[#C12D2D] animate-spin mx-auto" />
           <p className="text-xs text-[#A89F91]">กำลังโหลดข้อมูลช่างสักจากฐานข้อมูล...</p>
         </div>
       )}
 
       {/* 4. ERROR STATE */}
       {error && !loading && (
-        <div className="p-6 bg-[#9C2F2F]/10 border border-[#9C2F2F]/40 rounded-[8px] text-center space-y-2">
-          <AlertCircle size={20} className="text-[#9C2F2F] mx-auto" />
+        <div className="p-6 bg-[#C12D2D]/10 border border-[#C12D2D]/40 rounded-[8px] text-center space-y-2">
+          <AlertCircle size={20} className="text-[#C12D2D] mx-auto" />
           <p className="text-xs text-[#ECE4D3] font-medium">{error}</p>
           <button
             onClick={loadArtists}
-            className="px-4 py-1.5 bg-[#9C2F2F] text-[#ECE4D3] rounded text-xs font-semibold hover:bg-[#802222] transition-colors"
+            className="px-4 py-1.5 bg-[#C12D2D] text-[#ECE4D3] rounded text-xs font-semibold hover:bg-[#802222] transition-colors"
           >
             ลองใหม่อีกครั้ง
           </button>
@@ -1409,20 +1409,20 @@ export default function AdminArtistManagement() {
       {!loading && !error && artists.length === 0 && (
         <div className="py-20 px-6 text-center space-y-4 bg-[#171512] border border-[#4A443A] rounded-[8px] shadow-lg animate-fadeIn">
           <div className="w-16 h-16 rounded-full bg-[#0E0D0C] border border-[#4A443A] flex items-center justify-center mx-auto text-[#7A7265]">
-            <Users size={28} className="text-[#9C2F2F]" />
+            <Users size={28} className="text-[#C12D2D]" />
           </div>
           <div className="max-w-md mx-auto space-y-1">
             <h3 className="text-xl font-heading font-normal text-[#ECE4D3]">
               ยังไม่มีช่างสักในระบบ
             </h3>
-            <p className="text-xs text-[#A89F91] leading-relaxed font-light">
+            <p className="text-xs text-[#ECE4D3] leading-relaxed font-light">
               เริ่มต้นด้วยการเพิ่มช่างสักประจำร้าน เพื่อให้ข้อมูลแสดงในระบบหลังบ้านและหน้าเว็บไซต์สำหรับลูกค้า
             </p>
           </div>
           <button
             type="button"
             onClick={handleOpenAddDrawer}
-            className="h-10 px-5 bg-[#9C2F2F] hover:bg-[#802222] text-[#ECE4D3] rounded-[6px] text-xs font-semibold tracking-wide transition-all shadow-lg inline-flex items-center space-x-2 active:scale-95"
+            className="h-10 px-5 bg-[#C12D2D] hover:bg-[#802222] text-[#ECE4D3] rounded-[6px] text-xs font-semibold tracking-wide transition-all shadow-lg inline-flex items-center space-x-2 active:scale-95"
           >
             <Plus size={16} />
             <span>เพิ่มช่างสักคนแรก</span>
@@ -1434,7 +1434,7 @@ export default function AdminArtistManagement() {
       {!loading && artists.length > 0 && (
         <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4 md:gap-6">
           {filteredArtists.length === 0 ? (
-            <div className="col-span-full py-16 text-center text-xs text-[#7A7265] bg-[#171512] border border-[#4A443A] rounded-[8px]">
+            <div className="col-span-full py-16 text-center text-xs text-[#ECE4D3] bg-[#171512] border border-[#4A443A] rounded-[8px]">
               ไม่พบช่างสักที่ตรงกับการค้นหา
             </div>
           ) : (
@@ -1445,7 +1445,7 @@ export default function AdminArtistManagement() {
                   className={`bg-[#171512] border rounded-[8px] overflow-hidden flex flex-col justify-between transition-all duration-200 group shadow-lg ${
                     artist.is_active === false
                       ? 'border-[#4A443A]/40 opacity-60'
-                      : 'border-[#4A443A] hover:border-[#9C2F2F]'
+                      : 'border-[#4A443A] hover:border-[#C12D2D]'
                   }`}
                 >
                   {/* Top: Portrait (4:3 aspect ratio on mobile, h-64 on desktop) */}
@@ -1466,7 +1466,7 @@ export default function AdminArtistManagement() {
                         </span>
                       )}
                       {artist.is_active === false && (
-                        <span className="px-1.5 py-0.5 rounded bg-black/80 border border-[#9C2F2F]/40 text-[#9C2F2F] text-[8px] sm:text-[9px] font-medium flex items-center gap-1">
+                        <span className="px-1.5 py-0.5 rounded bg-black/80 border border-[#C12D2D]/40 text-[#C12D2D] text-[8px] sm:text-[9px] font-medium flex items-center gap-1">
                           <Power size={9} />
                           <span>ปิดใช้งาน</span>
                         </span>
@@ -1497,12 +1497,12 @@ export default function AdminArtistManagement() {
                           {artist.name}
                         </h3>
                         {artist.nickname && (
-                          <span className="text-[10px] sm:text-xs text-[#B8B0A3] font-mono shrink-0">
+                          <span className="text-[10px] sm:text-xs text-[#ECE4D3] font-mono shrink-0">
                             ({artist.nickname})
                           </span>
                         )}
                       </div>
-                      <p className="text-[11px] sm:text-xs text-[#A89F91] line-clamp-2 mt-1 font-light leading-relaxed">
+                      <p className="text-[11px] sm:text-xs text-[#ECE4D3] line-clamp-2 mt-1 font-light leading-relaxed">
                         {artist.bio || 'ยังไม่มีรายละเอียดประวัติช่าง'}
                       </p>
                     </div>
@@ -1529,7 +1529,7 @@ export default function AdminArtistManagement() {
                             e.stopPropagation();
                             handleOpenAccountModal(artist);
                           }}
-                          className="h-7 md:h-8 px-1.5 md:px-2.5 bg-[#171512] hover:bg-[#25211D] border border-[#4A443A] hover:border-[#9C2F2F] text-[#ECE4D3] rounded-[4px] text-[10px] md:text-xs font-semibold transition-colors flex items-center justify-center space-x-1"
+                          className="h-7 md:h-8 px-1.5 md:px-2.5 bg-[#171512] hover:bg-[#25211D] border border-[#4A443A] hover:border-[#C12D2D] text-[#ECE4D3] rounded-[4px] text-[10px] md:text-xs font-semibold transition-colors flex items-center justify-center space-x-1"
                           title={artist.user_id ? 'จัดการบัญชีผู้ใช้งานช่าง' : 'ตั้งค่าบัญชีล็อกอินช่าง'}
                         >
                           <User size={11} className="text-studio-red-bright md:w-3 md:h-3" />
@@ -1544,7 +1544,7 @@ export default function AdminArtistManagement() {
                           }}
                           className={`h-7 md:h-8 px-1.5 md:px-2.5 rounded-[4px] text-[10px] md:text-xs font-semibold transition-colors flex items-center justify-center space-x-1 ${
                             artist.is_active !== false
-                              ? 'bg-[#2A1212] hover:bg-[#3D1A1A] border border-[#9C2F2F] text-[#E8B4B4]'
+                              ? 'bg-[#2A1212] hover:bg-[#3D1A1A] border border-[#C12D2D] text-[#E8B4B4]'
                               : 'bg-emerald-950/60 hover:bg-emerald-900/60 border border-emerald-800/80 text-emerald-400'
                           }`}
                           title={artist.is_active !== false ? 'ปิดใช้งานช่างสัก' : 'เปิดใช้งานช่างสัก'}
@@ -1666,11 +1666,11 @@ export default function AdminArtistManagement() {
       {deactivateConfirmArtist && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/85 backdrop-blur-md font-prompt animate-fadeIn">
           <div className={`w-full max-w-md bg-[#171512] border rounded-[8px] p-6 space-y-4 shadow-2xl animate-scaleUp ${
-            deactivateConfirmArtist.is_active !== false ? 'border-[#9C2F2F]/60' : 'border-emerald-800/60'
+            deactivateConfirmArtist.is_active !== false ? 'border-[#C12D2D]/60' : 'border-emerald-800/60'
           }`}>
             <div className={`w-12 h-12 rounded-full border flex items-center justify-center mx-auto ${
               deactivateConfirmArtist.is_active !== false
-                ? 'bg-[#9C2F2F]/20 border-[#9C2F2F] text-[#9C2F2F]'
+                ? 'bg-[#C12D2D]/20 border-[#C12D2D] text-[#C12D2D]'
                 : 'bg-emerald-950/40 border-emerald-800 text-emerald-400'
             }`}>
               <Power size={20} />
@@ -1682,7 +1682,7 @@ export default function AdminArtistManagement() {
                   ? `ยืนยันปิดใช้งานช่าง ${deactivateConfirmArtist.name} ใช่หรือไม่?`
                   : `ยืนยันเปิดใช้งานช่าง ${deactivateConfirmArtist.name} ใช่หรือไม่?`}
               </h3>
-              <p className="text-xs text-[#A89F91] leading-relaxed font-light">
+              <p className="text-xs text-[#ECE4D3] leading-relaxed font-light">
                 {deactivateConfirmArtist.is_active !== false
                   ? 'ลูกค้าจะไม่สามารถเลือกช่างคนนี้สำหรับคำขอใหม่ได้'
                   : 'ช่างคนนี้จะกลับมาแสดงผลและเปิดให้ลูกค้าเลือกจองคิวใหม่ได้ตามปกติ'}
@@ -1709,7 +1709,7 @@ export default function AdminArtistManagement() {
                 }}
                 className={`flex-1 h-10 text-[#ECE4D3] rounded text-xs font-semibold transition-colors flex items-center justify-center ${
                   deactivateConfirmArtist.is_active !== false
-                    ? 'bg-[#9C2F2F] hover:bg-[#802222]'
+                    ? 'bg-[#C12D2D] hover:bg-[#802222]'
                     : 'bg-emerald-600 hover:bg-emerald-500'
                 }`}
               >
@@ -1725,8 +1725,8 @@ export default function AdminArtistManagement() {
       {/* ========================================================================= */}
       {deleteConfirmArtist && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/85 backdrop-blur-md font-prompt animate-fadeIn">
-          <div className="w-full max-w-md bg-[#171512] border border-[#9C2F2F]/60 rounded-[8px] p-6 space-y-4 shadow-2xl animate-scaleUp">
-            <div className="w-12 h-12 rounded-full bg-[#9C2F2F]/20 border border-[#9C2F2F] flex items-center justify-center text-[#9C2F2F] mx-auto">
+          <div className="w-full max-w-md bg-[#171512] border border-[#C12D2D]/60 rounded-[8px] p-6 space-y-4 shadow-2xl animate-scaleUp">
+            <div className="w-12 h-12 rounded-full bg-[#C12D2D]/20 border border-[#C12D2D] flex items-center justify-center text-[#C12D2D] mx-auto">
               <Trash2 size={20} />
             </div>
 
@@ -1734,7 +1734,7 @@ export default function AdminArtistManagement() {
               <h3 className="text-lg font-heading text-[#ECE4D3]">
                 ลบช่างสัก {deleteConfirmArtist.name} ออกจากระบบ?
               </h3>
-              <p className="text-xs text-[#A89F91] leading-relaxed font-light">
+              <p className="text-xs text-[#ECE4D3] leading-relaxed font-light">
                 การลบช่างสักจะลบข้อมูลออกจากฐานข้อมูลอย่างถาวร หากช่างมีประวัติคิวงานในอนาคต แนะนำให้ใช้ <strong className="text-[#ECE4D3]">&quot;ปิดใช้งาน&quot;</strong> แทนการลบเพื่อรักษาประวัติข้อมูล
               </p>
             </div>
@@ -1752,7 +1752,7 @@ export default function AdminArtistManagement() {
                 type="button"
                 onClick={handleConfirmDelete}
                 disabled={isSubmitting}
-                className="flex-1 h-10 bg-[#9C2F2F] hover:bg-[#802222] text-white rounded text-xs font-semibold transition-colors flex items-center justify-center space-x-1.5 shadow"
+                className="flex-1 h-10 bg-[#C12D2D] hover:bg-[#802222] text-white rounded text-xs font-semibold transition-colors flex items-center justify-center space-x-1.5 shadow"
               >
                 {isSubmitting ? (
                   <Loader2 size={14} className="animate-spin" />
@@ -1775,14 +1775,14 @@ export default function AdminArtistManagement() {
             {/* Header */}
             <div className="flex justify-between items-center border-b border-[#4A443A]/60 pb-3">
               <div className="flex items-center space-x-2">
-                <div className="w-7 h-7 rounded-full bg-[#9C2F2F]/20 border border-[#9C2F2F] flex items-center justify-center text-[#9C2F2F]">
+                <div className="w-7 h-7 rounded-full bg-[#C12D2D]/20 border border-[#C12D2D] flex items-center justify-center text-[#C12D2D]">
                   <User size={15} />
                 </div>
                 <div>
                   <h3 className="text-base font-heading font-normal text-[#ECE4D3]">
                     {accountModalArtist.user_id ? `จัดการบัญชีช่าง: ${accountModalArtist.name}` : `ตั้งค่าบัญชีช่าง: ${accountModalArtist.name}`}
                   </h3>
-                  <p className="text-[10px] text-[#A89F91]">
+                  <p className="text-[10px] text-[#ECE4D3]">
                     {accountModalArtist.user_id ? 'บัญชีล็อกอิน Staff เปิดใช้งานอยู่' : 'สร้างบัญชีล็อกอิน Staff สำหรับช่างสัก'}
                   </p>
                 </div>
@@ -1814,18 +1814,18 @@ export default function AdminArtistManagement() {
             {accountModalArtist.user_id && (
               <div className="p-3 bg-[#0E0D0C] border border-[#4A443A] rounded-[6px] space-y-1.5 text-xs">
                 <div className="flex justify-between items-center">
-                  <span className="text-[#A89F91]">บัญชีเข้าสู่ระบบ:</span>
+                  <span className="text-[#ECE4D3]">บัญชีเข้าสู่ระบบ:</span>
                   <span className="text-[#ECE4D3] font-mono font-medium">{accountEmail}</span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-[#A89F91]">สถานะบัญชี:</span>
+                  <span className="text-[#ECE4D3]">สถานะบัญชี:</span>
                   <span className="inline-flex items-center space-x-1 text-emerald-400 font-medium">
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
                     <span>เปิดใช้งาน</span>
                   </span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-[#A89F91]">สิทธิ์ผู้ใช้งาน:</span>
+                  <span className="text-[#ECE4D3]">สิทธิ์ผู้ใช้งาน:</span>
                   <span className="text-[#ECE4D3] font-medium">ช่างสัก (Artist)</span>
                 </div>
               </div>
@@ -1836,7 +1836,7 @@ export default function AdminArtistManagement() {
               {/* Field 1: Email (Show input ONLY if creating a NEW account) */}
               {!accountModalArtist.user_id && (
                 <div className="space-y-1.5">
-                  <label className="block text-[#A89F91] text-xs font-medium">
+                  <label className="block text-[#ECE4D3] text-xs font-medium">
                     Email / Username
                   </label>
                   <input
@@ -1845,14 +1845,14 @@ export default function AdminArtistManagement() {
                     onChange={(e) => setAccountEmail(e.target.value)}
                     placeholder="artist1@157tattoo.com"
                     required
-                    className="w-full h-10 px-3 bg-[#0E0D0C] border border-[#4A443A] focus:border-[#9C2F2F] rounded text-xs text-[#ECE4D3] outline-none transition-colors"
+                    className="w-full h-10 px-3 bg-[#0E0D0C] border border-[#4A443A] focus:border-[#C12D2D] rounded text-xs text-[#ECE4D3] outline-none transition-colors"
                   />
                 </div>
               )}
 
               {/* Field 2: Password / New Password */}
               <div className="space-y-1.5">
-                <label className="block text-[#A89F91] text-xs font-medium">
+                <label className="block text-[#ECE4D3] text-xs font-medium">
                   {accountModalArtist.user_id ? 'รหัสผ่านใหม่ (New Password)' : 'Password'}
                 </label>
                 <div className="relative">
@@ -1863,7 +1863,7 @@ export default function AdminArtistManagement() {
                     placeholder={accountModalArtist.user_id ? 'ระบุรหัสผ่านใหม่ (อย่างน้อย 6 ตัวอักษร)' : 'กำหนดรหัสผ่าน (อย่างน้อย 6 ตัวอักษร)'}
                     autoComplete="new-password"
                     required
-                    className="w-full h-10 pl-3 pr-10 bg-[#0E0D0C] border border-[#4A443A] focus:border-[#9C2F2F] rounded text-xs text-[#ECE4D3] outline-none transition-colors"
+                    className="w-full h-10 pl-3 pr-10 bg-[#0E0D0C] border border-[#4A443A] focus:border-[#C12D2D] rounded text-xs text-[#ECE4D3] outline-none transition-colors"
                   />
                   <button
                     type="button"
@@ -1877,7 +1877,7 @@ export default function AdminArtistManagement() {
 
               {/* Field 3: Confirm Password */}
               <div className="space-y-1.5">
-                <label className="block text-[#A89F91] text-xs font-medium">
+                <label className="block text-[#ECE4D3] text-xs font-medium">
                   Confirm Password
                 </label>
                 <input
@@ -1887,7 +1887,7 @@ export default function AdminArtistManagement() {
                   placeholder="ยืนยันรหัสผ่าน"
                   autoComplete="new-password"
                   required
-                  className="w-full h-10 px-3 bg-[#0E0D0C] border border-[#4A443A] focus:border-[#9C2F2F] rounded text-xs text-[#ECE4D3] outline-none transition-colors"
+                  className="w-full h-10 px-3 bg-[#0E0D0C] border border-[#4A443A] focus:border-[#C12D2D] rounded text-xs text-[#ECE4D3] outline-none transition-colors"
                 />
               </div>
 
@@ -1897,14 +1897,14 @@ export default function AdminArtistManagement() {
                   type="button"
                   onClick={() => setAccountModalArtist(null)}
                   disabled={isAccountSubmitting}
-                  className="flex-1 h-10 bg-[#0E0D0C] hover:bg-[#1f1b17] border border-[#4A443A] text-[#A89F91] hover:text-[#ECE4D3] rounded text-xs font-medium transition-colors"
+                  className="flex-1 h-10 bg-[#0E0D0C] hover:bg-[#1f1b17] border border-[#4A443A] text-[#ECE4D3] rounded text-xs font-medium transition-colors"
                 >
                   ยกเลิก
                 </button>
                 <button
                   type="submit"
                   disabled={isAccountSubmitting}
-                  className="flex-1 h-10 bg-[#9C2F2F] hover:bg-[#802222] text-[#ECE4D3] rounded text-xs font-semibold transition-colors flex items-center justify-center space-x-1.5 shadow"
+                  className="flex-1 h-10 bg-[#C12D2D] hover:bg-[#802222] text-[#ECE4D3] rounded text-xs font-semibold transition-colors flex items-center justify-center space-x-1.5 shadow"
                 >
                   {isAccountSubmitting ? (
                     <Loader2 size={14} className="animate-spin" />

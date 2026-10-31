@@ -154,7 +154,7 @@ export default function StudioAtmosphereSection() {
               ATMOSPHERE
             </h2>
             
-            <p className="text-xs sm:text-sm text-[#E2DDD4] font-light leading-relaxed pt-1 max-w-xs sm:max-w-sm">
+            <p className="text-xs sm:text-sm text-[#ECE4D3] font-light leading-relaxed pt-1 max-w-xs sm:max-w-sm">
               พื้นที่ส่วนตัว เรียบสงบ และตั้งใจออกแบบเพื่องานสัก
             </p>
           </div>
@@ -228,7 +228,7 @@ export default function StudioAtmosphereSection() {
               ATMOSPHERE
             </h2>
             
-            <p className="text-xs sm:text-sm text-[#E2DDD4] font-light leading-relaxed pt-1 max-w-sm">
+            <p className="text-xs sm:text-sm text-[#ECE4D3] font-light leading-relaxed pt-1 max-w-sm">
               พื้นที่ส่วนตัว เรียบสงบ และตั้งใจออกแบบเพื่องานสัก
             </p>
           </div>

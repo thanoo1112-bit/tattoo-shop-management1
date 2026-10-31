@@ -39,7 +39,7 @@ export default function AdminFlashRoute() {
           onClick={() => {
             if (typeof window !== 'undefined') window.location.href = '/staff/login';
           }}
-          className="px-4 py-2 bg-[#171512] border border-[#4A443A] hover:border-[#9C2F2F] text-xs text-[#ECE4D3] rounded transition-colors"
+          className="px-4 py-2 bg-[#171512] border border-[#4A443A] hover:border-[#C12D2D] text-xs text-[#ECE4D3] rounded transition-colors"
         >
           กลับสู่หน้าเข้าสู่ระบบพนักงาน
         </button>

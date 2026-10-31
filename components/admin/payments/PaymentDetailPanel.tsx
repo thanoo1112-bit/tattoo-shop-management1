@@ -125,14 +125,14 @@ export default function PaymentDetailPanel({
           {/* Top Bar: Category Tag & Close Button */}
           <div className="flex justify-between items-center">
             <div className="flex items-center space-x-2">
-              <CreditCard size={15} className="text-[#9C2F2F]" />
+              <CreditCard size={15} className="text-[#C12D2D]" />
               <span className="text-xs uppercase font-heading tracking-wider text-[#ECE4D3]">
                 FINANCIAL DETAILS • รายละเอียดการเงิน
               </span>
             </div>
             <button
               onClick={onClose}
-              className="text-[#7A7265] hover:text-[#9C2F2F] transition-colors p-1.5 rounded-md hover:bg-[#171512]"
+              className="text-[#7A7265] hover:text-[#C12D2D] transition-colors p-1.5 rounded-md hover:bg-[#171512]"
               title="ปิด"
             >
               <X size={20} />
@@ -145,14 +145,14 @@ export default function PaymentDetailPanel({
               <h3 className="text-lg sm:text-xl font-heading font-semibold text-[#ECE4D3]">
                 {booking.customer_name}
               </h3>
-              <span className="text-[10px] bg-[#1F1D1A] text-[#A89F91] border border-[#4A443A] px-2 py-0.5 rounded font-mono">
+              <span className="text-[10px] bg-[#1F1D1A] text-[#ECE4D3] border border-[#4A443A] px-2 py-0.5 rounded font-mono">
                 คิว #{booking.id.slice(0, 8)}
               </span>
             </div>
 
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-[#7A7265] mt-1.5">
-              <span className="flex items-center gap-1 text-[#A89F91]">
-                <User size={12} className="text-[#7A7265]" />
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-[#ECE4D3] mt-1.5">
+              <span className="flex items-center gap-1 text-[#ECE4D3]">
+                <User size={12} className="text-[#ECE4D3]" />
                 ช่างสัก: {booking.artist_name}
               </span>
               <span className="flex items-center gap-1">
@@ -196,7 +196,7 @@ export default function PaymentDetailPanel({
           <div className="bg-[#0E0D0C] border border-[#4A443A] rounded-xl p-4 space-y-3.5">
             <div className="flex items-center justify-between border-b border-[#4A443A]/60 pb-2.5">
               <span className="text-xs font-heading font-medium text-[#ECE4D3] flex items-center gap-1.5">
-                <Wallet size={14} className="text-[#9C2F2F]" />
+                <Wallet size={14} className="text-[#C12D2D]" />
                 สรุปภาพรวมการเงิน
               </span>
 
@@ -215,14 +215,14 @@ export default function PaymentDetailPanel({
               {/* Left Box: มัดจำที่รับแล้ว (Top) & รับเพิ่มวันปิดงาน (Bottom) separated by thin line */}
               <div className="bg-[#171512] p-3 rounded-lg border border-[#4A443A]/60 flex flex-col justify-between gap-2">
                 <div className="flex items-center justify-between gap-1">
-                  <span className="text-[11px] text-[#7A7265] font-sans">มัดจำที่รับแล้ว</span>
+                  <span className="text-[11px] text-[#ECE4D3] font-sans">มัดจำที่รับแล้ว</span>
                   <span className="text-xs font-semibold text-amber-400">
                     {recordedDepositSum > 0 ? `฿${recordedDepositSum.toLocaleString('th-TH')}` : '—'}
                   </span>
                 </div>
                 <div className="border-t border-[#4A443A]/40" />
                 <div className="flex items-center justify-between gap-1">
-                  <span className="text-[11px] text-[#7A7265] font-sans">รับเพิ่มวันปิดงาน</span>
+                  <span className="text-[11px] text-[#ECE4D3] font-sans">รับเพิ่มวันปิดงาน</span>
                   <span className="text-xs font-semibold text-emerald-400">
                     {recordedBalanceSum > 0 ? `฿${recordedBalanceSum.toLocaleString('th-TH')}` : '—'}
                   </span>
@@ -241,22 +241,22 @@ export default function PaymentDetailPanel({
             </div>
 
             {/* Booking State Footer */}
-            <div className="flex flex-wrap items-center justify-between text-[11px] text-[#7A7265] pt-1 border-t border-[#4A443A]/20">
+            <div className="flex flex-wrap items-center justify-between text-[11px] text-[#ECE4D3] pt-1 border-t border-[#4A443A]/20">
               <span>สถานะคิวงาน: <strong className="text-[#ECE4D3]">{booking.status}</strong></span>
               {booking.confirmed_at && (
-                <span>ยืนยันเมื่อ: <span className="text-[#A89F91]">{new Date(booking.confirmed_at).toLocaleDateString('th-TH')}</span></span>
+                <span>ยืนยันเมื่อ: <span className="text-[#ECE4D3]">{new Date(booking.confirmed_at).toLocaleDateString('th-TH')}</span></span>
               )}
             </div>
           </div>
 
           {/* Read-Only Status Info Banner */}
           {isCompleted ? (
-            <div className="p-3 bg-[#0E0D0C] border border-[#4A443A]/60 rounded-lg text-center text-xs text-[#7A7265] flex items-center justify-center gap-2">
+            <div className="p-3 bg-[#0E0D0C] border border-[#4A443A]/60 rounded-lg text-center text-xs text-[#ECE4D3] flex items-center justify-center gap-2">
               <Lock size={13} className="text-emerald-400 shrink-0" />
               <span>รายการการเงินปิดสมบูรณ์แล้ว (Read-only)</span>
             </div>
           ) : (
-            <div className="p-3 bg-[#0E0D0C] border border-[#4A443A]/60 rounded-lg text-center text-xs text-[#A89F91] flex items-center justify-center gap-2">
+            <div className="p-3 bg-[#0E0D0C] border border-[#4A443A]/60 rounded-lg text-center text-xs text-[#ECE4D3] flex items-center justify-center gap-2">
               <Lock size={13} className="text-amber-400 shrink-0" />
               <span>จะกำหนดราคางานและรับยอดสุดท้ายเมื่อปิดงาน</span>
             </div>
@@ -266,7 +266,7 @@ export default function PaymentDetailPanel({
           <div className="space-y-3 pt-2">
             <div className="flex items-center justify-between">
               <h4 className="text-xs font-heading font-semibold text-[#ECE4D3] flex items-center gap-1.5 uppercase tracking-wider">
-                <History size={13} className="text-[#9C2F2F]" />
+                <History size={13} className="text-[#C12D2D]" />
                 ประวัติการชำระเงิน ({payments.length})
               </h4>
             </div>

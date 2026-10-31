@@ -71,7 +71,7 @@ export default function StyleDistributionDonutChart({
             <h3 className="text-sm font-heading font-medium text-[#ECE4D3]">
               สัดส่วนงานตามสไตล์
             </h3>
-            <p className="text-[11px] text-[#7A7265] mt-0.5">
+            <p className="text-[11px] text-[#ECE4D3] mt-0.5">
               คำนวณเฉพาะงานที่ยืนยันคิวแล้ว (CONFIRMED, IN_PROGRESS, COMPLETED) ตามวันที่ยืนยันคิว
             </p>
           </div>
@@ -85,7 +85,7 @@ export default function StyleDistributionDonutChart({
           <div className="w-16 h-16 rounded-full border-4 border-dashed border-[#4A443A]/60 mx-auto flex items-center justify-center text-[#7A7265]">
             <PieChart size={24} />
           </div>
-          <p className="text-xs text-[#7A7265]">ไม่พบข้อมูลสไตล์งานในช่วงเวลาหรือช่างที่เลือก</p>
+          <p className="text-xs text-[#ECE4D3]">ไม่พบข้อมูลสไตล์งานในช่วงเวลาหรือช่างที่เลือก</p>
         </div>
       ) : (
         <div className="flex flex-col items-center gap-4 pt-1">
@@ -131,7 +131,7 @@ export default function StyleDistributionDonutChart({
               <span className="text-2xl font-bold font-mono text-[#ECE4D3] leading-none">
                 {totalBookings}
               </span>
-              <span className="text-[10px] text-[#7A7265] mt-1 font-sans font-medium">
+              <span className="text-[10px] text-[#ECE4D3] mt-1 font-sans font-medium">
                 งานทั้งหมด
               </span>
             </div>
@@ -154,7 +154,7 @@ export default function StyleDistributionDonutChart({
                     <span className="text-xs sm:text-sm font-semibold text-[#ECE4D3] leading-snug break-words">
                       {item.styleName}
                     </span>
-                    <span className="text-[11px] font-mono text-[#A89F91] shrink-0 font-medium">
+                    <span className="text-[11px] font-mono text-[#ECE4D3] shrink-0 font-medium">
                       {item.count} งาน · {item.percentage.toFixed(1)}%
                     </span>
                   </div>

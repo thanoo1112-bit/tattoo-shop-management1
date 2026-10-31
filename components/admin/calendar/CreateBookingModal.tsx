@@ -509,7 +509,7 @@ export default function CreateBookingModal({
               <h3 className="text-base font-heading font-semibold text-[#ECE4D3]">
                 สร้างคิวงานใหม่ (Master Calendar)
               </h3>
-              <p className="text-[11px] text-[#A89F91]">
+              <p className="text-[11px] text-[#ECE4D3]">
                 สร้างนัดหมายงานสักสำหรับลูกค้าเดิมหรือลูกค้าใหม่ (Walk-in)
               </p>
             </div>
@@ -517,7 +517,7 @@ export default function CreateBookingModal({
           <button
             onClick={handleClose}
             disabled={isSubmitting}
-            className="text-[#7A7265] hover:text-[#ECE4D3] transition-colors p-1"
+            className="text-[#ECE4D3] hover:text-white transition-colors p-1"
           >
             <X size={18} />
           </button>
@@ -548,7 +548,7 @@ export default function CreateBookingModal({
                   className={`px-3 py-1 rounded-md text-xs font-medium transition-all cursor-pointer ${
                     customerMode === 'EXISTING'
                       ? 'bg-[#2A2620] text-[#ECE4D3] shadow-sm font-semibold border border-[#4A443A]'
-                      : 'text-[#A89F91] hover:text-[#ECE4D3]'
+                      : 'text-[#ECE4D3]/70 hover:text-[#ECE4D3]'
                   }`}
                 >
                   เลือกลูกค้าเดิม
@@ -605,7 +605,7 @@ export default function CreateBookingModal({
                           </span>
                         )}
                       </div>
-                      <p className="text-[11px] text-[#A89F91]">
+                      <p className="text-[11px] text-[#ECE4D3]">
                         เบอร์โทร: {formatThaiPhoneForDisplay(selectedCustomer.phone)}
                         {selectedCustomer.email && ` | ${selectedCustomer.email}`}
                       </p>
@@ -622,7 +622,7 @@ export default function CreateBookingModal({
               ) : (
                 <div className="space-y-2">
                   <div className="relative">
-                    <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#7A7265]" />
+                    <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#ECE4D3]" />
                     <input
                       type="text"
                       value={customerSearchQuery}
@@ -655,7 +655,7 @@ export default function CreateBookingModal({
                                 </span>
                               )}
                             </div>
-                            <span className="text-[11px] text-[#A89F91] font-mono">
+                            <span className="text-[11px] text-[#ECE4D3] font-mono">
                               {formatThaiPhoneForDisplay(cust.phone)}
                             </span>
                           </div>
@@ -718,7 +718,7 @@ export default function CreateBookingModal({
                   {/* Email */}
                   <div>
                     <label className="block text-xs font-medium text-[#ECE4D3] mb-1">
-                      อีเมล <span className="text-[#7A7265] text-[10px]">(ไม่บังคับ)</span>
+                      อีเมล <span className="text-[#ECE4D3]/60 text-[10px]">(ไม่บังคับ)</span>
                     </label>
                     <input
                       type="email"
@@ -741,7 +741,7 @@ export default function CreateBookingModal({
                   {/* Date of Birth */}
                   <div>
                     <label className="block text-xs font-medium text-[#ECE4D3] mb-1">
-                      วันเดือนปีเกิด <span className="text-[#7A7265] text-[10px]">(ไม่บังคับ)</span>
+                      วันเดือนปีเกิด <span className="text-[#ECE4D3]/60 text-[10px]">(ไม่บังคับ)</span>
                     </label>
                     <input
                       type="date"
@@ -870,7 +870,7 @@ export default function CreateBookingModal({
 
               {/* Remaining Balance (Calculated Read-only) */}
               <div>
-                <label className="block text-xs font-medium text-[#A89F91] mb-1">
+                <label className="block text-xs font-medium text-[#ECE4D3] mb-1">
                   ยอดคงเหลือ (บาท)
                 </label>
                 <input
@@ -904,7 +904,7 @@ export default function CreateBookingModal({
               type="button"
               onClick={handleClose}
               disabled={isSubmitting}
-              className="px-4 py-2 text-xs text-[#A89F91] hover:text-[#ECE4D3] bg-[#0E0D0C] border border-[#4A443A] rounded-lg transition-colors cursor-pointer"
+              className="px-4 py-2 text-xs text-[#ECE4D3] hover:text-white bg-[#0E0D0C] border border-[#4A443A] rounded-lg transition-colors cursor-pointer"
             >
               ยกเลิก
             </button>

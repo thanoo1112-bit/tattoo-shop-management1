@@ -284,7 +284,7 @@ export default function MonthCalendarView({
                     : 'bg-[#0E0D0C]/80 text-[#7A7265]'
                 } ${
                   cell.isSelected
-                    ? 'bg-[#1A1815] ring-2 ring-inset ring-[#9C2F2F] z-10'
+                    ? 'bg-[#1A1815] ring-2 ring-inset ring-[#C12D2D] z-10'
                     : ''
                 }`}
               >
@@ -293,7 +293,7 @@ export default function MonthCalendarView({
                   <span
                     className={`text-xs font-bold w-6 h-6 flex items-center justify-center rounded-full ${
                       cell.isToday
-                        ? 'ring-2 ring-[#9C2F2F] text-[#ECE4D3]'
+                        ? 'ring-2 ring-[#C12D2D] text-[#ECE4D3]'
                         : cell.isCurrentMonth
                         ? 'text-[#ECE4D3]'
                         : 'text-[#4A443A]'
@@ -328,7 +328,7 @@ export default function MonthCalendarView({
                 {/* Cell Content: Event List / Status Summary */}
                 <div className="mt-1 space-y-1 min-w-0">
                   {totalCount === 0 && !studioBlock && artistBlocks.length === 0 && (
-                    <span className="text-[11px] text-[#7A7265] font-light italic block mt-1">
+                    <span className="text-[11px] text-[#ECE4D3] font-light italic block mt-1">
                       ว่าง
                     </span>
                   )}
@@ -356,7 +356,7 @@ export default function MonthCalendarView({
                           );
                         })}
                         {totalCount > 2 && (
-                          <span className="text-[9.5px] text-[#B8B0A3] font-semibold block px-1 truncate">
+                          <span className="text-[9.5px] text-[#ECE4D3] font-semibold block px-1 truncate">
                             +{totalCount - 2} คิวเพิ่มเติม
                           </span>
                         )}
@@ -410,11 +410,11 @@ export default function MonthCalendarView({
         {/* Panel Header */}
         <div className="p-3.5 border-b border-[#4A443A]/40 bg-[#171512] flex items-center justify-between">
           <div>
-            <span className="text-[9px] text-[#B8B0A3] uppercase tracking-wider block">
+            <span className="text-[9px] text-[#ECE4D3] uppercase tracking-wider block">
               ตารางคิวนัดหมายรายวัน
             </span>
             <h3 className="text-xs font-bold text-[#ECE4D3] flex items-center gap-1.5 mt-0.5">
-              <CalendarIcon size={14} className="text-[#9C2F2F]" />
+              <CalendarIcon size={14} className="text-[#C12D2D]" />
               <span>{formatDateBangkok(currentDateStr, true)}</span>
             </h3>
           </div>
@@ -430,7 +430,7 @@ export default function MonthCalendarView({
 
             {selectedDateEvents.length === 0 ? (
               <div className="p-4 text-center bg-[#171512] rounded-lg border border-[#4A443A]/30">
-                <span className="text-xs text-[#B8B0A3] italic">ไม่มีคิวนัดหมายในวันนี้</span>
+                <span className="text-xs text-[#ECE4D3] italic">ไม่มีคิวนัดหมายในวันนี้</span>
               </div>
             ) : (
               selectedDateEvents.map((ev) => {
@@ -444,14 +444,14 @@ export default function MonthCalendarView({
                     onClick={() => onSelectEvent(ev)}
                     className={`p-2.5 bg-[#171512] hover:bg-[#1A1815] border rounded-lg transition-all cursor-pointer space-y-1.5 group ${
                       isSelected
-                        ? 'border-[#9C2F2F] ring-1 ring-[#9C2F2F] bg-[#1A1815]'
+                        ? 'border-[#C12D2D] ring-1 ring-[#C12D2D] bg-[#1A1815]'
                         : 'border-[#4A443A]/40 hover:border-[#ECE4D3]/50'
                     }`}
                   >
                     {/* Line 1: Time Start-End & Status Badge */}
                     <div className="flex items-center justify-between gap-1">
                       <span className="text-xs font-bold text-[#ECE4D3] font-mono flex items-center gap-1">
-                        <Clock size={11} className="text-[#9C2F2F]" />
+                        <Clock size={11} className="text-[#C12D2D]" />
                         <span>{timeText}</span>
                       </span>
                       <span
@@ -463,15 +463,15 @@ export default function MonthCalendarView({
 
                     {/* Line 2: Customer Name */}
                     <div className="text-xs font-semibold text-[#ECE4D3] flex items-center gap-1.5">
-                      <User size={11} className="text-[#B8B0A3] shrink-0" />
+                      <User size={11} className="text-[#ECE4D3] shrink-0" />
                       <span className="truncate">
                         {ev.customer?.display_name || 'ลูกค้า'}
                       </span>
                     </div>
 
                     {/* Line 3: Style & Size */}
-                    <div className="text-[11px] text-[#B8B0A3] flex items-center gap-1 font-mono">
-                      <Palette size={11} className="text-[#B8B0A3] shrink-0" />
+                    <div className="text-[11px] text-[#ECE4D3] flex items-center gap-1 font-mono">
+                      <Palette size={11} className="text-[#ECE4D3] shrink-0" />
                       <span className="truncate">{style !== 'ไม่ระบุ' ? style : 'งานสัก'}</span>
                       {size !== 'ไม่ระบุขนาด' && (
                         <>
@@ -483,7 +483,7 @@ export default function MonthCalendarView({
 
                     {/* Line 4: Artist Name */}
                     <div className="text-[10px] text-[#ECE4D3] flex items-center gap-1 pt-1 border-t border-[#4A443A]/30">
-                      <Users size={10} className="text-[#B8B0A3] shrink-0" />
+                      <Users size={10} className="text-[#ECE4D3] shrink-0" />
                       <span className="truncate font-medium">
                         ช่าง: {ev.artist?.name}{' '}
                         {ev.artist?.nickname ? `(${ev.artist.nickname})` : ''}
@@ -502,7 +502,7 @@ export default function MonthCalendarView({
 
         {/* Panel Footer */}
         <div className="p-3 border-t border-[#4A443A]/40 bg-[#171512] text-center">
-          <span className="text-[10px] text-[#B8B0A3]">
+          <span className="text-[10px] text-[#ECE4D3]">
             คลิกรายการคิวเพื่อเปิดดูรายละเอียดเชิงลึก
           </span>
         </div>

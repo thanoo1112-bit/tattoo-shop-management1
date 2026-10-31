@@ -285,13 +285,13 @@ export default function PaymentSubmissionReviewQueue({
       <div className="bg-[#171512] border border-[#4A443A] p-4 rounded-[8px] flex flex-col md:flex-row justify-between items-stretch md:items-center gap-3">
         {/* Search Bar */}
         <div className="relative flex-1">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#7A7265]" />
+          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#ECE4D3]" />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="ค้นหาชื่อลูกค้า, ช่างสัก, รหัสคิว หรือเลขอ้างอิง..."
-            className="w-full bg-[#1C1A17] border border-[#4A443A] focus:border-[#9C2F2F] focus:outline-none pl-9 pr-4 py-2 rounded text-xs text-[#ECE4D3] placeholder-[#7A7265]"
+            className="w-full bg-[#1C1A17] border border-[#4A443A] focus:border-[#C12D2D] focus:outline-none pl-9 pr-4 py-2 rounded text-xs text-[#ECE4D3] placeholder-[#7A7265]"
           />
         </div>
 
@@ -309,7 +309,7 @@ export default function PaymentSubmissionReviewQueue({
           >
             <span>รอตรวจสอบ</span>
             {pendingCount > 0 && (
-              <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-red-800 text-white font-mono">
+              <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-[#C12D2D] text-white font-mono">
                 {pendingCount}
               </span>
             )}
@@ -326,7 +326,7 @@ export default function PaymentSubmissionReviewQueue({
             }
           >
             <span>อนุมัติแล้ว</span>
-            <span className="text-[10px] text-[#A89F91]">({approvedCount})</span>
+            <span className="text-[10px] text-[#ECE4D3]">({approvedCount})</span>
           </button>
 
           <button
@@ -335,12 +335,12 @@ export default function PaymentSubmissionReviewQueue({
             className={
               "px-3 py-1.5 rounded text-xs font-semibold whitespace-nowrap transition-colors flex items-center gap-1.5 " +
               (statusFilter === 'REJECTED'
-                ? "bg-red-800 text-white"
-                : "bg-[#1C1A17] text-[#ECE4D3] border border-[#4A443A] hover:border-red-700")
+                ? "bg-[#C12D2D] text-white"
+                : "bg-[#1C1A17] text-[#ECE4D3] border border-[#4A443A] hover:border-[#C12D2D]")
             }
           >
             <span>ปฏิเสธ</span>
-            <span className="text-[10px] text-[#A89F91]">({rejectedCount})</span>
+            <span className="text-[10px] text-[#ECE4D3]">({rejectedCount})</span>
           </button>
 
           <button
@@ -349,7 +349,7 @@ export default function PaymentSubmissionReviewQueue({
             className={
               "px-3 py-1.5 rounded text-xs font-semibold whitespace-nowrap transition-colors " +
               (statusFilter === 'ALL'
-                ? "bg-[#9C2F2F] text-white"
+                ? "bg-[#C12D2D] text-white"
                 : "bg-[#1C1A17] text-[#ECE4D3] border border-[#4A443A] hover:border-[#7A7265]")
             }
           >
@@ -371,7 +371,7 @@ export default function PaymentSubmissionReviewQueue({
       {/* List / Queue View */}
       {isLoading ? (
         <div className="bg-[#171512] border border-[#4A443A] p-12 text-center rounded-[8px] space-y-2">
-          <RefreshCw size={24} className="mx-auto text-[#9C2F2F] animate-spin" />
+          <RefreshCw size={24} className="mx-auto text-[#C12D2D] animate-spin" />
           <p className="text-xs text-[#A89F91]">กำลังโหลดรายการสลิป...</p>
         </div>
       ) : filteredSubmissions.length === 0 ? (
@@ -382,7 +382,7 @@ export default function PaymentSubmissionReviewQueue({
               ? 'ไม่มีรายการสลิปที่รอตรวจสอบในขณะนี้'
               : 'ไม่พบรายการที่ตรงกับเงื่อนไขการค้นหา'}
           </p>
-          <p className="text-xs text-[#A89F91] font-light">
+          <p className="text-xs text-[#ECE4D3] font-light">
             {statusFilter === 'PENDING'
               ? 'เมื่อลูกค้าส่งหลักฐานการชำระเงินมัดจำเข้ามา รายการจะแสดงขึ้นที่นี่'
               : 'ลองเปลี่ยนคำค้นหาหรือตัวกรองสถานะ'}
@@ -396,14 +396,14 @@ export default function PaymentSubmissionReviewQueue({
             return (
               <div
                 key={sub.id}
-                className="bg-[#171512] border border-[#4A443A] hover:border-[#9C2F2F]/60 p-4 rounded-[8px] transition-all duration-200 flex flex-col md:flex-row justify-between items-start md:items-center gap-4"
+                className="bg-[#171512] border border-[#4A443A] hover:border-[#C12D2D]/60 p-4 rounded-[8px] transition-all duration-200 flex flex-col md:flex-row justify-between items-start md:items-center gap-4"
               >
                 {/* Left Side: Thumbnail & Details */}
                 <div className="flex items-start sm:items-center gap-4 flex-1 min-w-0">
                   {/* Slip Thumbnail */}
                   <div
                     onClick={() => setSelectedSubmission(sub)}
-                    className="w-16 h-20 bg-black/60 border border-[#4A443A] rounded-[6px] overflow-hidden shrink-0 flex items-center justify-center cursor-pointer hover:border-[#9C2F2F] transition-colors relative group"
+                    className="w-16 h-20 bg-black/60 border border-[#4A443A] rounded-[6px] overflow-hidden shrink-0 flex items-center justify-center cursor-pointer hover:border-[#C12D2D] transition-colors relative group"
                   >
                     {thumbUrl ? (
                       <Image
@@ -428,7 +428,7 @@ export default function PaymentSubmissionReviewQueue({
                       <span className="font-bold text-sm text-[#ECE4D3] truncate">
                         {sub.customer_name}
                       </span>
-                      <span className="text-[10px] text-[#7A7265] font-mono">
+                      <span className="text-[10px] text-[#ECE4D3] font-mono">
                         #{sub.booking_id.slice(0, 8)}
                       </span>
                       <span
@@ -459,33 +459,33 @@ export default function PaymentSubmissionReviewQueue({
                       </span>
                     </div>
 
-                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-[#A89F91]">
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-[#ECE4D3]">
                       <span className="flex items-center gap-1">
-                        <User size={12} className="text-[#9C2F2F]" />
+                        <User size={12} className="text-[#C12D2D]" />
                         <span>ช่าง: {sub.artist_name}</span>
                       </span>
                       <span className="flex items-center gap-1">
-                        <Calendar size={12} className="text-[#9C2F2F]" />
+                        <Calendar size={12} className="text-[#C12D2D]" />
                         <span>วันนัด: {formatThaiDate(sub.requested_date)}</span>
                       </span>
                       <span className="flex items-center gap-1">
-                        <Clock size={12} className="text-[#7A7265]" />
+                        <Clock size={12} className="text-[#ECE4D3]" />
                         <span>ส่งเมื่อ: {formatThaiDate(sub.submitted_at)} {formatTime(sub.submitted_at)}</span>
                       </span>
                     </div>
 
                     {/* Deposit Info Line */}
                     <div className="flex items-center gap-3 pt-1 text-[11px]">
-                      <span className="text-[#A89F91]">
+                      <span className="text-[#ECE4D3]">
                         มัดจำกำหนด: <strong className="text-[#ECE4D3]">฿{formatCurrency(sub.deposit_required)}</strong>
                       </span>
                       <span className="text-[#7A7265]">|</span>
-                      <span className="text-[#A89F91]">
+                      <span className="text-[#ECE4D3]">
                         รับจริงแล้ว: <strong className="text-emerald-400">฿{formatCurrency(sub.paid_total)}</strong>
                       </span>
                       <span className="text-[#7A7265]">|</span>
-                      <span className="text-[#A89F91]">
-                        ยังขาด: <strong className="text-[#9C2F2F]">฿{formatCurrency(sub.outstanding_deposit)}</strong>
+                      <span className="text-[#ECE4D3]">
+                        ยังขาด: <strong className="text-[#C12D2D]">฿{formatCurrency(sub.outstanding_deposit)}</strong>
                       </span>
                     </div>
                   </div>
@@ -494,7 +494,7 @@ export default function PaymentSubmissionReviewQueue({
                 {/* Right Side: Claimed Amount & Action Button */}
                 <div className="flex sm:flex-col items-end justify-between w-full md:w-auto shrink-0 gap-2 border-t md:border-t-0 border-[#4A443A]/40 pt-2 md:pt-0">
                   <div className="text-right">
-                    <span className="text-[10px] text-[#7A7265] block">ยอดที่แจ้ง</span>
+                    <span className="text-[10px] text-[#ECE4D3] block">ยอดที่แจ้ง</span>
                     <span className="text-base font-bold text-[#ECE4D3] font-mono">
                       ฿{formatCurrency(sub.claimed_amount)}
                     </span>
@@ -503,7 +503,7 @@ export default function PaymentSubmissionReviewQueue({
                   <button
                     type="button"
                     onClick={() => setSelectedSubmission(sub)}
-                    className="px-4 py-2 bg-[#9C2F2F] hover:bg-red-700 text-white text-xs font-bold rounded-[4px] transition-colors flex items-center gap-1.5 shadow"
+                    className="px-4 py-2 bg-[#C12D2D] hover:bg-[#852727] text-white text-xs font-bold rounded-[4px] transition-colors flex items-center gap-1.5 shadow"
                   >
                     <Eye size={13} />
                     <span>{sub.status === 'PENDING' ? 'ตรวจสอบสลิป' : 'ดูรายละเอียด'}</span>

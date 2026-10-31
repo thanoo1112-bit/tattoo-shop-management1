@@ -107,9 +107,9 @@ export default function AdminMobileBottomNav() {
                   href={action.href}
                   role="menuitem"
                   onClick={() => setIsFabOpen(false)}
-                  className="flex-1 min-h-[64px] sm:min-h-[68px] bg-[#221F1A] border border-[#3E372C]/70 hover:border-[#9C2F2F]/60 rounded-xl p-1.5 flex flex-col items-center justify-center space-y-1.5 text-center transition-all cursor-pointer hover:bg-[#2A241E] active:scale-95 group"
+                  className="flex-1 min-h-[64px] sm:min-h-[68px] bg-[#221F1A] border border-[#3E372C]/70 hover:border-[#C12D2D]/60 rounded-xl p-1.5 flex flex-col items-center justify-center space-y-1.5 text-center transition-all cursor-pointer hover:bg-[#2A241E] active:scale-95 group"
                 >
-                  <div className="w-8 h-8 rounded-lg bg-[#9C2F2F]/15 border border-[#9C2F2F]/30 flex items-center justify-center text-studio-red-bright group-hover:bg-[#9C2F2F] group-hover:text-white transition-colors shrink-0">
+                  <div className="w-8 h-8 rounded-lg bg-[#C12D2D]/15 border border-[#C12D2D]/30 flex items-center justify-center text-studio-red-bright group-hover:bg-[#C12D2D] group-hover:text-white transition-colors shrink-0">
                     <Icon size={17} />
                   </div>
                   <span className="text-[10px] sm:text-[11px] font-semibold text-[#ECE4D3] leading-none tracking-tight truncate w-full px-0.5">
@@ -138,7 +138,7 @@ export default function AdminMobileBottomNav() {
           >
             <LayoutDashboard
               size={19}
-              className={pathname === '/admin/dashboard' || pathname === '/admin' ? 'text-studio-red-bright' : 'text-[#B8B0A3]'}
+              className={pathname === '/admin/dashboard' || pathname === '/admin' ? 'text-studio-red-bright' : 'text-[#ECE4D3]'}
             />
             <span className={`text-[10px] mt-0.5 font-medium tracking-tight ${
               pathname === '/admin/dashboard' || pathname === '/admin' ? 'text-[#ECE4D3] font-semibold' : 'text-[#B8B0A3]'
@@ -161,10 +161,10 @@ export default function AdminMobileBottomNav() {
             <div className="relative">
               <ClipboardList
                 size={19}
-                className={pathname.startsWith('/admin/requests') ? 'text-studio-red-bright' : 'text-[#B8B0A3]'}
+                className={pathname.startsWith('/admin/requests') ? 'text-studio-red-bright' : 'text-[#ECE4D3]'}
               />
               {pendingCount > 0 && (
-                <span className="absolute -top-1 -right-2 bg-[#9C2F2F] text-[#ECE4D3] text-[9px] font-bold w-4 h-4 rounded-full flex items-center justify-center ring-2 ring-[#171512]">
+                <span className="absolute -top-1 -right-2 bg-[#C12D2D] text-[#ECE4D3] text-[9px] font-bold w-4 h-4 rounded-full flex items-center justify-center ring-2 ring-[#171512]">
                   {pendingCount}
                 </span>
               )}
@@ -192,7 +192,7 @@ export default function AdminMobileBottomNav() {
           >
             <CalendarDays
               size={19}
-              className={pathname.startsWith('/admin/calendar') ? 'text-studio-red-bright' : 'text-[#B8B0A3]'}
+              className={pathname.startsWith('/admin/calendar') ? 'text-studio-red-bright' : 'text-[#ECE4D3]'}
             />
             <span className={`text-[10px] mt-0.5 font-medium tracking-tight ${
               pathname.startsWith('/admin/calendar') ? 'text-[#ECE4D3] font-semibold' : 'text-[#B8B0A3]'
@@ -214,7 +214,7 @@ export default function AdminMobileBottomNav() {
           >
             <CreditCard
               size={19}
-              className={pathname.startsWith('/admin/payments') ? 'text-studio-red-bright' : 'text-[#B8B0A3]'}
+              className={pathname.startsWith('/admin/payments') ? 'text-studio-red-bright' : 'text-[#ECE4D3]'}
             />
             <span className={`text-[10px] mt-0.5 font-medium tracking-tight ${
               pathname.startsWith('/admin/payments') ? 'text-[#ECE4D3] font-semibold' : 'text-[#B8B0A3]'
@@ -235,7 +235,7 @@ export default function AdminMobileBottomNav() {
         onClick={() => {
           setIsFabOpen((prev) => !prev);
         }}
-        className="md:hidden fixed left-1/2 -translate-x-1/2 z-40 w-14 h-14 rounded-full bg-[#9C2F2F] hover:bg-[#802222] text-[#ECE4D3] shadow-2xl flex items-center justify-center border-2 border-[#171512] transition-all duration-200 cursor-pointer active:scale-95"
+        className="md:hidden fixed left-1/2 -translate-x-1/2 z-40 w-14 h-14 rounded-full bg-[#C12D2D] hover:bg-[#802222] text-[#ECE4D3] shadow-2xl flex items-center justify-center border-2 border-[#171512] transition-all duration-200 cursor-pointer active:scale-95"
         style={{ bottom: 'calc(18px + env(safe-area-inset-bottom, 0px))' }}
       >
         <div className={`transition-transform duration-200 ${isFabOpen ? 'rotate-90' : 'rotate-0'}`}>

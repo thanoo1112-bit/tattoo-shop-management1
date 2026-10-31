@@ -94,13 +94,13 @@ export default function RecordPaymentDialog({
           {quotedPrice > 0 ? (
             <>
               <div className="flex items-center justify-between">
-                <span className="text-[#A89F91]">ราคางานสักที่ตกลงทั้งหมด:</span>
+                <span className="text-[#ECE4D3]">ราคางานสักที่ตกลงทั้งหมด:</span>
                 <span className="text-[#ECE4D3] font-mono font-semibold">
                   ฿{quotedPrice.toLocaleString('th-TH')}
                 </span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-[#A89F91]">รับชำระแล้ว:</span>
+                <span className="text-[#ECE4D3]">รับชำระแล้ว:</span>
                 <span className="text-emerald-400 font-mono font-semibold">
                   ฿{totalPaid.toLocaleString('th-TH')}
                 </span>
@@ -130,7 +130,7 @@ export default function RecordPaymentDialog({
           {/* Amount Input */}
           <div>
             <label className="block text-xs font-medium text-[#ECE4D3] mb-1">
-              ยอดเงินที่รับชำระ (บาท) <span className="text-[#9C2F2F]">*</span>
+              ยอดเงินที่รับชำระ (บาท) <span className="text-[#C12D2D]">*</span>
             </label>
             <div className="relative">
               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#A89F91] font-mono text-xs">฿</span>
@@ -170,7 +170,7 @@ export default function RecordPaymentDialog({
             <button
               type="button"
               onClick={onCancel}
-              className="px-3.5 py-2 bg-[#0E0D0C] border border-[#4A443A] hover:border-[#7A7265] text-xs text-[#A89F91] hover:text-[#ECE4D3] rounded-lg transition-colors cursor-pointer"
+              className="px-3.5 py-2 bg-[#0E0D0C] border border-[#4A443A] hover:border-[#7A7265] text-xs text-[#ECE4D3] hover:text-white rounded-lg transition-colors cursor-pointer"
             >
               ยกเลิก
             </button>

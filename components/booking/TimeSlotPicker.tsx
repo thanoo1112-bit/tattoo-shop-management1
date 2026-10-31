@@ -126,7 +126,7 @@ export default function TimeSlotPicker({
                   <span className="text-sm font-bold text-studio-primary block">
                     {slot.start} — {slot.end}
                   </span>
-                  <span className="text-xs text-studio-secondary mt-0.5 block">
+                  <span className="text-xs text-studio-primary mt-0.5 block">
                     ระยะเวลาปฏิบัติงาน: <strong className="text-studio-red-bright">{slot.duration} ชั่วโมง</strong>
                   </span>
                 </div>

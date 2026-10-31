@@ -969,13 +969,13 @@ export default function AdminRequestsPage({ defaultTab = 'estimates' }: AdminReq
       <div className="border-b border-[#4A443A] pb-4 flex flex-col sm:flex-row justify-between items-start sm:items-end gap-3">
         <div>
           <div className="inline-flex items-center space-x-2 bg-[#171512] border border-[#4A443A] px-2.5 py-0.5 rounded text-[#ECE4D3] text-[10px] uppercase font-heading tracking-widest mb-1.5">
-            <Layers size={12} className="text-[#9C2F2F]" />
+            <Layers size={12} className="text-[#C12D2D]" />
             <span>Request Management</span>
           </div>
           <h1 className="text-2xl sm:text-3xl md:text-4xl font-heading font-normal tracking-wide text-[#ECE4D3]">
             จัดการคำขอ
           </h1>
-          <p className="text-xs text-[#CFC7BA] mt-1 font-light">
+          <p className="text-xs text-[#ECE4D3] mt-1 font-light">
             ติดตามคำขอจอง ตรวจสอบสลิปมัดจำ และจัดการสถานะคำขอของลูกค้า
           </p>
         </div>

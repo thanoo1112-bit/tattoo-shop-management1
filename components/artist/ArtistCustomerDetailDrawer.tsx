@@ -118,8 +118,8 @@ function getArtistCustomerArchiveStatusInfo(statusKey?: string | null) {
       return {
         key: 'IN_PROGRESS',
         label: 'กำลังสัก',
-        dot: 'bg-[#9C2F2F]',
-        badge: 'bg-[#9C2F2F]/20 text-[#D64545] border border-[#9C2F2F]/60 animate-pulse',
+        dot: 'bg-[#C12D2D]',
+        badge: 'bg-[#C12D2D]/20 text-[#C12D2D] border border-[#C12D2D]/60 animate-pulse',
         isTerminal: false,
       };
     case 'WAITING_DEPOSIT':
@@ -208,7 +208,7 @@ function getBookingStatusBadge(status?: string | null) {
 function CustomerAvatar({ name, sizeClass = 'w-16 h-16', textClass = 'text-2xl' }: { name?: string; sizeClass?: string; textClass?: string }) {
   const initials = name && name.trim() ? name.trim().charAt(0).toUpperCase() : 'C';
   return (
-    <div className={`${sizeClass} rounded-full bg-[#9C2F2F]/20 border border-[#9C2F2F]/40 flex items-center justify-center font-bold ${textClass} text-[#ECE4D3] shrink-0 font-prompt`}>
+    <div className={`${sizeClass} rounded-full bg-[#C12D2D]/20 border border-[#C12D2D]/40 flex items-center justify-center font-bold ${textClass} text-[#ECE4D3] shrink-0 font-prompt`}>
       {initials}
     </div>
   );
@@ -260,7 +260,7 @@ function ReferenceGallery({
             className={`relative w-16 h-16 sm:w-20 sm:h-20 rounded-[6px] border ${
               isTerminal
                 ? 'border-zinc-800 hover:border-zinc-700 bg-zinc-900/60'
-                : 'border-[#4A443A] hover:border-[#9C2F2F] bg-[#0E0D0C]'
+                : 'border-[#4A443A] hover:border-[#C12D2D] bg-[#0E0D0C]'
             } overflow-hidden shrink-0 cursor-pointer group shadow-sm transition-all`}
             title={`คลิกเพื่อดูรูปที่ ${idx + 1}`}
           >
@@ -744,17 +744,17 @@ export default function ArtistCustomerDetailDrawer({
               <h2 className="text-xl sm:text-2xl font-heading font-normal tracking-wide text-[#ECE4D3] truncate">
                 {customer.display_name}
               </h2>
-              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-[#A89F91] mt-0.5">
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-[#ECE4D3] mt-0.5">
                 <span className="flex items-center space-x-1">
-                  <Mail size={11} className="text-[#B8B0A3]" />
+                  <Mail size={11} className="text-[#ECE4D3]" />
                   <span className="font-mono">{emailDisplay}</span>
                 </span>
                 <span className="flex items-center space-x-1">
-                  <Phone size={11} className="text-[#B8B0A3]" />
+                  <Phone size={11} className="text-[#ECE4D3]" />
                   <span className="font-mono">{phoneFormatted}</span>
                 </span>
                 <span className="flex items-center space-x-1">
-                  <Calendar size={11} className="text-[#B8B0A3]" />
+                  <Calendar size={11} className="text-[#ECE4D3]" />
                   <span className="font-mono">
                     {`อายุ: ${ageDisplay}`}
                   </span>
@@ -781,7 +781,7 @@ export default function ArtistCustomerDetailDrawer({
             >
               ภาพรวม
               {activeDetailTab === 'overview' && (
-                <span className="absolute bottom-0 left-0 right-0 h-[2px] bg-[#9C2F2F]" />
+                <span className="absolute bottom-0 left-0 right-0 h-[2px] bg-[#C12D2D]" />
               )}
             </button>
             <button
@@ -795,7 +795,7 @@ export default function ArtistCustomerDetailDrawer({
             >
               คำขอจอง ({unifiedRequests.length})
               {activeDetailTab === 'requests' && (
-                <span className="absolute bottom-0 left-0 right-0 h-[2px] bg-[#9C2F2F]" />
+                <span className="absolute bottom-0 left-0 right-0 h-[2px] bg-[#C12D2D]" />
               )}
             </button>
             <button
@@ -809,7 +809,7 @@ export default function ArtistCustomerDetailDrawer({
             >
               คิวงาน ({activeQueueBookings.length})
               {activeDetailTab === 'active' && (
-                <span className="absolute bottom-0 left-0 right-0 h-[2px] bg-[#9C2F2F]" />
+                <span className="absolute bottom-0 left-0 right-0 h-[2px] bg-[#C12D2D]" />
               )}
             </button>
             <button
@@ -823,7 +823,7 @@ export default function ArtistCustomerDetailDrawer({
             >
               ประวัติงานสัก ({completedBookings.length})
               {activeDetailTab === 'tattoos' && (
-                <span className="absolute bottom-0 left-0 right-0 h-[2px] bg-[#9C2F2F]" />
+                <span className="absolute bottom-0 left-0 right-0 h-[2px] bg-[#C12D2D]" />
               )}
             </button>
           </div>
@@ -836,7 +836,7 @@ export default function ArtistCustomerDetailDrawer({
             <div className="space-y-4">
               {/* NEXT FUTURE APPOINTMENT */}
               {nextAppointment ? (
-                <div className="bg-[#171512] border-l-4 border-l-[#9C2F2F] border border-[#4A443A] p-4 rounded-[6px] space-y-3 shadow-lg">
+                <div className="bg-[#171512] border-l-4 border-l-[#C12D2D] border border-[#4A443A] p-4 rounded-[6px] space-y-3 shadow-lg">
                   <div className="flex justify-between items-center">
                     <div className="flex items-center space-x-1.5 text-xs text-[#ECE4D3] font-bold">
                       <Clock3 size={14} className="text-studio-red-bright" />
@@ -851,7 +851,7 @@ export default function ArtistCustomerDetailDrawer({
                     </span>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-2 text-xs text-[#A89F91]">
+                  <div className="grid grid-cols-2 gap-2 text-xs text-[#ECE4D3]">
                     <div>
                       <span className="text-[10px] text-[#B8B0A3] block">ผลงาน / ลายสัก:</span>
                       <strong className="text-[#ECE4D3]">
@@ -882,7 +882,7 @@ export default function ArtistCustomerDetailDrawer({
                   </div>
 
                   <div className="pt-2 border-t border-[#4A443A]/40 flex justify-between items-center text-xs">
-                    <span className="text-[#A89F91]">สถานะการชำระ:</span>
+                    <span className="text-[#ECE4D3]">สถานะการชำระ:</span>
                     {(() => {
                       const st = (nextAppointment?.status || '').toUpperCase();
                       const isConfirmed = targetBookingForNext ? isConfirmedDepositBooking(targetBookingForNext) : false;
@@ -1105,7 +1105,7 @@ export default function ArtistCustomerDetailDrawer({
                         </div>
                       ) : req.quoted_price ? (
                         <div className="p-2 bg-[#171512] rounded border border-blue-400/40 text-[11px] flex justify-between items-center">
-                          <span className="text-[#A89F91]">ราคาที่เสนอ:</span>
+                          <span className="text-[#ECE4D3]">ราคาที่เสนอ:</span>
                           <span className="font-mono font-semibold text-[#ECE4D3]">
                             ฿{Number(req.quoted_price).toLocaleString()} (มัดจำ ฿
                             {(Number(req.deposit_required) || 500).toLocaleString()})
@@ -1333,7 +1333,7 @@ export default function ArtistCustomerDetailDrawer({
                       : null
                   )
                 }
-                className="p-2 bg-[#171512] border border-[#4A443A] hover:border-[#9C2F2F] hover:bg-[#9C2F2F] text-white rounded-full transition-colors shadow-lg cursor-pointer"
+                className="p-2 bg-[#171512] border border-[#4A443A] hover:border-[#C12D2D] hover:bg-[#C12D2D] text-white rounded-full transition-colors shadow-lg cursor-pointer"
                 title="รูปก่อนหน้า"
               >
                 <ChevronLeft size={20} />
@@ -1353,7 +1353,7 @@ export default function ArtistCustomerDetailDrawer({
                       : null
                   )
                 }
-                className="p-2 bg-[#171512] border border-[#4A443A] hover:border-[#9C2F2F] hover:bg-[#9C2F2F] text-white rounded-full transition-colors shadow-lg cursor-pointer"
+                className="p-2 bg-[#171512] border border-[#4A443A] hover:border-[#C12D2D] hover:bg-[#C12D2D] text-white rounded-full transition-colors shadow-lg cursor-pointer"
                 title="รูปถัดไป"
               >
                 <ChevronRight size={20} />

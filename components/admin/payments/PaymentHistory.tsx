@@ -20,7 +20,7 @@ const PAYMENT_TYPE_MAP: Record<string, { label: string; class: string }> = {
   DEPOSIT: { label: 'เงินมัดจำ', class: 'bg-amber-950/40 text-amber-400 border-amber-800/40' },
   BALANCE: { label: 'ชำระปิดงาน', class: 'bg-blue-950/40 text-blue-400 border-blue-800/40' },
   FULL_PAYMENT: { label: 'ชำระปิดงาน', class: 'bg-emerald-950/40 text-emerald-400 border-emerald-800/40' },
-  OTHER: { label: 'อื่น ๆ', class: 'bg-[#1F1D1A] text-[#A89F91] border-[#4A443A]' },
+  OTHER: { label: 'อื่น ๆ', class: 'bg-[#1F1D1A] text-[#ECE4D3] border-[#4A443A]' },
 };
 
 function formatBangkokDateTime(isoString: string) {
@@ -56,8 +56,8 @@ export default function PaymentHistory({
   if (payments.length === 0) {
     return (
       <div className="bg-[#0E0D0C] border border-[#4A443A]/60 rounded-lg p-6 text-center">
-        <p className="text-xs text-[#A89F91]">ยังไม่มีประวัติการชำระเงิน</p>
-        <p className="text-[11px] text-[#7A7265] mt-0.5">
+        <p className="text-xs text-[#ECE4D3]">ยังไม่มีประวัติการชำระเงิน</p>
+        <p className="text-[11px] text-[#ECE4D3] mt-0.5">
           เมื่อบันทึกรับเงิน รายการจะแสดงที่นี่ตามลำดับเวลา
         </p>
       </div>
@@ -105,7 +105,7 @@ export default function PaymentHistory({
                     type="button"
                     data-action="void-payment"
                     onClick={() => onOpenVoidModal(p)}
-                    className="text-[11px] text-[#A89F91] hover:text-red-400 bg-[#171512] hover:bg-red-950/20 border border-[#4A443A] hover:border-red-900/50 px-2.5 py-1 rounded transition-colors flex items-center gap-1"
+                    className="text-[11px] text-[#ECE4D3] hover:text-[#C12D2D] bg-[#171512] hover:bg-[#C12D2D]/10 border border-[#4A443A] hover:border-[#C12D2D]/50 px-2.5 py-1 rounded transition-colors flex items-center gap-1"
                     title="ยกเลิกรายการรับเงินนี้"
                   >
                     <Ban size={11} />
@@ -116,14 +116,14 @@ export default function PaymentHistory({
             </div>
 
             {/* Row 2: Date & Reference */}
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-[#7A7265] mt-2 pt-2 border-t border-[#4A443A]/40">
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-[#ECE4D3] mt-2 pt-2 border-t border-[#4A443A]/40">
               <span className="flex items-center gap-1">
                 <Clock size={11} />
                 <span>รับเงินเมื่อ: {formatBangkokDateTime(p.paid_at)}</span>
               </span>
 
               {p.reference_no && (
-                <span className="flex items-center gap-1 text-[#A89F91]">
+                <span className="flex items-center gap-1 text-[#ECE4D3]">
                   <Hash size={11} />
                   <span>อ้างอิง: {p.reference_no}</span>
                 </span>
@@ -132,8 +132,8 @@ export default function PaymentHistory({
 
             {/* Row 3: Note (if any) */}
             {p.note && (
-              <p className="text-[11px] text-[#A89F91] bg-[#171512] p-2 rounded mt-2 border border-[#4A443A]/40">
-                <span className="text-[#7A7265]">หมายเหตุ:</span> {p.note}
+              <p className="text-[11px] text-[#ECE4D3] bg-[#171512] p-2 rounded mt-2 border border-[#4A443A]/40">
+                <span className="text-[#ECE4D3]">หมายเหตุ:</span> {p.note}
               </p>
             )}
 

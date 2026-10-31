@@ -75,7 +75,7 @@ export default function VoidPaymentDialog({
               <h3 className="text-base font-heading font-semibold text-[#ECE4D3]">
                 ยกเลิกรายการรับเงิน?
               </h3>
-              <p className="text-[11px] text-[#A89F91]">
+              <p className="text-[11px] text-[#ECE4D3]">
                 การดำเนินการนี้ไม่สามารถย้อนกลับได้
               </p>
             </div>
@@ -91,22 +91,22 @@ export default function VoidPaymentDialog({
         {/* Payment Summary Box */}
         <div className="bg-[#0E0D0C] border border-[#4A443A] rounded-lg p-3 space-y-2 text-xs">
           <div className="flex justify-between">
-            <span className="text-[#7A7265]">จำนวนเงิน:</span>
+            <span className="text-[#ECE4D3]">จำนวนเงิน:</span>
             <span className="font-semibold text-lg text-[#ECE4D3] font-heading">
               ฿{payment.amount.toLocaleString('th-TH')}
             </span>
           </div>
           <div className="flex justify-between">
-            <span className="text-[#7A7265]">ประเภท:</span>
+            <span className="text-[#ECE4D3]">ประเภท:</span>
             <span className="text-[#ECE4D3]">{payment.payment_type}</span>
           </div>
           <div className="flex justify-between">
-            <span className="text-[#7A7265]">วิธีชำระ:</span>
+            <span className="text-[#ECE4D3]">วิธีชำระ:</span>
             <span className="text-[#ECE4D3]">{payment.payment_method}</span>
           </div>
           <div className="flex justify-between">
-            <span className="text-[#7A7265]">วันที่บันทึก:</span>
-            <span className="text-[#A89F91]">
+            <span className="text-[#ECE4D3]">วันที่บันทึก:</span>
+            <span className="text-[#ECE4D3]">
               {new Date(payment.paid_at).toLocaleString('th-TH')}
             </span>
           </div>
@@ -133,7 +133,7 @@ export default function VoidPaymentDialog({
               value={voidReason}
               onChange={(e) => setVoidReason(e.target.value)}
               placeholder="เช่น ลูกค้าขอเปลี่ยนวิธีการชำระเงิน, บันทึกจำนวนเงินผิดพลาด..."
-              className="w-full bg-[#0E0D0C] border border-[#4A443A] rounded-md p-2.5 text-xs text-[#ECE4D3] placeholder-[#7A7265] focus:outline-none focus:border-red-500 transition-colors"
+              className="w-full bg-[#0E0D0C] border border-[#4A443A] rounded-md p-2.5 text-xs text-[#ECE4D3] placeholder-[#7A7265] focus:outline-none focus:border-[#C12D2D] transition-colors"
             />
           </div>
 
@@ -142,7 +142,7 @@ export default function VoidPaymentDialog({
               type="button"
               onClick={onClose}
               disabled={isSubmitting}
-              className="px-4 py-1.5 text-xs text-[#A89F91] hover:text-[#ECE4D3] bg-[#0E0D0C] border border-[#4A443A] rounded-md transition-colors"
+              className="px-4 py-1.5 text-xs text-[#ECE4D3] hover:text-[#ECE4D3] bg-[#0E0D0C] border border-[#4A443A] rounded-md transition-colors"
             >
               ยกเลิก
             </button>
@@ -151,7 +151,7 @@ export default function VoidPaymentDialog({
               type="submit"
               id="btn-confirm-void-payment"
               disabled={isSubmitting || !voidReason.trim()}
-              className="px-4 py-1.5 text-xs font-medium text-white bg-red-800 hover:bg-red-700 border border-red-700 rounded-md transition-colors flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed"
+              className="px-4 py-1.5 text-xs font-medium text-white bg-[#C12D2D] hover:bg-[#852727] border border-[#C12D2D] rounded-md transition-colors flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed"
             >
               {isSubmitting && <Loader2 size={13} className="animate-spin" />}
               <span>ยืนยันยกเลิกรายการ</span>

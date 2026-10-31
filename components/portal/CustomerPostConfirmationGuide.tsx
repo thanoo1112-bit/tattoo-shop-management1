@@ -74,7 +74,7 @@ export default function CustomerPostConfirmationGuide({
               เตรียมตัวก่อนเข้ารับบริการ
             </span>
           </div>
-          <p className="text-[11px] text-[#E2DDD4] font-light">
+          <p className="text-[11px] text-[#ECE4D3] font-light">
             เตรียมตัวให้พร้อม เพื่อประสบการณ์ที่ดีที่สุดในวันสัก
           </p>
         </div>
@@ -90,7 +90,7 @@ export default function CustomerPostConfirmationGuide({
                 <h4 className="text-xs font-semibold text-[#ECE4D3]">
                   คู่มือเตรียมตัวก่อนสัก
                 </h4>
-                <p className="text-[11px] text-[#E2DDD4] font-light leading-snug">
+                <p className="text-[11px] text-[#ECE4D3] font-light leading-snug">
                   ดูคำแนะนำและสิ่งที่ควรเตรียมก่อนวันนัด
                 </p>
               </div>
@@ -102,7 +102,7 @@ export default function CustomerPostConfirmationGuide({
               className="w-full min-h-[42px] sm:min-h-[34px] bg-studio-sec hover:bg-studio-card border border-studio-border text-[#ECE4D3] px-3.5 py-2 sm:py-1.5 rounded-[4px] text-xs font-medium flex items-center justify-between transition-all group active:scale-[0.99]"
             >
               <span className="text-studio-red font-semibold">ดูคู่มือทั้งหมด</span>
-              <ChevronRight size={14} className="text-[#E2DDD4] group-hover:translate-x-0.5 transition-transform" />
+              <ChevronRight size={14} className="text-[#ECE4D3] group-hover:translate-x-0.5 transition-transform" />
             </button>
           </div>
 
@@ -119,7 +119,7 @@ export default function CustomerPostConfirmationGuide({
                 <div className="text-[11px] font-semibold text-[#ECE4D3] pt-0.5">
                   {SHOP_NAME}
                 </div>
-                <p className="text-[10px] text-[#F2EEE8] leading-tight font-light">
+                <p className="text-[10px] text-[#ECE4D3] leading-tight font-light">
                   151/3 1299 ตำบลเวียงชัย อำเภอเวียงชัย จังหวัดเชียงราย 57210
                 </p>
               </div>
@@ -135,7 +135,7 @@ export default function CustomerPostConfirmationGuide({
                 <MapPin size={13} className="text-studio-red" />
                 <span>เปิด Google Maps</span>
               </span>
-              <ExternalLink size={13} className="text-[#E2DDD4] group-hover:text-[#ECE4D3] transition-colors" />
+              <ExternalLink size={13} className="text-[#ECE4D3] group-hover:text-[#ECE4D3] transition-colors" />
             </a>
           </div>
         </div>
@@ -155,7 +155,7 @@ export default function CustomerPostConfirmationGuide({
                   <h3 className="text-sm font-bold text-studio-primary">
                     เตรียมตัวก่อนวันสัก
                   </h3>
-                  <p className="text-[11px] text-studio-secondary font-light">
+                  <p className="text-[11px] text-studio-primary font-light">
                     ข้อแนะนำและขั้นตอนการเตรียมตัวสำหรับวันเข้ารับบริการ
                   </p>
                 </div>
@@ -184,14 +184,14 @@ export default function CustomerPostConfirmationGuide({
                     <h4 className="text-xs font-semibold text-studio-primary">
                       {item.title}
                     </h4>
-                    <p className="text-[11px] text-studio-secondary font-light leading-relaxed">
+                    <p className="text-[11px] text-studio-primary font-light leading-relaxed">
                       {item.description}
                     </p>
                   </div>
                 </div>
               ))}
 
-              <div className="p-3 bg-studio-sec/60 border border-studio-border/50 rounded-[6px] flex items-center gap-2 text-[11px] text-[#B8B0A3]">
+              <div className="p-3 bg-studio-sec/60 border border-studio-border/50 rounded-[6px] flex items-center gap-2 text-[11px] text-[#ECE4D3]">
                 <Info size={14} className="text-studio-red shrink-0" />
                 <span>ขอบคุณที่ไว้วางใจใช้บริการกับ 157 TATTOO</span>
               </div>

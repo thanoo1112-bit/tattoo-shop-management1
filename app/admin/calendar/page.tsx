@@ -28,7 +28,7 @@ export default function AdminCalendarPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0E0D0C] text-[#ECE4D3] font-prompt animate-fadeIn">
+    <div className="min-h-screen bg-[#0E0D0C] text-[#ECE4D3] font-prompt animate-fadeIn pb-24 md:pb-8">
       {/* Top Admin Header Navigation */}
       <AdminHeader />
 

@@ -863,13 +863,13 @@ function CustomerPortalContent() {
           <div className="w-full lg:w-[65%] space-y-8">
             {/* Top Greeting */}
             <div>
-              <span className="text-xs uppercase tracking-widest text-[#E2DDD4] font-heading block">
+              <span className="text-xs uppercase tracking-widest text-[#ECE4D3] font-heading block">
                 Customer Portal
               </span>
               <h1 className="text-3xl md:text-5xl font-heading font-normal tracking-wide text-[#ECE4D3] mt-0.5">
                 ยินดีต้อนรับ, {customerName}
               </h1>
-              <p className="text-xs text-[#E2DDD4] mt-1 font-light">
+              <p className="text-xs text-[#ECE4D3] mt-1 font-light">
                 ศูนย์รวมรายการนัดหมาย คิวสัก และติดตามสถานะคำขอจองคิวของคุณ
               </p>
             </div>
@@ -1029,11 +1029,11 @@ function CustomerPortalContent() {
               </div>
             ) : (
               <div className="bg-studio-card border border-studio-border p-8 rounded-[8px] text-center space-y-3">
-                <Calendar size={32} className="text-[#E2DDD4] mx-auto opacity-70" />
+                <Calendar size={32} className="text-[#ECE4D3] mx-auto opacity-70" />
                 <h4 className="text-sm font-semibold text-[#ECE4D3]">
                   ยังไม่มีนัดหมายที่กำลังจะมาถึง
                 </h4>
-                <p className="text-xs text-[#E2DDD4] max-w-sm mx-auto">
+                <p className="text-xs text-[#ECE4D3] max-w-sm mx-auto">
                   คุณสามารถเลือกชมแบบลายสักว่างในแกลเลอรี หรือส่งคำขอจองคิวเพื่อเริ่มนัดหมายใหม่
                 </p>
                 <div className="pt-2 flex justify-center gap-3">
@@ -1072,7 +1072,7 @@ function CustomerPortalContent() {
                   className={`pb-3 relative transition-colors shrink-0 whitespace-nowrap ${
                     activeTab === t.key
                       ? 'text-[#ECE4D3] font-bold'
-                      : 'text-[#E2DDD4] hover:text-[#ECE4D3]'
+                      : 'text-[#ECE4D3] hover:text-[#ECE4D3]'
                   }`}
                 >
                   <span>{t.label}</span>
@@ -1087,7 +1087,7 @@ function CustomerPortalContent() {
             {activeTab === 'all' && (
               <div className="space-y-3">
                 {allVisibleJobs.length === 0 ? (
-                  <p className="text-xs text-[#E2DDD4] py-12 bg-studio-card border border-studio-border rounded-[6px] text-center">
+                  <p className="text-xs text-[#ECE4D3] py-12 bg-studio-card border border-studio-border rounded-[6px] text-center">
                     ยังไม่มีคิวนัดหมายหรือคำขอจอง
                   </p>
                 ) : (
@@ -1107,7 +1107,7 @@ function CustomerPortalContent() {
             {activeTab === 'pending' && (
               <div className="space-y-3">
                 {allPendingJobs.length === 0 ? (
-                  <p className="text-xs text-[#E2DDD4] py-12 bg-studio-card border border-studio-border rounded-[6px] text-center">
+                  <p className="text-xs text-[#ECE4D3] py-12 bg-studio-card border border-studio-border rounded-[6px] text-center">
                     ยังไม่มีรายการรอตรวจสอบ
                   </p>
                 ) : (
@@ -1127,7 +1127,7 @@ function CustomerPortalContent() {
             {activeTab === 'waiting_deposit' && (
               <div className="space-y-3">
                 {allWaitingDepositJobs.length === 0 ? (
-                  <p className="text-xs text-[#E2DDD4] py-12 bg-studio-card border border-studio-border rounded-[6px] text-center">
+                  <p className="text-xs text-[#ECE4D3] py-12 bg-studio-card border border-studio-border rounded-[6px] text-center">
                     ยังไม่มีรายการรอชำระมัดจำ
                   </p>
                 ) : (
@@ -1147,7 +1147,7 @@ function CustomerPortalContent() {
             {activeTab === 'slip_review' && (
               <div className="space-y-3">
                 {allSlipReviewJobs.length === 0 ? (
-                  <p className="text-xs text-[#E2DDD4] py-12 bg-studio-card border border-studio-border rounded-[6px] text-center">
+                  <p className="text-xs text-[#ECE4D3] py-12 bg-studio-card border border-studio-border rounded-[6px] text-center">
                     ยังไม่มีรายการรอตรวจสลิป
                   </p>
                 ) : (
@@ -1167,7 +1167,7 @@ function CustomerPortalContent() {
             {activeTab === 'confirmed' && (
               <div className="space-y-3">
                 {allConfirmedJobs.length === 0 ? (
-                  <p className="text-xs text-[#E2DDD4] py-12 bg-studio-card border border-studio-border rounded-[6px] text-center">
+                  <p className="text-xs text-[#ECE4D3] py-12 bg-studio-card border border-studio-border rounded-[6px] text-center">
                     ยังไม่มีรายการคิวที่ยืนยันแล้ว
                   </p>
                 ) : (
@@ -1187,7 +1187,7 @@ function CustomerPortalContent() {
             {activeTab === 'completed' && (
               <div className="space-y-3">
                 {allCompletedJobs.length === 0 ? (
-                  <p className="text-xs text-[#E2DDD4] py-12 bg-studio-card border border-studio-border rounded-[6px] text-center">
+                  <p className="text-xs text-[#ECE4D3] py-12 bg-studio-card border border-studio-border rounded-[6px] text-center">
                     ยังไม่มีรายการที่เสร็จสิ้น
                   </p>
                 ) : (
@@ -1207,7 +1207,7 @@ function CustomerPortalContent() {
             {activeTab === 'cancelled' && (
               <div className="space-y-3">
                 {cancelledOrRejectedJobs.length === 0 ? (
-                  <p className="text-xs text-[#E2DDD4] py-12 bg-studio-card border border-studio-border rounded-[6px] text-center">
+                  <p className="text-xs text-[#ECE4D3] py-12 bg-studio-card border border-studio-border rounded-[6px] text-center">
                     ยังไม่มีรายการที่ถูกยกเลิกหรือปฏิเสธ
                   </p>
                 ) : (
@@ -1232,7 +1232,7 @@ function CustomerPortalContent() {
                   </div>
                   <div>
                     <h3 className="text-lg font-heading text-[#ECE4D3]">{customerName}</h3>
-                    <p className="text-xs text-[#E2DDD4]">
+                    <p className="text-xs text-[#ECE4D3]">
                       {formatThaiPhoneForDisplay(customerPhone) || customerEmail || 'บัญชีลูกค้า'}
                     </p>
                     <span className="text-[10px] bg-studio-sec text-studio-paper px-2 py-0.5 rounded border border-studio-border inline-block mt-1 font-medium">
@@ -1241,7 +1241,7 @@ function CustomerPortalContent() {
                   </div>
                 </div>
 
-                <div className="space-y-3 text-xs text-[#E2DDD4]">
+                <div className="space-y-3 text-xs text-[#ECE4D3]">
                   <div className="flex justify-between items-center py-2 border-b border-studio-border/30">
                     <span>ชื่อผู้ใช้งาน:</span>
                     <div className="flex items-center gap-2">
@@ -1263,7 +1263,7 @@ function CustomerPortalContent() {
 
                   {editingName && (
                     <div className="bg-studio-main/60 border border-studio-border p-4 rounded-[6px] space-y-3 animate-fadeIn">
-                      <label className="text-[11px] uppercase tracking-wider text-studio-secondary block font-medium">
+                      <label className="text-[11px] uppercase tracking-wider text-studio-primary block font-medium">
                         แก้ไขชื่อผู้ใช้งาน
                       </label>
                       <div className="flex gap-2">
@@ -1322,7 +1322,7 @@ function CustomerPortalContent() {
 
                   {editingPhone && (
                     <div className="bg-studio-main/60 border border-studio-border p-4 rounded-[6px] space-y-3 animate-fadeIn">
-                      <label className="text-[11px] uppercase tracking-wider text-[#E2DDD4] block font-medium">
+                      <label className="text-[11px] uppercase tracking-wider text-[#ECE4D3] block font-medium">
                         กรอกเบอร์โทรศัพท์มือถือ 10 หลัก (สำหรับติดต่อเรื่องคิวงาน)
                       </label>
                       <div className="flex gap-2">
@@ -1406,7 +1406,7 @@ function CustomerPortalContent() {
                     <Sparkles size={14} className="text-studio-red" />
                     <span>เลือกลายสักพร้อมจอง (Flash)</span>
                   </span>
-                  <ArrowUpRight size={14} className="text-[#E2DDD4] group-hover:text-[#ECE4D3]" />
+                  <ArrowUpRight size={14} className="text-[#ECE4D3] group-hover:text-[#ECE4D3]" />
                 </Link>
 
                 <Link
@@ -1417,7 +1417,7 @@ function CustomerPortalContent() {
                     <Compass size={14} className="text-studio-red" />
                     <span>จองคิวสักทั่วไป (Custom)</span>
                   </span>
-                  <ArrowUpRight size={14} className="text-[#E2DDD4] group-hover:text-[#ECE4D3]" />
+                  <ArrowUpRight size={14} className="text-[#ECE4D3] group-hover:text-[#ECE4D3]" />
                 </Link>
               </div>
             </div>

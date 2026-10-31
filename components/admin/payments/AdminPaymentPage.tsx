@@ -560,17 +560,17 @@ export default function AdminPaymentPage() {
       // Confirmed statuses (EXCLUDES WAITING_DEPOSIT, PENDING_DEPOSIT, PENDING, REJECTED, CANCELLED, EXPIRED, HOLD)
       const isConfirmedOrActive = ['CONFIRMED', 'APPROVED', 'IN_PROGRESS', 'COMPLETED'].includes(statusUpper);
 
-      // KPI 1: งานที่ยืนยันแล้วทั้งหมด
+      // KPI 1: งานที่ยืนยัน
       if (isConfirmedOrActive) {
         totalActiveBookingsCount += 1;
       }
 
-      // KPI 4: งานเสร็จสิ้น
+      // KPI 4: งานเสร็จแล้ว
       if (statusUpper === 'COMPLETED') {
         completedBookingsCount += 1;
       }
 
-      // KPI 2: ลาย Flash ที่ถูกจอง (นับเฉพาะ Flash จริง ไม่รวม Custom, ต้องสถานะยืนยันแล้ว และนับแบบไม่ซ้ำ)
+      // KPI 2: ผลงานที่จอง (นับเฉพาะ Flash จริง ไม่รวม Custom, ต้องสถานะยืนยันแล้ว และนับแบบไม่ซ้ำ)
       if (isConfirmedOrActive && b.is_flash && !b.is_custom) {
         const flashKey = b.flash_design_id || b.flash_reservation_id || b.id;
         if (flashKey) {
@@ -652,13 +652,13 @@ export default function AdminPaymentPage() {
       <div className="border-b border-[#4A443A] pb-4 flex flex-col sm:flex-row justify-between items-start sm:items-end gap-3">
         <div>
           <div className="inline-flex items-center space-x-2 bg-[#171512] border border-[#4A443A] px-2.5 py-0.5 sm:px-3 sm:py-1 rounded text-[#ECE4D3] text-[10px] uppercase font-heading tracking-widest mb-1.5">
-            <CreditCard size={12} className="text-[#9C2F2F]" />
+            <CreditCard size={12} className="text-[#C12D2D]" />
             <span>Financial & Payments</span>
           </div>
           <h1 className="text-2xl sm:text-3xl md:text-4xl font-heading font-normal tracking-wide text-[#ECE4D3]">
             การเงินและการชำระเงิน
           </h1>
-          <p className="text-xs text-[#A89F91] mt-1 font-light">
+          <p className="text-xs text-[#ECE4D3] mt-1 font-light">
             ติดตามรายได้ ภาพรวมการชำระเงิน และตั้งค่าบัญชีรับเงินของสตูดิโอ
           </p>
         </div>
@@ -672,11 +672,11 @@ export default function AdminPaymentPage() {
           className={
             "px-4 py-2 rounded-t-[6px] text-xs font-bold transition-all flex items-center gap-2 " +
             (activeMainTab === 'overview_revenue'
-              ? "bg-[#171512] text-[#ECE4D3] border-t-2 border-t-[#9C2F2F] border-x border-[#4A443A]"
-              : "text-[#A89F91] hover:text-[#ECE4D3] hover:bg-[#171512]/50")
+              ? "bg-[#171512] text-[#ECE4D3] border-t-2 border-t-[#C12D2D] border-x border-[#4A443A]"
+              : "text-[#ECE4D3] hover:bg-[#171512]/50")
           }
         >
-          <Layers size={14} className={activeMainTab === 'overview_revenue' ? 'text-[#9C2F2F]' : ''} />
+          <Layers size={14} className={activeMainTab === 'overview_revenue' ? 'text-[#C12D2D]' : ''} />
           <span>ภาพรวมและรายได้</span>
         </button>
 
@@ -686,11 +686,11 @@ export default function AdminPaymentPage() {
           className={
             "px-4 py-2 rounded-t-[6px] text-xs font-bold transition-all flex items-center gap-2 " +
             (activeMainTab === 'settings'
-              ? "bg-[#171512] text-[#ECE4D3] border-t-2 border-t-[#9C2F2F] border-x border-[#4A443A]"
-              : "text-[#A89F91] hover:text-[#ECE4D3] hover:bg-[#171512]/50")
+              ? "bg-[#171512] text-[#ECE4D3] border-t-2 border-t-[#C12D2D] border-x border-[#4A443A]"
+              : "text-[#ECE4D3] hover:bg-[#171512]/50")
           }
         >
-          <Settings size={14} className={activeMainTab === 'settings' ? 'text-[#9C2F2F]' : ''} />
+          <Settings size={14} className={activeMainTab === 'settings' ? 'text-[#C12D2D]' : ''} />
           <span>ตั้งค่าการชำระเงิน</span>
         </button>
       </div>

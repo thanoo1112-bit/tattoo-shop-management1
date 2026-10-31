@@ -335,14 +335,14 @@ export function getEventStatusConfig(ev: CalendarSessionEvent): {
       return {
         key: 'IN_PROGRESS',
         label: 'กำลังสัก',
-        bg: 'bg-[#9C2F2F]/20',
-        border: 'border-[#9C2F2F]/60',
-        text: 'text-[#D64545]',
-        badgeBg: 'bg-[#9C2F2F]/20',
-        badgeText: 'text-[#D64545]',
-        badgeBorder: 'border-[#9C2F2F]/60',
-        dotClass: 'bg-[#D64545]',
-        colorClass: 'text-[#D64545]',
+        bg: 'bg-[#C12D2D]/20',
+        border: 'border-[#C12D2D]/60',
+        text: 'text-[#C12D2D]',
+        badgeBg: 'bg-[#C12D2D]/20',
+        badgeText: 'text-[#C12D2D]',
+        badgeBorder: 'border-[#C12D2D]/60',
+        dotClass: 'bg-[#C12D2D]',
+        colorClass: 'text-[#C12D2D]',
       };
 
     case 'PENDING':
@@ -419,11 +419,11 @@ export function getSessionStatusConfig(status: SessionStatus, totalSessionsCount
     case 'IN_PROGRESS':
       return {
         label: 'กำลังสัก',
-        bg: 'bg-[#9C2F2F]/20',
-        border: 'border-[#9C2F2F]/60',
-        text: 'text-[#D64545]',
-        badgeBg: 'bg-[#9C2F2F]/20',
-        badgeText: 'text-[#D64545]',
+        bg: 'bg-[#C12D2D]/20',
+        border: 'border-[#C12D2D]/60',
+        text: 'text-[#C12D2D]',
+        badgeBg: 'bg-[#C12D2D]/20',
+        badgeText: 'text-[#C12D2D]',
       };
     case 'COMPLETED':
       return {
@@ -483,9 +483,9 @@ export function getBookingStatusConfig(status: BookingStatus, totalSessionsCount
     case 'IN_PROGRESS':
       return {
         label: 'กำลังสัก',
-        text: 'text-[#D64545]',
-        bg: 'bg-[#9C2F2F]/20',
-        border: 'border-[#9C2F2F]/60',
+        text: 'text-[#C12D2D]',
+        bg: 'bg-[#C12D2D]/20',
+        border: 'border-[#C12D2D]/60',
       };
     case 'COMPLETED':
       return {

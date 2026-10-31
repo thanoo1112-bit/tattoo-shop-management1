@@ -387,7 +387,7 @@ export default function ProposeMultiDatesModal({
                     className={`p-2.5 rounded-xl border transition-all flex items-center space-x-2.5 cursor-pointer ${
                       isSelected
                         ? 'bg-amber-950/60 border-amber-500 text-amber-200 font-medium'
-                        : 'bg-studio-sec/60 border-studio-border hover:border-amber-800/60 text-studio-secondary'
+                        : 'bg-studio-sec/60 border-studio-border hover:border-amber-800/60 text-[#ECE4D3]'
                     }`}
                   >
                     <input
@@ -433,7 +433,7 @@ export default function ProposeMultiDatesModal({
               type="button"
               onClick={onClose}
               disabled={submitting}
-              className="w-full py-2.5 px-3 rounded-xl border border-studio-border bg-studio-sec hover:bg-studio-card text-studio-secondary font-semibold text-xs cursor-pointer"
+              className="w-full py-2.5 px-3 rounded-xl border border-studio-border bg-studio-sec hover:bg-studio-card text-[#ECE4D3] font-semibold text-xs cursor-pointer"
             >
               ยกเลิก
             </button>

@@ -1129,7 +1129,7 @@ if (!estimate) return null;
                         </div>
                       ) : hasMedCondition === false ? (
                         <div className="flex items-center justify-between text-xs py-0.5">
-                          <span className="text-studio-muted">โรคประจำตัว:</span>
+                          <span className="text-[#ECE4D3]">โรคประจำตัว:</span>
                           <span className="text-emerald-400 font-medium flex items-center gap-1 text-[11px]">
                             <CheckCircle2 size={12} /> ไม่มีโรคประจำตัว
                           </span>
@@ -1166,7 +1166,7 @@ if (!estimate) return null;
                         </div>
                       ) : hasAllergyCondition === false ? (
                         <div className={`flex items-center justify-between text-xs py-0.5 ${hasMedCondition !== undefined && hasMedCondition !== null ? 'pt-2.5 border-t border-[#4A443A]/40' : ''}`}>
-                          <span className="text-studio-muted">ประวัติการแพ้:</span>
+                          <span className="text-[#ECE4D3]">ประวัติการแพ้:</span>
                           <span className="text-emerald-400 font-medium flex items-center gap-1 text-[11px]">
                             <CheckCircle2 size={12} /> ไม่มีอาการแพ้
                           </span>
@@ -1204,13 +1204,13 @@ if (!estimate) return null;
                     </span>
                   </div>
                   <div>
-                    <span className="text-[#CFC7BA] text-[10px] block">เวลาที่เลือก</span>
+                    <span className="text-[#ECE4D3] text-[10px] block">เวลาที่เลือก</span>
                     <span className="text-sm font-semibold text-[#ECE4D3]">
                       {preferredTimeDisplay}
                     </span>
                   </div>
                   <div>
-                    <span className="text-[#CFC7BA] text-[10px] block">วันที่ส่งคำขอ</span>
+                    <span className="text-[#ECE4D3] text-[10px] block">วันที่ส่งคำขอ</span>
                     <span className="text-xs font-medium text-[#ECE4D3]">
                       {(() => {
                         const submitTime = (estimate as any).submitted_at || estimate.created_at;
@@ -1232,7 +1232,7 @@ if (!estimate) return null;
                       <span>เสนอวันใหม่แล้ว — รอลูกค้ายืนยัน</span>
                     </div>
                     {(resolvedProposedDate || (estimate as any).proposed_date || estimate.flash_reservation?.proposed_date) && (
-                      <div className="text-xs text-[#E2DDD4]">
+                      <div className="text-xs text-[#ECE4D3]">
                         <span>วันและเวลาที่เสนอ: </span>
                         <span className="text-amber-200 font-semibold">
                           {formatDateBangkok(resolvedProposedDate || (estimate as any).proposed_date || estimate.flash_reservation?.proposed_date)}
@@ -1241,7 +1241,7 @@ if (!estimate) return null;
                       </div>
                     )}
                     {(estimate.proposed_artist_note || (estimate as any).proposal_note || estimate.flash_reservation?.proposal_note) && (
-                      <p className="text-xs text-[#E2DDD4] leading-relaxed">
+                      <p className="text-xs text-[#ECE4D3] leading-relaxed">
                         ข้อความถึงลูกค้า: <span className="text-[#ECE4D3] font-medium">{estimate.proposed_artist_note || (estimate as any).proposal_note || estimate.flash_reservation?.proposal_note}</span>
                       </p>
                     )}
@@ -1260,29 +1260,29 @@ if (!estimate) return null;
             <div className="space-y-2 pt-1 divide-y divide-studio-border/50">
               {isFlash && (flashDesign?.title || (estimate.flash_reservation as any)?.flash_designs?.title || (estimate as any).artwork_title) && (
                 <div className="flex justify-between items-center py-2">
-                  <span className="text-[#CFC7BA]">ชื่อลาย Flash:</span>
+                  <span className="text-[#ECE4D3]">ชื่อลาย Flash:</span>
                   <span className="text-[#ECE4D3] font-medium">{flashDesign?.title || (estimate.flash_reservation as any)?.flash_designs?.title || (estimate as any).artwork_title}</span>
                 </div>
               )}
               <div className="flex justify-between items-center py-2">
-                <span className="text-[#CFC7BA]">{estimate.request_type === 'FLASH' ? 'ช่างเจ้าของลาย:' : 'ช่างที่ลูกค้าเลือก:'}</span>
+                <span className="text-[#ECE4D3]">{estimate.request_type === 'FLASH' ? 'ช่างเจ้าของลาย:' : 'ช่างที่ลูกค้าเลือก:'}</span>
                 <span className="text-[#ECE4D3] font-medium">{artistDisplay}</span>
               </div>
               <div className="flex justify-between items-center py-2">
-                <span className="text-[#CFC7BA]">สไตล์ลายสัก:</span>
+                <span className="text-[#ECE4D3]">สไตล์ลายสัก:</span>
                 <span className="text-[#ECE4D3] font-medium">{styleDisplay}</span>
               </div>
               <div className="flex justify-between items-center py-2">
-                <span className="text-[#CFC7BA]">ตำแหน่งที่สัก:</span>
+                <span className="text-[#ECE4D3]">ตำแหน่งที่สัก:</span>
                 <span className="text-[#ECE4D3] font-medium">{placementDisplay}</span>
               </div>
               <div className="flex justify-between items-center py-2">
-                <span className="text-[#CFC7BA]">ขนาดประมาณ:</span>
+                <span className="text-[#ECE4D3]">ขนาดประมาณ:</span>
                 <span className="text-[#ECE4D3] font-mono">{sizeDisplay}</span>
               </div>
               {estimate.color_technique && (
                 <div className="flex justify-between items-center py-2">
-                  <span className="text-[#CFC7BA]">ลักษณะการลงสี:</span>
+                  <span className="text-[#ECE4D3]">ลักษณะการลงสี:</span>
                   <span className="text-[#ECE4D3] font-medium">{getColorTechniqueLabel(estimate.color_technique)}</span>
                 </div>
               )}
@@ -1290,7 +1290,7 @@ if (!estimate) return null;
 
             {cleanNote && (
               <div className="pt-2 border-t border-studio-border/60">
-                <span className="text-[#AFA79A] text-[10px] block mb-1">รายละเอียดเพิ่มเติมจากลูกค้า:</span>
+                <span className="text-[#ECE4D3] text-[10px] block mb-1">รายละเอียดเพิ่มเติมจากลูกค้า:</span>
                 <p className="text-[#ECE4D3] text-xs bg-studio-sec p-3 rounded-lg border border-studio-border whitespace-pre-wrap leading-relaxed">
                   {cleanNote}
                 </p>
@@ -1319,7 +1319,7 @@ if (!estimate) return null;
                 ))}
               </div>
             ) : (
-              <div className="p-4 bg-studio-sec/40 border border-studio-border/60 rounded-lg text-center text-[#AFA79A] text-[11px]">
+              <div className="p-4 bg-studio-sec/40 border border-studio-border/60 rounded-lg text-center text-[#ECE4D3] text-[11px]">
                 ไม่มีภาพอ้างอิงแนบมากับคำขอนี้
               </div>
             )}
@@ -1338,7 +1338,7 @@ if (!estimate) return null;
               <div className="bg-studio-sec border border-studio-border rounded-xl p-3.5 space-y-2.5 text-xs">
                 {/* Row 1: ยอดมัดจำที่ต้องชำระ */}
                 <div className="flex items-center justify-between gap-2">
-                  <span className="text-[#CFC7BA]">ยอดมัดจำที่ต้องชำระ:</span>
+                  <span className="text-[#ECE4D3]">ยอดมัดจำที่ต้องชำระ:</span>
                   <span className="text-sm font-bold text-[#ECE4D3] font-mono">
                     ฿{formatCurrency(estimate.deposit_required || (linkedBooking as any)?.deposit_amount || 500)}
                   </span>
@@ -1346,7 +1346,7 @@ if (!estimate) return null;
 
                 {/* Row 2: ยอดที่ลูกค้าจ่าย */}
                 <div className="flex items-center justify-between gap-2 pt-2 border-t border-studio-border/50">
-                  <span className="text-[#CFC7BA]">ยอดที่ลูกค้าจ่าย:</span>
+                  <span className="text-[#ECE4D3]">ยอดที่ลูกค้าจ่าย:</span>
                   <span className="text-sm font-bold text-amber-300 font-mono">
                     ฿{formatCurrency(pendingSubmission.claimed_amount)}
                   </span>
@@ -1354,7 +1354,7 @@ if (!estimate) return null;
 
                 {/* Row 3: หลักฐานสลิป */}
                 <div className="flex items-center justify-between gap-2 pt-2 border-t border-studio-border/50">
-                  <span className="text-[#CFC7BA]">หลักฐานสลิป:</span>
+                  <span className="text-[#ECE4D3]">หลักฐานสลิป:</span>
                   <button
                     type="button"
                     onClick={() => {
@@ -1400,7 +1400,7 @@ if (!estimate) return null;
                     <button
                       type="submit"
                       disabled={isSubmittingSlipReject}
-                      className="px-4 py-1.5 bg-red-600 hover:bg-red-500 text-xs text-white rounded font-medium disabled:opacity-50"
+                      className="px-4 py-1.5 bg-[#C12D2D] hover:bg-[#A82525] text-xs text-white rounded font-medium disabled:opacity-50"
                     >
                       {isSubmittingSlipReject ? 'กำลังบันทึก...' : 'ยืนยันปฏิเสธสลิป'}
                     </button>
@@ -1581,7 +1581,7 @@ if (!estimate) return null;
                 resetRejectState();
                 setIsRejecting(true);
               }}
-              className="w-full py-2.5 px-4 bg-red-800 hover:bg-red-700 border border-red-700 hover:border-red-600 text-white rounded-xl font-semibold text-xs transition-colors duration-150 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+              className="w-full py-2.5 px-4 bg-[#C12D2D] hover:bg-[#A82525] border border-[#C12D2D] text-white rounded-xl font-semibold text-xs transition-colors duration-150 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
             >
               <XCircle size={14} className="shrink-0 text-white" />
               <span>ปฏิเสธคำขอ</span>
@@ -1658,7 +1658,7 @@ if (!estimate) return null;
           <div className="shrink-0 p-4 border-t border-studio-border bg-studio-card">
             <button
               onClick={onClose}
-              className="w-full py-2.5 px-4 bg-studio-sec hover:bg-studio-card text-[#CFC7BA] hover:text-[#ECE4D3] rounded-xl font-semibold text-xs border border-studio-border transition-colors cursor-pointer"
+              className="w-full py-2.5 px-4 bg-studio-sec hover:bg-studio-card text-[#ECE4D3] hover:text-white rounded-xl font-semibold text-xs border border-studio-border transition-colors cursor-pointer"
             >
               ปิด
             </button>
@@ -1804,14 +1804,14 @@ if (!estimate) return null;
                     setIsRejecting(false);
                   }}
                   disabled={isSubmittingReject}
-                  className="px-4 py-2 bg-studio-sec hover:bg-studio-card text-xs text-[#CFC7BA] rounded-xl border border-studio-border font-medium cursor-pointer"
+                  className="px-4 py-2 bg-studio-sec hover:bg-studio-card text-xs text-[#ECE4D3] rounded-xl border border-studio-border font-medium cursor-pointer"
                 >
                   ยกเลิก
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmittingReject || !isRejectValid}
-                  className="px-4 py-2 bg-red-600 hover:bg-red-500 text-xs text-white rounded-xl font-semibold cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-4 py-2 bg-[#C12D2D] hover:bg-[#A82525] text-xs text-white rounded-xl font-semibold cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isSubmittingReject ? 'กำลังบันทึก...' : 'ยืนยันปฏิเสธ'}
                 </button>
@@ -1867,7 +1867,7 @@ if (!estimate) return null;
           </div>
           <button
             onClick={() => setPreviewModal(null)}
-            className="absolute top-4 right-4 text-[#ECE4D3] bg-[#171512] border border-[#4A443A] p-2 rounded-full hover:border-[#9C2F2F] transition-colors cursor-pointer"
+            className="absolute top-4 right-4 text-[#ECE4D3] bg-[#171512] border border-[#4A443A] p-2 rounded-full hover:border-[#C12D2D] transition-colors cursor-pointer"
           >
             <X size={20} />
           </button>

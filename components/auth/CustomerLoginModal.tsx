@@ -151,13 +151,13 @@ export default function CustomerLoginModal({ onClose, onSuccess }: CustomerLogin
 
         {/* Branding header in Bebas Neue */}
         <div className="text-center pt-1 space-y-1">
-          <span className="text-xs uppercase tracking-[0.25em] text-studio-secondary font-heading block">
+          <span className="text-xs uppercase tracking-[0.25em] text-[#ECE4D3] font-heading block">
             {authMode === 'login' ? 'CUSTOMER ACCOUNT' : 'REGISTER ACCOUNT'}
           </span>
           <h2 className="text-2xl font-heading font-normal tracking-[0.1em] text-studio-primary">
             157 <span className="text-studio-red">TATTOO</span>
           </h2>
-          <p className="text-xs text-studio-secondary font-light pt-0.5">
+          <p className="text-xs text-[#ECE4D3] font-light pt-0.5">
             {authMode === 'login' ? 'เข้าสู่ระบบเพื่อเข้าถึงประวัติและการจอง' : 'สมัครสมาชิกเพื่อจองนัดหมายออนไลน์'}
           </p>
         </div>
@@ -180,7 +180,7 @@ export default function CustomerLoginModal({ onClose, onSuccess }: CustomerLogin
         <form onSubmit={handleSubmit} className="mt-2 space-y-4 sm:space-y-4.5">
           {authMode === 'register' && (
             <div>
-              <label className="text-[11px] uppercase tracking-wider text-studio-secondary block mb-2 font-medium">
+              <label className="text-[11px] uppercase tracking-wider text-[#ECE4D3] block mb-2 font-medium">
                 ชื่อ-นามสกุล หรือชื่อเรียก
               </label>
               <input
@@ -194,7 +194,7 @@ export default function CustomerLoginModal({ onClose, onSuccess }: CustomerLogin
           )}
 
           <div>
-            <label className="text-[11px] uppercase tracking-wider text-studio-secondary block mb-2 font-medium">
+            <label className="text-[11px] uppercase tracking-wider text-[#ECE4D3] block mb-2 font-medium">
               อีเมล
             </label>
             <input
@@ -210,7 +210,7 @@ export default function CustomerLoginModal({ onClose, onSuccess }: CustomerLogin
           {authMode === 'register' && (
             <>
               <div>
-                <label className="text-[11px] uppercase tracking-wider text-studio-secondary block mb-2 font-medium">
+                <label className="text-[11px] uppercase tracking-wider text-[#ECE4D3] block mb-2 font-medium">
                   เบอร์โทรศัพท์
                 </label>
                 <input
@@ -226,7 +226,7 @@ export default function CustomerLoginModal({ onClose, onSuccess }: CustomerLogin
               </div>
 
               <div>
-                <label className="text-[11px] uppercase tracking-wider text-studio-secondary block mb-2 font-medium">
+                <label className="text-[11px] uppercase tracking-wider text-[#ECE4D3] block mb-2 font-medium">
                   วัน/เดือน/ปีเกิด
                 </label>
                 <ThaiDateOfBirthPicker
@@ -242,7 +242,7 @@ export default function CustomerLoginModal({ onClose, onSuccess }: CustomerLogin
           )}
 
           <div>
-            <label className="text-[11px] uppercase tracking-wider text-studio-secondary block mb-2 font-medium">
+            <label className="text-[11px] uppercase tracking-wider text-[#ECE4D3] block mb-2 font-medium">
               รหัสผ่าน
             </label>
             <div className="relative">
@@ -375,7 +375,7 @@ export default function CustomerLoginModal({ onClose, onSuccess }: CustomerLogin
         {/* Switch Mode */}
         <div className="text-center pt-1 border-t border-studio-border/60">
           {authMode === 'login' ? (
-            <p className="text-xs text-studio-secondary">
+            <p className="text-xs text-[#ECE4D3]">
               ยังไม่มีบัญชี?{' '}
               <button
                 type="button"
@@ -390,7 +390,7 @@ export default function CustomerLoginModal({ onClose, onSuccess }: CustomerLogin
               </button>
             </p>
           ) : (
-            <p className="text-xs text-studio-secondary">
+            <p className="text-xs text-[#ECE4D3]">
               มีบัญชีอยู่แล้ว?{' '}
               <button
                 type="button"

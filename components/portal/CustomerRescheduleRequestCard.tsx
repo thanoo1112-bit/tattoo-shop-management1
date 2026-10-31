@@ -164,7 +164,7 @@ export default function CustomerRescheduleRequestCard({ booking, artistName, isC
           <CalendarClock size={14} className="text-studio-red" />
           <span>ต้องการเลื่อนวันนัด?</span>
         </div>
-        <p className="text-[11px] text-[#E2DDD4] leading-relaxed font-light">
+        <p className="text-[11px] text-[#ECE4D3] leading-relaxed font-light">
           หากไม่สะดวกตามวันและเวลาปัจจุบัน สามารถส่งคำขอเลื่อนนัดให้ช่างสักหรือร้านพิจารณาได้
         </p>
 
@@ -176,20 +176,20 @@ export default function CustomerRescheduleRequestCard({ booking, artistName, isC
             </div>
             <div className="space-y-1 text-[11px]">
               <div className="flex justify-between gap-3">
-                <span className="text-[#B8B0A3]">วัน/เวลาเดิม</span>
+                <span className="text-[#ECE4D3]">วัน/เวลาเดิม</span>
                 <span className="text-[#ECE4D3] font-semibold text-right">
                   {formatThaiDate(activeRequest.original_date)} · {activeRequest.original_start_time} น.
                 </span>
               </div>
               <div className="flex justify-between gap-3">
-                <span className="text-[#B8B0A3]">วัน/เวลาใหม่ที่ขอ</span>
+                <span className="text-[#ECE4D3]">วัน/เวลาใหม่ที่ขอ</span>
                 <span className="text-amber-300 font-semibold text-right">
                   {formatThaiDate(activeRequest.requested_date)} · {activeRequest.requested_start_time} น.
                 </span>
               </div>
               <div>
-                <span className="text-[#B8B0A3] block">เหตุผล</span>
-                <p className="text-[#E2DDD4] whitespace-pre-wrap mt-0.5">{activeRequest.reason}</p>
+                <span className="text-[#ECE4D3] block">เหตุผล</span>
+                <p className="text-[#ECE4D3] whitespace-pre-wrap mt-0.5">{activeRequest.reason}</p>
               </div>
             </div>
             <p className="text-[11px] text-amber-200/90 font-light">ระหว่างรอการพิจารณา วันนัดเดิมยังคงมีผลอยู่</p>
@@ -211,24 +211,24 @@ export default function CustomerRescheduleRequestCard({ booking, artistName, isC
                 </div>
                 <div className="space-y-1">
                   <div className="flex justify-between gap-3">
-                    <span className="text-[#B8B0A3]">วัน/เวลาเดิม</span>
+                    <span className="text-[#ECE4D3]">วัน/เวลาเดิม</span>
                     <span className="text-[#ECE4D3] font-semibold text-right">
                       {formatThaiDate(activeRequest.original_date)} · {activeRequest.original_start_time} น.
                     </span>
                   </div>
                   <div className="flex justify-between gap-3">
-                    <span className="text-[#B8B0A3]">วัน/เวลาใหม่ที่เคยขอ</span>
+                    <span className="text-[#ECE4D3]">วัน/เวลาใหม่ที่เคยขอ</span>
                     <span className="text-red-300 font-semibold text-right">
                       {formatThaiDate(activeRequest.requested_date)} · {activeRequest.requested_start_time} น.
                     </span>
                   </div>
                   <div>
-                    <span className="text-[#B8B0A3] block">เหตุผลที่ลูกค้าขอ</span>
-                    <p className="text-[#E2DDD4] whitespace-pre-wrap mt-0.5">{activeRequest.reason}</p>
+                    <span className="text-[#ECE4D3] block">เหตุผลที่ลูกค้าขอ</span>
+                    <p className="text-[#ECE4D3] whitespace-pre-wrap mt-0.5">{activeRequest.reason}</p>
                   </div>
                   {activeRequest.review_note && (
                     <div className="pt-1 border-t border-red-900/30">
-                      <span className="text-[#B8B0A3] block">หมายเหตุจากช่าง/ร้าน</span>
+                      <span className="text-[#ECE4D3] block">หมายเหตุจากช่าง/ร้าน</span>
                       <p className="text-red-200 whitespace-pre-wrap mt-0.5">{activeRequest.review_note}</p>
                     </div>
                   )}
@@ -247,13 +247,13 @@ export default function CustomerRescheduleRequestCard({ booking, artistName, isC
                 </div>
                 <div className="space-y-1">
                   <div className="flex justify-between gap-3">
-                    <span className="text-[#B8B0A3]">วัน/เวลานัดปัจจุบัน (ใหม่)</span>
+                    <span className="text-[#ECE4D3]">วัน/เวลานัดปัจจุบัน (ใหม่)</span>
                     <span className="text-emerald-300 font-bold text-right">
                       {formatThaiDate(activeRequest.requested_date)} · {activeRequest.requested_start_time} น.
                     </span>
                   </div>
                   <div className="flex justify-between gap-3">
-                    <span className="text-[#B8B0A3]">วัน/เวลาเดิมก่อนเลื่อน</span>
+                    <span className="text-[#ECE4D3]">วัน/เวลาเดิมก่อนเลื่อน</span>
                     <span className="text-[#8C8479] text-right">
                       {formatThaiDate(activeRequest.original_date)} · {activeRequest.original_start_time} น.
                     </span>
@@ -422,7 +422,7 @@ function RescheduleModal({
               <CalendarClock size={16} className="text-studio-red" />
               <span>ขอเลื่อนวันนัด</span>
             </div>
-            <p className="text-[11px] text-[#B8B0A3] mt-1 font-light">
+            <p className="text-[11px] text-[#ECE4D3] mt-1 font-light">
               ส่งคำขอให้ช่างสักหรือร้านพิจารณา วันนัดเดิมจะยังคงมีผลจนกว่าคำขอจะได้รับการอนุมัติ
             </p>
           </div>
@@ -442,21 +442,21 @@ function RescheduleModal({
 
           <div className="bg-[#171512] border border-[#4A443A] rounded-[6px] p-3 space-y-1.5 text-[11px]">
             <div className="flex justify-between gap-3">
-              <span className="text-[#B8B0A3] flex items-center gap-1.5"><Calendar size={12} className="text-studio-red" /> วันนัดปัจจุบัน</span>
+              <span className="text-[#ECE4D3] flex items-center gap-1.5"><Calendar size={12} className="text-studio-red" /> วันนัดปัจจุบัน</span>
               <span className="text-[#ECE4D3] font-semibold text-right">{formatThaiDate(current.date)}</span>
             </div>
             <div className="flex justify-between gap-3">
-              <span className="text-[#B8B0A3] flex items-center gap-1.5"><Clock size={12} className="text-studio-red" /> เวลาปัจจุบัน</span>
+              <span className="text-[#ECE4D3] flex items-center gap-1.5"><Clock size={12} className="text-studio-red" /> เวลาปัจจุบัน</span>
               <span className="text-[#ECE4D3] font-semibold">{current.start} น.</span>
             </div>
             <div className="flex justify-between gap-3">
-              <span className="text-[#B8B0A3] flex items-center gap-1.5"><User size={12} className="text-studio-red" /> ช่างสัก</span>
+              <span className="text-[#ECE4D3] flex items-center gap-1.5"><User size={12} className="text-studio-red" /> ช่างสัก</span>
               <span className="text-[#ECE4D3] font-semibold text-right">{artistName}</span>
             </div>
           </div>
 
           <div className="space-y-1">
-            <label className="text-[11px] text-studio-secondary font-medium flex items-center gap-1">
+            <label className="text-[11px] text-studio-primary font-medium flex items-center gap-1">
               <Calendar size={12} className="text-studio-red" /> วันใหม่ <span className="text-studio-red">*</span>
             </label>
             <DatePickerPopover
@@ -480,11 +480,11 @@ function RescheduleModal({
           </div>
 
           <div className="space-y-1">
-            <label className="text-[11px] text-studio-secondary font-medium flex items-center justify-between">
+            <label className="text-[11px] text-studio-primary font-medium flex items-center justify-between">
               <span className="flex items-center gap-1">
                 <Clock size={12} className="text-studio-red" /> เวลาใหม่ <span className="text-studio-red">*</span>
               </span>
-              <span className="text-[10px] text-[#E2DDD4] font-normal">(10:00 - 23:00 น.)</span>
+              <span className="text-[10px] text-[#ECE4D3] font-normal">(10:00 - 23:00 น.)</span>
             </label>
             <DualTimePicker
               value={newTime}
@@ -498,7 +498,7 @@ function RescheduleModal({
           </div>
 
           <div className="space-y-1">
-            <label className="text-[11px] text-studio-secondary font-medium">
+            <label className="text-[11px] text-studio-primary font-medium">
               เหตุผลในการขอเลื่อนนัด <span className="text-studio-red">*</span>
             </label>
             <textarea

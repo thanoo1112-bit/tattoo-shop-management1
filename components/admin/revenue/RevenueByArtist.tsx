@@ -33,7 +33,7 @@ export default function RevenueByArtist({
       return {
         dotColor: '#7A7265',
         barColor: '#4A443A',
-        textColor: 'text-[#7A7265]',
+        textColor: 'text-[#ECE4D3]',
       };
     }
     const tierIndex = uniqueRevenues.indexOf(revenue);
@@ -61,7 +61,7 @@ export default function RevenueByArtist({
             <h3 className="text-sm sm:text-base font-heading font-semibold text-[#ECE4D3] leading-tight">
               รายได้ตามช่าง
             </h3>
-            <p className="text-[10px] sm:text-[11px] text-[#A89F91] leading-tight mt-0.5">
+            <p className="text-[10px] sm:text-[11px] text-[#ECE4D3] leading-tight mt-0.5">
               ยอดเงินรับจริงของช่างสักแต่ละคน
             </p>
           </div>
@@ -69,7 +69,7 @@ export default function RevenueByArtist({
 
         {/* Full-width Row: Label Left, Total Amount Right */}
         <div className="flex items-center justify-between pt-1 border-t border-[#4A443A]/40">
-          <span className="text-xs text-[#A89F91] font-medium">
+          <span className="text-xs text-[#ECE4D3] font-medium">
             รายได้รวมทุกช่าง
           </span>
           <span className="text-sm sm:text-base font-heading font-bold text-amber-400">
@@ -107,7 +107,7 @@ export default function RevenueByArtist({
                       {art.name}
                     </span>
                     {art.nickname && (
-                      <span className="text-[10px] text-[#A89F91] font-normal bg-[#171512] px-1.5 py-0.5 rounded border border-[#4A443A]/50 shrink-0">
+                      <span className="text-[10px] text-[#ECE4D3] font-normal bg-[#171512] px-1.5 py-0.5 rounded border border-[#4A443A]/50 shrink-0">
                         {art.nickname}
                       </span>
                     )}
@@ -119,7 +119,7 @@ export default function RevenueByArtist({
                       {formatCurrency(art.revenue)}
                     </span>
                     {totalRevenue > 0 && (
-                      <span className="text-[10px] text-[#A89F91] font-mono">
+                      <span className="text-[10px] text-[#ECE4D3] font-mono">
                         ({sharePercentage}%)
                       </span>
                     )}

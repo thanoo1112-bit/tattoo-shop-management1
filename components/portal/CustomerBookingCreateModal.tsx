@@ -197,7 +197,7 @@ export default function CustomerBookingCreateModal({
           <h2 className="text-lg sm:text-xl font-heading text-studio-primary mt-0.5">
             ดำเนินการจองคิวตามราคาประเมิน — สไตล์ {estimate.style}
           </h2>
-          <p className="text-[11px] text-studio-secondary mt-0.5 font-light">
+          <p className="text-[11px] text-studio-primary mt-0.5 font-light">
             เลือกวันและเวลาที่ท่านสะดวกส่งคำขอ ร้านจะทำการตรวจสอบและยืนยันรอบนัดหมายอีกครั้ง
           </p>
         </div>
@@ -213,11 +213,11 @@ export default function CustomerBookingCreateModal({
           {/* Summary Box */}
           <div className="bg-studio-main border border-studio-border p-3 rounded-[4px] space-y-1.5">
             <div className="flex justify-between">
-              <span className="text-studio-secondary">ช่างสักผู้รับผิดชอบ:</span>
+              <span className="text-studio-primary">ช่างสักผู้รับผิดชอบ:</span>
               <strong className="text-studio-primary">{artistName}</strong>
             </div>
             <div className="flex justify-between">
-              <span className="text-studio-secondary">ราคาประเมิน:</span>
+              <span className="text-studio-primary">ราคาประเมิน:</span>
               <strong className="text-studio-primary">฿{formatCurrency(estimate.quoted_price)}</strong>
             </div>
             <div className="flex justify-between">
@@ -225,7 +225,7 @@ export default function CustomerBookingCreateModal({
               <strong className="text-studio-red">฿{formatCurrency(estimate.deposit_required)}</strong>
             </div>
             {durationMinutes > 0 && (
-              <div className="flex justify-between text-[11px] text-[#B8B0A3] pt-1 border-t border-studio-border/40">
+              <div className="flex justify-between text-[11px] text-[#ECE4D3] pt-1 border-t border-studio-border/40">
                 <span>ระยะเวลาประเมินโดยช่าง:</span>
                 <span>{durationMinutes} นาที ({Math.round((durationMinutes / 60) * 10) / 10} ชม.)</span>
               </div>
@@ -234,7 +234,7 @@ export default function CustomerBookingCreateModal({
 
           {/* Dynamic Artist Availability Calendar */}
           <div className="space-y-1.5">
-            <label className="block text-studio-secondary font-medium flex items-center gap-1.5">
+            <label className="block text-studio-primary font-medium flex items-center gap-1.5">
               <Calendar size={13} className="text-studio-red" />
               <span>1. เลือกวันที่ต้องการ (ปฏิทินคิวงานของช่าง) *</span>
             </label>
@@ -291,12 +291,12 @@ export default function CustomerBookingCreateModal({
 
           {/* Time Picker - 10:00 - 23:00 */}
           <div className="space-y-1">
-            <label className="block text-studio-secondary font-medium flex items-center justify-between">
+            <label className="block text-studio-primary font-medium flex items-center justify-between">
               <span className="flex items-center gap-1.5">
                 <Clock size={13} className="text-studio-red" />
                 <span>2. เลือกเวลาที่ต้องการเริ่มสัก *</span>
               </span>
-              <span className="text-[10px] text-[#E2DDD4] font-normal">
+              <span className="text-[10px] text-[#ECE4D3] font-normal">
                 (10:00 - 23:00 น.)
               </span>
             </label>
@@ -312,7 +312,7 @@ export default function CustomerBookingCreateModal({
 
           {/* Customer Note */}
           <div>
-            <label className="block text-studio-secondary font-medium mb-1">
+            <label className="block text-studio-primary font-medium mb-1">
               ข้อความหรือหมายเหตุเพิ่มเติมถึงช่างสัก (ไม่บังคับ)
             </label>
             <textarea
@@ -326,7 +326,7 @@ export default function CustomerBookingCreateModal({
 
           {/* Action Buttons */}
           <div className="pt-3 border-t border-studio-border flex flex-col sm:flex-row justify-between sm:items-center gap-3">
-            <div className="text-[10px] text-[#B8B0A3]">
+            <div className="text-[10px] text-[#ECE4D3]">
               * การส่งคำขอนี้ยังไม่ใช่นัดหมายที่ยืนยัน ร้านจะติดต่อยืนยันรอบนัดหมายอีกครั้ง
             </div>
 

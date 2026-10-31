@@ -8,6 +8,7 @@ import PortfolioFilter from '@/components/customer/PortfolioFilter';
 import EstimateForm from '@/components/estimate/EstimateForm';
 import { useApp } from '@/components/AppContext';
 import { getThumbnailUrl, handleThumbnailError } from '@/lib/utils/thumbnailHelper';
+import { getCachedPortfolio, setCachedPortfolio } from '@/lib/cache/customerGalleryCache';
 import Link from 'next/link';
 import {
   Sparkles,
@@ -81,14 +82,15 @@ function PortfolioContent() {
   const searchParams = useSearchParams();
   const { supabase } = useApp();
 
-  const [artworks, setArtworks] = useState<PortfolioArtworkData[]>([]);
-  const [loading, setLoading] = useState(true);
+  const cachedPortfolio = getCachedPortfolio<PortfolioArtworkData[]>();
+  const [artworks, setArtworks] = useState<PortfolioArtworkData[]>(() => cachedPortfolio?.data || []);
+  const [loading, setLoading] = useState(() => !cachedPortfolio);
   const [error, setError] = useState<string | null>(null);
 
   // Filters & Controls
   const [filter, setFilter] = useState('All');
   const [searchQuery, setSearchQuery] = useState('');
-  const [sortBy, setSortBy] = useState<'default' | 'title' | 'artist'>('default');
+  const [selectedArtistId, setSelectedArtistId] = useState<string>('All');
 
   // Selected Artwork for 37% Sticky Panel
   const [selectedArtwork, setSelectedArtwork] = useState<PortfolioArtworkData | null>(null);
@@ -100,10 +102,12 @@ function PortfolioContent() {
   const [showMobileDetail, setShowMobileDetail] = useState(false);
   const [showLightbox, setShowLightbox] = useState(false);
 
-  // 1. Fetch live portfolio artworks
-  const fetchLiveArtworks = useCallback(async () => {
-    setLoading(true);
-    setError(null);
+  // 1. Fetch live portfolio artworks with background revalidation
+  const fetchLiveArtworks = useCallback(async (isBackground = false) => {
+    if (!isBackground) {
+      setLoading(true);
+      setError(null);
+    }
     try {
       const { data, error: fetchErr } = await supabase
         .from('portfolio_artworks')
@@ -113,17 +117,13 @@ function PortfolioContent() {
           title,
           description,
           style,
-          size_label,
-          estimated_duration_minutes,
           image_url,
-          is_visible,
           sort_order,
           created_at,
           artists (
             id,
             name,
             nickname,
-            avatar_url,
             is_active,
             is_visible
           )
@@ -141,8 +141,8 @@ function PortfolioContent() {
           title: item.title,
           description: item.description || null,
           style: item.style || '',
-          size_label: item.size_label || null,
-          estimated_duration_minutes: item.estimated_duration_minutes || null,
+          size_label: null,
+          estimated_duration_minutes: null,
           image_url: item.image_url,
           is_visible: item.is_visible,
           sort_order: item.sort_order ?? 0,
@@ -155,17 +155,24 @@ function PortfolioContent() {
           return true;
         });
 
+      setCachedPortfolio(loadedList);
       setArtworks(loadedList);
+      setError(null);
     } catch (err: any) {
       console.error('[Portfolio] Load error:', err?.message || err);
-      setError('ไม่สามารถโหลดผลงานได้ในขณะนี้');
+      if (!isBackground) {
+        setError('ไม่สามารถโหลดผลงานได้ในขณะนี้');
+      }
     } finally {
       setLoading(false);
     }
   }, [supabase]);
 
   useEffect(() => {
-    fetchLiveArtworks();
+    const cached = getCachedPortfolio<PortfolioArtworkData[]>();
+    if (!cached || !cached.isFresh) {
+      fetchLiveArtworks(Boolean(cached));
+    }
   }, [fetchLiveArtworks]);
 
   // 2. URL parameter synchronization
@@ -223,13 +230,31 @@ function PortfolioContent() {
     }
   }, [searchParams, artworks, loading]);
 
-  // 3. Client-side filtering & searching
+  // 3. Available Artists derived from active artworks
+  const availableArtists = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const a of artworks) {
+      if (a.artist_id && a.artists?.name) {
+        map.set(a.artist_id, a.artists.name);
+      }
+    }
+    return Array.from(map.entries())
+      .map(([id, name]) => ({ id, name }))
+      .sort((a, b) => a.name.localeCompare(b.name, 'th'));
+  }, [artworks]);
+
+  // Client-side filtering: Style + Artist + Search
   const filteredArtworks = useMemo(() => {
     let list = artworks;
 
     // Filter by style
     if (filter !== 'All') {
       list = list.filter((item) => item.style.toLowerCase() === filter.toLowerCase());
+    }
+
+    // Filter by artist
+    if (selectedArtistId !== 'All') {
+      list = list.filter((item) => item.artist_id === selectedArtistId);
     }
 
     // Search query
@@ -245,19 +270,11 @@ function PortfolioContent() {
       });
     }
 
-    // Sort
-    if (sortBy === 'title') {
-      return [...list].sort((a, b) => a.title.localeCompare(b.title, 'th'));
-    } else if (sortBy === 'artist') {
-      return [...list].sort((a, b) => (a.artists?.name || '').localeCompare(b.artists?.name || '', 'th'));
-    }
-
     return list;
-  }, [artworks, filter, searchQuery, sortBy]);
+  }, [artworks, filter, selectedArtistId, searchQuery]);
 
-  // Keep selectedArtwork in sync with filtered artworks (unless explicit item selected by id param)
+  // Keep selectedArtwork in sync with filtered artworks
   useEffect(() => {
-    if (searchParams.get('id')) return;
     if (filteredArtworks.length > 0) {
       setSelectedArtwork((prev) => {
         if (prev && filteredArtworks.some((p) => p.id === prev.id)) return prev;
@@ -265,8 +282,9 @@ function PortfolioContent() {
       });
     } else {
       setSelectedArtwork(null);
+      setShowMobileDetail(false);
     }
-  }, [filteredArtworks, searchParams]);
+  }, [filteredArtworks]);
 
   const dynamicFilters = useMemo(() => {
     const seen = new Set<string>();
@@ -307,7 +325,7 @@ function PortfolioContent() {
                 <h1 className="text-2xl md:text-3xl font-black tracking-wider text-studio-primary mt-1">
                   ผลงานสัก (PORTFOLIO)
                 </h1>
-                <p className="text-xs text-[#E2DDD4] mt-1">
+                <p className="text-xs text-[#ECE4D3] mt-1">
                   รวมผลงานสักคัสตอมระดับพรีเมียมจากช่างประจำร้าน 157 TATTOO
                 </p>
               </div>
@@ -318,18 +336,18 @@ function PortfolioContent() {
 
               <div className="flex items-center gap-3 w-full sm:w-auto shrink-0">
                 <div className="relative flex-1 sm:w-56">
-                  <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-studio-muted" />
+                  <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#ECE4D3]" />
                   <input
                     type="text"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     placeholder="ค้นหาชื่อผลงาน, สไตล์, ช่าง..."
-                    className="w-full bg-studio-main border border-studio-border rounded-[4px] pl-9 pr-3 py-1.5 text-xs text-studio-primary placeholder:text-studio-muted focus:outline-none focus:border-studio-red transition-colors"
+                    className="w-full bg-studio-main border border-studio-border rounded-[4px] pl-9 pr-3 py-1.5 text-xs text-[#ECE4D3] placeholder:text-[#A89F91] focus:outline-none focus:border-studio-red transition-colors"
                   />
                   {searchQuery && (
                     <button
                       onClick={() => setSearchQuery('')}
-                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-studio-muted hover:text-studio-primary"
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#A89F91] hover:text-[#ECE4D3]"
                     >
                       <X size={12} />
                     </button>
@@ -338,38 +356,50 @@ function PortfolioContent() {
 
                 <div className="relative shrink-0">
                   <select
-                    value={sortBy}
-                    onChange={(e: any) => setSortBy(e.target.value)}
-                    className="bg-studio-main border border-studio-border rounded-[4px] px-3 py-1.5 text-xs text-studio-primary focus:outline-none focus:border-studio-red cursor-pointer"
+                    value={selectedArtistId}
+                    onChange={(e) => setSelectedArtistId(e.target.value)}
+                    aria-label="กรองตามช่าง"
+                    className="bg-studio-main border border-studio-border rounded-[4px] px-3 py-1.5 text-xs text-[#ECE4D3] focus:outline-none focus:border-studio-red cursor-pointer max-w-[140px] sm:max-w-none truncate"
                   >
-                    <option value="default">เรียงลำดับมาตรฐาน</option>
-                    <option value="title">เรียงตามชื่อ (A-Z)</option>
-                    <option value="artist">เรียงตามชื่อช่าง</option>
+                    <option value="All" className="bg-[#171512] text-[#ECE4D3]">ช่างทุกคน</option>
+                    {availableArtists.map((artist) => (
+                      <option key={artist.id} value={artist.id} className="bg-[#171512] text-[#ECE4D3]">
+                        {artist.name}
+                      </option>
+                    ))}
                   </select>
                 </div>
               </div>
             </div>
 
-            <div className="flex justify-between items-center text-xs text-[#E2DDD4] px-1">
-              <span>
-                แสดงผลงานทั้งหมด <strong className="text-studio-primary">{filteredArtworks.length}</strong> รายการ
-                {filter !== 'All' && <span> • สไตล์: <strong className="text-studio-red-bright">{filter}</strong></span>}
-                {searchQuery && <span> • ค้นหา: &quot;<strong className="text-studio-primary">{searchQuery}</strong>&quot;</span>}
-              </span>
-              {(filter !== 'All' || searchQuery) && (
+            <div className="flex justify-between items-center text-xs text-[#ECE4D3] px-1">
+              {loading && artworks.length === 0 ? (
+                <span className="text-[#A89F91] animate-pulse">กำลังโหลดผลงาน...</span>
+              ) : (
+                <span>
+                  แสดงผลงานทั้งหมด <strong className="text-[#ECE4D3]">{filteredArtworks.length}</strong> รายการ
+                  {filter !== 'All' && <span> • สไตล์: <strong className="text-studio-red-bright">{filter}</strong></span>}
+                  {selectedArtistId !== 'All' && (
+                    <span> • ช่าง: <strong className="text-[#ECE4D3]">{availableArtists.find((a) => a.id === selectedArtistId)?.name || 'ช่าง'}</strong></span>
+                  )}
+                  {searchQuery && <span> • ค้นหา: &quot;<strong className="text-[#ECE4D3]">{searchQuery}</strong>&quot;</span>}
+                </span>
+              )}
+              {artworks.length > 0 && (filter !== 'All' || selectedArtistId !== 'All' || searchQuery) && (
                 <button
                   onClick={() => {
                     setFilter('All');
+                    setSelectedArtistId('All');
                     setSearchQuery('');
                   }}
-                  className="text-studio-red-bright hover:underline text-[11px]"
+                  className="text-studio-red-bright hover:underline text-[11px] cursor-pointer"
                 >
                   ล้างตัวกรอง
                 </button>
               )}
             </div>
 
-            {loading && (
+            {loading && artworks.length === 0 && (
               <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
                 {[1, 2, 3, 4, 5, 6, 7, 8].map((idx) => (
                   <div key={idx} className="bg-studio-card border border-studio-border rounded-[6px] overflow-hidden animate-pulse">
@@ -383,13 +413,13 @@ function PortfolioContent() {
               </div>
             )}
 
-            {!loading && error && (
+            {!loading && error && artworks.length === 0 && (
               <div className="bg-studio-card border border-studio-red/40 p-8 rounded-[6px] text-center space-y-3">
                 <AlertCircle size={28} className="text-studio-red mx-auto" />
                 <h3 className="text-sm font-bold text-studio-primary">{error}</h3>
-                <p className="text-xs text-[#E2DDD4]">กรุณาตรวจสอบการเชื่อมต่ออินเทอร์เน็ตแล้วลองใหม่อีกครั้ง</p>
+                <p className="text-xs text-[#ECE4D3]">กรุณาตรวจสอบการเชื่อมต่ออินเทอร์เน็ตแล้วลองใหม่อีกครั้ง</p>
                 <button
-                  onClick={fetchLiveArtworks}
+                  onClick={() => fetchLiveArtworks(false)}
                   className="inline-flex items-center gap-1.5 bg-studio-main border border-studio-border hover:border-studio-red text-studio-primary px-4 py-2 rounded text-xs font-semibold"
                 >
                   <RefreshCw size={13} />
@@ -398,11 +428,11 @@ function PortfolioContent() {
               </div>
             )}
 
-            {!loading && !error && filteredArtworks.length === 0 && (
+            {(!loading || artworks.length > 0) && !error && filteredArtworks.length === 0 && (
               <div className="bg-studio-card border border-studio-border p-12 rounded-[6px] text-center space-y-3">
                 <ImageIcon size={36} className="text-studio-muted mx-auto" />
                 <h3 className="text-base font-bold text-studio-primary">ยังไม่มีผลงานใน Portfolio</h3>
-                <p className="text-xs text-[#E2DDD4] max-w-md mx-auto">
+                <p className="text-xs text-[#ECE4D3] max-w-md mx-auto">
                   ผลงานสักคัสตอมใหม่จากช่างประจำร้าน 157 TATTOO จะถูกเพิ่มในหน้านี้เร็วๆ นี้
                 </p>
                 {(filter !== 'All' || searchQuery) && (
@@ -419,11 +449,12 @@ function PortfolioContent() {
               </div>
             )}
 
-            {!loading && !error && filteredArtworks.length > 0 && (
+            {(!loading || artworks.length > 0) && !error && filteredArtworks.length > 0 && (
               <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
-                {filteredArtworks.map((item) => {
+                {filteredArtworks.map((item, index) => {
                   const isSelected = selectedArtwork?.id === item.id;
                   const artistName = item.artists?.name || 'ช่างประจำร้าน';
+                  const isPriority = index < 4;
 
                   return (
                     <div
@@ -442,7 +473,8 @@ function PortfolioContent() {
                           onError={(e) => handleThumbnailError(e, item.image_url)}
                           alt={item.title}
                           className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-500"
-                          loading="lazy"
+                          loading={isPriority ? 'eager' : 'lazy'}
+                          fetchPriority={isPriority ? 'high' : 'auto'}
                           decoding="async"
                         />
                       </div>
@@ -456,7 +488,7 @@ function PortfolioContent() {
                           <h4 className="text-xs font-bold text-studio-primary truncate group-hover:text-studio-red-bright transition-colors">
                             {item.title}
                           </h4>
-                          <p className="text-[10px] text-[#E2DDD4] truncate">
+                          <p className="text-[10px] text-[#ECE4D3] truncate">
                             ช่าง: {artistName}
                           </p>
                         </div>
@@ -496,7 +528,7 @@ function PortfolioContent() {
                 </div>
               </div>
             ) : (
-              <div className="bg-studio-card border border-studio-border p-8 rounded-[8px] text-center text-xs text-[#F2EEE8]">
+              <div className="bg-studio-card border border-studio-border p-8 rounded-[8px] text-center text-xs text-[#ECE4D3]">
                 เลือกผลงานจากรายการเพื่อดูรูปภาพ
               </div>
             )}
@@ -551,7 +583,7 @@ function PortfolioContent() {
 
                 <div className="grid grid-cols-2 gap-2 my-4 border-t border-b border-studio-border/60 py-3.5 text-xs">
                   <div className="space-y-0.5 min-w-0">
-                    <span className="text-[9px] sm:text-[10px] text-[#F2EEE8] flex items-center gap-1 truncate">
+                    <span className="text-[9px] sm:text-[10px] text-[#ECE4D3] flex items-center gap-1 truncate">
                       <User size={12} className="shrink-0" /> <span className="truncate">ช่างสัก</span>
                     </span>
                     <span className="font-semibold text-studio-primary text-xs block truncate">
@@ -560,7 +592,7 @@ function PortfolioContent() {
                   </div>
 
                   <div className="space-y-0.5 min-w-0">
-                    <span className="text-[9px] sm:text-[10px] text-[#F2EEE8] flex items-center gap-1 truncate">
+                    <span className="text-[9px] sm:text-[10px] text-[#ECE4D3] flex items-center gap-1 truncate">
                       <span className="truncate">สไตล์ลายสัก</span>
                     </span>
                     <span className="font-semibold text-studio-primary text-xs block truncate">
@@ -574,10 +606,10 @@ function PortfolioContent() {
                   selectedArtwork.description.trim() !== 'ว่าง' &&
                   selectedArtwork.description.trim() !== '-' && (
                     <div className="mb-4 space-y-1">
-                      <span className="text-[10px] font-medium uppercase tracking-wider text-[#F2EEE8] block">
+                      <span className="text-[10px] font-medium uppercase tracking-wider text-[#ECE4D3] block">
                         รายละเอียดผลงาน
                       </span>
-                      <p className="text-xs text-[#E2DDD4] leading-relaxed whitespace-pre-line bg-studio-main/40 p-2.5 rounded border border-studio-border/50">
+                      <p className="text-xs text-[#ECE4D3] leading-relaxed whitespace-pre-line bg-studio-main/40 p-2.5 rounded border border-studio-border/50">
                         {selectedArtwork.description.trim()}
                       </p>
                     </div>
@@ -613,7 +645,7 @@ function PortfolioContent() {
         <div className="lg:hidden px-4 py-8 border-t border-studio-border mt-8 bg-studio-card animate-fadeIn">
           <button
             onClick={() => setPanelView('default')}
-            className="flex items-center space-x-1.5 text-xs text-[#E2DDD4] hover:text-studio-red-bright transition-colors uppercase font-semibold mb-6"
+            className="flex items-center space-x-1.5 text-xs text-[#ECE4D3] hover:text-studio-red-bright transition-colors uppercase font-semibold mb-6"
           >
             <ArrowLeft size={14} />
             <span>ย้อนกลับไปดูผลงาน</span>
@@ -649,7 +681,7 @@ function PortfolioContent() {
               alt={selectedArtwork.title}
               className="max-w-full max-h-[85vh] object-contain rounded-lg border border-white/20 shadow-2xl mx-auto"
             />
-            <p className="text-center text-xs text-[#E2DDD4] mt-2.5">
+            <p className="text-center text-xs text-[#ECE4D3] mt-2.5">
               {selectedArtwork.title} — รูปภาพความละเอียดสูงต้นฉบับ
             </p>
           </div>

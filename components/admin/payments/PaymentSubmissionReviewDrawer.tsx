@@ -498,7 +498,7 @@ export default function PaymentSubmissionReviewDrawer({
         {/* Header */}
         <div className="p-4 sm:p-5 border-b border-[#4A443A] flex items-center justify-between bg-[#0E0D0C]">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-[#171512] border border-[#4A443A] flex items-center justify-center text-[#9C2F2F]">
+            <div className="w-8 h-8 rounded-lg bg-[#171512] border border-[#4A443A] flex items-center justify-center text-[#C12D2D]">
               <Calendar size={16} />
             </div>
             <div>
@@ -519,7 +519,7 @@ export default function PaymentSubmissionReviewDrawer({
                   สลิปรอตรวจ
                 </span>
               </div>
-              <p className="text-[10px] text-[#7A7265] mt-0.5">
+              <p className="text-[10px] text-[#ECE4D3] mt-0.5">
                 {hydratedDetails?.flashCode ? (
                   <span className="text-purple-300 font-mono font-semibold mr-2">{hydratedDetails.flashCode}</span>
                 ) : null}
@@ -540,24 +540,24 @@ export default function PaymentSubmissionReviewDrawer({
         <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-5">
           {/* Customer Information Card */}
           <div className="bg-[#0E0D0C] border border-[#4A443A]/70 rounded-xl p-3.5 space-y-2">
-            <span className="text-[11px] font-semibold text-[#7A7265] uppercase tracking-wider block">
+            <span className="text-[11px] font-semibold text-[#ECE4D3] uppercase tracking-wider block">
               ข้อมูลลูกค้า
             </span>
             <div className="flex items-center justify-between">
               <span className="text-sm font-semibold text-[#ECE4D3] flex items-center gap-1.5">
-                <User size={14} className="text-[#9C2F2F]" />
+                <User size={14} className="text-[#C12D2D]" />
                 {displayCustName}
               </span>
               {displayCustPhone && displayCustPhone !== 'ไม่ระบุ' ? (
                 <a
                   href={`tel:${displayCustPhone}`}
-                  className="text-xs text-[#A89F91] hover:text-[#ECE4D3] flex items-center gap-1 bg-[#171512] px-2 py-0.5 rounded border border-[#4A443A]/50"
+                  className="text-xs text-[#ECE4D3] hover:text-[#ECE4D3] flex items-center gap-1 bg-[#171512] px-2 py-0.5 rounded border border-[#4A443A]/50"
                 >
                   <Phone size={11} className="text-emerald-400" />
                   {displayCustPhone}
                 </a>
               ) : (
-                <span className="text-xs text-[#7A7265] bg-[#171512] px-2 py-0.5 rounded border border-[#4A443A]/50">
+                <span className="text-xs text-[#ECE4D3] bg-[#171512] px-2 py-0.5 rounded border border-[#4A443A]/50">
                   ไม่ระบุเบอร์โทร
                 </span>
               )}
@@ -567,7 +567,7 @@ export default function PaymentSubmissionReviewDrawer({
           {/* Consolidated Booking Details (2-Column Grid) */}
           <div className="bg-[#0E0D0C] border border-[#4A443A]/70 rounded-xl p-3.5 space-y-3">
             <div className="flex items-center justify-between">
-              <span className="text-[11px] font-semibold text-[#7A7265] uppercase tracking-wider block">
+              <span className="text-[11px] font-semibold text-[#ECE4D3] uppercase tracking-wider block">
                 รายละเอียดคิวงาน
               </span>
               {hydratedDetails?.requestType === 'FLASH' && hydratedDetails?.flashCode && (
@@ -580,14 +580,14 @@ export default function PaymentSubmissionReviewDrawer({
             <div className="grid grid-cols-2 gap-2 text-xs">
               {/* Row 1: Request Type & Artwork Title */}
               <div className="bg-[#171512] p-2.5 rounded-lg border border-[#4A443A]/40 min-w-0">
-                <span className="text-[10px] text-[#7A7265] block">ประเภทงาน</span>
+                <span className="text-[10px] text-[#ECE4D3] block">ประเภทงาน</span>
                 <span className="font-semibold text-[#ECE4D3] mt-0.5 block truncate">
                   {hydratedDetails?.requestType === 'FLASH' ? 'งานสัก Flash' : 'งานสัก Custom'}
                 </span>
               </div>
 
               <div className="bg-[#171512] p-2.5 rounded-lg border border-[#4A443A]/40 min-w-0">
-                <span className="text-[10px] text-[#7A7265] block">ชื่อผลงาน / ลาย</span>
+                <span className="text-[10px] text-[#ECE4D3] block">ชื่อผลงาน / ลาย</span>
                 <span className="font-semibold text-[#ECE4D3] mt-0.5 block truncate">
                   {hydratedDetails?.artworkTitle || displayStyle}
                 </span>
@@ -595,47 +595,47 @@ export default function PaymentSubmissionReviewDrawer({
 
               {/* Row 2: Artist & Style */}
               <div className="bg-[#171512] p-2.5 rounded-lg border border-[#4A443A]/40 min-w-0">
-                <span className="text-[10px] text-[#7A7265] block">ช่างสัก</span>
+                <span className="text-[10px] text-[#ECE4D3] block">ช่างสัก</span>
                 <span className="font-medium text-[#ECE4D3] mt-0.5 block truncate">{displayArtistName}</span>
               </div>
 
               <div className="bg-[#171512] p-2.5 rounded-lg border border-[#4A443A]/40 min-w-0">
-                <span className="text-[10px] text-[#7A7265] block">สไตล์งาน</span>
+                <span className="text-[10px] text-[#ECE4D3] block">สไตล์งาน</span>
                 <span className="font-medium text-[#ECE4D3] mt-0.5 block truncate">{displayStyle}</span>
               </div>
 
               {/* Row 3: Placement & Size */}
               <div className="bg-[#171512] p-2.5 rounded-lg border border-[#4A443A]/40 min-w-0">
-                <span className="text-[10px] text-[#7A7265] block">ตำแหน่งสัก</span>
+                <span className="text-[10px] text-[#ECE4D3] block">ตำแหน่งสัก</span>
                 <span className="font-medium text-[#ECE4D3] mt-0.5 block truncate">{displayPlacement}</span>
               </div>
 
               <div className="bg-[#171512] p-2.5 rounded-lg border border-[#4A443A]/40 min-w-0">
-                <span className="text-[10px] text-[#7A7265] block">ขนาดงาน</span>
+                <span className="text-[10px] text-[#ECE4D3] block">ขนาดงาน</span>
                 <span className="font-medium text-[#ECE4D3] mt-0.5 block truncate">{displaySize}</span>
               </div>
 
               {/* Row 4: Date & Time */}
               <div className="bg-[#171512] p-2.5 rounded-lg border border-[#4A443A]/40 min-w-0">
-                <span className="text-[10px] text-[#7A7265] block">วันที่นัด</span>
+                <span className="text-[10px] text-[#ECE4D3] block">วันที่นัด</span>
                 <span className="font-medium text-[#ECE4D3] mt-0.5 block truncate">{displayApptDate}</span>
               </div>
 
               <div className="bg-[#171512] p-2.5 rounded-lg border border-[#4A443A]/40 min-w-0">
-                <span className="text-[10px] text-[#7A7265] block">เวลานัด</span>
+                <span className="text-[10px] text-[#ECE4D3] block">เวลานัด</span>
                 <span className="font-medium text-[#ECE4D3] mt-0.5 block truncate">{displayApptTime}</span>
               </div>
 
               {/* Row 5: Price & Deposit */}
               <div className="bg-[#171512] p-2.5 rounded-lg border border-[#4A443A]/40 min-w-0">
-                <span className="text-[10px] text-[#7A7265] block">ราคางานสัก</span>
+                <span className="text-[10px] text-[#ECE4D3] block">ราคางานสัก</span>
                 <span className="font-semibold text-[#ECE4D3] mt-0.5 block truncate">
                   {displayQuotedPrice > 0 ? `฿${formatCurrency(displayQuotedPrice)}` : 'ไม่ระบุ'}
                 </span>
               </div>
 
               <div className="bg-[#171512] p-2.5 rounded-lg border border-[#4A443A]/40 min-w-0">
-                <span className="text-[10px] text-[#7A7265] block">มัดจำที่กำหนด</span>
+                <span className="text-[10px] text-[#ECE4D3] block">มัดจำที่กำหนด</span>
                 <span className="font-semibold text-red-400 mt-0.5 block truncate font-mono">
                   ฿500
                 </span>
@@ -643,7 +643,7 @@ export default function PaymentSubmissionReviewDrawer({
 
               {/* Full Width: Description */}
               <div className="bg-[#171512] p-2.5 rounded-lg border border-[#4A443A]/40 min-w-0 col-span-2">
-                <span className="text-[10px] text-[#7A7265] block mb-1">รายละเอียดงานสัก / คำขอเพิ่มเติม</span>
+                <span className="text-[10px] text-[#ECE4D3] block mb-1">รายละเอียดงานสัก / คำขอเพิ่มเติม</span>
                 <p className="text-[#ECE4D3] font-light leading-relaxed whitespace-pre-wrap break-words">
                   {hydratedDetails?.description || 'ไม่มีคำอธิบายเพิ่มเติม'}
                 </p>
@@ -651,7 +651,7 @@ export default function PaymentSubmissionReviewDrawer({
 
               {/* Full Width: Health & Medical Disclosure */}
               <div className="col-span-2 bg-[#171512] p-2.5 rounded-lg border border-[#4A443A]/40 min-w-0 space-y-2">
-                <span className="text-[10px] text-[#7A7265] block mb-1 font-semibold uppercase tracking-wider">ข้อมูลสุขภาพ / ข้อควรระวัง</span>
+                <span className="text-[10px] text-[#ECE4D3] block mb-1 font-semibold uppercase tracking-wider">ข้อมูลสุขภาพ / ข้อควรระวัง</span>
                 {(() => {
                   const hasMed = hydratedDetails?.hasMedicalCondition;
                   const medNote = hydratedDetails?.medicalConditionNote;
@@ -672,8 +672,8 @@ export default function PaymentSubmissionReviewDrawer({
 
                   if (isBothNull) {
                     return (
-                      <div className="flex items-center gap-1.5 text-studio-muted text-xs bg-[#0E0D0C] border border-[#4A443A]/40 p-2 rounded">
-                        <AlertCircle size={13} className="shrink-0 text-studio-muted" />
+                      <div className="flex items-center gap-1.5 text-[#ECE4D3] text-xs bg-[#0E0D0C] border border-[#4A443A]/40 p-2 rounded">
+                        <AlertCircle size={13} className="shrink-0 text-[#ECE4D3]" />
                         <span>ยังไม่ให้ข้อมูลสุขภาพ</span>
                       </div>
                     );
@@ -724,7 +724,7 @@ export default function PaymentSubmissionReviewDrawer({
               {/* Full Width: Reference / Flash Gallery */}
               {refImages.length > 0 && (
                 <div className="col-span-2 pt-1">
-                  <span className="text-[10px] text-[#7A7265] block mb-1.5 flex items-center gap-1">
+                  <span className="text-[10px] text-[#ECE4D3] block mb-1.5 flex items-center gap-1">
                     <ImageIcon size={12} />
                     {hydratedDetails?.requestType === 'FLASH' ? 'ภาพลาย Flash & อ้างอิง' : 'รูปภาพอ้างอิง'} ({refImages.length} รูป)
                   </span>
@@ -763,21 +763,21 @@ export default function PaymentSubmissionReviewDrawer({
 
             <div className="space-y-2 bg-[#171512] p-2.5 rounded-lg border border-[#4A443A]/40 text-xs">
               <div className="flex items-center justify-between gap-2">
-                <span className="text-[#A89F91]">มัดจำที่กำหนด:</span>
+                <span className="text-[#ECE4D3]">มัดจำที่กำหนด:</span>
                 <span className="font-bold text-red-400 font-mono text-sm">
                   ฿500
                 </span>
               </div>
 
               <div className="flex items-center justify-between gap-2 border-t border-[#4A443A]/30 pt-2">
-                <span className="text-[#A89F91]">ยอดที่ลูกค้าแจ้งโอน:</span>
+                <span className="text-[#ECE4D3]">ยอดที่ลูกค้าแจ้งโอน:</span>
                 <span className="text-sm font-bold text-amber-300 font-mono">
                   ฿{formatCurrency(submission.claimed_amount)}
                 </span>
               </div>
 
               <div className="flex items-center justify-between gap-2 pt-2 border-t border-[#4A443A]/30">
-                <span className="text-[#A89F91]">หลักฐานที่ส่ง:</span>
+                <span className="text-[#ECE4D3]">หลักฐานที่ส่ง:</span>
                 <button
                   type="button"
                   onClick={() => {
@@ -809,14 +809,14 @@ export default function PaymentSubmissionReviewDrawer({
                     <button
                       type="button"
                       onClick={() => setIsRejectDialogOpen(false)}
-                      className="px-3 py-1.5 bg-[#171512] text-xs text-[#A89F91] rounded border border-[#4A443A] hover:text-[#ECE4D3]"
+                      className="px-3 py-1.5 bg-[#171512] text-xs text-[#ECE4D3] rounded border border-[#4A443A] hover:text-[#ECE4D3]"
                     >
                       ยกเลิก
                     </button>
                     <button
                       type="submit"
                       disabled={isRejecting || !rejectionReason.trim()}
-                      className="px-4 py-1.5 bg-red-600 hover:bg-red-500 text-xs text-white rounded font-medium disabled:opacity-50 flex items-center gap-1.5"
+                      className="px-4 py-1.5 bg-[#C12D2D] hover:bg-[#852727] text-xs text-white rounded font-medium disabled:opacity-50 flex items-center gap-1.5"
                     >
                       {isRejecting ? (
                         <>

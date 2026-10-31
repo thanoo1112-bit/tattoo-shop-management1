@@ -131,7 +131,7 @@ export default function RecordPaymentForm({
               <h3 className="text-base font-heading font-semibold text-[#ECE4D3]">
                 {sessionRoundNumber ? `บันทึกรับเงิน — รอบที่ ${sessionRoundNumber}` : 'บันทึกการรับเงิน'}
               </h3>
-              <p className="text-[11px] text-[#A89F91]">
+              <p className="text-[11px] text-[#ECE4D3]">
                 ลูกค้า: <span className="text-[#ECE4D3] font-medium">{booking.customer_name}</span> • ช่างสัก: {booking.artist_name}
                 {sessionRoundNumber && sessionDate && (
                   <span className="block text-emerald-400 font-medium mt-0.5">
@@ -163,7 +163,7 @@ export default function RecordPaymentForm({
               <p className="font-semibold text-emerald-400 mt-0.5">฿{summary.paid_total.toLocaleString('th-TH')}</p>
             </div>
             <div>
-              <span className="text-[10px] text-[#7A7265]">ยอดที่ต้องจ่าย</span>
+              <span className="text-[10px] text-[#ECE4D3]">ยอดที่ต้องจ่าย</span>
               <p className="font-semibold mt-0.5">
                 {summary.quoted_price > 0 ? (
                   amountDue > 0 ? (
@@ -226,7 +226,7 @@ export default function RecordPaymentForm({
                   className={`py-1.5 px-2 text-xs rounded-md border font-medium transition-colors ${
                     paymentType === opt.value
                       ? 'bg-[#ECE4D3] text-[#0E0D0C] border-[#ECE4D3]'
-                      : 'bg-[#0E0D0C] text-[#A89F91] border-[#4A443A] hover:text-[#ECE4D3]'
+                      : 'bg-[#0E0D0C] text-[#ECE4D3] border-[#4A443A] hover:text-[#ECE4D3]'
                   }`}
                 >
                   {opt.label}
@@ -296,7 +296,7 @@ export default function RecordPaymentForm({
                   className={`py-1.5 px-2 text-xs rounded-md border font-medium transition-colors ${
                     paymentMethod === opt.value
                       ? 'bg-[#ECE4D3] text-[#0E0D0C] border-[#ECE4D3]'
-                      : 'bg-[#0E0D0C] text-[#A89F91] border-[#4A443A] hover:text-[#ECE4D3]'
+                      : 'bg-[#0E0D0C] text-[#ECE4D3] border-[#4A443A] hover:text-[#ECE4D3]'
                   }`}
                 >
                   {opt.label}
@@ -324,7 +324,7 @@ export default function RecordPaymentForm({
               type="button"
               onClick={onClose}
               disabled={isSubmitting}
-              className="px-4 py-1.5 text-xs text-[#A89F91] hover:text-[#ECE4D3] bg-[#0E0D0C] border border-[#4A443A] rounded-md transition-colors"
+              className="px-4 py-1.5 text-xs text-[#ECE4D3] hover:text-[#ECE4D3] bg-[#0E0D0C] border border-[#4A443A] rounded-md transition-colors"
             >
               ยกเลิก
             </button>
@@ -333,7 +333,7 @@ export default function RecordPaymentForm({
               type="submit"
               id="btn-submit-record-payment"
               disabled={isSubmitting}
-              className="px-4 py-1.5 text-xs font-medium text-[#ECE4D3] bg-[#9C2F2F] hover:bg-[#852727] border border-red-900/60 rounded-md transition-colors flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-4 py-1.5 text-xs font-medium text-[#ECE4D3] bg-[#C12D2D] hover:bg-[#852727] border border-[#C12D2D]/60 rounded-md transition-colors flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isSubmitting ? (
                 <>

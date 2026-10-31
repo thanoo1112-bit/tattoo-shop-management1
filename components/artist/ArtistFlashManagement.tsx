@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { createPortal } from 'react-dom';
 import { useSearchParams } from 'next/navigation';
 import { useApp } from '@/components/AppContext';
-import { uploadStudioImage } from '@/lib/utils/storageUploader';
+import { uploadStudioImage, deleteStudioAssets } from '@/lib/utils/storageUploader';
 import { getThumbnailUrl, handleThumbnailError } from '@/lib/utils/thumbnailHelper';
 import {
   Sparkles,
@@ -52,7 +52,7 @@ export default function ArtistFlashManagement() {
   const [designs, setDesigns] = useState<ArtistFlashDesign[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [actionNotice, setActionNotice] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
+  const [actionNotice, setActionNotice] = useState<{ text: string; type: 'success' | 'error' | 'warning' } | null>(null);
 
   // Search & Filters
   const [searchQuery, setSearchQuery] = useState('');
@@ -218,7 +218,7 @@ export default function ArtistFlashManagement() {
     setFormImageUrl(design.image_url);
     setFormStatus(design.status);
     setFormIsVisible(design.is_visible);
-    setFormIsRepeatable(false);
+    setFormIsRepeatable(Boolean(design.is_repeatable));
     setFormSortOrder(design.sort_order || 0);
     setFormError('');
     setImageUploadError('');
@@ -267,7 +267,7 @@ export default function ArtistFlashManagement() {
             image_url: formImageUrl.trim(),
             status: formStatus,
             is_visible: formIsVisible,
-            is_repeatable: false,
+            is_repeatable: formIsRepeatable,
             sort_order: Number(formSortOrder) || 0,
           })
           .eq('id', editingDesign.id)
@@ -291,7 +291,7 @@ export default function ArtistFlashManagement() {
             image_url: formImageUrl.trim(),
             status: formStatus,
             is_visible: formIsVisible,
-            is_repeatable: false,
+            is_repeatable: formIsRepeatable,
             sort_order: Number(formSortOrder) || 0,
           });
 
@@ -434,18 +434,161 @@ export default function ArtistFlashManagement() {
   // Delete Flash Design
   const handleDeleteFlash = async () => {
     if (!deleteTarget || !staffArtistId) return;
+
+    // 1. Ownership security
+    if (deleteTarget.artist_id !== staffArtistId) {
+      setActionNotice({ text: 'คุณไม่มีสิทธิ์ลบลาย Flash ของผู้อื่น', type: 'error' });
+      setDeleteTarget(null);
+      return;
+    }
+
+    // 2. Status guard
+    const status = deleteTarget.status?.toUpperCase();
+    if (status === 'HELD') {
+      setActionNotice({ text: 'ไม่สามารถลบได้ เนื่องจากลายนี้กำลังถูกพักสิทธิ์', type: 'error' });
+      setDeleteTarget(null);
+      return;
+    }
+    if (status === 'RESERVED') {
+      setActionNotice({ text: 'ไม่สามารถลบได้ เนื่องจากลายนี้มีการจองอยู่', type: 'error' });
+      setDeleteTarget(null);
+      return;
+    }
+    if (status === 'SOLD') {
+      setActionNotice({ text: 'ไม่สามารถลบลายที่ขายแล้วได้ เนื่องจากต้องเก็บประวัติการขาย', type: 'error' });
+      setDeleteTarget(null);
+      return;
+    }
+    if (status !== 'AVAILABLE') {
+      setActionNotice({ text: `ไม่สามารถลบลาย Flash ในสถานะ ${status} ได้`, type: 'error' });
+      setDeleteTarget(null);
+      return;
+    }
+
     setIsDeletingFlash(true);
+
     try {
+      const targetId = deleteTarget.id;
+      const targetTitle = deleteTarget.title;
+      const targetImageUrl1 = deleteTarget.image_url;
+      const targetImageUrl2 = deleteTarget.image_url_2;
+
+      // 3. Reservation/history guard
+      const { count: reservationCount, error: resCheckError } = await supabase
+        .from('flash_reservations')
+        .select('*', { count: 'exact', head: true })
+        .eq('flash_design_id', targetId);
+
+      if (!resCheckError && reservationCount && reservationCount > 0) {
+        setActionNotice({ text: 'ไม่สามารถลบลาย Flash ที่มีประวัติการจองในระบบได้', type: 'error' });
+        setDeleteTarget(null);
+        return;
+      }
+
+      // 4. Shared File Protection for image_url and image_url_2
+      let canDeleteImage1 = Boolean(targetImageUrl1);
+      if (targetImageUrl1) {
+        const { count: countImg1 } = await supabase
+          .from('flash_designs')
+          .select('id', { count: 'exact', head: true })
+          .eq('image_url', targetImageUrl1)
+          .neq('id', targetId);
+
+        const { count: countImg1In2 } = await supabase
+          .from('flash_designs')
+          .select('id', { count: 'exact', head: true })
+          .eq('image_url_2', targetImageUrl1)
+          .neq('id', targetId);
+
+        const { count: portfolioCount1 } = await supabase
+          .from('portfolio_artworks')
+          .select('id', { count: 'exact', head: true })
+          .eq('image_url', targetImageUrl1);
+
+        if (
+          (countImg1 && countImg1 > 0) ||
+          (countImg1In2 && countImg1In2 > 0) ||
+          (portfolioCount1 && portfolioCount1 > 0)
+        ) {
+          canDeleteImage1 = false;
+          console.info('[ArtistFlash] image_url is shared with other record(s). Skipping file cleanup.');
+        }
+      }
+
+      let canDeleteImage2 = Boolean(targetImageUrl2);
+      if (targetImageUrl2) {
+        const { count: countImg2 } = await supabase
+          .from('flash_designs')
+          .select('id', { count: 'exact', head: true })
+          .eq('image_url_2', targetImageUrl2)
+          .neq('id', targetId);
+
+        const { count: countImg2In1 } = await supabase
+          .from('flash_designs')
+          .select('id', { count: 'exact', head: true })
+          .eq('image_url', targetImageUrl2)
+          .neq('id', targetId);
+
+        const { count: portfolioCount2 } = await supabase
+          .from('portfolio_artworks')
+          .select('id', { count: 'exact', head: true })
+          .eq('image_url', targetImageUrl2);
+
+        if (
+          (countImg2 && countImg2 > 0) ||
+          (countImg2In1 && countImg2In1 > 0) ||
+          (portfolioCount2 && portfolioCount2 > 0)
+        ) {
+          canDeleteImage2 = false;
+          console.info('[ArtistFlash] image_url_2 is shared with other record(s). Skipping file cleanup.');
+        }
+      }
+
+      // 5. Database Delete MUST happen FIRST
       const { error: delErr } = await supabase
         .from('flash_designs')
         .delete()
-        .eq('id', deleteTarget.id)
+        .eq('id', targetId)
         .eq('artist_id', staffArtistId);
 
       if (delErr) throw delErr;
 
-      setActionNotice({ text: `ลบลาย Flash "${deleteTarget.title}" เรียบร้อยแล้ว`, type: 'success' });
+      // 6. Storage Cleanup AFTER DB delete succeeds
+      const urlsToClean: string[] = [];
+      if (canDeleteImage1 && targetImageUrl1) urlsToClean.push(targetImageUrl1);
+      if (canDeleteImage2 && targetImageUrl2) urlsToClean.push(targetImageUrl2);
+
+      let storageWarning = false;
+      if (urlsToClean.length > 0) {
+        const { error: storageErr } = await deleteStudioAssets(urlsToClean, supabase);
+        if (storageErr) {
+          console.warn('[ArtistFlash] Storage cleanup failed after DB delete:', storageErr);
+          storageWarning = true;
+        }
+      }
+
+      // 7. Feedback / UI
+      const hasSharedImages = (targetImageUrl1 && !canDeleteImage1) || (targetImageUrl2 && !canDeleteImage2);
+
+      if (storageWarning) {
+        setActionNotice({
+          text: `ลบข้อมูลลาย Flash "${targetTitle}" เรียบร้อยแล้ว แต่ไม่สามารถลบไฟล์รูปภาพบางส่วนจาก Storage ได้`,
+          type: 'warning',
+        });
+      } else if (hasSharedImages) {
+        setActionNotice({
+          text: `ลบลาย Flash "${targetTitle}" เรียบร้อยแล้ว (เก็บไฟล์รูปภาพไว้เนื่องจากมีรายการอื่นใช้อยู่)`,
+          type: 'success',
+        });
+      } else {
+        setActionNotice({
+          text: `ลบลาย Flash "${targetTitle}" และไฟล์รูปภาพเรียบร้อยแล้ว`,
+          type: 'success',
+        });
+      }
+
       setDeleteTarget(null);
+      setDesigns((prev) => prev.filter((d) => d.id !== targetId));
       fetchDesigns();
     } catch (err: any) {
       console.error('[ArtistFlash] Delete error:', err);
@@ -491,7 +634,7 @@ export default function ArtistFlashManagement() {
               ARTIST FLASH DESIGNS
             </span>
             <span className="text-studio-muted text-xs">•</span>
-            <span className="text-xs text-studio-secondary font-mono">
+            <span className="text-xs text-[#ECE4D3] font-mono">
               ช่างประจำลาย Flash: {staffArtistRecord?.name || 'ช่างสัก'} {staffArtistRecord?.nickname ? `(${staffArtistRecord.nickname})` : ''}
             </span>
           </div>
@@ -499,7 +642,7 @@ export default function ArtistFlashManagement() {
             <Sparkles className="text-studio-red-bright" size={24} />
             <span>จัดการลาย Flash ของฉัน</span>
           </h1>
-          <p className="text-xs text-studio-secondary max-w-2xl">
+          <p className="text-xs text-[#ECE4D3] max-w-2xl">
             คุณสามารถเพิ่ม แก้ไข ปิดการขาย (SOLD) หรือปรับเปลี่ยนลายสัก Flash ของตนเองเพื่อเปิดจองบนหน้าเว็บไซต์
           </p>
         </div>
@@ -508,7 +651,7 @@ export default function ArtistFlashManagement() {
           <button
             onClick={() => fetchDesigns()}
             disabled={loading}
-            className="p-2.5 bg-studio-sec border border-studio-border hover:border-studio-red/50 text-studio-secondary hover:text-studio-primary rounded-lg transition-colors cursor-pointer"
+            className="p-2.5 bg-studio-sec border border-studio-border hover:border-studio-red/50 text-[#ECE4D3] hover:text-white rounded-lg transition-colors cursor-pointer"
             title="รีเฟรชข้อมูล"
           >
             <RefreshCw size={16} className={loading ? 'animate-spin text-studio-red-bright' : ''} />
@@ -530,11 +673,15 @@ export default function ArtistFlashManagement() {
           className={`p-4 rounded-xl flex items-center space-x-3 shadow-lg animate-fadeIn border ${
             actionNotice.type === 'success'
               ? 'bg-emerald-950/80 border-emerald-800/80 text-emerald-300'
+              : actionNotice.type === 'warning'
+              ? 'bg-amber-950/80 border-amber-800/80 text-amber-300'
               : 'bg-red-950/80 border-red-800/80 text-red-300'
           }`}
         >
           {actionNotice.type === 'success' ? (
             <CheckCircle2 size={18} className="text-emerald-400 shrink-0" />
+          ) : actionNotice.type === 'warning' ? (
+            <AlertCircle size={18} className="text-amber-400 shrink-0" />
           ) : (
             <AlertCircle size={18} className="text-red-400 shrink-0" />
           )}
@@ -560,7 +707,7 @@ export default function ArtistFlashManagement() {
         <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
           {/* Search */}
           <div className="md:col-span-8 relative">
-            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#B8B0A3]" />
+            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#ECE4D3]" />
             <input
               type="text"
               value={searchQuery}
@@ -595,7 +742,7 @@ export default function ArtistFlashManagement() {
           </div>
         </div>
 
-        <div className="flex items-center justify-between text-xs text-studio-secondary pt-2 border-t border-studio-border/60">
+        <div className="flex items-center justify-between text-xs text-[#ECE4D3] pt-2 border-t border-studio-border/60">
           <div>
             แสดง <strong className="text-studio-primary font-bold">{filteredDesigns.length}</strong> จากทั้งหมด {designs.length} รายการ
           </div>
@@ -626,7 +773,7 @@ export default function ArtistFlashManagement() {
           </div>
           <div className="space-y-1">
             <p className="text-sm font-medium text-studio-primary">ไม่พบรายการลาย Flash</p>
-            <p className="text-xs text-studio-muted">
+            <p className="text-xs text-[#ECE4D3]">
               {designs.length === 0
                 ? 'คุณยังไม่มีลาย Flash ในระบบ กดปุ่ม "สร้างลาย Flash ใหม่" เพื่อเริ่มต้น'
                 : 'ไม่พบรายการที่ตรงกับเงื่อนไขตัวกรอง'}
@@ -643,124 +790,145 @@ export default function ArtistFlashManagement() {
           )}
         </div>
       ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2.5 sm:gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2.5 sm:gap-4">
           {filteredDesigns.map((design) => {
-            const isSold = design.status === 'SOLD';
-            const isReserved = design.status === 'RESERVED';
-            const isAvailable = design.status === 'AVAILABLE';
+            const artistName = staffArtistRecord?.name || 'ช่างประจำร้าน';
 
             return (
               <div
                 key={design.id}
-                className={`group bg-studio-card border rounded-xl overflow-hidden transition-all duration-200 shadow-md flex flex-col justify-between ${
+                className={`bg-[#171512] border rounded-[6px] overflow-hidden flex flex-col justify-between transition-all duration-300 group shadow-md hover:shadow-lg hover:shadow-[#C12D2D]/5 min-w-0 ${
                   design.is_visible
-                    ? 'border-studio-border hover:border-studio-red/60'
-                    : 'border-studio-border/40 opacity-75 bg-studio-card/60'
+                    ? 'border-[#2D2820] hover:border-[#C12D2D]/60'
+                    : 'border-[#2D2820]/40 opacity-70 bg-[#13110F]'
                 }`}
               >
-                {/* Image Container */}
-                <div className="relative aspect-square w-full bg-black/40 overflow-hidden">
+                {/* Image Area */}
+                <div className="aspect-[4/5] bg-studio-main overflow-hidden relative group">
                   <img
                     src={getThumbnailUrl(design.image_url)}
                     onError={(e) => handleThumbnailError(e, design.image_url)}
                     alt={design.title}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                    className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-500"
                     loading="lazy"
                     decoding="async"
                   />
 
-                  {/* Status Overlay Badge */}
-                  <div className="absolute top-2 left-2 flex items-center gap-1.5">
-                    {isSold ? (
-                      <span className="text-[9px] sm:text-[10px] font-bold px-1.5 sm:px-2 py-0.5 rounded-full bg-red-950/90 text-red-400 border border-red-800/80 backdrop-blur-md">
-                        SOLD OUT
-                      </span>
-                    ) : isReserved ? (
-                      <span className="text-[9px] sm:text-[10px] font-bold px-1.5 sm:px-2 py-0.5 rounded-full bg-amber-950/90 text-amber-400 border border-amber-800/80 backdrop-blur-md">
-                        RESERVED
-                      </span>
-                    ) : (
-                      <span className="text-[9px] sm:text-[10px] font-bold px-1.5 sm:px-2 py-0.5 rounded-full bg-emerald-950/90 text-emerald-400 border border-emerald-800/80 backdrop-blur-md">
-                        AVAILABLE
-                      </span>
-                    )}
-
-                    {!design.is_visible && (
-                      <span className="text-[9px] sm:text-[10px] font-medium px-1.5 sm:px-2 py-0.5 rounded-full bg-zinc-900/90 text-zinc-400 border border-zinc-700/60 backdrop-blur-md">
-                        ซ่อน
-                      </span>
-                    )}
+                  {/* Top-left Badge: Sort order only */}
+                  <div className="absolute top-1.5 sm:top-2 left-1.5 sm:left-2">
+                    <span className="bg-[#0E0D0C]/90 backdrop-blur-sm border border-[#3E372C] text-[#C12D2D] text-[9px] sm:text-[10px] font-bold px-1.5 sm:px-2 py-0.5 rounded shadow">
+                      #{design.sort_order}
+                    </span>
                   </div>
 
-                  {/* Style Badge */}
-                  <div className="absolute top-2 right-2">
-                    <span className="text-[9px] sm:text-[10px] font-mono px-1.5 sm:px-2 py-0.5 rounded bg-black/70 text-studio-secondary border border-studio-border/60 backdrop-blur-md">
-                      {design.style}
-                    </span>
+                  {/* Top-right Badges: Status & Flash Type */}
+                  <div className="absolute top-1.5 sm:top-2 right-1.5 sm:right-2 flex flex-col items-end gap-1">
+                    {/* 1. Status Badge */}
+                    {design.status === 'AVAILABLE' && (
+                      <span className="bg-emerald-950/90 backdrop-blur-sm border border-emerald-600/50 text-emerald-400 text-[8px] sm:text-[10px] font-bold px-1.5 py-0.5 rounded shadow">
+                        ● AVAILABLE
+                      </span>
+                    )}
+                    {design.status === 'HELD' && (
+                      <span className="bg-amber-950/90 backdrop-blur-sm border border-amber-600/50 text-amber-300 text-[8px] sm:text-[10px] font-bold px-1.5 py-0.5 rounded shadow">
+                        ● HELD
+                      </span>
+                    )}
+                    {design.status === 'RESERVED' && (
+                      <span className="bg-indigo-950/90 backdrop-blur-sm border border-indigo-600/50 text-indigo-300 text-[8px] sm:text-[10px] font-bold px-1.5 py-0.5 rounded shadow">
+                        ● RESERVED
+                      </span>
+                    )}
+                    {design.status === 'SOLD' && (
+                      <span className="bg-[#171512]/95 backdrop-blur-sm border border-[#4A443A] text-[#A89F91] text-[8px] sm:text-[10px] font-bold px-1.5 py-0.5 rounded shadow">
+                        ✕ SOLD
+                      </span>
+                    )}
+
+                    {/* 2. Flash Type Badge (directly below Status) */}
+                    {design.is_repeatable ? (
+                      <span className="bg-[#171512]/95 backdrop-blur-sm border border-[#6A6256] text-[#ECE4D3] text-[8px] sm:text-[9px] font-medium px-1.5 py-0.5 rounded shadow">
+                        สักซ้ำได้
+                      </span>
+                    ) : (
+                      <span className="bg-[#6F1F1F]/95 backdrop-blur-sm border border-[#C12D2D] text-[#ECE4D3] text-[8px] sm:text-[9px] font-medium px-1.5 py-0.5 rounded shadow">
+                        ลายเดียว
+                      </span>
+                    )}
                   </div>
                 </div>
 
-                {/* Info Container */}
-                <div className="p-3 sm:p-4 flex-1 flex flex-col justify-between space-y-2.5">
-                  <div className="space-y-0.5">
-                    <h3 className="text-xs sm:text-sm font-semibold text-studio-primary group-hover:text-studio-red-bright transition-colors line-clamp-1">
+                {/* Info Area Below Image */}
+                <div className="p-2 sm:p-3 bg-studio-card flex flex-col justify-between flex-1 min-w-0 space-y-1.5 sm:space-y-2">
+                  <div className="space-y-0.5 sm:space-y-1 min-w-0">
+                    {/* 1. Flash Title */}
+                    <h4
+                      className="font-bold text-[#ECE4D3] truncate text-xs sm:text-sm group-hover:text-[#C12D2D] transition-colors"
+                      title={design.title}
+                    >
                       {design.title}
-                    </h3>
-                    {design.description && (
-                      <p className="text-xs text-studio-secondary line-clamp-2 leading-relaxed">
-                        {design.description}
-                      </p>
-                    )}
+                    </h4>
+
+                    {/* 2. Artist Name */}
+                    <p className="text-[10px] sm:text-xs text-[#ECE4D3] truncate">
+                      ช่าง: <span className="text-[#ECE4D3] font-medium">{artistName}</span>
+                    </p>
+
+                    {/* 3. Style */}
+                    <div className="flex items-center gap-1.5 text-[10px] sm:text-xs text-[#ECE4D3] min-w-0 pt-0.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-[#C12D2D] shrink-0" />
+                      <span className="truncate font-medium">{design.style}</span>
+                    </div>
                   </div>
 
-                  {/* Quick Action / Close Sale buttons */}
-                  <div className="pt-2 border-t border-studio-border/60 flex items-center justify-between gap-2">
-                    {/* Status quick toggle */}
-                    <div>
-                      {isSold ? (
+                  {/* Divider & Actions */}
+                  <div className="pt-2 sm:pt-2.5 mt-auto border-t border-studio-border/50 flex flex-wrap sm:flex-nowrap items-center justify-between gap-1 sm:gap-1.5 min-w-0">
+                    <div className="shrink-0">
+                      {design.status === 'SOLD' ? (
                         <button
+                          type="button"
                           onClick={() => handleQuickStatusToggle(design, 'AVAILABLE')}
                           disabled={reopeningId === design.id}
-                          className="px-2.5 py-1.5 bg-emerald-950/40 hover:bg-emerald-900/60 border border-emerald-800/60 text-emerald-400 text-[11px] font-medium rounded-lg transition-colors flex items-center space-x-1 cursor-pointer disabled:opacity-50"
+                          className="px-1.5 sm:px-2.5 py-1 sm:py-1.5 bg-emerald-950/40 hover:bg-emerald-900/60 border border-emerald-800/60 text-emerald-400 text-[10px] sm:text-[11px] font-medium rounded transition-colors flex items-center gap-1 cursor-pointer disabled:opacity-50"
                           title="เปิดจองอีกครั้ง"
                         >
                           {reopeningId === design.id ? (
-                            <Loader2 size={12} className="animate-spin" />
+                            <Loader2 size={11} className="animate-spin shrink-0" />
                           ) : (
-                            <RefreshCw size={12} />
+                            <RefreshCw size={11} className="shrink-0" />
                           )}
                           <span>เปิดจองอีกครั้ง</span>
                         </button>
-                      ) : isAvailable ? (
+                      ) : design.status === 'AVAILABLE' ? (
                         <button
+                          type="button"
                           onClick={() => handleQuickStatusToggle(design, 'SOLD')}
-                          className="px-2.5 py-1.5 bg-red-950/40 hover:bg-red-900/60 border border-red-800/60 text-red-400 text-[11px] font-medium rounded-lg transition-colors flex items-center space-x-1 cursor-pointer"
+                          className="px-1.5 sm:px-2.5 py-1 sm:py-1.5 bg-red-950/40 hover:bg-red-900/60 border border-red-800/60 text-red-400 text-[10px] sm:text-[11px] font-medium rounded transition-colors flex items-center gap-1 cursor-pointer"
                           title="ปิดรับจอง"
                         >
-                          <Lock size={12} />
+                          <Lock size={11} className="shrink-0" />
                           <span>ปิดรับจอง</span>
                         </button>
                       ) : null}
                     </div>
 
-                    <div className="flex items-center space-x-1.5">
-
-                      {/* Edit Button */}
+                    <div className="flex items-center gap-1 sm:gap-1.5 shrink-0 ml-auto">
                       <button
+                        type="button"
                         onClick={() => handleOpenEditModal(design)}
-                        className="px-2.5 py-1.5 bg-studio-sec hover:bg-studio-border border border-studio-border text-xs text-studio-primary font-medium rounded-lg transition-colors flex items-center space-x-1 cursor-pointer"
+                        className="px-2 sm:px-2.5 py-1 sm:py-1.5 bg-[#25201A] hover:bg-[#2D2820] border border-[#3E372C] hover:border-[#C12D2D]/60 text-[#ECE4D3] text-[10px] sm:text-[11px] font-medium rounded transition-colors flex items-center gap-1 cursor-pointer shrink-0"
+                        title="แก้ไขแบบลายสัก"
                       >
-                        <Edit3 size={13} />
+                        <Edit3 size={11} className="shrink-0" />
                         <span>แก้ไข</span>
                       </button>
-
-                      {/* Delete Button */}
                       <button
+                        type="button"
                         onClick={() => setDeleteTarget(design)}
-                        className="p-1.5 bg-studio-sec hover:bg-red-950/60 text-studio-muted hover:text-red-400 border border-studio-border hover:border-red-800/60 rounded-lg transition-colors cursor-pointer"
-                        title="ลบลาย Flash"
+                        className="p-1 sm:p-1.5 bg-[#25201A] hover:bg-[#C12D2D]/20 border border-[#3E372C] hover:border-[#C12D2D] text-[#ECE4D3] hover:text-[#C12D2D] rounded transition-colors cursor-pointer shrink-0"
+                        title="ลบแบบลายสัก"
                       >
-                        <Trash2 size={14} />
+                        <Trash2 size={12} />
                       </button>
                     </div>
                   </div>
@@ -823,7 +991,7 @@ export default function ArtistFlashManagement() {
                       onClick={() => {
                         if (!isUploadingImage) fileInputRef.current?.click();
                       }}
-                      className="w-28 h-28 sm:w-32 sm:h-32 bg-[#0E0D0C] border border-[#2D2820] hover:border-[#9C2F2F]/60 rounded-lg flex flex-col items-center justify-center cursor-pointer transition-colors shrink-0 overflow-hidden relative group"
+                      className="w-28 h-28 sm:w-32 sm:h-32 bg-[#0E0D0C] border border-[#2D2820] hover:border-[#C12D2D]/60 rounded-lg flex flex-col items-center justify-center cursor-pointer transition-colors shrink-0 overflow-hidden relative group"
                     >
                       {isUploadingImage ? (
                         <Loader2 size={22} className="animate-spin text-studio-red-bright" />
@@ -881,7 +1049,7 @@ export default function ArtistFlashManagement() {
                 {/* Section 2: ข้อมูลผลงาน */}
                 <div className="bg-[#171512] border border-[#2D2820] rounded-lg p-4 space-y-3.5">
                   <div className="border-b border-[#2D2820] pb-1.5">
-                    <h4 className="text-xs font-bold text-[#A89F91] uppercase tracking-wider">ข้อมูลผลงาน</h4>
+                    <h4 className="text-xs font-bold text-[#ECE4D3] uppercase tracking-wider">ข้อมูลผลงาน</h4>
                   </div>
 
                   {/* ชื่อลายสัก (Title) */}
@@ -895,7 +1063,7 @@ export default function ArtistFlashManagement() {
                       value={formTitle}
                       onChange={(e) => setFormTitle(e.target.value)}
                       placeholder="เช่น Geometric Compass & Arrow"
-                      className="w-full bg-[#0E0D0C] border border-[#3E372C] rounded-[4px] px-3 py-2 text-xs text-[#ECE4D3] placeholder:text-[#7A7162] focus:outline-none focus:border-[#9C2F2F]"
+                      className="w-full bg-[#0E0D0C] border border-[#3E372C] rounded-[4px] px-3 py-2 text-xs text-[#ECE4D3] placeholder:text-[#7A7162] focus:outline-none focus:border-[#C12D2D]"
                     />
                   </div>
 
@@ -908,7 +1076,7 @@ export default function ArtistFlashManagement() {
                       required
                       value={formStyle}
                       onChange={(e) => setFormStyle(e.target.value)}
-                      className="w-full bg-[#0E0D0C] border border-[#3E372C] rounded-[4px] px-3 py-2 text-xs text-[#ECE4D3] focus:outline-none focus:border-[#9C2F2F] cursor-pointer"
+                      className="w-full bg-[#0E0D0C] border border-[#3E372C] rounded-[4px] px-3 py-2 text-xs text-[#ECE4D3] focus:outline-none focus:border-[#C12D2D] cursor-pointer"
                     >
                       {artistSpecialties.map((st: string) => (
                         <option key={st} value={st}>
@@ -917,32 +1085,36 @@ export default function ArtistFlashManagement() {
                       ))}
                     </select>
                   </div>
+
+                  {/* ประเภทผลงาน (Flash Type) */}
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold text-[#ECE4D3] block">
+                      ประเภทผลงาน (Flash Type)
+                    </label>
+                    <select
+                      value={formIsRepeatable ? 'repeatable' : 'single'}
+                      onChange={(e) => setFormIsRepeatable(e.target.value === 'repeatable')}
+                      className="w-full bg-[#0E0D0C] border border-[#3E372C] rounded-[4px] px-3 py-2 text-xs text-[#ECE4D3] focus:outline-none focus:border-[#C12D2D] cursor-pointer"
+                    >
+                      <option value="single">ลายเดียว (Single-use)</option>
+                      <option value="repeatable">สักซ้ำได้ (Repeatable)</option>
+                    </select>
+                  </div>
                 </div>
 
-                {/* Section 3: รายละเอียด */}
+                {/* Section 3: การแสดงผล */}
                 <div className="bg-[#171512] border border-[#2D2820] rounded-lg p-4 space-y-3">
                   <div className="border-b border-[#2D2820] pb-1.5">
-                    <h4 className="text-xs font-bold text-[#A89F91] uppercase tracking-wider">รายละเอียด</h4>
+                    <h4 className="text-xs font-bold text-[#ECE4D3] uppercase tracking-wider">การแสดงผล</h4>
                   </div>
 
-                  <div className="space-y-1">
-                    <label className="text-xs font-semibold text-[#ECE4D3] block">คำอธิบายรายละเอียด</label>
-                    <textarea
-                      rows={3}
-                      value={formDescription}
-                      onChange={(e) => setFormDescription(e.target.value)}
-                      placeholder="อธิบายแนวคิด เส้นสาย หรือรายละเอียดเพิ่มเติมของแบบลายนี้..."
-                      className="w-full bg-[#0E0D0C] border border-[#3E372C] rounded-[4px] px-3 py-2 text-xs text-[#ECE4D3] placeholder:text-[#7A7162] focus:outline-none focus:border-[#9C2F2F] resize-none"
-                    />
-                  </div>
-
-                  <div className="pt-2 border-t border-[#2D2820]">
+                  <div>
                     <label className="inline-flex items-center gap-2 cursor-pointer">
                       <input
                         type="checkbox"
                         checked={formIsVisible}
                         onChange={(e) => setFormIsVisible(e.target.checked)}
-                        className="w-4 h-4 rounded bg-[#0E0D0C] border-[#3E372C] text-[#9C2F2F] focus:ring-0 focus:outline-none cursor-pointer"
+                        className="w-4 h-4 rounded bg-[#0E0D0C] border-[#3E372C] text-[#C12D2D] focus:ring-0 focus:outline-none cursor-pointer"
                       />
                       <span className="text-xs text-[#ECE4D3] font-medium">แสดงผลงานบนเว็บไซต์</span>
                     </label>
@@ -955,7 +1127,7 @@ export default function ArtistFlashManagement() {
                     type="button"
                     onClick={() => setIsFormModalOpen(false)}
                     disabled={formSubmitting || isUploadingImage}
-                    className="bg-transparent border border-[#4A443A] text-[#A89F91] hover:text-[#ECE4D3] px-4 py-2 rounded-[4px] text-xs font-semibold transition-colors disabled:opacity-50 cursor-pointer"
+                    className="bg-transparent border border-[#4A443A] text-[#ECE4D3] hover:text-white px-4 py-2 rounded-[4px] text-xs font-semibold transition-colors disabled:opacity-50 cursor-pointer"
                   >
                     ยกเลิก
                   </button>
@@ -963,7 +1135,7 @@ export default function ArtistFlashManagement() {
                   <button
                     type="submit"
                     disabled={formSubmitting || isUploadingImage}
-                    className="bg-[#9C2F2F] hover:bg-[#802222] text-[#ECE4D3] px-5 py-2 rounded-[4px] text-xs font-bold uppercase tracking-wider transition-all disabled:opacity-50 flex items-center gap-1.5 shadow-lg shadow-[#9C2F2F]/20 cursor-pointer"
+                    className="bg-[#C12D2D] hover:bg-[#802222] text-[#ECE4D3] px-5 py-2 rounded-[4px] text-xs font-bold uppercase tracking-wider transition-all disabled:opacity-50 flex items-center gap-1.5 shadow-lg shadow-[#C12D2D]/20 cursor-pointer"
                   >
                     {formSubmitting ? (
                       <>
@@ -995,7 +1167,7 @@ export default function ArtistFlashManagement() {
                 <h3 className="text-base font-semibold text-studio-primary">
                   ยืนยันลบลาย Flash?
                 </h3>
-                <p className="text-xs text-studio-secondary">
+                <p className="text-xs text-[#ECE4D3]">
                   คุณกำลังจะลบลาย Flash <strong className="text-studio-primary font-semibold font-mono">&quot;{deleteTarget.title}&quot;</strong> ออกจากระบบ ข้อมูลนี้ไม่สามารถกู้คืนได้
                 </p>
               </div>
@@ -1005,7 +1177,7 @@ export default function ArtistFlashManagement() {
                   type="button"
                   onClick={() => setDeleteTarget(null)}
                   disabled={isDeletingFlash}
-                  className="px-4 py-2 bg-studio-sec border border-studio-border text-xs text-studio-secondary hover:text-studio-primary rounded-lg transition-colors cursor-pointer"
+                  className="px-4 py-2 bg-studio-sec border border-studio-border text-xs text-[#ECE4D3] hover:text-white rounded-lg transition-colors cursor-pointer"
                 >
                   ยกเลิก
                 </button>
@@ -1014,7 +1186,7 @@ export default function ArtistFlashManagement() {
                   type="button"
                   onClick={handleDeleteFlash}
                   disabled={isDeletingFlash}
-                  className="px-5 py-2 bg-red-600 hover:bg-red-700 text-white text-xs font-medium rounded-lg transition-colors flex items-center space-x-1.5 cursor-pointer disabled:opacity-50"
+                  className="px-5 py-2 bg-[#C12D2D] hover:bg-[#A82525] text-white text-xs font-medium rounded-lg transition-colors flex items-center space-x-1.5 cursor-pointer disabled:opacity-50"
                 >
                   {isDeletingFlash && <Loader2 size={14} className="animate-spin" />}
                   <span>ยืนยันลบลาย Flash</span>

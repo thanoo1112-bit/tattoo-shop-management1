@@ -176,7 +176,7 @@ export default function ThreeSlotPicker({
               <div className="flex items-center justify-between w-full">
                 <span
                   className={`text-xs font-bold leading-tight ${
-                    isSelected ? 'text-white' : 'text-[#F2EEE8]'
+                    isSelected ? 'text-white' : 'text-[#ECE4D3]'
                   }`}
                 >
                   {slot.title}

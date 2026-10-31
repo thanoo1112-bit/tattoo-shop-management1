@@ -34,12 +34,12 @@ export default function HeroSection() {
               เปลี่ยนไอเดีย<br />
               <span className="text-studio-red">ให้กลายเป็นศิลปะบนผิวหนัง</span>
             </h1>
-            <p className="font-caveat text-xl sm:text-2xl text-studio-primary/85 pt-1 font-normal tracking-wide">
+            <p className="font-caveat text-xl sm:text-2xl text-studio-primary pt-1 font-normal tracking-wide">
               {"\"Fine craftsmanship, timeless ink on aged flash paper\""}
             </p>
           </div>
 
-          <p className="text-xs sm:text-sm xl:text-base text-[#E2DDD4] font-prompt font-light leading-relaxed max-w-lg">
+          <p className="text-xs sm:text-sm xl:text-base text-[#ECE4D3] font-prompt font-light leading-relaxed max-w-lg">
             จิตวิญญาณแห่งศิลปะการสักชั้นสูง รังสรรค์งานศิลป์ระดับพรีเมียมเฉพาะบุคคล 
             สัมผัสมาตรฐานความสะอาดและปลอดเชื้อระดับสากล ในบรรยากาศสตูดิโอเข้ม เท่ และมีเอกลักษณ์
           </p>
@@ -62,7 +62,7 @@ export default function HeroSection() {
           </div>
 
           {/* Feature Badges */}
-          <div className="pt-4 sm:pt-6 border-t border-studio-border/60 flex flex-wrap items-center gap-y-2 gap-x-3 sm:gap-x-4 text-[11px] sm:text-xs text-[#E2DDD4] font-prompt">
+          <div className="pt-4 sm:pt-6 border-t border-studio-border/60 flex flex-wrap items-center gap-y-2 gap-x-3 sm:gap-x-4 text-[11px] sm:text-xs text-[#ECE4D3] font-prompt">
             <div className="flex items-center space-x-1.5">
               <ShieldCheck size={15} className="text-studio-red shrink-0" />
               <span>อุปกรณ์ปลอดเชื้อ 100%</span>

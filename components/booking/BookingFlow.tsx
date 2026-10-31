@@ -221,7 +221,7 @@ export default function BookingFlow({
       {step === 1 && (
         <div className="space-y-6 animate-fadeIn">
           <div className="bg-studio-main border border-studio-border p-4 rounded-[6px] flex flex-col space-y-3">
-            <span className="text-[10px] uppercase tracking-wider text-studio-muted font-bold block">
+            <span className="text-[10px] uppercase tracking-wider text-studio-primary font-bold block">
               เลือกช่างสักสำหรับบริการ
             </span>
 
@@ -262,7 +262,7 @@ export default function BookingFlow({
                         className="w-9 h-9 rounded-full object-cover border border-studio-border shrink-0"
                       />
                       <div className="min-w-0 flex-1">
-                        <div className={`text-xs font-bold ${isSelected && !isDisabled ? 'text-studio-primary' : 'text-studio-secondary'}`}>
+                        <div className="text-xs font-bold text-studio-primary">
                           {artist.name}
                         </div>
                         <div className="text-[9px] uppercase tracking-wider opacity-80 truncate">
@@ -296,7 +296,7 @@ export default function BookingFlow({
                   {selectedArtwork.type === 'flash' ? 'Flash Design พร้อมสัก' : 'งาน Custom จากการประเมิน'}
                 </span>
                 <h4 className="text-xs font-bold text-studio-primary mt-0.5">{selectedArtwork.title}</h4>
-                <p className="text-[10px] text-studio-secondary mt-0.5">
+                <p className="text-[10px] text-studio-primary mt-0.5">
                   {selectedArtwork.price ? `ราคาค่าสัก: ฿${selectedArtwork.price.toLocaleString()} • ` : ''}
                   {selectedArtwork.deposit ? `มัดจำ: ฿${selectedArtwork.deposit.toLocaleString()}` : ''}
                   {!selectedArtwork.price && !selectedArtwork.deposit && selectedArtwork.style ? `สไตล์: ${selectedArtwork.style}` : ''}
@@ -420,7 +420,7 @@ export default function BookingFlow({
             ส่งคำขอจองคิวสำเร็จ (Pending Approval)
           </h3>
 
-          <p className="text-xs text-studio-secondary max-w-sm mx-auto leading-relaxed">
+          <p className="text-xs text-studio-primary max-w-sm mx-auto leading-relaxed">
             ระบบได้บันทึกคำขอจองคิวของคุณลงในฐานข้อมูลเรียบร้อยแล้ว ช่างสักจะทำการตรวจสอบและอนุมัติคิวเวลาตามลำดับ 
             คุณสามารถตรวจสอบสถานะการอนุมัติและชำระมัดจำได้ในหน้าต่างบริการของคุณ
           </p>

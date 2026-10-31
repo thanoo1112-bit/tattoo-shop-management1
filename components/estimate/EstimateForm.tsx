@@ -926,7 +926,7 @@ export default function EstimateForm({
             <h3 className="text-xl font-bold text-studio-primary mt-2">
               {initialData?.status === 'REJECTED' ? 'ส่งคำขอใหม่สำเร็จแล้ว' : 'บันทึกการแก้ไขคำขอสำเร็จแล้ว'}
             </h3>
-            <p className="text-xs text-studio-secondary mt-1">
+            <p className="text-xs text-studio-primary mt-1">
               ระบบได้บันทึกการแก้ไขและส่งคำขอให้ทางร้านตรวจสอบเรียบร้อยแล้ว
             </p>
           </div>
@@ -962,20 +962,20 @@ export default function EstimateForm({
           
           <div className="bg-studio-main border border-studio-border p-4 rounded-[6px] max-w-md mx-auto text-left space-y-2 text-xs">
             <div className="flex justify-between items-center pb-2 border-b border-studio-border/60">
-              <span className="text-[#B8B0A3]">รหัสรายการ:</span>
+              <span className="text-[#ECE4D3]">รหัสรายการ:</span>
               <strong className="text-studio-primary font-mono">#{newRequestId.slice(0, 8).toUpperCase()}</strong>
             </div>
             <div className="flex justify-between items-center">
-              <span className="text-[#B8B0A3]">แบบลายสัก:</span>
+              <span className="text-[#ECE4D3]">แบบลายสัก:</span>
               <strong className="text-studio-primary">{flashData?.title}</strong>
             </div>
             <div className="flex justify-between items-center">
-              <span className="text-[#B8B0A3]">ช่างสัก:</span>
+              <span className="text-[#ECE4D3]">ช่างสัก:</span>
               <span className="text-studio-primary">{flashArtistName}</span>
             </div>
           </div>
 
-          <p className="text-xs text-studio-secondary leading-relaxed max-w-md mx-auto font-light">
+          <p className="text-xs text-studio-primary leading-relaxed max-w-md mx-auto font-light">
             ทางร้านได้รับคำขอจองลาย Flash ของคุณเรียบร้อยแล้ว กรุณาตรวจสอบสถานะและขั้นตอนถัดไปใน Customer Portal
           </p>
 
@@ -1008,7 +1008,7 @@ export default function EstimateForm({
             สถานะ: รอตรวจสอบ
           </span>
           <h3 className="text-xl font-bold text-studio-primary mt-2">ส่งคำขอจองคิวเรียบร้อยแล้ว</h3>
-          <p className="text-xs text-studio-secondary mt-1">
+          <p className="text-xs text-studio-primary mt-1">
             รหัสคำขอ: <strong className="text-studio-red font-mono">#{newRequestId.slice(0, 8).toUpperCase()}</strong>
           </p>
         </div>
@@ -1062,7 +1062,7 @@ export default function EstimateForm({
               <User className="text-studio-red shrink-0" size={18} />
               <span>1. เลือกช่างสักที่ต้องการ <span className="text-studio-red">*</span></span>
             </h3>
-            <p className="text-xs text-studio-secondary mt-0.5">
+            <p className="text-xs text-studio-primary mt-0.5">
               เลือกช่างที่คุณต้องการจองคิวรับบริการ
             </p>
           </div>
@@ -1095,7 +1095,7 @@ export default function EstimateForm({
                   <img src={art.avatar} alt={art.name} className="w-12 h-12 object-cover rounded-full shrink-0 border border-studio-border" />
                   <div className="min-w-0 flex-1">
                     <h4 className="text-xs font-bold text-studio-primary truncate">{art.name}</h4>
-                    <p className="text-[10px] text-studio-secondary truncate mt-0.5">{specsLabel}</p>
+                    <p className="text-[10px] text-studio-primary truncate mt-0.5">{specsLabel}</p>
                   </div>
                   {isSelected && !isDisabled && (
                     <div className="w-5 h-5 bg-studio-red rounded-full flex items-center justify-center text-white shrink-0">
@@ -1115,14 +1115,14 @@ export default function EstimateForm({
               <ImageIcon className="text-studio-red shrink-0" size={18} />
               <span>2. รายละเอียดงานสัก</span>
             </h3>
-            <p className="text-xs text-studio-secondary mt-0.5">
+            <p className="text-xs text-studio-primary mt-0.5">
               ระบุสไตล์ ตำแหน่ง ขนาด และแนบรูปภาพอ้างอิง
             </p>
           </div>
 
           {/* 2.1 Style */}
           <div>
-            <label className="text-[11px] uppercase tracking-wider text-studio-secondary block mb-1.5 font-semibold">
+            <label className="text-[11px] uppercase tracking-wider text-studio-primary block mb-1.5 font-semibold">
               สไตล์งานสัก <span className="text-studio-red">*</span>
             </label>
             {flashId && loadingFlash ? (
@@ -1178,7 +1178,7 @@ export default function EstimateForm({
 
           {/* 2.2 Placement */}
           <div>
-            <label className="text-[11px] uppercase tracking-wider text-studio-secondary block mb-1.5 font-semibold">
+            <label className="text-[11px] uppercase tracking-wider text-studio-primary block mb-1.5 font-semibold">
               ตำแหน่งที่ต้องการสัก <span className="text-studio-red">*</span>
             </label>
             <PlacementSelector
@@ -1192,7 +1192,7 @@ export default function EstimateForm({
 
           {/* 2.3 Size Input */}
           <div>
-            <label className="text-[11px] uppercase tracking-wider text-studio-secondary block mb-1.5 font-semibold">
+            <label className="text-[11px] uppercase tracking-wider text-studio-primary block mb-1.5 font-semibold">
               ขนาดของงานสัก (ราคาประเมินเบื้องต้น) <span className="text-studio-red">*</span>
             </label>
             <TattooSizeInput
@@ -1211,11 +1211,11 @@ export default function EstimateForm({
 
           {/* 2.4 Reference Image Upload */}
           <div>
-            <label className="text-[11px] uppercase tracking-wider text-studio-secondary block mb-1 font-semibold flex items-center gap-1.5">
+            <label className="text-[11px] uppercase tracking-wider text-studio-primary block mb-1 font-semibold flex items-center gap-1.5">
               <ImageIcon size={14} className="text-studio-red" />
               <span>รูปภาพอ้างอิง <span className="text-studio-red">*</span></span>
             </label>
-            <p className="text-[11px] text-studio-secondary/80 mb-2">
+            <p className="text-[11px] text-studio-primary mb-2">
               อัปโหลดได้สูงสุด 5 รูป • รูปละไม่เกิน 10 MB
             </p>
             <ReferenceUploader
@@ -1234,7 +1234,7 @@ export default function EstimateForm({
 
           {/* 2.5 Description */}
           <div>
-            <label className="text-[11px] uppercase tracking-wider text-studio-secondary block mb-1.5 font-semibold">
+            <label className="text-[11px] uppercase tracking-wider text-studio-primary block mb-1.5 font-semibold">
               รายละเอียดงานสักเพิ่มเติม
             </label>
             <textarea
@@ -1242,7 +1242,7 @@ export default function EstimateForm({
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="เช่น รายละเอียดแนวคิด สีที่ต้องการ เรื่องราวของภาพ หรือจุดที่เน้นพิเศษ..."
-              className="w-full bg-[#0E0D0C] border border-[#4A443A] focus:border-[#9C2F2F] text-xs text-[#ECE4D3] p-3 outline-none rounded-[4px] font-prompt leading-relaxed resize-y"
+              className="w-full bg-[#0E0D0C] border border-[#4A443A] focus:border-[#C12D2D] text-xs text-[#ECE4D3] p-3 outline-none rounded-[4px] font-prompt leading-relaxed resize-y"
             />
           </div>
         </section>
@@ -1254,7 +1254,7 @@ export default function EstimateForm({
               <Calendar className="text-studio-red shrink-0" size={18} />
               <span>3. วันและเวลาที่สะดวก</span>
             </h3>
-            <p className="text-xs text-studio-secondary mt-0.5">
+            <p className="text-xs text-studio-primary mt-0.5">
               เลือกวันที่และเวลาที่สะดวกเข้ารับบริการ
             </p>
           </div>
@@ -1276,7 +1276,7 @@ export default function EstimateForm({
             </div>
 
             <div>
-              <label className="text-[11px] uppercase tracking-wider text-studio-secondary block mb-1.5 font-semibold flex items-center gap-1">
+              <label className="text-[11px] uppercase tracking-wider text-studio-primary block mb-1.5 font-semibold flex items-center gap-1">
                 <Clock size={12} className="text-studio-red shrink-0" />
                 <span className="truncate">เวลาที่สะดวก <span className="text-studio-red">*</span></span>
               </label>
@@ -1298,7 +1298,7 @@ export default function EstimateForm({
               <HeartPulse className="text-studio-red shrink-0" size={18} />
               <span>4. ข้อมูลสุขภาพและการยินยอม</span>
             </h3>
-            <p className="text-xs text-studio-secondary mt-0.5">
+            <p className="text-xs text-studio-primary mt-0.5">
               กรอกข้อมูลสุขภาพและประวัติการแพ้เพื่อความปลอดภัยของคุณในการรับบริการ
             </p>
           </div>
@@ -1320,7 +1320,7 @@ export default function EstimateForm({
                     if (!e.target.checked) setMedicalConditionNote('');
                     setError('');
                   }}
-                  className="rounded border-[#4A443A] text-[#9C2F2F] focus:ring-[#9C2F2F] bg-[#0E0D0C] w-4 h-4"
+                  className="rounded border-[#4A443A] text-[#C12D2D] focus:ring-[#C12D2D] bg-[#0E0D0C] w-4 h-4"
                 />
                 <span>มีโรคประจำตัว หรือสภาวะทางสุขภาพที่ต้องแจ้งช่างสัก</span>
               </label>
@@ -1334,7 +1334,7 @@ export default function EstimateForm({
                     setError('');
                   }}
                   placeholder="เช่น โรคเบาหวาน, ความดันโลหิต, โรคหัวใจ, กำลังรับประทานยาสลายลิ่มเลือด ฯลฯ"
-                  className="w-full bg-[#0E0D0C] border border-[#4A443A] focus:border-[#9C2F2F] text-xs text-[#ECE4D3] p-2.5 outline-none rounded font-prompt"
+                  className="w-full bg-[#0E0D0C] border border-[#4A443A] focus:border-[#C12D2D] text-xs text-[#ECE4D3] p-2.5 outline-none rounded font-prompt"
                 />
               )}
             </div>
@@ -1350,7 +1350,7 @@ export default function EstimateForm({
                     if (!e.target.checked) setAllergyNote('');
                     setError('');
                   }}
-                  className="rounded border-[#4A443A] text-[#9C2F2F] focus:ring-[#9C2F2F] bg-[#0E0D0C] w-4 h-4"
+                  className="rounded border-[#4A443A] text-[#C12D2D] focus:ring-[#C12D2D] bg-[#0E0D0C] w-4 h-4"
                 />
                 <span>มีประวัติการแพ้ยา สารเคมี แอลกอฮอล์ หรือน้ำยาทำความสะอาด</span>
               </label>
@@ -1364,7 +1364,7 @@ export default function EstimateForm({
                     setError('');
                   }}
                   placeholder="เช่น แพ้ยาฆ่าเชื้อ, แพ้พลาสเตอร์ยา, แพ้น้ำยาล้างแผล ฯลฯ"
-                  className="w-full bg-[#0E0D0C] border border-[#4A443A] focus:border-[#9C2F2F] text-xs text-[#ECE4D3] p-2.5 outline-none rounded font-prompt"
+                  className="w-full bg-[#0E0D0C] border border-[#4A443A] focus:border-[#C12D2D] text-xs text-[#ECE4D3] p-2.5 outline-none rounded font-prompt"
                 />
               )}
             </div>

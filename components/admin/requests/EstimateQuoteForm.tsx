@@ -310,7 +310,7 @@ export default function EstimateQuoteForm({
       <form onSubmit={handleSubmit} className="space-y-3 text-xs">
         {/* 1. Appointment Date */}
         <div>
-          <label className="block text-studio-secondary mb-1">
+          <label className="block text-[#ECE4D3] mb-1">
             วันนัดหมาย <span className="text-red-400">*</span>
           </label>
           <input
@@ -320,7 +320,7 @@ export default function EstimateQuoteForm({
             disabled={isSubmitting}
             value={appointmentDate}
             onChange={(e) => setAppointmentDate(e.target.value)}
-            className="w-full bg-studio-sec border border-studio-border rounded-xl px-3 py-2 text-studio-primary focus:outline-none focus:border-studio-red"
+            className="w-full bg-studio-sec border border-studio-border rounded-xl px-3 py-2 text-studio-primary focus:outline-none focus:border-studio-red cursor-pointer"
           />
           {(() => {
             const rawTime = estimate.preferred_time || (estimate as any).preferredTime;
@@ -349,7 +349,7 @@ export default function EstimateQuoteForm({
         {/* 2. Start Time & End Time */}
         <div className="grid grid-cols-2 gap-2">
           <div>
-            <label className="block text-studio-secondary mb-1">
+            <label className="block text-[#ECE4D3] mb-1">
               เวลาเริ่ม <span className="text-red-400">*</span>
             </label>
             <input
@@ -359,11 +359,11 @@ export default function EstimateQuoteForm({
               disabled={isSubmitting}
               value={startTime}
               onChange={(e) => handleStartTimeChange(e.target.value)}
-              className="w-full bg-studio-sec border border-studio-border rounded-xl px-3 py-2 text-studio-primary font-mono focus:outline-none focus:border-studio-red"
+              className="w-full bg-studio-sec border border-studio-border rounded-xl px-3 py-2 text-studio-primary font-mono focus:outline-none focus:border-studio-red cursor-pointer"
             />
           </div>
           <div>
-            <label className="block text-studio-secondary mb-1">
+            <label className="block text-[#ECE4D3] mb-1">
               เวลาสิ้นสุด <span className="text-red-400">*</span>
             </label>
             <input
@@ -373,7 +373,7 @@ export default function EstimateQuoteForm({
               disabled={isSubmitting}
               value={endTime}
               onChange={(e) => setEndTime(e.target.value)}
-              className="w-full bg-studio-sec border border-studio-border rounded-xl px-3 py-2 text-studio-primary font-mono focus:outline-none focus:border-studio-red"
+              className="w-full bg-studio-sec border border-studio-border rounded-xl px-3 py-2 text-studio-primary font-mono focus:outline-none focus:border-studio-red cursor-pointer"
             />
           </div>
         </div>
@@ -382,7 +382,7 @@ export default function EstimateQuoteForm({
         {mode === 'admin' ? (
           <div className="grid grid-cols-2 gap-2">
             <div>
-              <label className="block text-studio-secondary mb-1">
+              <label className="block text-[#ECE4D3] mb-1">
                 ราคางานสัก (฿)
               </label>
               <input
@@ -399,7 +399,7 @@ export default function EstimateQuoteForm({
             </div>
 
             <div>
-              <label className="block text-studio-secondary mb-1">
+              <label className="block text-[#ECE4D3] mb-1">
                 เงินมัดจำ (฿)
               </label>
               <input
@@ -417,7 +417,7 @@ export default function EstimateQuoteForm({
           </div>
         ) : (
           <div>
-            <label className="block text-studio-secondary mb-1">
+            <label className="block text-[#ECE4D3] mb-1">
               เงินมัดจำ (฿)
             </label>
             <input
@@ -436,7 +436,7 @@ export default function EstimateQuoteForm({
 
         {/* 4. Note to Customer */}
         <div>
-          <label className="block text-studio-secondary mb-1">
+          <label className="block text-[#ECE4D3] mb-1">
             {mode === 'artist' ? 'หมายเหตุถึงลูกค้า' : 'หมายเหตุของร้าน/ช่าง'}
           </label>
           <textarea
@@ -456,7 +456,7 @@ export default function EstimateQuoteForm({
             type="button"
             onClick={onCancel}
             disabled={isSubmitting}
-            className="w-full py-2.5 px-3 rounded-xl border border-studio-border bg-studio-sec hover:bg-studio-card text-studio-secondary font-medium text-xs cursor-pointer"
+            className="w-full py-2.5 px-3 rounded-xl border border-studio-border bg-studio-sec hover:bg-studio-card text-[#ECE4D3] font-medium text-xs cursor-pointer"
           >
             ยกเลิก
           </button>

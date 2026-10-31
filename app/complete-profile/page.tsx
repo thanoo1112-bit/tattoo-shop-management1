@@ -234,7 +234,7 @@ function CompleteProfileContent() {
         {/* Brand Header */}
         <div className="text-center mb-6">
           <div className="inline-flex items-center space-x-2 bg-[#0E0D0C] border border-[#4A443A] px-3 py-1 rounded-full text-[10px] tracking-widest text-[#ECE4D3] uppercase font-mono mb-3">
-            <Sparkles size={12} className="text-[#9C2F2F]" />
+            <Sparkles size={12} className="text-[#C12D2D]" />
             <span>157 TATTOO • FIRST PROFILE SETUP</span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-heading font-normal tracking-wide text-[#ECE4D3]">
@@ -247,8 +247,8 @@ function CompleteProfileContent() {
 
         {/* Global Server Error Alert */}
         {serverError && (
-          <div className="mb-5 p-3.5 bg-[#9C2F2F]/10 border border-[#9C2F2F]/40 rounded-[6px] flex items-start space-x-2.5 text-xs text-[#ECE4D3] animate-fadeIn">
-            <AlertCircle size={15} className="text-[#9C2F2F] shrink-0 mt-0.5" />
+          <div className="mb-5 p-3.5 bg-[#C12D2D]/10 border border-[#C12D2D]/40 rounded-[6px] flex items-start space-x-2.5 text-xs text-[#ECE4D3] animate-fadeIn">
+            <AlertCircle size={15} className="text-[#C12D2D] shrink-0 mt-0.5" />
             <span>{serverError}</span>
           </div>
         )}
@@ -266,7 +266,7 @@ function CompleteProfileContent() {
           {/* 1. Display Name Field */}
           <div>
             <label className="block text-xs font-medium text-[#ECE4D3] mb-1.5">
-              ชื่อผู้ใช้งาน <span className="text-[#9C2F2F]">*</span>
+              ชื่อผู้ใช้งาน <span className="text-[#C12D2D]">*</span>
             </label>
             <div className="relative">
               <User size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#7A7265]" />
@@ -276,12 +276,12 @@ function CompleteProfileContent() {
                 onChange={handleNameChange}
                 placeholder="ชื่อ-นามสกุล หรือชื่อเรียก"
                 className={`w-full h-11 pl-9 pr-3.5 bg-[#0E0D0C] border ${
-                  nameError ? 'border-[#9C2F2F]' : 'border-[#4A443A]'
-                } hover:border-[#7A7265] focus:border-[#9C2F2F] rounded-[6px] text-xs text-[#ECE4D3] placeholder-[#7A7265] outline-none transition-colors`}
+                  nameError ? 'border-[#C12D2D]' : 'border-[#4A443A]'
+                } hover:border-[#7A7265] focus:border-[#C12D2D] rounded-[6px] text-xs text-[#ECE4D3] placeholder-[#7A7265] outline-none transition-colors`}
               />
             </div>
             {nameError && (
-              <p className="text-[11px] text-[#9C2F2F] mt-1 flex items-center space-x-1">
+              <p className="text-[11px] text-[#C12D2D] mt-1 flex items-center space-x-1">
                 <AlertCircle size={12} />
                 <span>{nameError}</span>
               </p>
@@ -291,7 +291,7 @@ function CompleteProfileContent() {
           {/* 2. Phone Field */}
           <div>
             <label className="block text-xs font-medium text-[#ECE4D3] mb-1.5">
-              เบอร์โทรศัพท์ <span className="text-[#9C2F2F]">*</span>
+              เบอร์โทรศัพท์ <span className="text-[#C12D2D]">*</span>
             </label>
             <div className="relative">
               <Phone size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#7A7265]" />
@@ -302,12 +302,12 @@ function CompleteProfileContent() {
                 placeholder="08xxxxxxxx"
                 inputMode="numeric"
                 className={`w-full h-11 pl-9 pr-3.5 bg-[#0E0D0C] border ${
-                  phoneError ? 'border-[#9C2F2F]' : 'border-[#4A443A]'
-                } hover:border-[#7A7265] focus:border-[#9C2F2F] rounded-[6px] text-xs font-mono text-[#ECE4D3] placeholder-[#7A7265] outline-none transition-colors`}
+                  phoneError ? 'border-[#C12D2D]' : 'border-[#4A443A]'
+                } hover:border-[#7A7265] focus:border-[#C12D2D] rounded-[6px] text-xs font-mono text-[#ECE4D3] placeholder-[#7A7265] outline-none transition-colors`}
               />
             </div>
             {phoneError ? (
-              <p className="text-[11px] text-[#9C2F2F] mt-1 flex items-center space-x-1">
+              <p className="text-[11px] text-[#C12D2D] mt-1 flex items-center space-x-1">
                 <AlertCircle size={12} />
                 <span>{phoneError}</span>
               </p>
@@ -321,7 +321,7 @@ function CompleteProfileContent() {
           {/* 3. Date of Birth Field */}
           <div>
             <label className="block text-xs font-medium text-[#ECE4D3] mb-1.5">
-              วัน/เดือน/ปีเกิด <span className="text-[#9C2F2F]">*</span>
+              วัน/เดือน/ปีเกิด <span className="text-[#C12D2D]">*</span>
             </label>
             <ThaiDateOfBirthPicker
               value={dateOfBirth}
@@ -333,7 +333,7 @@ function CompleteProfileContent() {
               theme="dark"
             />
             {dobError ? (
-              <p className="text-[11px] text-[#9C2F2F] mt-1 flex items-center space-x-1">
+              <p className="text-[11px] text-[#C12D2D] mt-1 flex items-center space-x-1">
                 <AlertCircle size={12} />
                 <span>{dobError}</span>
               </p>
@@ -354,7 +354,7 @@ function CompleteProfileContent() {
               className={`w-full h-11 rounded-[6px] text-xs font-semibold uppercase tracking-wider flex items-center justify-center space-x-2 transition-all ${
                 loading || isSuccess
                   ? 'bg-[#1C1A16] border border-[#4A443A] text-[#7A7265] cursor-not-allowed'
-                  : 'bg-[#9C2F2F] hover:bg-[#852525] border border-[#9C2F2F] text-[#ECE4D3] shadow-lg shadow-[#9C2F2F]/20'
+                  : 'bg-[#C12D2D] hover:bg-[#852525] border border-[#C12D2D] text-[#ECE4D3] shadow-lg shadow-[#C12D2D]/20'
               }`}
             >
               {loading ? (

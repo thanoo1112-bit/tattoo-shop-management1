@@ -14,7 +14,7 @@ export default function RevenueKpiCards({ kpiData }: RevenueKpiCardsProps) {
       {/* CARD 1: รายได้วันนี้ */}
       <div className="bg-[#171512] border border-[#4A443A] rounded-xl p-4 sm:p-5 shadow-lg relative overflow-hidden group hover:border-[#7A7265] transition-colors">
         <div className="flex items-center justify-between">
-          <span className="text-[11px] sm:text-xs text-[#A89F91] font-medium tracking-wide">
+          <span className="text-[11px] sm:text-xs text-[#ECE4D3] font-medium tracking-wide">
             รายได้วันนี้
           </span>
           <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-emerald-950/40 border border-emerald-800/40 flex items-center justify-center text-emerald-400">
@@ -26,7 +26,7 @@ export default function RevenueKpiCards({ kpiData }: RevenueKpiCardsProps) {
           <p className="text-xl sm:text-2xl lg:text-3xl font-heading font-semibold text-emerald-400 tracking-tight">
             {formatCurrency(kpiData.todayRevenue)}
           </p>
-          <p className="text-[10px] sm:text-[11px] text-[#7A7265] mt-1 flex items-center gap-1">
+          <p className="text-[10px] sm:text-[11px] text-[#ECE4D3] mt-1 flex items-center gap-1">
             <span>{kpiData.todayTransactionCount} รายการรับเงินจริงวันนี้</span>
           </p>
         </div>
@@ -35,11 +35,11 @@ export default function RevenueKpiCards({ kpiData }: RevenueKpiCardsProps) {
       {/* CARD 2: รายได้เดือนนี้ */}
       <div className="bg-[#171512] border border-[#4A443A] rounded-xl p-4 sm:p-5 shadow-lg relative overflow-hidden group hover:border-[#7A7265] transition-colors">
         <div className="flex items-center justify-between">
-          <span className="text-[11px] sm:text-xs text-[#A89F91] font-medium tracking-wide">
+          <span className="text-[11px] sm:text-xs text-[#ECE4D3] font-medium tracking-wide">
             รายได้เดือนนี้
           </span>
           <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-[#0E0D0C] border border-[#4A443A] flex items-center justify-center text-[#ECE4D3]">
-            <DollarSign size={15} className="text-[#9C2F2F]" />
+            <DollarSign size={15} className="text-[#C12D2D]" />
           </div>
         </div>
 
@@ -47,7 +47,7 @@ export default function RevenueKpiCards({ kpiData }: RevenueKpiCardsProps) {
           <p className="text-xl sm:text-2xl lg:text-3xl font-heading font-semibold text-[#ECE4D3] tracking-tight">
             {formatCurrency(kpiData.monthRevenue)}
           </p>
-          <p className="text-[10px] sm:text-[11px] text-[#7A7265] mt-1 flex items-center gap-1">
+          <p className="text-[10px] sm:text-[11px] text-[#ECE4D3] mt-1 flex items-center gap-1">
             <span>{kpiData.monthTransactionCount} รายการรับเงินในเดือน</span>
           </p>
         </div>
@@ -68,7 +68,7 @@ export default function RevenueKpiCards({ kpiData }: RevenueKpiCardsProps) {
           <p className="text-xl sm:text-2xl lg:text-3xl font-heading font-semibold text-emerald-400 tracking-tight">
             {kpiData.monthCompletedBookingsCount} คิว
           </p>
-          <p className="text-[10px] sm:text-[11px] text-[#7A7265] mt-1 flex items-center gap-1">
+          <p className="text-[10px] sm:text-[11px] text-[#ECE4D3] mt-1 flex items-center gap-1">
             <span>ปิดงานและบันทึกยอดเรียบร้อย</span>
           </p>
         </div>
@@ -89,7 +89,7 @@ export default function RevenueKpiCards({ kpiData }: RevenueKpiCardsProps) {
           <p className="text-xl sm:text-2xl lg:text-3xl font-heading font-semibold text-amber-400 tracking-tight">
             {kpiData.unfinishedBookingsCount} คิว
           </p>
-          <p className="text-[10px] sm:text-[11px] text-[#7A7265] mt-1 flex items-center gap-1">
+          <p className="text-[10px] sm:text-[11px] text-[#ECE4D3] mt-1 flex items-center gap-1">
             <span>รอดำเนินการหรือรอปิดงาน</span>
           </p>
         </div>

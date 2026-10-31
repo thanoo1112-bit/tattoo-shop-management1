@@ -574,7 +574,7 @@ function ArtistCalendarPageContent() {
       case 'IN_PROGRESS':
         return {
           label: 'กำลังสัก',
-          className: 'bg-[#9C2F2F]/20 text-[#D64545] border border-[#9C2F2F]/60 animate-pulse',
+          className: 'bg-[#C12D2D]/20 text-[#C12D2D] border border-[#C12D2D]/60 animate-pulse',
         };
       case 'COMPLETED':
         return {
@@ -875,8 +875,8 @@ function ArtistCalendarPageContent() {
     switch (derived_op_status) {
       case 'IN_PROGRESS':
         return (
-          <span className="bg-[#9C2F2F]/20 text-[#D64545] border border-[#9C2F2F]/60 px-2 py-0.5 rounded text-[10px] font-semibold inline-flex items-center gap-1 shrink-0 animate-pulse">
-            <span className="w-1.5 h-1.5 rounded-full bg-[#D64545] animate-pulse" />
+          <span className="bg-[#C12D2D]/20 text-[#C12D2D] border border-[#C12D2D]/60 px-2 py-0.5 rounded text-[10px] font-semibold inline-flex items-center gap-1 shrink-0 animate-pulse">
+            <span className="w-1.5 h-1.5 rounded-full bg-[#C12D2D] animate-pulse" />
             กำลังสัก
           </span>
         );
@@ -1036,7 +1036,7 @@ function ArtistCalendarPageContent() {
               <CalendarIcon size={20} className="text-red-500" />
               <span>คิวงานและปฏิทิน</span>
             </h1>
-            <p className="text-xs text-[#A89F91] mt-0.5">
+            <p className="text-xs text-[#ECE4D3] mt-0.5">
               จัดการตารางคิวงาน นัดหมาย และดูปฏิทินรอบสักฝั่งช่าง
             </p>
           </div>
@@ -1050,8 +1050,8 @@ function ArtistCalendarPageContent() {
                 onClick={() => handleSwitchView('calendar')}
                 className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer ${
                   viewMode === 'calendar'
-                    ? 'bg-red-950/80 text-red-200 border border-red-800/80 shadow-xs'
-                    : 'text-[#A89F91] hover:text-[#ECE4D3] hover:bg-[#1A1815]'
+                    ? 'bg-[#C12D2D] text-white border border-[#C12D2D] shadow-xs'
+                    : 'text-[#ECE4D3] hover:text-white hover:bg-[#1A1815]'
                 }`}
               >
                 <CalendarDays size={14} />
@@ -1063,8 +1063,8 @@ function ArtistCalendarPageContent() {
                 onClick={() => handleSwitchView('queue')}
                 className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer ${
                   viewMode === 'queue'
-                    ? 'bg-red-950/80 text-red-200 border border-red-800/80 shadow-xs'
-                    : 'text-[#A89F91] hover:text-[#ECE4D3] hover:bg-[#1A1815]'
+                    ? 'bg-[#C12D2D] text-white border border-[#C12D2D] shadow-xs'
+                    : 'text-[#ECE4D3] hover:text-white hover:bg-[#1A1815]'
                 }`}
               >
                 <LayoutList size={14} />
@@ -1077,7 +1077,7 @@ function ArtistCalendarPageContent() {
               type="button"
               onClick={() => fetchArtistData()}
               disabled={loading}
-              className="p-2 bg-[#171512] border border-[#4A443A]/40 hover:border-red-600/50 text-[#A89F91] hover:text-[#ECE4D3] rounded-lg transition-colors cursor-pointer disabled:opacity-50"
+              className="p-2 bg-[#171512] border border-[#4A443A]/40 hover:border-[#C12D2D]/50 text-[#ECE4D3] hover:text-white rounded-lg transition-colors cursor-pointer disabled:opacity-50"
               title="รีเฟรชข้อมูล"
             >
               <RefreshCw size={16} className={loading ? 'animate-spin text-red-500' : ''} />
@@ -1100,7 +1100,7 @@ function ArtistCalendarPageContent() {
                 <button
                   type="button"
                   onClick={handlePrevMonth}
-                  className="p-1.5 rounded-md hover:bg-[#1A1815] text-[#A89F91] hover:text-[#ECE4D3] transition-colors cursor-pointer"
+                  className="p-1.5 rounded-md hover:bg-[#1A1815] text-[#ECE4D3] hover:text-white transition-colors cursor-pointer"
                   title="เดือนก่อนหน้า"
                 >
                   <ChevronLeft size={18} />
@@ -1108,7 +1108,7 @@ function ArtistCalendarPageContent() {
                 <button
                   type="button"
                   onClick={handleNextMonth}
-                  className="p-1.5 rounded-md hover:bg-[#1A1815] text-[#A89F91] hover:text-[#ECE4D3] transition-colors cursor-pointer"
+                  className="p-1.5 rounded-md hover:bg-[#1A1815] text-[#ECE4D3] hover:text-white transition-colors cursor-pointer"
                   title="เดือนถัดไป"
                 >
                   <ChevronRight size={18} />
@@ -1116,7 +1116,7 @@ function ArtistCalendarPageContent() {
                 <button
                   type="button"
                   onClick={handleGoToday}
-                  className="px-3 py-1 bg-red-950/80 hover:bg-red-900 border border-red-800/80 text-xs text-red-200 font-bold rounded-md transition-colors cursor-pointer ml-1"
+                  className="px-3 py-1 bg-[#C12D2D] hover:bg-[#A82525] border border-[#C12D2D] text-xs text-white font-bold rounded-md transition-colors cursor-pointer ml-1"
                 >
                   วันนี้
                 </button>
@@ -1132,7 +1132,7 @@ function ArtistCalendarPageContent() {
                   {THAI_DAYS_MON_FIRST.map((dName) => (
                     <div
                       key={dName}
-                      className="py-2 text-xs font-bold text-[#A89F91] uppercase tracking-wider border-r border-[#4A443A]/20 last:border-r-0"
+                      className="py-2 text-xs font-bold text-[#ECE4D3] uppercase tracking-wider border-r border-[#4A443A]/20 last:border-r-0"
                     >
                       {dName}
                     </div>
@@ -1203,7 +1203,7 @@ function ArtistCalendarPageContent() {
                                     getPendingRescheduleRequest(s.booking_id)
                                   );
                                   const pillClass = isInProgress
-                                    ? 'bg-[#9C2F2F]/20 text-[#D64545] border-[#9C2F2F]/60'
+                                    ? 'bg-[#C12D2D]/20 text-[#C12D2D] border-[#C12D2D]/60'
                                     : isCompleted
                                     ? 'bg-emerald-950/80 text-emerald-300 border-emerald-700/80'
                                     : hasPendingReschedule
@@ -1224,7 +1224,7 @@ function ArtistCalendarPageContent() {
                                   );
                                 })}
                                 {totalCount > 2 && (
-                                  <span className="text-[9.5px] text-[#A89F91] font-semibold block px-1 truncate">
+                                  <span className="text-[9.5px] text-[#ECE4D3] font-semibold block px-1 truncate">
                                     +{totalCount - 2} คิว
                                   </span>
                                 )}
@@ -1252,7 +1252,7 @@ function ArtistCalendarPageContent() {
                                   } else if (statusKey === 'COMPLETED') {
                                     colorClass = 'text-emerald-300';
                                   } else if (statusKey === 'IN_PROGRESS') {
-                                    colorClass = 'text-[#D64545]';
+                                    colorClass = 'text-[#C12D2D]';
                                   } else if (statusKey === 'CANCELLED') {
                                     colorClass = 'text-[#7A7265]';
                                   } else if (statusKey === 'REJECTED') {
@@ -1312,7 +1312,7 @@ function ArtistCalendarPageContent() {
                 {/* Right Panel Header */}
                 <div className="flex items-center justify-between border-b border-[#4A443A]/40 pb-3">
                   <div>
-                    <span className="text-[10px] text-[#A89F91] uppercase tracking-wider block font-semibold">
+                    <span className="text-[10px] text-[#ECE4D3] uppercase tracking-wider block font-semibold">
                       รายการนัดของวันที่เลือก
                     </span>
                     <h3 className="text-sm sm:text-base font-bold text-[#ECE4D3] flex items-center gap-1.5 mt-0.5">
@@ -1376,7 +1376,7 @@ function ArtistCalendarPageContent() {
                                 const sessBadge = sess.status === 'COMPLETED'
                                   ? { label: 'งานเสร็จสิ้น', className: 'bg-emerald-950/80 text-emerald-300 border border-emerald-700/80' }
                                   : sess.status === 'IN_PROGRESS'
-                                  ? { label: 'กำลังสัก', className: 'bg-[#9C2F2F]/20 text-[#D64545] border border-[#9C2F2F]/60 animate-pulse' }
+                                  ? { label: 'กำลังสัก', className: 'bg-[#C12D2D]/20 text-[#C12D2D] border border-[#C12D2D]/60 animate-pulse' }
                                   : hasPendingReschedule
                                   ? { label: 'ขอเลื่อนนัด', className: 'bg-amber-500/15 text-amber-300 border border-amber-400/40' }
                                   : { label: 'นัดหมายแล้ว', className: 'bg-sky-500/15 text-sky-300 border border-sky-400/40' };
@@ -1395,7 +1395,7 @@ function ArtistCalendarPageContent() {
                                 e.stopPropagation();
                                 handleOpenDetail(sess);
                               }}
-                              className="px-2.5 py-1 bg-[#12100E] hover:bg-[#1A1815] text-[#A89F91] group-hover:text-[#ECE4D3] text-[11px] font-semibold rounded-lg border border-[#4A443A]/40 transition-colors flex items-center space-x-1 cursor-pointer"
+                              className="px-2.5 py-1 bg-[#12100E] hover:bg-[#1A1815] text-[#ECE4D3] group-hover:text-white text-[11px] font-semibold rounded-lg border border-[#4A443A]/40 transition-colors flex items-center space-x-1 cursor-pointer"
                             >
                               <Eye size={12} />
                               <span>ดูรายละเอียด</span>
@@ -1414,13 +1414,13 @@ function ArtistCalendarPageContent() {
                           </div>
 
                           {/* Customer Name & Placement */}
-                          <div className="pt-2 border-t border-[#4A443A]/30 flex items-center justify-between text-[11px] text-[#A89F91]">
+                          <div className="pt-2 border-t border-[#4A443A]/30 flex items-center justify-between text-[11px] text-[#ECE4D3]">
                             <div className="flex items-center space-x-1.5 truncate max-w-[160px]">
-                              <User size={12} className="shrink-0 text-[#7A7265]" />
+                              <User size={12} className="shrink-0 text-[#ECE4D3]" />
                               <span className="text-[#ECE4D3] truncate font-medium">{customerName}</span>
                             </div>
                             <div className="flex items-center space-x-1.5 truncate max-w-[140px]">
-                              <Layers size={12} className="shrink-0 text-[#7A7265]" />
+                              <Layers size={12} className="shrink-0 text-[#ECE4D3]" />
                               <span className="truncate">{placementDisplay}</span>
                             </div>
                           </div>
@@ -1449,7 +1449,7 @@ function ArtistCalendarPageContent() {
                 <button
                   type="button"
                   onClick={handlePrevMonth}
-                  className="p-1.5 rounded-md hover:bg-[#1A1815] text-[#A89F91] hover:text-[#ECE4D3] transition-colors cursor-pointer"
+                  className="p-1.5 rounded-md hover:bg-[#1A1815] text-[#ECE4D3] hover:text-white transition-colors cursor-pointer"
                   title="เดือนก่อนหน้า"
                 >
                   <ChevronLeft size={18} />
@@ -1457,7 +1457,7 @@ function ArtistCalendarPageContent() {
                 <button
                   type="button"
                   onClick={handleNextMonth}
-                  className="p-1.5 rounded-md hover:bg-[#1A1815] text-[#A89F91] hover:text-[#ECE4D3] transition-colors cursor-pointer"
+                  className="p-1.5 rounded-md hover:bg-[#1A1815] text-[#ECE4D3] hover:text-white transition-colors cursor-pointer"
                   title="เดือนถัดไป"
                 >
                   <ChevronRight size={18} />
@@ -1465,7 +1465,7 @@ function ArtistCalendarPageContent() {
                 <button
                   type="button"
                   onClick={handleGoToday}
-                  className="px-3 py-1 bg-red-950/80 hover:bg-red-900 border border-red-800/80 text-xs text-red-200 font-bold rounded-md transition-colors cursor-pointer ml-1"
+                  className="px-3 py-1 bg-[#C12D2D] hover:bg-[#A82525] border border-[#C12D2D] text-xs text-white font-bold rounded-md transition-colors cursor-pointer ml-1"
                 >
                   วันนี้
                 </button>
@@ -1492,7 +1492,7 @@ function ArtistCalendarPageContent() {
                       className={`px-3 py-1.5 text-xs rounded-md font-medium transition-colors border shrink-0 cursor-pointer ${
                         isSelected
                           ? 'bg-[#ECE4D3] text-[#0E0D0C] border-[#ECE4D3] shadow'
-                          : 'bg-[#0E0D0C] text-[#A89F91] border-[#4A443A] hover:text-[#ECE4D3] hover:border-[#7A7265]'
+                          : 'bg-[#0E0D0C] text-[#ECE4D3] border-[#4A443A] hover:text-white hover:border-[#7A7265]'
                       }`}
                     >
                       {pill.label}
@@ -1503,7 +1503,7 @@ function ArtistCalendarPageContent() {
 
               {/* Search Bar */}
               <div className="relative min-w-[220px]">
-                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#7A7265]" />
+                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#ECE4D3]" />
                 <input
                   type="text"
                   value={searchQuery}
@@ -1523,7 +1523,7 @@ function ArtistCalendarPageContent() {
               <div className="py-12 text-center border border-dashed border-[#4A443A]/60 rounded-lg bg-[#0E0D0C]/40 space-y-2">
                 <CalendarIcon size={28} className="text-[#7A7265] mx-auto opacity-60" />
                 <h4 className="text-xs sm:text-sm font-semibold text-[#ECE4D3]">ยังไม่มีคิวงาน</h4>
-                <p className="text-[11px] text-[#7A7265] max-w-sm mx-auto">
+                <p className="text-[11px] text-[#ECE4D3] max-w-sm mx-auto">
                   รายการคิวงานและนัดหมายที่ยืนยันแล้วจะแสดงในส่วนนี้
                 </p>
               </div>
@@ -1532,7 +1532,7 @@ function ArtistCalendarPageContent() {
                 {/* Desktop Table View */}
                 <div className="hidden md:block overflow-x-auto">
                   <table className="w-full text-left text-xs text-[#ECE4D3]">
-                    <thead className="bg-[#0E0D0C] text-[#7A7265] uppercase text-[10px] tracking-wider border-b border-[#4A443A]">
+                    <thead className="bg-[#0E0D0C] text-[#ECE4D3] uppercase text-[10px] tracking-wider border-b border-[#4A443A]">
                       <tr>
                         <th className="py-3 px-3">รหัส / ลูกค้า</th>
                         <th className="py-3 px-3">งานที่จองและขนาด</th>
@@ -1577,7 +1577,7 @@ function ArtistCalendarPageContent() {
                             className="cursor-pointer transition-colors hover:bg-[#1F1D1A]/60"
                           >
                             {/* 1. รหัส / ลูกค้า */}
-                            <td className="py-3 px-3 text-[#A89F91]">
+                            <td className="py-3 px-3 text-[#ECE4D3]">
                               <span className="text-[10px] text-[#7A7265] font-mono block font-semibold">
                                 #{booking.id.slice(0, 8).toUpperCase()}
                               </span>
@@ -1596,7 +1596,7 @@ function ArtistCalendarPageContent() {
                                   <div className="font-medium text-xs text-[#ECE4D3] truncate max-w-[180px]">
                                     {artworkTitle}
                                   </div>
-                                  <div className="text-[11px] text-[#A89F91] truncate max-w-[180px]">
+                                  <div className="text-[11px] text-[#ECE4D3] truncate max-w-[180px]">
                                     {placement !== 'ไม่ระบุตำแหน่ง' ? `${placement} • ${sizeDisplay}` : sizeDisplay}
                                   </div>
                                 </div>
@@ -1604,20 +1604,20 @@ function ArtistCalendarPageContent() {
                             </td>
 
                             {/* 3. สไตล์ */}
-                            <td className="py-3 px-3 text-[#A89F91]">
+                            <td className="py-3 px-3 text-[#ECE4D3]">
                               <div className="font-medium text-xs text-[#ECE4D3]">
                                 {styleName}
                               </div>
                             </td>
 
                             {/* 4. วันและเวลานัด */}
-                            <td className="py-3 px-3 text-[#A89F91]">
+                            <td className="py-3 px-3 text-[#ECE4D3]">
                               <div className="font-medium text-xs text-[#ECE4D3] flex items-center gap-1.5">
-                                <CalendarIcon size={12} className="text-[#7A7265] shrink-0" />
+                                <CalendarIcon size={12} className="text-[#ECE4D3] shrink-0" />
                                 <span>{formatDateBangkok(displaySession.start_at)}</span>
                               </div>
-                              <div className="text-[11px] text-[#A89F91] font-mono mt-0.5 flex items-center gap-1.5">
-                                <Clock size={11} className="text-[#7A7265] shrink-0" />
+                              <div className="text-[11px] text-[#ECE4D3] font-mono mt-0.5 flex items-center gap-1.5">
+                                <Clock size={11} className="text-[#ECE4D3] shrink-0" />
                                 <span>{formatTimeBangkok(displaySession.start_at)}</span>
                               </div>
                             </td>
@@ -1708,22 +1708,22 @@ function ArtistCalendarPageContent() {
                           </div>
                           <div className="min-w-0 flex-1 space-y-0.5">
                             <h4 className="text-xs font-semibold text-[#ECE4D3] truncate">{artworkTitle}</h4>
-                            <p className="text-[11px] text-[#A89F91] truncate">
+                            <p className="text-[11px] text-[#ECE4D3] truncate">
                               {placement !== 'ไม่ระบุตำแหน่ง' ? `${placement} • ` : ''}ขนาด: {sizeDisplay}
                             </p>
-                            <p className="text-[11px] text-[#7A7265] truncate">
-                              สไตล์: <span className="text-[#A89F91]">{styleName}</span>
+                            <p className="text-[11px] text-[#ECE4D3] truncate">
+                              สไตล์: <span className="text-[#ECE4D3]">{styleName}</span>
                             </p>
                           </div>
                         </div>
 
                         <div className="pt-2 border-t border-[#4A443A]/40 flex items-center justify-between text-xs">
                           <div className="flex items-center space-x-2 text-[#ECE4D3] font-mono text-[11px]">
-                            <CalendarIcon size={12} className="text-[#7A7265]" />
+                            <CalendarIcon size={12} className="text-[#ECE4D3]" />
                             <span>{formatDateBangkok(displaySession.start_at)}</span>
                             <span className="text-[#7A7265]">•</span>
-                            <Clock size={11} className="text-[#7A7265]" />
-                            <span className="text-[#A89F91]">{formatTimeBangkok(displaySession.start_at)}</span>
+                            <Clock size={11} className="text-[#ECE4D3]" />
+                            <span className="text-[#ECE4D3]">{formatTimeBangkok(displaySession.start_at)}</span>
                           </div>
                           <button
                             type="button"

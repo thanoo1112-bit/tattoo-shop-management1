@@ -41,7 +41,7 @@ export default function CalendarToolbar({
           onClick={onToday}
           className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all border ${
             isToday
-              ? 'bg-[#9C2F2F]/20 text-[#9C2F2F] border-[#9C2F2F]/40'
+              ? 'bg-[#C12D2D]/20 text-[#C12D2D] border-[#C12D2D]/40'
               : 'bg-[#0E0D0C] text-[#ECE4D3] border-[#4A443A] hover:border-[#A89F91]'
           }`}
         >
@@ -73,7 +73,7 @@ export default function CalendarToolbar({
 
         {/* Current Date Range Title */}
         <div className="flex items-center gap-2 pl-1">
-          <CalendarIcon size={16} className="text-[#9C2F2F] shrink-0" />
+          <CalendarIcon size={16} className="text-[#C12D2D] shrink-0" />
           <h2 id="calendar-title-label" className="text-sm sm:text-base font-bold text-[#ECE4D3] tracking-tight">
             {titleLabel}
           </h2>
@@ -81,13 +81,13 @@ export default function CalendarToolbar({
       </div>
 
       {/* Right: View Switcher (Month / Week / Day) & Actions */}
-      <div className="flex items-center gap-2 self-end md:self-auto flex-wrap">
+      <div className="flex items-center gap-2 w-full md:w-auto justify-between md:justify-end flex-wrap">
         {onOpenBlockModal && (
           <button
             id="btn-open-block-modal"
             type="button"
             onClick={onOpenBlockModal}
-            className="px-3 py-1.5 bg-red-950/80 hover:bg-red-900/90 text-red-300 border border-red-800/80 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1.5 shadow-sm cursor-pointer"
+            className="px-3 py-1.5 bg-[#C12D2D] hover:bg-[#A82525] text-white border border-[#C12D2D] rounded-lg text-xs font-semibold transition-colors flex items-center gap-1.5 shadow-sm cursor-pointer"
           >
             <span>🔒</span>
             <span>ปิดรับคิว</span>
@@ -102,7 +102,7 @@ export default function CalendarToolbar({
             className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
               viewMode === 'MONTH'
                 ? 'bg-[#171512] text-[#ECE4D3] shadow-sm font-semibold border border-[#4A443A]/60'
-                : 'text-[#B8B0A3] hover:text-[#ECE4D3]'
+                : 'text-[#ECE4D3]/70 hover:text-[#ECE4D3]'
             }`}
           >
             เดือน

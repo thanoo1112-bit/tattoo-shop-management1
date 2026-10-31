@@ -1,24 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-
-/**
- * Extracts storage path from studio-assets public URL or raw path
- * Examples:
- *   "https://.../storage/v1/object/public/studio-assets/flash/xyz.webp" -> "flash/xyz.webp"
- *   "flash/xyz.webp" -> "flash/xyz.webp"
- */
-function extractStoragePath(urlOrPath: string | null | undefined): string | null {
-  if (!urlOrPath) return null;
-  const marker = '/studio-assets/';
-  const idx = urlOrPath.indexOf(marker);
-  if (idx !== -1) {
-    return urlOrPath.substring(idx + marker.length).split('?')[0];
-  }
-  if (urlOrPath.startsWith('flash/') || urlOrPath.startsWith('artists/') || urlOrPath.startsWith('portfolio/')) {
-    return urlOrPath.split('?')[0];
-  }
-  return null;
-}
+import { extractStudioStoragePath, getStudioThumbnailStoragePath } from '@/lib/utils/storageUploader';
 
 export async function POST(req: NextRequest) {
   try {
@@ -116,25 +98,58 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 7. Extract and Delete Storage Images from studio-assets bucket
-    const pathsToDelete: string[] = [];
-    const path1 = extractStoragePath(flashDesign.image_url);
-    if (path1) pathsToDelete.push(path1);
+    // 7. Check Shared References for Images (protect against orphan removal of shared files)
+    let canDeleteImage1 = Boolean(flashDesign.image_url);
+    if (flashDesign.image_url) {
+      const { count: flashCount1 } = await supabase
+        .from('flash_designs')
+        .select('id', { count: 'exact', head: true })
+        .eq('image_url', flashDesign.image_url)
+        .neq('id', flashId);
 
-    const path2 = extractStoragePath(flashDesign.image_url_2);
-    if (path2) pathsToDelete.push(path2);
+      const { count: flashCount1In2 } = await supabase
+        .from('flash_designs')
+        .select('id', { count: 'exact', head: true })
+        .eq('image_url_2', flashDesign.image_url)
+        .neq('id', flashId);
 
-    if (pathsToDelete.length > 0) {
-      const { error: storageRemoveError } = await supabase.storage
-        .from('studio-assets')
-        .remove(pathsToDelete);
+      const { count: portfolioCount1 } = await supabase
+        .from('portfolio_artworks')
+        .select('id', { count: 'exact', head: true })
+        .eq('image_url', flashDesign.image_url);
 
-      if (storageRemoveError) {
-        console.warn('[AdminDeleteFlash] Warning deleting storage files:', storageRemoveError);
+      if ((flashCount1 && flashCount1 > 0) || (flashCount1In2 && flashCount1In2 > 0) || (portfolioCount1 && portfolioCount1 > 0)) {
+        canDeleteImage1 = false;
+        console.info('[AdminDeleteFlash] image_url is shared with other record(s). Skipping file cleanup.');
       }
     }
 
-    // 8. Delete Database Record from flash_designs
+    let canDeleteImage2 = Boolean(flashDesign.image_url_2);
+    if (flashDesign.image_url_2) {
+      const { count: flashCount2 } = await supabase
+        .from('flash_designs')
+        .select('id', { count: 'exact', head: true })
+        .eq('image_url_2', flashDesign.image_url_2)
+        .neq('id', flashId);
+
+      const { count: flashCount2In1 } = await supabase
+        .from('flash_designs')
+        .select('id', { count: 'exact', head: true })
+        .eq('image_url', flashDesign.image_url_2)
+        .neq('id', flashId);
+
+      const { count: portfolioCount2 } = await supabase
+        .from('portfolio_artworks')
+        .select('id', { count: 'exact', head: true })
+        .eq('image_url', flashDesign.image_url_2);
+
+      if ((flashCount2 && flashCount2 > 0) || (flashCount2In1 && flashCount2In1 > 0) || (portfolioCount2 && portfolioCount2 > 0)) {
+        canDeleteImage2 = false;
+        console.info('[AdminDeleteFlash] image_url_2 is shared with other record(s). Skipping file cleanup.');
+      }
+    }
+
+    // 8. Delete Database Record from flash_designs FIRST
     const { error: dbDeleteError } = await supabase
       .from('flash_designs')
       .delete()
@@ -148,11 +163,45 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // 9. Storage Cleanup AFTER DB delete succeeds
+    const pathsToDelete: string[] = [];
+
+    if (canDeleteImage1 && flashDesign.image_url) {
+      const p1 = extractStudioStoragePath(flashDesign.image_url);
+      if (p1 && !pathsToDelete.includes(p1)) pathsToDelete.push(p1);
+      const t1 = getStudioThumbnailStoragePath(flashDesign.image_url);
+      if (t1 && !pathsToDelete.includes(t1)) pathsToDelete.push(t1);
+    }
+
+    if (canDeleteImage2 && flashDesign.image_url_2) {
+      const p2 = extractStudioStoragePath(flashDesign.image_url_2);
+      if (p2 && !pathsToDelete.includes(p2)) pathsToDelete.push(p2);
+      const t2 = getStudioThumbnailStoragePath(flashDesign.image_url_2);
+      if (t2 && !pathsToDelete.includes(t2)) pathsToDelete.push(t2);
+    }
+
+    let storageWarning: string | null = null;
+    if (pathsToDelete.length > 0) {
+      const { error: storageRemoveError } = await supabase.storage
+        .from('studio-assets')
+        .remove(pathsToDelete);
+
+      if (storageRemoveError) {
+        console.warn('[AdminDeleteFlash] Warning deleting storage files after DB delete:', storageRemoveError);
+        storageWarning = storageRemoveError.message;
+      }
+    }
+
     return NextResponse.json({
       success: true,
-      message: 'ลบลาย Flash เรียบร้อยแล้ว',
+      message: storageWarning
+        ? 'ลบข้อมูลลาย Flash เรียบร้อยแล้ว (แต่ไม่สามารถลบไฟล์รูปภาพใน Storage ได้)'
+        : 'ลบลาย Flash และไฟล์รูปภาพเรียบร้อยแล้ว',
+      storageCleanupFailed: Boolean(storageWarning),
+      storageWarning,
       deletedId: flashId,
       deletedTitle: flashDesign.title,
+      cleanedPaths: pathsToDelete,
     });
   } catch (err: any) {
     console.error('[AdminDeleteFlash] Unexpected error:', err);

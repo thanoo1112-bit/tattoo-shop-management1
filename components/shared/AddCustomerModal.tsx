@@ -243,14 +243,14 @@ export default function AddCustomerModal({
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-[#4A443A]/60 bg-[#0E0D0C]/50">
           <div className="flex items-center space-x-2.5">
-            <div className="w-8 h-8 rounded-full bg-[#9C2F2F]/20 border border-[#9C2F2F]/40 flex items-center justify-center text-[#D64545]">
+            <div className="w-8 h-8 rounded-full bg-[#C12D2D]/20 border border-[#C12D2D]/40 flex items-center justify-center text-[#C12D2D]">
               <User size={16} />
             </div>
             <div>
               <h2 className="text-sm sm:text-base font-semibold text-[#ECE4D3] tracking-wide">
                 เพิ่มลูกค้าใหม่
               </h2>
-              <p className="text-[11px] text-[#A89F91]">
+              <p className="text-[11px] text-[#ECE4D3]">
                 {role === 'ADMIN' ? 'สร้างประวัติลูกค้า Walk-in / ติดต่อช่องทางอื่น' : 'เพิ่มลูกค้าเข้าแฟ้มประวัติของคุณ'}
               </p>
             </div>
@@ -273,14 +273,14 @@ export default function AddCustomerModal({
               duplicateResult.type === 'PHONE_MATCH'
                 ? 'bg-[#1C1A16] border-[#7A7265]/40 text-[#ECE4D3]'
                 : duplicateResult.type === 'CONFLICT'
-                ? 'bg-[#2A1515] border-[#D64545]/50 text-[#ECE4D3]'
+                ? 'bg-[#2A1515] border-[#C12D2D]/50 text-[#ECE4D3]'
                 : 'bg-[#251A14] border-amber-600/40 text-[#ECE4D3]'
             } space-y-3 animate-fadeIn`}>
               <div className="flex items-start space-x-3">
                 {duplicateResult.type === 'PHONE_MATCH' ? (
                   <UserCheck className="text-emerald-400 shrink-0 mt-0.5" size={20} />
                 ) : duplicateResult.type === 'CONFLICT' ? (
-                  <ShieldAlert className="text-[#D64545] shrink-0 mt-0.5" size={20} />
+                  <ShieldAlert className="text-[#C12D2D] shrink-0 mt-0.5" size={20} />
                 ) : (
                   <AlertCircle className="text-amber-400 shrink-0 mt-0.5" size={20} />
                 )}
@@ -288,7 +288,7 @@ export default function AddCustomerModal({
                   <h4 className="text-xs sm:text-sm font-semibold tracking-wide">
                     {duplicateResult.title}
                   </h4>
-                  <p className="text-xs text-[#A89F91] leading-relaxed">
+                  <p className="text-xs text-[#ECE4D3] leading-relaxed">
                     {duplicateResult.message}
                   </p>
                 </div>
@@ -298,14 +298,14 @@ export default function AddCustomerModal({
               {duplicateResult.customer && (
                 <div className="p-3 bg-[#0E0D0C]/70 rounded-[6px] border border-white/5 space-y-1.5 text-xs font-mono">
                   <div className="flex items-center justify-between">
-                    <span className="text-[#7A7265]">ชื่อลูกค้า:</span>
+                    <span className="text-[#ECE4D3]">ชื่อลูกค้า:</span>
                     <span className="text-[#ECE4D3] font-medium font-prompt">
                       {duplicateResult.customer.display_name || '-'}
                     </span>
                   </div>
                   {duplicateResult.customer.phone && (
                     <div className="flex items-center justify-between">
-                      <span className="text-[#7A7265]">เบอร์โทรศัพท์:</span>
+                      <span className="text-[#ECE4D3]">เบอร์โทรศัพท์:</span>
                       <span className="text-emerald-400">
                         {formatThaiPhoneForDisplay(duplicateResult.customer.phone)}
                       </span>
@@ -313,7 +313,7 @@ export default function AddCustomerModal({
                   )}
                   {duplicateResult.customer.email && (
                     <div className="flex items-center justify-between">
-                      <span className="text-[#7A7265]">อีเมล:</span>
+                      <span className="text-[#ECE4D3]">อีเมล:</span>
                       <span className="text-[#ECE4D3]">
                         {duplicateResult.customer.email}
                       </span>
@@ -340,8 +340,8 @@ export default function AddCustomerModal({
 
           {/* General Error Banner */}
           {generalError && (
-            <div className="p-3 rounded-[6px] bg-[#2A1515] border border-[#D64545]/40 text-xs text-[#ECE4D3] flex items-start space-x-2">
-              <AlertCircle size={16} className="text-[#D64545] shrink-0 mt-0.5" />
+            <div className="p-3 rounded-[6px] bg-[#2A1515] border border-[#C12D2D]/40 text-xs text-[#ECE4D3] flex items-start space-x-2">
+              <AlertCircle size={16} className="text-[#C12D2D] shrink-0 mt-0.5" />
               <span>{generalError}</span>
             </div>
           )}
@@ -352,9 +352,9 @@ export default function AddCustomerModal({
               {/* Field 1: Display Name */}
               <div className="space-y-1.5">
                 <label className="text-xs font-medium text-[#ECE4D3] flex items-center justify-between">
-                  <span>ชื่อลูกค้า <span className="text-[#D64545]">*</span></span>
+                  <span>ชื่อลูกค้า <span className="text-[#C12D2D]">*</span></span>
                   {fieldErrors.displayName && (
-                    <span className="text-[11px] text-[#D64545]">{fieldErrors.displayName}</span>
+                    <span className="text-[11px] text-[#C12D2D]">{fieldErrors.displayName}</span>
                   )}
                 </label>
                 <div className="relative">
@@ -369,7 +369,7 @@ export default function AddCustomerModal({
                     placeholder="เช่น สมชาย ใจดี"
                     disabled={loading}
                     className={`w-full h-[42px] pl-9 pr-3 bg-[#0E0D0C] border ${
-                      fieldErrors.displayName ? 'border-[#D64545]' : 'border-[#4A443A] focus:border-[#9C2F2F]'
+                      fieldErrors.displayName ? 'border-[#C12D2D]' : 'border-[#4A443A] focus:border-[#C12D2D]'
                     } rounded-[6px] text-xs text-[#ECE4D3] placeholder-[#7A7265] outline-none transition-colors`}
                   />
                 </div>
@@ -378,9 +378,9 @@ export default function AddCustomerModal({
               {/* Field 2: Phone */}
               <div className="space-y-1.5">
                 <label className="text-xs font-medium text-[#ECE4D3] flex items-center justify-between">
-                  <span>เบอร์โทรศัพท์ <span className="text-[#D64545]">*</span></span>
+                  <span>เบอร์โทรศัพท์ <span className="text-[#C12D2D]">*</span></span>
                   {fieldErrors.phone && (
-                    <span className="text-[11px] text-[#D64545]">{fieldErrors.phone}</span>
+                    <span className="text-[11px] text-[#C12D2D]">{fieldErrors.phone}</span>
                   )}
                 </label>
                 <div className="relative">
@@ -395,7 +395,7 @@ export default function AddCustomerModal({
                     placeholder="เช่น 0812345678 หรือ 081-234-5678"
                     disabled={loading}
                     className={`w-full h-[42px] pl-9 pr-3 bg-[#0E0D0C] border ${
-                      fieldErrors.phone ? 'border-[#D64545]' : 'border-[#4A443A] focus:border-[#9C2F2F]'
+                      fieldErrors.phone ? 'border-[#C12D2D]' : 'border-[#4A443A] focus:border-[#C12D2D]'
                     } rounded-[6px] text-xs text-[#ECE4D3] placeholder-[#7A7265] outline-none transition-colors font-mono`}
                   />
                 </div>
@@ -409,7 +409,7 @@ export default function AddCustomerModal({
                 <label className="text-xs font-medium text-[#ECE4D3] flex items-center justify-between">
                   <span>อีเมล <span className="text-[#7A7265] text-[10px] font-normal">(ไม่บังคับ)</span></span>
                   {fieldErrors.email && (
-                    <span className="text-[11px] text-[#D64545]">{fieldErrors.email}</span>
+                    <span className="text-[11px] text-[#C12D2D]">{fieldErrors.email}</span>
                   )}
                 </label>
                 <div className="relative">
@@ -424,7 +424,7 @@ export default function AddCustomerModal({
                     placeholder="เช่น customer@example.com"
                     disabled={loading}
                     className={`w-full h-[42px] pl-9 pr-3 bg-[#0E0D0C] border ${
-                      fieldErrors.email ? 'border-[#D64545]' : 'border-[#4A443A] focus:border-[#9C2F2F]'
+                      fieldErrors.email ? 'border-[#C12D2D]' : 'border-[#4A443A] focus:border-[#C12D2D]'
                     } rounded-[6px] text-xs text-[#ECE4D3] placeholder-[#7A7265] outline-none transition-colors`}
                   />
                 </div>
@@ -442,7 +442,7 @@ export default function AddCustomerModal({
                     value={dateOfBirth}
                     onChange={(e) => setDateOfBirth(e.target.value)}
                     disabled={loading}
-                    className="w-full h-[42px] pl-9 pr-3 bg-[#0E0D0C] border border-[#4A443A] focus:border-[#9C2F2F] rounded-[6px] text-xs text-[#ECE4D3] outline-none transition-colors"
+                    className="w-full h-[42px] pl-9 pr-3 bg-[#0E0D0C] border border-[#4A443A] focus:border-[#C12D2D] rounded-[6px] text-xs text-[#ECE4D3] outline-none transition-colors cursor-pointer"
                   />
                 </div>
               </div>
@@ -464,7 +464,7 @@ export default function AddCustomerModal({
                 >
                   {loading ? (
                     <>
-                      <Loader2 size={13} className="animate-spin text-[#D64545]" />
+                      <Loader2 size={13} className="animate-spin text-[#C12D2D]" />
                       <span>กำลังบันทึก...</span>
                     </>
                   ) : (

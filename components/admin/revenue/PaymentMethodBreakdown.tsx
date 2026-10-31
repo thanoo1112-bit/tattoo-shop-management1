@@ -24,7 +24,7 @@ export default function PaymentMethodBreakdown({
       case 'QR':
         return <QrCode size={14} className="text-purple-400" />;
       default:
-        return <MoreHorizontal size={14} className="text-[#A89F91]" />;
+        return <MoreHorizontal size={14} className="text-[#ECE4D3]" />;
     }
   };
 
@@ -33,14 +33,14 @@ export default function PaymentMethodBreakdown({
       {/* Header */}
       <div className="flex items-center justify-between border-b border-[#4A443A]/60 pb-3">
         <div className="flex items-center gap-2">
-          <div className="w-7 h-7 rounded-md bg-[#0E0D0C] border border-[#4A443A] flex items-center justify-center text-[#9C2F2F]">
+          <div className="w-7 h-7 rounded-md bg-[#0E0D0C] border border-[#4A443A] flex items-center justify-center text-[#C12D2D]">
             <CreditCard size={15} />
           </div>
           <div>
             <h3 className="text-sm sm:text-base font-heading font-semibold text-[#ECE4D3]">
               ช่องทางการชำระเงิน
             </h3>
-            <p className="text-[11px] text-[#A89F91]">
+            <p className="text-[11px] text-[#ECE4D3]">
               เงินสด, โอนธนาคาร, และสแกน QR Code
             </p>
           </div>
@@ -49,7 +49,7 @@ export default function PaymentMethodBreakdown({
 
       {/* Content */}
       {!hasData ? (
-        <div className="py-6 text-center text-xs text-[#7A7265] border border-dashed border-[#4A443A]/60 rounded-lg bg-[#0E0D0C]/40">
+        <div className="py-6 text-center text-xs text-[#ECE4D3] border border-dashed border-[#4A443A]/60 rounded-lg bg-[#0E0D0C]/40">
           ยังไม่มีข้อมูลช่องทางการรับเงินในช่วงนี้
         </div>
       ) : (
@@ -64,7 +64,7 @@ export default function PaymentMethodBreakdown({
                   {getIcon(item.method)}
                   {item.label}
                 </span>
-                <span className="text-[11px] text-[#A89F91] font-semibold">
+                <span className="text-[11px] text-[#ECE4D3] font-semibold">
                   {item.percentage}%
                 </span>
               </div>
@@ -73,7 +73,7 @@ export default function PaymentMethodBreakdown({
                 <span className="text-sm font-heading font-semibold text-emerald-400">
                   {formatCurrency(item.amount)}
                 </span>
-                <span className="text-[10px] text-[#7A7265]">
+                <span className="text-[10px] text-[#ECE4D3]">
                   {item.count} รายการ
                 </span>
               </div>

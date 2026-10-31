@@ -141,7 +141,7 @@ export default function OnsitePriceAdjustmentModal({
               <h3 className="text-base font-heading font-semibold text-[#ECE4D3]">
                 ปรับราคาหน้างาน (On-site Price Adjustment)
               </h3>
-              <p className="text-[11px] text-[#A89F91]">
+              <p className="text-[11px] text-[#ECE4D3]">
                 ลูกค้า: <span className="text-[#ECE4D3] font-medium">{booking.customer_name}</span> • ช่างสัก: {booking.artist_name}
               </p>
             </div>
@@ -179,7 +179,7 @@ export default function OnsitePriceAdjustmentModal({
                 className={`py-2.5 px-3 rounded-lg border text-xs font-semibold flex items-center justify-center gap-2 transition-all ${
                   adjustType === 'INCREASE'
                     ? 'bg-amber-950/60 border-amber-500 text-amber-300 ring-1 ring-amber-500/50 shadow-md'
-                    : 'bg-[#0E0D0C] border-[#4A443A] text-[#A89F91] hover:text-[#ECE4D3] hover:border-[#7A7265]'
+                    : 'bg-[#0E0D0C] border-[#4A443A] text-[#ECE4D3] hover:text-[#ECE4D3] hover:border-[#7A7265]'
                 }`}
               >
                 <TrendingUp size={15} className={adjustType === 'INCREASE' ? 'text-amber-400' : ''} />
@@ -195,7 +195,7 @@ export default function OnsitePriceAdjustmentModal({
                 className={`py-2.5 px-3 rounded-lg border text-xs font-semibold flex items-center justify-center gap-2 transition-all ${
                   adjustType === 'DECREASE'
                     ? 'bg-emerald-950/60 border-emerald-500 text-emerald-300 ring-1 ring-emerald-500/50 shadow-md'
-                    : 'bg-[#0E0D0C] border-[#4A443A] text-[#A89F91] hover:text-[#ECE4D3] hover:border-[#7A7265]'
+                    : 'bg-[#0E0D0C] border-[#4A443A] text-[#ECE4D3] hover:text-[#ECE4D3] hover:border-[#7A7265]'
                 }`}
               >
                 <TrendingDown size={15} className={adjustType === 'DECREASE' ? 'text-emerald-400' : ''} />
@@ -210,13 +210,13 @@ export default function OnsitePriceAdjustmentModal({
               <label className="text-xs font-medium text-[#ECE4D3]">
                 จำนวนเงินที่ปรับ (บาท) <span className="text-red-400">*</span>
               </label>
-              <span className="text-[10px] text-[#A89F91]">
+              <span className="text-[10px] text-[#ECE4D3]">
                 {adjustType === 'INCREASE' ? 'เพิ่มจากราคากลางเดิม' : 'ลดจากราคากลางเดิม'}
               </span>
             </div>
 
             <div className="relative">
-              <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-sm text-[#7A7265] font-semibold">
+              <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-sm text-[#ECE4D3] font-semibold">
                 ฿
               </span>
               <input
@@ -237,7 +237,7 @@ export default function OnsitePriceAdjustmentModal({
 
             {/* Quick Presets */}
             <div className="flex items-center gap-1.5 mt-2 overflow-x-auto pb-1">
-              <span className="text-[10px] text-[#7A7265] shrink-0">ตัวเลือกด่วน:</span>
+              <span className="text-[10px] text-[#ECE4D3] shrink-0">ตัวเลือกด่วน:</span>
               {quickAmountOptions.map((amt) => (
                 <button
                   key={amt}
@@ -246,7 +246,7 @@ export default function OnsitePriceAdjustmentModal({
                     setAmountStr(amt.toString());
                     setValidationError(null);
                   }}
-                  className="px-2 py-0.5 bg-[#0E0D0C] hover:bg-[#26231F] border border-[#4A443A] text-[10px] text-[#A89F91] hover:text-[#ECE4D3] rounded transition-colors"
+                  className="px-2 py-0.5 bg-[#0E0D0C] hover:bg-[#26231F] border border-[#4A443A] text-[10px] text-[#ECE4D3] hover:text-[#ECE4D3] rounded transition-colors"
                 >
                   +{amt.toLocaleString('th-TH')}
                 </button>
@@ -257,7 +257,7 @@ export default function OnsitePriceAdjustmentModal({
           {/* 3. Reason for Adjustment */}
           <div>
             <label className="block text-xs font-medium text-[#ECE4D3] mb-1.5">
-              เหตุผลการปรับราคา <span className="text-[#7A7265] font-normal">(บันทึกในประวัติ)</span>
+              เหตุผลการปรับราคา <span className="text-[#ECE4D3] font-normal">(บันทึกในประวัติ)</span>
             </label>
             <textarea
               rows={2}
@@ -276,7 +276,7 @@ export default function OnsitePriceAdjustmentModal({
           {/* 4. Real-time Live Calculation Preview Box */}
           <div className="bg-[#0E0D0C] border border-[#4A443A]/80 rounded-lg p-3.5 space-y-2.5">
             <div className="flex items-center justify-between text-xs border-b border-[#4A443A]/40 pb-2">
-              <span className="text-[#A89F91] font-medium flex items-center gap-1">
+              <span className="text-[#ECE4D3] font-medium flex items-center gap-1">
                 <Info size={13} className="text-amber-400" />
                 สรุปการคำนวณยอดเงินใหม่ (Real-time Preview)
               </span>
@@ -284,7 +284,7 @@ export default function OnsitePriceAdjustmentModal({
 
             <div className="space-y-1.5 text-xs font-mono">
               {/* Row 1: Current Quoted Price */}
-              <div className="flex justify-between items-center text-[#A89F91]">
+              <div className="flex justify-between items-center text-[#ECE4D3]">
                 <span>ราคางานเดิม (Current Price):</span>
                 <span className="text-[#ECE4D3]">฿{currentPrice.toLocaleString('th-TH')}</span>
               </div>
@@ -306,14 +306,14 @@ export default function OnsitePriceAdjustmentModal({
               </div>
 
               {/* Row 4: Total Paid */}
-              <div className="flex justify-between items-center text-[#7A7265]">
+              <div className="flex justify-between items-center text-[#ECE4D3]">
                 <span className="font-prompt">ชำระแล้วจริง (Total Paid):</span>
                 <span className="text-emerald-400 font-semibold">฿{paidTotal.toLocaleString('th-TH')}</span>
               </div>
 
               {/* Row 5: New Remaining Balance */}
               <div className="flex justify-between items-center pt-1.5 border-t border-[#4A443A]/40 text-xs font-semibold">
-                <span className="font-prompt text-[#A89F91]">ยอดคงเหลือใหม่ (New Remaining Balance):</span>
+                <span className="font-prompt text-[#ECE4D3]">ยอดคงเหลือใหม่ (New Remaining Balance):</span>
                 <span className="text-amber-300 font-bold text-sm">
                   ฿{newRemainingBalance.toLocaleString('th-TH')}
                 </span>
@@ -327,7 +327,7 @@ export default function OnsitePriceAdjustmentModal({
               type="button"
               onClick={onClose}
               disabled={isSubmitting}
-              className="px-4 py-2 text-xs text-[#A89F91] hover:text-[#ECE4D3] bg-[#0E0D0C] border border-[#4A443A] rounded-lg transition-colors"
+              className="px-4 py-2 text-xs text-[#ECE4D3] hover:text-[#ECE4D3] bg-[#0E0D0C] border border-[#4A443A] rounded-lg transition-colors"
             >
               ยกเลิก
             </button>

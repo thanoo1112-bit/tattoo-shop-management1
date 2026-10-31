@@ -55,7 +55,7 @@ export default function RecentRevenueTransactions({
           <h3 className="text-base sm:text-lg font-heading font-semibold text-[#ECE4D3] tracking-wide">
             ตารางบันทึกรายการธุรกรรม (Transaction Logs)
           </h3>
-          <p className="text-xs text-[#A89F91] mt-0.5">
+          <p className="text-xs text-[#ECE4D3] mt-0.5">
             คิวงานสักที่ปิดงานเสร็จสิ้นเรียบร้อยแล้ว (10 รายการล่าสุด)
           </p>
         </div>
@@ -82,13 +82,13 @@ export default function RecentRevenueTransactions({
 
       {/* Content */}
       {completedBookings.length === 0 ? (
-        <div className="py-8 text-center text-xs text-[#7A7265] border border-dashed border-[#4A443A]/60 rounded-lg bg-[#0E0D0C]/40">
+        <div className="py-8 text-center text-xs text-[#ECE4D3] border border-dashed border-[#4A443A]/60 rounded-lg bg-[#0E0D0C]/40">
           ยังไม่มีรายการงานที่เสร็จสิ้นในระบบ
         </div>
       ) : (
         <div className="overflow-x-auto w-full">
           <table className="w-full text-left text-xs whitespace-nowrap min-w-[750px]">
-            <thead className="bg-[#0E0D0C] border-b border-[#4A443A] text-[11px] text-[#7A7265] uppercase tracking-wider font-normal">
+            <thead className="bg-[#0E0D0C] border-b border-[#4A443A] text-[11px] text-[#ECE4D3] uppercase tracking-wider font-normal">
               <tr>
                 <th className="py-3 px-4 font-normal">วันที่ปิดงาน</th>
                 <th className="py-3 px-4 font-normal">ชื่อลูกค้า</th>
@@ -102,7 +102,7 @@ export default function RecentRevenueTransactions({
             <tbody className="divide-y divide-[#4A443A]/50">
               {completedBookings.map((item) => (
                 <tr key={item.id} className="hover:bg-[#1F1D1A]/80 transition-colors">
-                  <td className="py-3.5 px-4 text-[#A89F91] font-mono text-[11px]">
+                  <td className="py-3.5 px-4 text-[#ECE4D3] font-mono text-[11px]">
                     {new Date(item.completed_at).toLocaleString('th-TH', {
                       year: 'numeric',
                       month: 'short',
@@ -114,7 +114,7 @@ export default function RecentRevenueTransactions({
                   <td className="py-3.5 px-4 font-bold text-[#ECE4D3]">
                     {item.customer_name}
                   </td>
-                  <td className="py-3.5 px-4 text-[#A89F91]">
+                  <td className="py-3.5 px-4 text-[#ECE4D3]">
                     {(item as any).artwork_title || 'งานสัก Custom'}
                   </td>
                   <td className="py-3.5 px-4 font-medium text-[#ECE4D3]">

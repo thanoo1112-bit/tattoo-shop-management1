@@ -146,7 +146,7 @@ export default function CustomDatePicker({
             <button
               type="button"
               onClick={handlePrevMonth}
-              className="p-1 text-[#A89F91] hover:text-[#ECE4D3] hover:bg-[#26231F] rounded transition-colors"
+              className="p-1 text-[#ECE4D3] hover:text-white hover:bg-[#26231F] rounded transition-colors"
               title="เดือนก่อนหน้า"
             >
               <ChevronLeft size={16} />
@@ -170,7 +170,7 @@ export default function CustomDatePicker({
               <span
                 key={dayName}
                 className={`text-[10px] font-semibold py-0.5 ${
-                  idx >= 5 ? 'text-amber-400/80' : 'text-[#A89F91]'
+                  idx >= 5 ? 'text-amber-400/80' : 'text-[#ECE4D3]'
                 }`}
               >
                 {dayName}

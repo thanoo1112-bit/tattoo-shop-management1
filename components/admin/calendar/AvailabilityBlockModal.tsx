@@ -166,7 +166,7 @@ export default function AvailabilityBlockModal({
           </div>
           <button
             onClick={onClose}
-            className="text-[#7A7265] hover:text-[#ECE4D3] transition-colors p-1"
+            className="text-[#ECE4D3] hover:text-white transition-colors p-1"
           >
             <X size={18} />
           </button>
@@ -185,7 +185,7 @@ export default function AvailabilityBlockModal({
                   <div>
                     <span className="font-semibold text-red-400">🔒 ปิดทั้งร้าน (Studio Block)</span>
                     {studioBlock.reason && (
-                      <p className="text-[11px] text-[#A89F91] mt-0.5">เหตุผล: {studioBlock.reason}</p>
+                      <p className="text-[11px] text-[#ECE4D3] mt-0.5">เหตุผล: {studioBlock.reason}</p>
                     )}
                   </div>
                   <button
@@ -210,7 +210,7 @@ export default function AvailabilityBlockModal({
                     <div>
                       <span className="font-medium text-amber-300">🔒 ช่าง{artistName} — ปิดรับคิว</span>
                       {ab.reason && (
-                        <p className="text-[11px] text-[#A89F91] mt-0.5">เหตุผล: {ab.reason}</p>
+                        <p className="text-[11px] text-[#ECE4D3] mt-0.5">เหตุผล: {ab.reason}</p>
                       )}
                     </div>
                     <button
@@ -235,7 +235,7 @@ export default function AvailabilityBlockModal({
               <ShieldAlert size={16} />
               <span>ยืนยันเปิดรับคิวอีกครั้ง?</span>
             </div>
-            <p className="text-xs text-[#A89F91]">
+            <p className="text-xs text-[#ECE4D3]">
               การเปิดรับคิวจะทำให้ลูกค้าสามารถเลือกจองคิวในวันที่{' '}
               <span className="text-[#ECE4D3] font-medium">{formatDateBangkok(selectedDateStr)}</span> ได้ตามปกติ
             </p>
@@ -244,7 +244,7 @@ export default function AvailabilityBlockModal({
                 type="button"
                 onClick={() => setConfirmUnblockItem(null)}
                 disabled={isSubmitting}
-                className="px-3 py-1.5 text-xs text-[#A89F91] bg-[#171512] border border-[#4A443A] rounded hover:text-[#ECE4D3]"
+                className="px-3 py-1.5 text-xs text-[#ECE4D3] bg-[#171512] border border-[#4A443A] rounded hover:text-white"
               >
                 ยกเลิก
               </button>
@@ -274,7 +274,7 @@ export default function AvailabilityBlockModal({
                   className={`py-2 px-3 text-xs rounded-md border font-medium transition-colors flex items-center justify-center gap-1.5 ${
                     scope === 'STUDIO'
                       ? 'bg-red-950/80 text-red-300 border-red-800'
-                      : 'bg-[#0E0D0C] text-[#A89F91] border-[#4A443A] hover:text-[#ECE4D3]'
+                      : 'bg-[#0E0D0C] text-[#ECE4D3] border-[#4A443A] hover:border-[#C12D2D]'
                   }`}
                 >
                   <Lock size={13} />
@@ -331,7 +331,7 @@ export default function AvailabilityBlockModal({
             </div>
 
             {/* Notice Note */}
-            <div className="bg-[#0E0D0C] border border-[#4A443A]/60 rounded-md p-2.5 text-[11px] text-[#A89F91] leading-relaxed">
+            <div className="bg-[#0E0D0C] border border-[#4A443A]/60 rounded-md p-2.5 text-[11px] text-[#ECE4D3] leading-relaxed">
               <span className="text-amber-400 font-medium block mb-0.5">ℹ️ ข้อควรทราบ:</span>
               การปิดรับคิวมีผลเฉพาะ <span className="text-[#ECE4D3] font-medium">คำขอจองคิวใหม่</span> ของลูกค้า โดยจะไม่กระทบกับคิวนัดหมายที่มีอยู่แล้วในระบบ
             </div>
@@ -342,7 +342,7 @@ export default function AvailabilityBlockModal({
                 type="button"
                 onClick={onClose}
                 disabled={isSubmitting}
-                className="px-4 py-1.5 text-xs text-[#A89F91] hover:text-[#ECE4D3] bg-[#0E0D0C] border border-[#4A443A] rounded-md transition-colors"
+                className="px-4 py-1.5 text-xs text-[#ECE4D3] hover:text-white bg-[#0E0D0C] border border-[#4A443A] rounded-md transition-colors"
               >
                 ยกเลิก
               </button>
@@ -350,7 +350,7 @@ export default function AvailabilityBlockModal({
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="px-4 py-1.5 text-xs font-medium text-white bg-red-900 hover:bg-red-800 border border-red-700 rounded-md transition-colors flex items-center gap-1.5 disabled:opacity-50"
+                className="px-4 py-1.5 text-xs font-medium text-white bg-[#C12D2D] hover:bg-[#A82525] border border-[#C12D2D] rounded-md transition-colors flex items-center gap-1.5 disabled:opacity-50"
               >
                 {isSubmitting ? (
                   <>

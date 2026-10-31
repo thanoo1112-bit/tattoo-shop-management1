@@ -97,7 +97,7 @@ export default function TimePickerPopover({
     <div ref={containerRef} className="relative w-full font-prompt">
       {/* Label */}
       {label && (
-        <label className="text-[11px] uppercase tracking-wider text-[#F2EEE8] block mb-1.5 font-semibold flex items-center gap-1">
+        <label className="text-[11px] uppercase tracking-wider text-[#ECE4D3] block mb-1.5 font-semibold flex items-center gap-1">
           <Clock size={12} className="text-studio-red shrink-0" />
           <span className="truncate">{label}</span>
         </label>
@@ -112,8 +112,8 @@ export default function TimePickerPopover({
         className={`
           w-full min-h-[44px] bg-[#0E0D0C] border rounded-[4px] px-3 py-2
           flex items-center justify-between cursor-pointer select-none transition-all
-          ${disabled ? 'opacity-50 cursor-not-allowed border-[#332E27]' : 'hover:border-[#9C2F2F] focus:outline-none'}
-          ${isOpen ? 'border-[#9C2F2F] ring-1 ring-[#9C2F2F]' : 'border-[#4A443A]'}
+          ${disabled ? 'opacity-50 cursor-not-allowed border-[#332E27]' : 'hover:border-[#C12D2D] focus:outline-none'}
+          ${isOpen ? 'border-[#C12D2D] ring-1 ring-[#C12D2D]' : 'border-[#4A443A]'}
         `}
       >
         <span className={`text-xs font-mono font-medium ${value ? 'text-[#ECE4D3]' : 'text-[#A89F91]'}`}>
@@ -125,7 +125,7 @@ export default function TimePickerPopover({
             <button
               type="button"
               onClick={handleClear}
-              className="w-5 h-5 rounded-full hover:bg-[#9C2F2F]/30 text-[#A89F91] hover:text-[#ECE4D3] flex items-center justify-center transition-colors"
+              className="w-5 h-5 rounded-full hover:bg-[#C12D2D]/30 text-[#A89F91] hover:text-[#ECE4D3] flex items-center justify-center transition-colors"
               title="ล้างเวลา"
             >
               <X size={12} />
@@ -140,7 +140,7 @@ export default function TimePickerPopover({
         <div className="absolute right-0 top-full mt-1 z-50 w-[270px] bg-[#171512] border border-[#4A443A] rounded-[6px] p-3 shadow-2xl font-prompt animate-fadeIn">
           {/* Popover Header */}
           <div className="flex items-center justify-between pb-2 border-b border-[#332E27] mb-2">
-            <span className="text-[11px] text-[#A89F91] font-medium">
+            <span className="text-[11px] text-[#ECE4D3] font-medium">
               เลือกเวลาระหว่าง 10:00–23:00 น.
             </span>
             <button
@@ -156,7 +156,7 @@ export default function TimePickerPopover({
           <div className="grid grid-cols-2 gap-2">
             {/* Column 1: Hour (10 - 23) */}
             <div>
-              <span className="text-[10px] uppercase font-bold text-[#A89F91] block mb-1 text-center">
+              <span className="text-[10px] uppercase font-bold text-[#ECE4D3] block mb-1 text-center">
                 ชั่วโมง
               </span>
               <div className="h-44 overflow-y-auto pr-1 space-y-1 custom-scrollbar">
@@ -170,7 +170,7 @@ export default function TimePickerPopover({
                       className={`
                         w-full py-1.5 px-2 rounded text-xs font-mono text-center transition-colors flex items-center justify-between
                         ${isSelected
-                          ? 'bg-[#9C2F2F] text-white font-bold'
+                          ? 'bg-[#C12D2D] text-white font-bold'
                           : 'bg-[#0E0D0C] text-[#ECE4D3] hover:bg-[#26221D] border border-[#332E27]'
                         }
                       `}
@@ -184,7 +184,7 @@ export default function TimePickerPopover({
 
             {/* Column 2: Minute (00 - 59) */}
             <div>
-              <span className="text-[10px] uppercase font-bold text-[#A89F91] block mb-1 text-center">
+              <span className="text-[10px] uppercase font-bold text-[#ECE4D3] block mb-1 text-center">
                 นาที
               </span>
               <div className="h-44 overflow-y-auto pr-1 space-y-1 custom-scrollbar">
@@ -203,7 +203,7 @@ export default function TimePickerPopover({
                         ${isDisabledMinute
                           ? 'opacity-25 bg-[#0E0D0C] text-[#555] cursor-not-allowed border border-transparent'
                           : isSelected
-                          ? 'bg-[#9C2F2F] text-white font-bold'
+                          ? 'bg-[#C12D2D] text-white font-bold'
                           : 'bg-[#0E0D0C] text-[#ECE4D3] hover:bg-[#26221D] border border-[#332E27]'
                         }
                       `}
@@ -219,7 +219,7 @@ export default function TimePickerPopover({
           {/* Quick Minute Shortcuts */}
           {selectedHour !== 23 && (
             <div className="pt-2.5 mt-2 border-t border-[#332E27] flex items-center justify-between gap-1">
-              <span className="text-[10px] text-[#A89F91]">นาทีพบบ่อย:</span>
+              <span className="text-[10px] text-[#ECE4D3]">นาทีพบบ่อย:</span>
               <div className="flex gap-1">
                 {['00', '15', '30', '45'].map((m) => (
                   <button
@@ -229,8 +229,8 @@ export default function TimePickerPopover({
                     className={`
                       px-2 py-0.5 rounded text-[10px] font-mono transition-colors border
                       ${selectedMinute === m && Boolean(value)
-                        ? 'bg-[#9C2F2F] text-white border-[#9C2F2F]'
-                        : 'bg-[#0E0D0C] text-[#ECE4D3] border-[#332E27] hover:border-[#9C2F2F]'
+                        ? 'bg-[#C12D2D] text-white border-[#C12D2D]'
+                        : 'bg-[#0E0D0C] text-[#ECE4D3] border-[#332E27] hover:border-[#C12D2D]'
                       }
                     `}
                   >
@@ -253,7 +253,7 @@ export default function TimePickerPopover({
             <button
               type="button"
               onClick={() => setIsOpen(false)}
-              className="bg-[#9C2F2F] hover:bg-[#b53737] text-white text-[11px] font-medium px-3 py-1 rounded transition-colors flex items-center gap-1"
+              className="bg-[#C12D2D] hover:bg-[#b53737] text-white text-[11px] font-medium px-3 py-1 rounded transition-colors flex items-center gap-1"
             >
               <Check size={12} />
               ตกลง

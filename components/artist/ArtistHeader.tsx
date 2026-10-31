@@ -1,9 +1,16 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useApp } from '@/components/AppContext';
+import { createClient } from '@/lib/supabase/client';
+import {
+  readAll,
+  subscribeRescheduleRequests,
+  isRescheduleRequestUiEnabled,
+  normalizeBookingUuid,
+} from '@/lib/reschedule/rescheduleRequestStore';
 import { 
   LayoutDashboard, 
   Calendar, 
@@ -16,15 +23,115 @@ import {
   ChevronRight,
   Store,
   Inbox,
-  Clock
+  Clock,
+  Bell
 } from 'lucide-react';
 
 export default function ArtistHeader() {
   const pathname = usePathname();
-  const { staffArtistRecord, profile, logoutStaff } = useApp();
+  const { staffArtistId, staffArtistRecord, profile, logoutStaff } = useApp();
+
+  const [newRequestCount, setNewRequestCount] = useState<number>(0);
+  const [newDepositSlipCount, setNewDepositSlipCount] = useState<number>(0);
+  const [newRescheduleRequestCount, setNewRescheduleRequestCount] = useState<number>(0);
 
   const artistName = staffArtistRecord?.name || profile?.display_name || 'ช่างประจำร้าน';
   const artistNickname = staffArtistRecord?.nickname ? `(${staffArtistRecord.nickname})` : '';
+
+  // Fetch all 3 notification counts scoped strictly to the logged-in staffArtistId
+  const fetchCounts = useCallback(async () => {
+    if (!staffArtistId) {
+      setNewRequestCount(0);
+      setNewDepositSlipCount(0);
+      setNewRescheduleRequestCount(0);
+      return;
+    }
+
+    const supabase = createClient();
+
+    try {
+      // 1. Group 1: New Custom Requests for this artist
+      const { count: customCount } = await supabase
+        .from('estimate_requests')
+        .select('id', { count: 'exact', head: true })
+        .eq('artist_id', staffArtistId)
+        .eq('status', 'PENDING')
+        .neq('request_type', 'DIRECT_BOOKING');
+
+      // 1b. Group 1: New Flash Requests for this artist
+      let flashCount = 0;
+      try {
+        const { data: flashData, error: fErr } = await supabase
+          .rpc('artist_get_flash_reservations', { p_artist_id: staffArtistId });
+        if (!fErr && flashData) {
+          flashCount = flashData.filter((r: any) => r.status === 'PENDING').length;
+        }
+      } catch (_) {}
+
+      setNewRequestCount((customCount || 0) + flashCount);
+
+      // 2. Group 2: New Deposit Slips for bookings belonging to this artist
+      const { data: bData } = await supabase
+        .from('bookings')
+        .select('id')
+        .eq('artist_id', staffArtistId);
+
+      const bIds = (bData || []).map((b: any) => b.id);
+      const bIdsSet = new Set(bIds.map((id: string) => normalizeBookingUuid(id)));
+
+      if (bIds.length > 0) {
+        const { count: slipCount } = await supabase
+          .from('booking_payment_submissions')
+          .select('id', { count: 'exact', head: true })
+          .in('booking_id', bIds)
+          .eq('status', 'PENDING');
+        setNewDepositSlipCount(slipCount || 0);
+      } else {
+        setNewDepositSlipCount(0);
+      }
+
+      // 3. Group 3: New Reschedule Requests for bookings belonging to this artist
+      if (!isRescheduleRequestUiEnabled()) {
+        setNewRescheduleRequestCount(0);
+      } else {
+        const all = readAll();
+        const pendingReschedule = all.filter(
+          (r) =>
+            r.status === 'PENDING' &&
+            (r.artist_id === staffArtistId || (r.booking_id && bIdsSet.has(normalizeBookingUuid(r.booking_id))))
+        ).length;
+        setNewRescheduleRequestCount(pendingReschedule);
+      }
+    } catch (err) {
+      console.error('[ArtistHeader] Error fetching notification counts:', err);
+    }
+  }, [staffArtistId]);
+
+  useEffect(() => {
+    fetchCounts();
+
+    const handleRealtime = () => {
+      fetchCounts();
+    };
+
+    const handleFocus = () => {
+      fetchCounts();
+    };
+
+    if (typeof window !== 'undefined') {
+      window.addEventListener('artist:realtime', handleRealtime);
+      window.addEventListener('focus', handleFocus);
+      const unsubscribeReschedule = subscribeRescheduleRequests(fetchCounts);
+
+      return () => {
+        window.removeEventListener('artist:realtime', handleRealtime);
+        window.removeEventListener('focus', handleFocus);
+        unsubscribeReschedule();
+      };
+    }
+  }, [fetchCounts]);
+
+  const totalNotificationCount = newRequestCount + newDepositSlipCount + newRescheduleRequestCount;
 
   const navGroups = [
     {
@@ -58,7 +165,7 @@ export default function ArtistHeader() {
       {/* ========================================================================= */}
       <aside className="hidden md:flex flex-col fixed inset-y-0 left-0 w-64 z-40 bg-studio-card/95 border-r border-studio-border backdrop-blur-md font-prompt p-3.5 select-none">
         {/* TOP BRANDING SECTION */}
-        <div className="pb-2.5 border-b border-studio-border/40 mb-2 px-1">
+        <div className="pb-2.5 border-b border-studio-border/40 mb-2 px-1 flex items-center justify-between">
           <Link href="/artist/dashboard" className="flex items-center gap-2 group">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src="/157-tattoo-logo.png" alt="157 TATTOO logo" className="h-8 w-auto object-contain shrink-0" />
@@ -66,13 +173,25 @@ export default function ArtistHeader() {
               157 <span className="text-studio-red">TATTOO</span>
             </span>
           </Link>
+          <Link
+            href="/artist/requests"
+            className="relative text-[#A89F91] hover:text-studio-red-bright p-1.5 transition-colors"
+            title="การแจ้งเตือน"
+          >
+            <Bell size={18} className={totalNotificationCount > 0 ? 'text-studio-red-bright' : 'text-[#A89F91]'} />
+            {totalNotificationCount > 0 && (
+              <span className="absolute top-0.5 right-0.5 min-w-[16px] h-4 px-1 bg-[#C12D2D] text-[#ECE4D3] text-[9px] font-bold rounded-full flex items-center justify-center ring-2 ring-studio-card animate-pulse">
+                {totalNotificationCount}
+              </span>
+            )}
+          </Link>
         </div>
 
         {/* MIDDLE NAVIGATION MENU */}
         <nav className="flex-1 space-y-3.5 overflow-y-auto pr-1 my-1">
           {navGroups.map((group) => (
             <div key={group.title} className="space-y-1">
-              <span className="text-[10px] font-bold text-studio-muted uppercase tracking-wider block px-2.5 mb-1">
+              <span className="text-[10px] font-bold text-[#ECE4D3] uppercase tracking-wider block px-2.5 mb-1">
                 {group.title}
               </span>
               {group.items.map((item) => {
@@ -85,16 +204,20 @@ export default function ArtistHeader() {
                     className={`flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium transition-all ${
                       isActive
                         ? 'bg-studio-sec text-studio-red-bright border border-studio-border shadow-sm font-semibold'
-                        : 'text-studio-secondary hover:text-studio-primary hover:bg-studio-sec/50'
+                        : 'text-[#ECE4D3] hover:text-white hover:bg-studio-sec/50'
                     }`}
                   >
                     <div className="flex items-center space-x-2.5">
-                      <Icon size={16} className={isActive ? 'text-studio-red-bright' : 'text-studio-muted'} />
+                      <Icon size={16} className={isActive ? 'text-studio-red-bright' : 'text-[#A89F91]'} />
                       <span>{item.label}</span>
                     </div>
-                    {isActive && (
+                    {item.href === '/artist/requests' && totalNotificationCount > 0 ? (
+                      <span className="bg-[#C12D2D] text-[#ECE4D3] text-[10px] font-bold px-1.5 py-0.2 rounded-full">
+                        {totalNotificationCount}
+                      </span>
+                    ) : isActive ? (
                       <span className="w-1.5 h-1.5 rounded-full bg-studio-red-bright shadow-sm" />
-                    )}
+                    ) : null}
                   </Link>
                 );
               })}
@@ -131,7 +254,7 @@ export default function ArtistHeader() {
                     {artistName}
                   </span>
                   {artistNickname && (
-                    <span className="text-[10px] text-studio-secondary truncate">
+                    <span className="text-[10px] text-[#ECE4D3] truncate">
                       {artistNickname}
                     </span>
                   )}
@@ -175,6 +298,19 @@ export default function ArtistHeader() {
           </Link>
 
           <div className="flex items-center space-x-2">
+            <Link
+              href="/artist/requests"
+              className="relative text-[#A89F91] hover:text-studio-red-bright p-1.5"
+              title="การแจ้งเตือน"
+            >
+              <Bell size={18} className={totalNotificationCount > 0 ? 'text-studio-red-bright' : 'text-[#A89F91]'} />
+              {totalNotificationCount > 0 && (
+                <span className="absolute top-0.5 right-0.5 min-w-[16px] h-4 px-1 bg-[#C12D2D] text-[#ECE4D3] text-[9px] font-bold rounded-full flex items-center justify-center ring-2 ring-studio-card animate-pulse">
+                  {totalNotificationCount}
+                </span>
+              )}
+            </Link>
+
             {profile?.role === 'admin' && (
               <Link
                 href="/admin/dashboard"

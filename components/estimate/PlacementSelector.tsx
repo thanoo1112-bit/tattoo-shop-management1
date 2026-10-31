@@ -110,7 +110,7 @@ export default function PlacementSelector({ value, onChange }: PlacementSelector
               className={`px-3 py-1.5 rounded-[4px] text-xs transition-all border select-none cursor-pointer ${
                 isSelected
                   ? 'bg-studio-red border-studio-red text-white font-semibold shadow-md'
-                  : 'bg-studio-main border-studio-border text-[#F2EEE8] hover:border-studio-border/80'
+                  : 'bg-studio-main border-studio-border text-[#ECE4D3] hover:border-studio-border/80'
               }`}
             >
               {option}

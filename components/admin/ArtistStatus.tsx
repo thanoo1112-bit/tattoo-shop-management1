@@ -27,12 +27,12 @@ export default function ArtistStatus({ status, onChange, readOnly = false }: Art
     },
     Tattooing: {
       label: 'กำลังสัก',
-      dotColor: 'bg-[#9C2F2F]',
+      dotColor: 'bg-[#C12D2D]',
       badge: 'bg-[#171512] border-[#4A443A] text-[#ECE4D3]',
     },
     TATTOOING: {
       label: 'กำลังสัก',
-      dotColor: 'bg-[#9C2F2F]',
+      dotColor: 'bg-[#C12D2D]',
       badge: 'bg-[#171512] border-[#4A443A] text-[#ECE4D3]',
     },
     Break: {
@@ -84,7 +84,7 @@ export default function ArtistStatus({ status, onChange, readOnly = false }: Art
 
   const options: { value: Artist['status']; label: string; dotColor: string }[] = [
     { value: 'Available', label: 'ว่าง', dotColor: 'bg-[#4E9F6E]' },
-    { value: 'Tattooing', label: 'กำลังสัก', dotColor: 'bg-[#9C2F2F]' },
+    { value: 'Tattooing', label: 'กำลังสัก', dotColor: 'bg-[#C12D2D]' },
     { value: 'Break', label: 'พัก', dotColor: 'bg-[#C9A86A]' },
     { value: 'Off Duty', label: 'หยุด', dotColor: 'bg-[#7A7265]' },
   ];
@@ -94,7 +94,7 @@ export default function ArtistStatus({ status, onChange, readOnly = false }: Art
       <button
         type="button"
         onClick={() => setIsOpen(prev => !prev)}
-        className="h-[36px] px-3 bg-[#171512] border border-[#4A443A] hover:border-[#7A7265] rounded-[6px] text-[#ECE4D3] font-medium flex items-center justify-between gap-2 transition-all outline-none focus:ring-1 focus:ring-[#9C2F2F]"
+        className="h-[36px] px-3 bg-[#171512] border border-[#4A443A] hover:border-[#7A7265] rounded-[6px] text-[#ECE4D3] font-medium flex items-center justify-between gap-2 transition-all outline-none focus:ring-1 focus:ring-[#C12D2D]"
       >
         <span className="flex items-center space-x-2">
           <span className={`w-2 h-2 rounded-full shrink-0 ${current.dotColor}`} />
@@ -116,14 +116,14 @@ export default function ArtistStatus({ status, onChange, readOnly = false }: Art
                   setIsOpen(false);
                 }}
                 className={`w-full h-[34px] px-2.5 rounded-[4px] flex items-center justify-between text-left text-xs font-medium transition-colors ${
-                  isSelected ? 'bg-[#9C2F2F]/[0.14] text-[#ECE4D3]' : 'text-[#ECE4D3] hover:bg-[#ECE4D3]/[0.06]'
+                  isSelected ? 'bg-[#C12D2D]/[0.14] text-[#ECE4D3]' : 'text-[#ECE4D3] hover:bg-[#ECE4D3]/[0.06]'
                 }`}
               >
                 <span className="flex items-center space-x-2">
                   <span className={`w-2 h-2 rounded-full shrink-0 ${opt.dotColor}`} />
                   <span className="text-[#ECE4D3]">{opt.label}</span>
                 </span>
-                {isSelected && <Check size={13} className="text-[#9C2F2F] shrink-0" />}
+                {isSelected && <Check size={13} className="text-[#C12D2D] shrink-0" />}
               </button>
             );
           })}

@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { useApp } from '@/components/AppContext';
 import AdminHeader from '@/components/admin/AdminHeader';
-import AdminRequestsPage from '@/components/admin/requests/AdminRequestsPage';
+import AdminMasterCalendar from '@/components/admin/calendar/AdminMasterCalendar';
 import AdminMobileBottomNav from '@/components/admin/AdminMobileBottomNav';
 
 export default function AdminQueueRoute() {
@@ -37,7 +37,7 @@ export default function AdminQueueRoute() {
           onClick={() => {
             if (typeof window !== 'undefined') window.location.href = '/staff/login';
           }}
-          className="px-4 py-2 bg-[#171512] border border-[#4A443A] hover:border-[#9C2F2F] text-xs text-[#ECE4D3] rounded transition-colors"
+          className="px-4 py-2 bg-[#171512] border border-[#4A443A] hover:border-[#C12D2D] text-xs text-[#ECE4D3] rounded transition-colors"
         >
           กลับสู่หน้าเข้าสู่ระบบพนักงาน
         </button>
@@ -56,10 +56,10 @@ export default function AdminQueueRoute() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0E0D0C] text-[#ECE4D3] font-prompt animate-fadeIn pb-16 md:pb-8">
+    <div className="min-h-screen bg-[#0E0D0C] text-[#ECE4D3] font-prompt animate-fadeIn pb-24 md:pb-8">
       <AdminHeader />
       <main className="max-w-[1600px] mx-auto px-4 sm:px-6 md:px-10 xl:px-12 py-6 md:py-8">
-        <AdminRequestsPage defaultTab="bookings" />
+        <AdminMasterCalendar initialViewMode="QUEUE" />
       </main>
       <AdminMobileBottomNav />
     </div>

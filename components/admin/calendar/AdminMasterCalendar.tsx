@@ -36,11 +36,23 @@ import {
   subscribeRescheduleRequests,
 } from '@/lib/reschedule/rescheduleRequestStore';
 
-export default function AdminMasterCalendar() {
+export interface AdminMasterCalendarProps {
+  initialViewMode?: ViewMode;
+}
+
+export default function AdminMasterCalendar({
+  initialViewMode = 'MONTH',
+}: AdminMasterCalendarProps = {}) {
   const todayStr = useMemo(() => getTodayBangkokStr(), []);
 
   // UI State
-  const [viewMode, setViewMode] = useState<ViewMode>('MONTH');
+  const [viewMode, setViewMode] = useState<ViewMode>(initialViewMode);
+
+  useEffect(() => {
+    if (initialViewMode) {
+      setViewMode(initialViewMode);
+    }
+  }, [initialViewMode]);
   const [selectedDateStr, setSelectedDateStr] = useState<string>(todayStr);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedArtistId, setSelectedArtistId] = useState<string>('ALL');
@@ -724,10 +736,10 @@ export default function AdminMasterCalendar() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-1">
         <div>
           <h1 className="text-xl sm:text-2xl font-bold text-[#ECE4D3] tracking-tight">
-            ปฏิทิน
+            {viewMode === 'QUEUE' ? 'คิวงาน' : 'ปฏิทิน'}
           </h1>
-          <p className="text-xs text-[#B8B0A3] mt-0.5">
-            ดูวันและเวลานัดหมายของลูกค้า พร้อมติดตามรอบงานสักในระบบปฏิทิน
+          <p className="text-xs text-[#ECE4D3] mt-0.5">
+            {viewMode === 'QUEUE' ? 'จัดการและติดตามคิวงานสัก พร้อมสถานะนัดหมายของลูกค้า' : 'ดูวันและเวลานัดหมายของลูกค้า พร้อมติดตามรอบงานสักในระบบปฏิทิน'}
           </p>
         </div>
       </div>
@@ -785,7 +797,7 @@ export default function AdminMasterCalendar() {
           <button
             type="button"
             onClick={loadCalendarData}
-            className="px-3 py-1 bg-red-900/60 hover:bg-red-800/80 rounded text-xs font-semibold text-[#ECE4D3] transition-colors"
+            className="px-3 py-1 bg-[#C12D2D] hover:bg-[#A82525] rounded text-xs font-semibold text-white transition-colors"
           >
             ลองใหม่
           </button>
@@ -794,8 +806,8 @@ export default function AdminMasterCalendar() {
 
       {/* 6. Calendar & Table Views */}
       {isLoading ? (
-        <div className="bg-[#12100E] border border-[#4A443A]/40 rounded-xl p-12 text-center text-xs text-[#B8B0A3]">
-          <div className="w-8 h-8 rounded-full border-2 border-[#9C2F2F] border-t-transparent animate-spin mx-auto mb-3" />
+        <div className="bg-[#12100E] border border-[#4A443A]/40 rounded-xl p-12 text-center text-xs text-[#ECE4D3]">
+          <div className="w-8 h-8 rounded-full border-2 border-[#C12D2D] border-t-transparent animate-spin mx-auto mb-3" />
           <span>กำลังโหลดตารางงานจากฐานข้อมูล...</span>
         </div>
       ) : (

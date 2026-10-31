@@ -227,8 +227,8 @@ export default function BookingList({
         );
       case 'IN_PROGRESS':
         return (
-          <span className="bg-[#9C2F2F]/20 text-[#D64545] border border-[#9C2F2F]/60 px-2 py-0.5 rounded text-[10px] font-semibold flex items-center gap-1 animate-pulse">
-            <span className="w-1.5 h-1.5 rounded-full bg-[#D64545] animate-pulse" />
+          <span className="bg-[#C12D2D]/20 text-[#C12D2D] border border-[#C12D2D]/60 px-2 py-0.5 rounded text-[10px] font-semibold flex items-center gap-1 animate-pulse">
+            <span className="w-1.5 h-1.5 rounded-full bg-[#C12D2D] animate-pulse" />
             กำลังสัก
           </span>
         );
@@ -323,7 +323,7 @@ export default function BookingList({
                 className={`px-3 py-1.5 text-xs rounded-md font-medium transition-colors border shrink-0 ${
                   isSelected
                     ? 'bg-[#ECE4D3] text-[#0E0D0C] border-[#ECE4D3] shadow'
-                    : 'bg-[#0E0D0C] text-[#A89F91] border-[#4A443A] hover:text-[#ECE4D3] hover:border-[#7A7265]'
+                    : 'bg-[#0E0D0C] text-[#ECE4D3] border-[#4A443A] hover:border-[#C12D2D]'
                 }`}
               >
                 {pill.label}
@@ -334,7 +334,7 @@ export default function BookingList({
 
         {/* Search Bar */}
         <div className="relative min-w-[220px]">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#B8B0A3]" />
+          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#ECE4D3]" />
           <input
             type="text"
             value={searchQuery}
@@ -350,7 +350,7 @@ export default function BookingList({
         <div className="py-12 text-center border border-dashed border-[#4A443A]/60 rounded-lg bg-[#0E0D0C]/40 space-y-2">
           <Calendar size={28} className="text-[#B8B0A3] mx-auto opacity-60" />
           <h4 className="text-xs sm:text-sm font-semibold text-[#ECE4D3]">ยังไม่มีคิวงาน</h4>
-          <p className="text-[11px] text-[#B8B0A3] max-w-sm mx-auto">
+          <p className="text-[11px] text-[#ECE4D3] max-w-sm mx-auto">
             เมื่อลูกค้าทำการจองคิวงานและได้รับการอนุมัติ คิวงานและสถานะการทำงานจะแสดงที่นี่
           </p>
         </div>
@@ -359,7 +359,7 @@ export default function BookingList({
           {/* Desktop Table */}
           <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-left text-xs text-[#ECE4D3]">
-              <thead className="bg-[#0E0D0C] text-[#B8B0A3] uppercase text-[10px] tracking-wider border-b border-[#4A443A]">
+              <thead className="bg-[#0E0D0C] text-[#ECE4D3] uppercase text-[10px] tracking-wider border-b border-[#4A443A]">
                 <tr>
                   <th className="py-3 px-3">รหัสคิว / วันที่ลูกค้าเลือก</th>
                   <th className="py-3 px-3">ลูกค้า</th>
@@ -402,7 +402,7 @@ export default function BookingList({
                             {timeFormatted} น.
                           </div>
                         ) : (
-                          <div className={`text-[10px] ${isInactive ? 'text-zinc-500 font-mono' : 'text-[#B8B0A3] font-mono'}`}>
+                          <div className={`text-[10px] ${isInactive ? 'text-zinc-500 font-mono' : 'text-[#ECE4D3] font-mono'}`}>
                             ไม่ได้ระบุเวลา
                           </div>
                         )}
@@ -410,7 +410,7 @@ export default function BookingList({
                       <td className={`py-3 px-3 font-medium ${isInactive ? 'text-zinc-400' : 'text-[#ECE4D3]'}`}>
                         {book.customer_name}
                       </td>
-                      <td className={`py-3 px-3 ${isInactive ? 'text-zinc-500' : 'text-[#A89F91]'}`}>
+                      <td className={`py-3 px-3 ${isInactive ? 'text-zinc-500' : 'text-[#ECE4D3]'}`}>
                         {book.artist_name}
                       </td>
                       <td className="py-3 px-3">
@@ -475,12 +475,12 @@ export default function BookingList({
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div>
-                      <span className={`text-[10px] ${isInactive ? 'text-zinc-500' : 'text-[#B8B0A3]'} font-mono mr-1.5 font-semibold`}>
+                      <span className={`text-[10px] ${isInactive ? 'text-zinc-500' : 'text-[#ECE4D3]'} font-mono mr-1.5 font-semibold`}>
                         #{book.id.slice(0, 8)}
                       </span>
                       <span className={`font-semibold text-xs ${isInactive ? 'text-zinc-400' : 'text-[#ECE4D3]'}`}>{book.customer_name}</span>
-                      <p className={`text-[11px] ${isInactive ? 'text-zinc-500' : 'text-[#B8B0A3]'} mt-0.5`}>
-                        ช่าง: <span className={isInactive ? 'text-zinc-400' : 'text-[#A89F91]'}>{book.artist_name}</span>
+                      <p className={`text-[11px] ${isInactive ? 'text-zinc-500' : 'text-[#ECE4D3]'} mt-0.5`}>
+                        ช่าง: <span className={isInactive ? 'text-zinc-400' : 'text-[#ECE4D3]'}>{book.artist_name}</span>
                         {displayDate ? (
                           <span>
                             {' • '}วันที่สะดวก: {formatDateBangkok(displayDate)} {timeFormatted ? `(${timeFormatted} น.)` : ''}
@@ -509,11 +509,11 @@ export default function BookingList({
                       <ChevronRight size={14} className={isInactive ? 'text-zinc-500' : ''} />
                     </button>
                     <div className="text-right">
-                      <span className={`text-[10px] ${isInactive ? 'text-zinc-500' : 'text-[#B8B0A3]'} mr-1`}>รับเงินแล้ว:</span>
+                      <span className={`text-[10px] ${isInactive ? 'text-zinc-500' : 'text-[#ECE4D3]'} mr-1`}>รับเงินแล้ว:</span>
                       <span className={`font-semibold ${isInactive ? 'text-zinc-400' : 'text-emerald-400'}`}>
                         ฿{formatCurrency(book.financial?.total_paid || 0)}
                       </span>
-                      <span className={`text-[10px] ${isInactive ? 'text-zinc-500' : 'text-[#B8B0A3]'} ml-1`}>
+                      <span className={`text-[10px] ${isInactive ? 'text-zinc-500' : 'text-[#ECE4D3]'} ml-1`}>
                         / {book.financial?.quoted_price && book.financial.quoted_price > 0 ? `฿${formatCurrency(book.financial.quoted_price)}` : 'ยังไม่กำหนดราคา'}
                       </span>
                     </div>

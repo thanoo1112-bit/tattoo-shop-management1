@@ -224,7 +224,7 @@ export default function HomePage() {
         {/* Section: Tattoo Styles (Craftsmanship) */}
         <section className="space-y-4 sm:space-y-6">
           <div className="border-b border-studio-border pb-3 sm:pb-5">
-            <span className="text-[10px] uppercase tracking-widest text-studio-secondary font-bold">Craftsmanship</span>
+            <span className="text-[10px] uppercase tracking-widest text-studio-red-bright font-bold">Craftsmanship</span>
             <h2 className="text-2xl sm:text-3xl md:text-4xl font-heading font-normal tracking-[0.04em] text-studio-primary mt-0.5">
               สไตล์งานสักยอดนิยม (TATTOO STYLES)
             </h2>
@@ -247,7 +247,7 @@ export default function HomePage() {
                     <h3 className="text-base sm:text-lg lg:text-xl font-heading tracking-wide text-studio-primary uppercase group-hover:text-studio-red-bright transition-colors">
                       {style.title}
                     </h3>
-                    <p className="text-[11px] sm:text-xs lg:text-sm text-[#E2DDD4] mt-1.5 leading-relaxed font-light">
+                    <p className="text-[11px] sm:text-xs lg:text-sm text-[#ECE4D3] mt-1.5 leading-relaxed font-normal">
                       {style.desc}
                     </p>
                   </div>
@@ -337,7 +337,7 @@ export default function HomePage() {
               {!portfolioLoading && livePortfolio.length === 0 && (
                 <div className="bg-studio-card border border-studio-border p-10 rounded-[6px] text-center space-y-2">
                   <p className="text-sm font-semibold text-studio-primary">ยังไม่มีผลงานที่เผยแพร่</p>
-                  <p className="text-xs text-[#E2DDD4]">ผลงานสักคัสตอมใหม่จะถูกเพิ่มในหน้านี้เร็วๆ นี้</p>
+                  <p className="text-xs text-[#ECE4D3]">ผลงานสักคัสตอมใหม่จะถูกเพิ่มในหน้านี้เร็วๆ นี้</p>
                   <Link
                     href="/portfolio"
                     className="inline-block text-xs text-studio-red-bright hover:underline pt-2 font-medium"
@@ -391,7 +391,7 @@ export default function HomePage() {
                           >
                             {item.title}
                           </Link>
-                          <p className="text-xs text-[#E2DDD4] truncate">
+                          <p className="text-xs text-[#ECE4D3] truncate">
                             ช่าง: <strong className="text-studio-primary font-medium">{item.artistName}</strong>
                           </p>
                         </div>
@@ -441,22 +441,33 @@ export default function HomePage() {
                     />
                     {/* Top-Right Badge Stack */}
                     <div className="absolute top-3 right-3 flex flex-col items-end gap-1.5 pointer-events-none">
-                      {/* 1. Availability Status Badge (matching /flash 100%) */}
+                      {/* 1. Availability Status Badge */}
                       {item.status === 'AVAILABLE' ? (
-                        <span className="text-[9px] bg-emerald-950/60 border border-emerald-600/40 text-emerald-400 px-2 py-0.5 rounded font-bold shadow">
-                          ● ว่าง (พร้อมจอง)
+                        <span className="text-[10px] bg-emerald-950/90 border border-emerald-500/70 text-emerald-300 px-2 py-0.5 rounded font-bold shadow-md backdrop-blur-sm">
+                          ● ว่าง พร้อมจอง
                         </span>
                       ) : item.status === 'HELD' ? (
-                        <span className="text-[9px] bg-amber-950/60 border border-amber-600/40 text-amber-300 px-2 py-0.5 rounded font-bold shadow">
-                          ● รอการยืนยัน
+                        <span className="text-[10px] bg-amber-950/90 border border-amber-500/70 text-amber-200 px-2 py-0.5 rounded font-bold shadow-md backdrop-blur-sm">
+                          ● กำลังรอการยืนยัน
                         </span>
                       ) : item.status === 'RESERVED' ? (
-                        <span className="text-[9px] bg-indigo-950/60 border border-indigo-600/40 text-indigo-300 px-2 py-0.5 rounded font-bold shadow">
+                        <span className="text-[10px] bg-indigo-950/90 border border-indigo-500/70 text-indigo-200 px-2 py-0.5 rounded font-bold shadow-md backdrop-blur-sm">
                           ● จองแล้ว
                         </span>
                       ) : (
-                        <span className="text-[9px] bg-[#171512] border border-[#4A443A] text-[#7A7265] px-2 py-0.5 rounded font-bold shadow">
+                        <span className="text-[10px] bg-[#171512]/95 border border-[#6A6256] text-[#ECE4D3] px-2 py-0.5 rounded font-bold shadow-md backdrop-blur-sm">
                           ✕ ปิดจอง
+                        </span>
+                      )}
+
+                      {/* 2. Type Badge */}
+                      {item.is_repeatable ? (
+                        <span className="text-[10px] bg-[#171512]/95 border border-[#6A6256] text-[#ECE4D3] px-2 py-0.5 rounded font-semibold shadow-md backdrop-blur-sm">
+                          สักซ้ำได้
+                        </span>
+                      ) : (
+                        <span className="text-[10px] bg-[#6F1F1F]/95 border border-[#C12D2D] text-[#ECE4D3] px-2 py-0.5 rounded font-semibold shadow-md backdrop-blur-sm">
+                          ลายเดียว
                         </span>
                       )}
                     </div>
@@ -479,7 +490,7 @@ export default function HomePage() {
                       </Link>
 
                       {/* Artist */}
-                      <p className="text-xs text-[#E2DDD4] truncate">
+                      <p className="text-xs text-[#ECE4D3] truncate">
                         ช่าง: <strong className="text-studio-primary font-medium">{item.artistName}</strong>
                       </p>
                     </div>
@@ -508,7 +519,7 @@ export default function HomePage() {
                 </div>
               ))}
               {liveFlash.length === 0 && (
-                <div className="col-span-4 py-8 text-center text-xs text-[#E2DDD4] bg-studio-card border border-studio-border rounded-[6px]">
+                <div className="col-span-4 py-8 text-center text-xs text-[#ECE4D3] bg-studio-card border border-studio-border rounded-[6px]">
                   ไม่มีรายการลาย Flash ที่พร้อมจองในขณะนี้
                 </div>
               )}
@@ -520,7 +531,7 @@ export default function HomePage() {
         <section className="space-y-4 sm:space-y-6">
           <div className="flex justify-between items-end border-b border-studio-border pb-3 sm:pb-5 gap-2">
             <div>
-              <div className="inline-flex items-center space-x-1.5 bg-studio-sec border border-studio-border px-2.5 py-0.5 rounded text-studio-secondary text-[10px] uppercase font-bold tracking-widest mb-1">
+              <div className="inline-flex items-center space-x-1.5 bg-studio-sec border border-studio-border px-2.5 py-0.5 rounded text-[#ECE4D3] text-[10px] uppercase font-bold tracking-widest mb-1">
                 <span>The Tattoo Masters</span>
               </div>
               <h2 className="text-2xl sm:text-3xl md:text-4xl font-heading font-normal tracking-[0.04em] text-studio-primary">
@@ -544,7 +555,7 @@ export default function HomePage() {
               <h3 className="text-base font-heading text-studio-primary">
                 กำลังอัปเดตข้อมูลรายชื่อช่างสักประจำสตูดิโอ
               </h3>
-              <p className="text-xs text-[#E2DDD4]">
+              <p className="text-xs text-[#ECE4D3]">
                 กรุณาติดตามข้อมูลช่างสักและผลงานล่าสุดผ่านทางสตูดิโอ
               </p>
               <div className="pt-2">
@@ -580,18 +591,18 @@ export default function HomePage() {
                           <h3 className="text-base sm:text-lg font-heading tracking-wide text-studio-primary mt-0.5 truncate">
                             {artist.name}
                           </h3>
-                          <span className="text-[10px] text-[#F2EEE8]">ช่างประจำสตูดิโอ 157 TATTOO</span>
+                          <span className="text-[10px] text-[#ECE4D3]">ช่างประจำสตูดิโอ 157 TATTOO</span>
                         </div>
                       </div>
 
-                      <p className="text-xs text-[#E2DDD4] font-light leading-relaxed line-clamp-2">
+                      <p className="text-xs text-[#ECE4D3] font-light leading-relaxed line-clamp-2">
                         {artist.bio || 'ช่างสักมืออาชีพประจำ 157 TATTOO'}
                       </p>
 
                       {/* Mini portfolio preview strip (fits exactly 3 per row) */}
                       {artistWorks.length > 0 && (
                         <div className="pt-1">
-                          <span className="text-[9px] uppercase tracking-wider text-[#F2EEE8] block mb-1.5">ตัวอย่างผลงาน:</span>
+                          <span className="text-[9px] uppercase tracking-wider text-[#ECE4D3] block mb-1.5">ตัวอย่างผลงาน:</span>
                           <div className="grid grid-cols-3 gap-2 w-full">
                             {artistWorks.map((w) => (
                               <div key={w.id} className="w-full aspect-square bg-studio-main rounded overflow-hidden border border-studio-border/60">
@@ -622,7 +633,7 @@ export default function HomePage() {
         <section className="bg-studio-card border border-studio-border p-5 sm:p-8 md:p-12 rounded-[8px] space-y-6 shadow-xl">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-studio-border pb-4">
             <div>
-              <span className="text-[10px] uppercase tracking-widest text-studio-secondary font-bold">Studio Standard</span>
+              <span className="text-[10px] uppercase tracking-widest text-[#ECE4D3] font-bold">Studio Standard</span>
               <h2 className="text-xl sm:text-2xl md:text-3xl font-heading font-normal tracking-wide text-studio-primary mt-0.5">
                 157 TATTOO STUDIO • ข้อมูลและมาตรฐาน
               </h2>
@@ -633,7 +644,7 @@ export default function HomePage() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 sm:gap-8 text-xs sm:text-sm text-[#E2DDD4]">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 sm:gap-8 text-xs sm:text-sm text-[#ECE4D3]">
             <div className="space-y-1.5">
               <div className="flex items-center space-x-1.5 text-studio-primary font-semibold text-xs sm:text-sm">
                 <MapPin size={15} className="text-studio-red" />

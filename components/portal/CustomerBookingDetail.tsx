@@ -24,7 +24,6 @@ import {
   ChevronRight,
   ZoomIn,
   Info,
-  Trash2,
 } from 'lucide-react';
 import { formatThaiDate, formatTimeBangkok, formatCurrency, resolveCustomerDisplayStatus, formatServiceTypeLabel, getDepositDeadlineInfo, parseFlashCustomerNote } from './portalUtils';
 import { formatTattooSize } from '@/lib/utils/formatters';
@@ -62,7 +61,6 @@ export default function CustomerBookingDetail({
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
 
   const [showCancelModal, setShowCancelModal] = useState(false);
-  const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
 
   const [selectedOptionId, setSelectedOptionId] = useState<string | null>(null);
@@ -293,66 +291,6 @@ export default function CustomerBookingDetail({
     }
   };
 
-  // Soft Hide Request Handler from Customer Portal (via customer_hide_estimate_request or customer_hide_flash_reservation RPC)
-  const handleConfirmHideFromPortal = async () => {
-    setLoading(true);
-    setError('');
-    try {
-      const supabase = createClient();
-      if (isFlash) {
-        const { data, error: rpcError } = await supabase.rpc('customer_hide_flash_reservation', {
-          p_reservation_id: item.id,
-        });
-        if (rpcError) {
-          const { error: directErr } = await supabase
-            .from('flash_reservations')
-            .update({ customer_hidden_at: new Date().toISOString() })
-            .eq('id', item.id);
-          if (directErr) throw rpcError;
-        } else if (data && data.success === false) {
-          throw new Error(data.message || data.error || 'ไม่สามารถลบออกจากประวัติได้');
-        }
-      } else {
-        const targetEstimateId = isBooking ? (booking.estimate_request_id || item.id) : item.id;
-        const { data, error: rpcError } = await supabase.rpc('customer_hide_estimate_request', {
-          p_estimate_request_id: targetEstimateId,
-        });
-        if (rpcError) {
-          const { error: directErr } = await supabase
-            .from('estimate_requests')
-            .update({ customer_hidden_at: new Date().toISOString() })
-            .eq('id', targetEstimateId);
-          if (directErr) throw rpcError;
-        } else if (data && data.success === false) {
-          throw new Error(data.message || data.error || 'ไม่สามารถลบออกจากประวัติได้');
-        }
-      }
-
-      setShowDeleteModal(false);
-      setError('');
-      onClose();
-
-      if (onRefresh) {
-        try {
-          await onRefresh();
-        } catch (refErr) {
-          console.error('[handleConfirmHideFromPortal] onRefresh error:', refErr);
-        }
-      }
-    } catch (err: any) {
-      console.error('Error hiding request from portal history:', err);
-      const rawMsg = err?.message || '';
-      let cleanMsg = 'ไม่สามารถลบออกจากประวัติได้ กรุณาลองใหม่หรือติดต่อร้าน';
-      if (rawMsg.includes('ไม่มีสิทธิ์')) {
-        cleanMsg = 'คุณไม่มีสิทธิ์ซ่อนรายการนี้';
-      }
-      setError(cleanMsg);
-      setShowDeleteModal(false);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   // Fetch Date Options if proposed
   React.useEffect(() => {
     if (type === 'estimate' && estimate?.id && estimate?.is_date_proposed) {
@@ -493,7 +431,6 @@ export default function CustomerBookingDetail({
         ))
   );
 
-  const canDeleteRequest = item.status === 'CANCELLED';
   const showInFlightNotice = (hasSubmittedDepositSlip || displayStatus === 'SLIP_REVIEW' || displayStatus === 'CONFIRMED' || displayStatus === 'IN_PROGRESS') && displayStatus !== 'CANCELLED' && displayStatus !== 'REJECTED' && displayStatus !== 'COMPLETED';
 
   // ESC keypress listener for Lightbox
@@ -553,7 +490,7 @@ export default function CustomerBookingDetail({
                 <span className="text-xs uppercase tracking-wider text-[#ECE4D3] font-bold block">
                   {isFlash ? 'รายละเอียดการจองลาย Flash' : (isBooking ? 'รายละเอียดคิวจองสัก' : 'รายละเอียดคำขอจองคิว')}
                 </span>
-                <span className="text-[10px] text-[#F2EEE8] font-mono">
+                <span className="text-[10px] text-[#ECE4D3] font-mono">
                   #{item.id.slice(0, 8)}
                 </span>
               </div>
@@ -579,10 +516,10 @@ export default function CustomerBookingDetail({
           {item.status === 'PENDING' && !estimate?.is_date_proposed && !isFlashDateProposed && (
             <div className="bg-[#171512] border border-[#4A443A] p-3.5 rounded-[6px] space-y-1">
               <div className="flex items-center gap-2 text-xs font-bold text-[#ECE4D3]">
-                <Clock size={14} className="text-[#D64545] animate-pulse" />
+                <Clock size={14} className="text-[#C12D2D] animate-pulse" />
                 <span>ส่งคำขอจองแล้ว (รอร้านตรวจสอบ)</span>
               </div>
-              <p className="text-[11px] text-[#E2DDD4] leading-relaxed font-light">
+              <p className="text-[11px] text-[#ECE4D3] leading-relaxed font-light">
                 ทางร้านได้รับคำขอจองคิวของคุณแล้ว ขณะนี้กำลังรอช่างสักตรวจสอบรายละเอียด วันที่สะดวก และจัดคิวงานให้คุณ
               </p>
             </div>
@@ -594,14 +531,14 @@ export default function CustomerBookingDetail({
                 <CalendarClock size={14} className="text-amber-400 animate-pulse" />
                 <span>{isFlash ? 'ทางร้านเสนอวันนัดใหม่ (รอยืนยันวันนัด)' : 'ทางร้านเสนอวันนัดหมายใหม่ (รอชำระมัดจำหลังยืนยันวัน)'}</span>
               </div>
-              <p className="text-[11px] text-[#E2DDD4] leading-relaxed font-light">
+              <p className="text-[11px] text-[#ECE4D3] leading-relaxed font-light">
                 {isFlash ? 'ทางร้านเสนอวันนัดใหม่ กรุณาตรวจสอบและยืนยันวันนัด' : 'ทางร้านได้ตรวจสอบและเสนอวันนัดหมายใหม่ กรุณาตรวจสอบวันและเวลาด้านล่าง จากนั้นกดยืนยันวันนัดหมายเพื่อดำเนินการชำระเงินมัดจำ'}
               </p>
             </div>
           )}
 
           {item.status === 'WAITING_DEPOSIT' && (
-            <div className="bg-[#171512] border border-[#9C2F2F]/50 p-3.5 rounded-[6px] space-y-1.5">
+            <div className="bg-[#171512] border border-[#C12D2D]/50 p-3.5 rounded-[6px] space-y-1.5">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2 text-xs font-bold text-[#ECE4D3]">
                   <Wallet size={14} className="text-studio-red" />
@@ -613,7 +550,7 @@ export default function CustomerBookingDetail({
                   </span>
                 )}
               </div>
-              <p className="text-[11px] text-[#E2DDD4] leading-relaxed font-light">
+              <p className="text-[11px] text-[#ECE4D3] leading-relaxed font-light">
                 {hasPendingSlip
                   ? 'ทางร้านได้รับหลักฐานการชำระเงินมัดจำของคุณแล้ว ขณะนี้กำลังรอร้านค้าตรวจสอบสลิป'
                   : 'คำขอของคุณได้รับการยืนยันแล้ว กรุณาชำระเงินมัดจำเพื่อยืนยันและล็อกคิว'}
@@ -627,7 +564,7 @@ export default function CustomerBookingDetail({
                 <CheckCircle2 size={14} />
                 <span>ยืนยันคิวเรียบร้อยแล้ว</span>
               </div>
-              <p className="text-[11px] text-[#E2DDD4] leading-relaxed font-light">
+              <p className="text-[11px] text-[#ECE4D3] leading-relaxed font-light">
                 คิวสักของคุณได้รับการยืนยันและลงตารางนัดหมายเรียบร้อยแล้ว
                 <br />
                 แนะนำให้พักผ่อนและรับประทานอาหารให้พร้อมก่อนมา แต่งกายให้สะดวกต่อบริเวณที่จะสัก
@@ -636,12 +573,12 @@ export default function CustomerBookingDetail({
           )}
 
           {item.status === 'IN_PROGRESS' && (
-            <div className="bg-[#171512] border border-[#9C2F2F]/60 p-3.5 rounded-[6px] space-y-1">
+            <div className="bg-[#171512] border border-[#C12D2D]/60 p-3.5 rounded-[6px] space-y-1">
               <div className="flex items-center gap-2 text-xs font-bold text-studio-red">
                 <Sparkles size={14} />
                 <span>กำลังดำเนินงานสัก</span>
               </div>
-              <p className="text-[11px] text-[#E2DDD4] leading-relaxed font-light">
+              <p className="text-[11px] text-[#ECE4D3] leading-relaxed font-light">
                 คิวสักของคุณกำลังอยู่ในขั้นตอนการให้บริการสักที่สตูดิโอ
               </p>
             </div>
@@ -653,7 +590,7 @@ export default function CustomerBookingDetail({
                 <CheckCircle2 size={14} />
                 <span>งานสักเสร็จสิ้นแล้ว</span>
               </div>
-              <p className="text-[11px] text-[#E2DDD4] leading-relaxed font-light">
+              <p className="text-[11px] text-[#ECE4D3] leading-relaxed font-light">
                 ขอบคุณที่ไว้วางใจใช้บริการกับ 157 TATTOO Studio ดูแลรอยสักตามคำแนะนำของช่างเพื่อผลลัพธ์ที่ดีที่สุด
               </p>
             </div>
@@ -677,11 +614,11 @@ export default function CustomerBookingDetail({
 
           {item.status === 'CANCELLED' && (
             <div className="bg-[#171512] border border-red-900/30 p-3.5 rounded-[6px] space-y-1">
-              <div className="flex items-center gap-2 text-xs font-bold text-[#E2DDD4]">
+              <div className="flex items-center gap-2 text-xs font-bold text-[#ECE4D3]">
                 <X size={14} className="text-red-400" />
                 <span>ยกเลิกคิวแล้ว</span>
               </div>
-              <p className="text-[11px] text-[#E2DDD4] leading-relaxed font-light">
+              <p className="text-[11px] text-[#ECE4D3] leading-relaxed font-light">
                 รายการจองคิวนี้ถูกยกเลิกแล้ว
               </p>
             </div>
@@ -689,7 +626,7 @@ export default function CustomerBookingDetail({
 
           {/* Reference Image Gallery */}
           <div className="space-y-1.5">
-            <span className="text-[10px] uppercase font-bold text-[#F2EEE8] block">
+            <span className="text-[10px] uppercase font-bold text-[#ECE4D3] block">
               รูปภาพอ้างอิง {referenceImages.length > 0 ? `(${referenceImages.length} รูป)` : ''}
             </span>
             {referenceImages.length > 0 ? (
@@ -709,14 +646,14 @@ export default function CustomerBookingDetail({
                     <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
                       <ZoomIn size={16} className="text-white" />
                     </div>
-                    <span className="absolute bottom-1 left-1 bg-black/80 text-[9px] font-mono text-[#F2EEE8] px-1 py-0.2 rounded border border-white/10 select-none">
+                    <span className="absolute bottom-1 left-1 bg-black/80 text-[9px] font-mono text-[#ECE4D3] px-1 py-0.2 rounded border border-white/10 select-none">
                       #{idx + 1}
                     </span>
                   </div>
                 ))}
               </div>
             ) : (
-              <div className="p-2.5 bg-studio-main border border-studio-border/60 rounded-[6px] text-center text-xs text-[#E2DDD4] italic font-light">
+              <div className="p-2.5 bg-studio-main border border-studio-border/60 rounded-[6px] text-center text-xs text-[#ECE4D3] italic font-light">
                 ไม่มีรูปอ้างอิง
               </div>
             )}
@@ -725,8 +662,8 @@ export default function CustomerBookingDetail({
           {/* Core Info Specs Grid */}
           <div className="bg-studio-main border border-studio-border p-4 rounded-[6px] space-y-3 text-xs text-[#ECE4D3]">
             <div className="flex justify-between">
-              <span className="text-[#E2DDD4] flex items-center gap-1.5">
-                <User size={13} className="text-[#D64545]" /> ช่างสัก
+              <span className="text-[#ECE4D3] flex items-center gap-1.5">
+                <User size={13} className="text-[#C12D2D]" /> ช่างสัก
               </span>
               <span className="font-semibold text-[#ECE4D3]">{artistDisplayName}</span>
             </div>
@@ -736,8 +673,8 @@ export default function CustomerBookingDetail({
                 {/* 2. สไตล์ลายสัก */}
                 {Boolean(booking.style || (booking as any).style_preference || (booking.artwork_title && booking.artwork_title !== 'งานสัก Custom')) && (
                   <div className="flex justify-between">
-                    <span className="text-[#E2DDD4] flex items-center gap-1.5">
-                      <Palette size={13} className="text-[#D64545]" /> สไตล์ลายสัก
+                    <span className="text-[#ECE4D3] flex items-center gap-1.5">
+                      <Palette size={13} className="text-[#C12D2D]" /> สไตล์ลายสัก
                     </span>
                     <span className="font-semibold text-[#ECE4D3]">
                       {booking.style || (booking as any).style_preference || booking.artwork_title}
@@ -748,8 +685,8 @@ export default function CustomerBookingDetail({
                 {/* 3. ตำแหน่งที่สัก */}
                 {booking.placement && (
                   <div className="flex justify-between">
-                    <span className="text-[#E2DDD4] flex items-center gap-1.5">
-                      <MapPin size={13} className="text-[#D64545]" /> ตำแหน่งที่สัก
+                    <span className="text-[#ECE4D3] flex items-center gap-1.5">
+                      <MapPin size={13} className="text-[#C12D2D]" /> ตำแหน่งที่สัก
                     </span>
                     <span className="font-semibold text-[#ECE4D3]">{booking.placement}</span>
                   </div>
@@ -758,8 +695,8 @@ export default function CustomerBookingDetail({
                 {/* 4. ขนาดงานสัก */}
                 {booking.width_cm && booking.height_cm && (
                   <div className="flex justify-between">
-                    <span className="text-[#E2DDD4] flex items-center gap-1.5">
-                      <Maximize2 size={13} className="text-[#D64545]" /> ขนาดงานสัก
+                    <span className="text-[#ECE4D3] flex items-center gap-1.5">
+                      <Maximize2 size={13} className="text-[#C12D2D]" /> ขนาดงานสัก
                     </span>
                     <span className="font-semibold text-[#ECE4D3]">
                       {formatTattooSize(booking.width_cm, booking.height_cm)}
@@ -771,7 +708,7 @@ export default function CustomerBookingDetail({
                 {booking.sessions && booking.sessions.length > 0 ? (
                   <div className="pt-2 border-t border-studio-border/30 space-y-2">
                     <div className="flex items-center justify-between text-[11px] font-semibold text-[#ECE4D3]">
-                      <span className="flex items-center gap-1 text-[#D64545]">
+                      <span className="flex items-center gap-1 text-[#C12D2D]">
                         <Layers size={12} /> รอบการนัดหมายสัก
                       </span>
                     </div>
@@ -800,7 +737,7 @@ export default function CustomerBookingDetail({
                           >
                             <div className="space-y-0.5">
                               <div className="font-semibold text-[#ECE4D3] flex items-center gap-1.5 text-xs">
-                                <Calendar size={13} className="text-[#D64545] shrink-0" />
+                                <Calendar size={13} className="text-[#C12D2D] shrink-0" />
                                 <span>
                                   {booking.sessions.length > 1 ? `รอบที่ ${ses.session_number} : ` : ''}
                                   {effectiveDateDisplay} · {startDisplay}
@@ -810,7 +747,7 @@ export default function CustomerBookingDetail({
                             <span
                               className={`px-1.5 py-0.5 rounded text-[9px] font-semibold shrink-0 ml-2 ${
                                 ses.status === 'IN_PROGRESS'
-                                  ? 'bg-studio-red/20 text-[#D64545] border border-studio-red/40'
+                                  ? 'bg-studio-red/20 text-[#C12D2D] border border-studio-red/40'
                                   : ses.status === 'COMPLETED'
                                   ? 'bg-emerald-950/40 text-emerald-400 border border-emerald-800/40'
                                   : 'bg-[#171512] text-[#ECE4D3] border border-[#4A443A]'
@@ -831,8 +768,8 @@ export default function CustomerBookingDetail({
                   </div>
                 ) : booking.requested_date ? (
                   <div className="pt-2 border-t border-studio-border/30 flex justify-between text-xs">
-                    <span className="text-[#E2DDD4] flex items-center gap-1.5">
-                      <Calendar size={13} className="text-[#D64545]" /> วันนัด
+                    <span className="text-[#ECE4D3] flex items-center gap-1.5">
+                      <Calendar size={13} className="text-[#C12D2D]" /> วันนัด
                     </span>
                     <span className="font-semibold text-[#ECE4D3]">
                       {formatThaiDate(
@@ -873,16 +810,16 @@ export default function CustomerBookingDetail({
               <>
                 {/* 2. สไตล์ลายสัก */}
                 <div className="flex justify-between">
-                  <span className="text-[#E2DDD4] flex items-center gap-1.5">
-                    <Palette size={13} className="text-[#D64545]" /> สไตล์ลายสัก
+                  <span className="text-[#ECE4D3] flex items-center gap-1.5">
+                    <Palette size={13} className="text-[#C12D2D]" /> สไตล์ลายสัก
                   </span>
                   <span className="font-semibold text-[#ECE4D3]">{flashDesign?.style || '-'}</span>
                 </div>
 
                 {/* 3. ตำแหน่งที่สัก */}
                 <div className="flex justify-between">
-                  <span className="text-[#E2DDD4] flex items-center gap-1.5">
-                    <MapPin size={13} className="text-[#D64545]" /> ตำแหน่งที่สัก
+                  <span className="text-[#ECE4D3] flex items-center gap-1.5">
+                    <MapPin size={13} className="text-[#C12D2D]" /> ตำแหน่งที่สัก
                   </span>
                   <span className="font-semibold text-[#ECE4D3]">{effectiveFlashPlacement}</span>
                 </div>
@@ -890,8 +827,8 @@ export default function CustomerBookingDetail({
                 {/* 4. ขนาดงานสัก (แสดงเฉพาะเมื่อมีข้อมูลขนาดจริง) */}
                 {formattedFlashSize && (
                   <div className="flex justify-between">
-                    <span className="text-[#E2DDD4] flex items-center gap-1.5">
-                      <Maximize2 size={13} className="text-[#D64545]" /> ขนาดงานสัก
+                    <span className="text-[#ECE4D3] flex items-center gap-1.5">
+                      <Maximize2 size={13} className="text-[#C12D2D]" /> ขนาดงานสัก
                     </span>
                     <span className="font-semibold text-[#ECE4D3]">{formattedFlashSize}</span>
                   </div>
@@ -899,8 +836,8 @@ export default function CustomerBookingDetail({
 
                 {/* 5. วันนัด */}
                 <div className="flex justify-between">
-                  <span className={isFlashDateProposed ? "text-[#8C8479] flex items-center gap-1.5" : "text-[#E2DDD4] flex items-center gap-1.5"}>
-                    <Calendar size={13} className={isFlashDateProposed ? "text-[#8C8479]" : "text-[#D64545]"} />
+                  <span className={isFlashDateProposed ? "text-[#8C8479] flex items-center gap-1.5" : "text-[#ECE4D3] flex items-center gap-1.5"}>
+                    <Calendar size={13} className={isFlashDateProposed ? "text-[#8C8479]" : "text-[#C12D2D]"} />
                     {isFlashDateProposed ? 'วันที่ลูกค้าเลือกเดิม' : 'วันนัด'}
                   </span>
                   <span className={isFlashDateProposed ? "font-normal text-[#8C8479]" : "font-semibold text-[#ECE4D3]"}>
@@ -910,8 +847,8 @@ export default function CustomerBookingDetail({
 
                 {/* 6. เวลาเริ่ม */}
                 <div className="flex justify-between">
-                  <span className={isFlashDateProposed ? "text-[#8C8479] flex items-center gap-1.5" : "text-[#E2DDD4] flex items-center gap-1.5"}>
-                    <Clock size={13} className={isFlashDateProposed ? "text-[#8C8479]" : "text-[#D64545]"} />
+                  <span className={isFlashDateProposed ? "text-[#8C8479] flex items-center gap-1.5" : "text-[#ECE4D3] flex items-center gap-1.5"}>
+                    <Clock size={13} className={isFlashDateProposed ? "text-[#8C8479]" : "text-[#C12D2D]"} />
                     {isFlashDateProposed ? 'เวลาเริ่มเดิม' : 'เวลาเริ่ม'}
                   </span>
                   <span className={isFlashDateProposed ? "font-normal text-[#8C8479]" : "font-semibold text-[#ECE4D3]"}>
@@ -922,8 +859,8 @@ export default function CustomerBookingDetail({
                 {/* 7. รายละเอียดเพิ่มเติม (แสดงเมื่อมีข้อความเหลือหลังตัด tag legacy) */}
                 {flashNoteParsed.cleanNote && (
                   <div className="pt-2 border-t border-studio-border/20">
-                    <span className="text-[#E2DDD4] block mb-1">รายละเอียดเพิ่มเติม:</span>
-                    <p className="text-[11px] text-[#E2DDD4] leading-relaxed bg-studio-card/85 p-2 border border-studio-border/40 rounded-[4px] font-light whitespace-pre-wrap">
+                    <span className="text-[#ECE4D3] block mb-1">รายละเอียดเพิ่มเติม:</span>
+                    <p className="text-[11px] text-[#ECE4D3] leading-relaxed bg-studio-card/85 p-2 border border-studio-border/40 rounded-[4px] font-light whitespace-pre-wrap">
                       {flashNoteParsed.cleanNote}
                     </p>
                   </div>
@@ -953,8 +890,8 @@ export default function CustomerBookingDetail({
                 {/* 2. สไตล์ลายสัก */}
                 {estimate.style && (
                   <div className="flex justify-between">
-                    <span className="text-[#E2DDD4] flex items-center gap-1.5">
-                      <Palette size={13} className="text-[#D64545]" /> สไตล์ลายสัก
+                    <span className="text-[#ECE4D3] flex items-center gap-1.5">
+                      <Palette size={13} className="text-[#C12D2D]" /> สไตล์ลายสัก
                     </span>
                     <span className="font-semibold text-[#ECE4D3]">{estimate.style}</span>
                   </div>
@@ -963,8 +900,8 @@ export default function CustomerBookingDetail({
                 {/* 3. ตำแหน่งที่สัก */}
                 {estimate.placement && (
                   <div className="flex justify-between">
-                    <span className="text-[#E2DDD4] flex items-center gap-1.5">
-                      <MapPin size={13} className="text-[#D64545]" /> ตำแหน่งที่สัก
+                    <span className="text-[#ECE4D3] flex items-center gap-1.5">
+                      <MapPin size={13} className="text-[#C12D2D]" /> ตำแหน่งที่สัก
                     </span>
                     <span className="font-semibold text-[#ECE4D3]">{estimate.placement}</span>
                   </div>
@@ -973,8 +910,8 @@ export default function CustomerBookingDetail({
                 {/* 4. ขนาดงานสัก */}
                 {estimate.width_cm && estimate.height_cm && (
                   <div className="flex justify-between">
-                    <span className="text-[#E2DDD4] flex items-center gap-1.5">
-                      <Maximize2 size={13} className="text-[#D64545]" /> ขนาดงานสัก
+                    <span className="text-[#ECE4D3] flex items-center gap-1.5">
+                      <Maximize2 size={13} className="text-[#C12D2D]" /> ขนาดงานสัก
                     </span>
                     <span className="font-semibold text-[#ECE4D3]">
                       {formatTattooSize(estimate.width_cm, estimate.height_cm)}
@@ -983,8 +920,8 @@ export default function CustomerBookingDetail({
                 )}
 
                 <div className="flex justify-between">
-                  <span className="text-[#E2DDD4] flex items-center gap-1.5">
-                    <Calendar size={13} className="text-[#D64545]" /> วันนัด
+                  <span className="text-[#ECE4D3] flex items-center gap-1.5">
+                    <Calendar size={13} className="text-[#C12D2D]" /> วันนัด
                   </span>
                   <span className="font-semibold text-[#ECE4D3]">
                     {formatThaiDate(estimate.preferred_date, true)}
@@ -1002,8 +939,8 @@ export default function CustomerBookingDetail({
                     <>
                       {preferredTimeDisplay && (
                         <div className="flex justify-between">
-                          <span className="text-[#E2DDD4] flex items-center gap-1.5">
-                            <Clock size={13} className="text-[#D64545]" /> เวลาเริ่ม
+                          <span className="text-[#ECE4D3] flex items-center gap-1.5">
+                            <Clock size={13} className="text-[#C12D2D]" /> เวลาเริ่ม
                           </span>
                           <span className="font-semibold text-[#ECE4D3]">
                             {preferredTimeDisplay}
@@ -1015,8 +952,8 @@ export default function CustomerBookingDetail({
 
                       {cleanNote && (
                         <div className="pt-2 border-t border-studio-border/20">
-                          <span className="text-[#E2DDD4] block mb-1">รายละเอียดเพิ่มเติม:</span>
-                          <p className="text-[11px] text-[#E2DDD4] leading-relaxed bg-studio-card/85 p-2 border border-studio-border/40 rounded-[4px] font-light">
+                          <span className="text-[#ECE4D3] block mb-1">รายละเอียดเพิ่มเติม:</span>
+                          <p className="text-[11px] text-[#ECE4D3] leading-relaxed bg-studio-card/85 p-2 border border-studio-border/40 rounded-[4px] font-light">
                             {cleanNote}
                           </p>
                         </div>
@@ -1058,7 +995,7 @@ export default function CustomerBookingDetail({
 
                 {/* Proposed Option Card */}
                 <div className="space-y-2.5">
-                  <span className="text-[11px] font-semibold text-[#E2DDD4] block">
+                  <span className="text-[11px] font-semibold text-[#ECE4D3] block">
                     วันและเวลาที่ร้านเสนอ:
                   </span>
                   <div className="p-3.5 rounded-xl border bg-amber-950/80 border-amber-500 shadow-md text-amber-100 ring-1 ring-amber-500 flex items-center justify-between">
@@ -1133,7 +1070,7 @@ export default function CustomerBookingDetail({
 
                 {/* Options List */}
                 <div className="space-y-2.5">
-                  <span className="text-[11px] font-semibold text-[#E2DDD4] block">
+                  <span className="text-[11px] font-semibold text-[#ECE4D3] block">
                     {isSingleOption ? 'วันนัดหมายที่ร้านเสนอ:' : 'ตัวเลือกวันนัดหมายจากทางร้าน:'}
                   </span>
 
@@ -1221,15 +1158,15 @@ export default function CustomerBookingDetail({
           {/* In-Flight Status Notice for General Tattoo */}
           {showInFlightNotice && (
             <div className="bg-[#171512] border border-[#4A443A] p-3.5 rounded-[6px] space-y-1">
-              <div className="flex items-center gap-2 text-xs font-semibold text-[#E2DDD4]">
+              <div className="flex items-center gap-2 text-xs font-semibold text-[#ECE4D3]">
                 <Info size={14} className="text-[#C9A86A] shrink-0" />
                 <span>คิวนี้อยู่ระหว่างดำเนินการ กรุณาติดต่อร้านหากต้องการเลื่อนหรือยกเลิกคิว</span>
               </div>
             </div>
           )}
 
-          {/* Booking Actions: Edit, Cancel, & Delete Buttons */}
-          {(canCustomerEdit || canCustomerCancel || canDeleteRequest) && !estimate?.is_date_proposed && !isFlashDateProposed && (
+          {/* Booking Actions: Edit & Cancel Buttons */}
+          {(canCustomerEdit || canCustomerCancel) && !estimate?.is_date_proposed && !isFlashDateProposed && (
             <div className="pt-3 border-t border-studio-border/30 flex flex-col sm:flex-row gap-2.5 justify-end">
               {canCustomerEdit && (
                 <button
@@ -1258,20 +1195,6 @@ export default function CustomerBookingDetail({
                   {loading ? 'กำลังยกเลิกคำขอ...' : 'ยกเลิกคำขอ'}
                 </button>
               )}
-              {canDeleteRequest && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setError('');
-                    setShowDeleteModal(true);
-                  }}
-                  disabled={loading}
-                  className="w-full sm:w-auto px-4 py-2 bg-red-950/40 border border-red-800/80 text-red-400 hover:bg-red-900/60 hover:border-red-500 text-xs font-bold rounded-[4px] transition-all disabled:opacity-50 flex items-center justify-center space-x-1.5 cursor-pointer"
-                >
-                  <Trash2 size={14} />
-                  <span>{loading ? 'กำลังลบคำขอ...' : 'ลบคำขอ'}</span>
-                </button>
-              )}
             </div>
           )}
         </div>
@@ -1285,7 +1208,7 @@ export default function CustomerBookingDetail({
               <AlertTriangle size={20} />
               <h3 className="text-base font-bold text-[#ECE4D3]">ยืนยันการยกเลิกคำขอ</h3>
             </div>
-            <p className="text-xs text-[#E2DDD4] leading-relaxed font-light">
+            <p className="text-xs text-[#ECE4D3] leading-relaxed font-light">
               คุณต้องการยกเลิกคำขอจองคิวนี้ใช่หรือไม่? รายการคำขอจะถูกเปลี่ยนสถานะเป็นยกเลิกและย้ายไปแสดงที่แท็บ &ldquo;ยกเลิก / ปฏิเสธ&rdquo;
             </p>
             <div className="flex justify-end space-x-3 pt-2">
@@ -1296,7 +1219,7 @@ export default function CustomerBookingDetail({
                   setShowCancelModal(false);
                 }}
                 disabled={loading}
-                className="px-4 py-2 bg-studio-main border border-studio-border text-[#E2DDD4] hover:text-[#ECE4D3] text-xs font-semibold rounded-[4px] transition-all"
+                className="px-4 py-2 bg-studio-main border border-studio-border text-[#ECE4D3] hover:text-[#ECE4D3] text-xs font-semibold rounded-[4px] transition-all"
               >
                 ยกเลิก
               </button>
@@ -1307,43 +1230,6 @@ export default function CustomerBookingDetail({
                 className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-xs font-bold rounded-[4px] transition-all shadow-md disabled:opacity-50"
               >
                 {loading ? 'กำลังยกเลิก...' : 'ยืนยันยกเลิกคำขอ'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Soft-Hide Confirmation Modal */}
-      {showDeleteModal && (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fadeIn font-prompt">
-          <div className="w-full max-w-md bg-studio-card border border-studio-border p-6 rounded-[8px] space-y-4 shadow-2xl">
-            <div className="flex items-center space-x-2 text-amber-400">
-              <Trash2 size={20} />
-              <h3 className="text-base font-bold text-[#ECE4D3]">ลบออกจากประวัติของฉัน</h3>
-            </div>
-            <p className="text-xs text-[#E2DDD4] leading-relaxed font-light">
-              คุณต้องการซ่อนรายการนี้ออกจากประวัติของคุณหรือไม่? (รายการจะถูกลบออกจากหน้าจอของคุณ แต่อัดมินและช่างจะยังคงบันทึกประวัติไว้)
-            </p>
-            <div className="flex justify-end space-x-3 pt-2">
-              <button
-                type="button"
-                onClick={() => {
-                  setError('');
-                  setShowDeleteModal(false);
-                }}
-                disabled={loading}
-                className="px-4 py-2 bg-studio-main border border-studio-border text-[#E2DDD4] hover:text-[#ECE4D3] text-xs font-semibold rounded-[4px] transition-all cursor-pointer"
-              >
-                ยกเลิก
-              </button>
-              <button
-                type="button"
-                onClick={handleConfirmHideFromPortal}
-                disabled={loading}
-                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-xs font-bold rounded-[4px] transition-all shadow-md disabled:opacity-50 flex items-center space-x-1.5 cursor-pointer"
-              >
-                <Trash2 size={14} />
-                <span>{loading ? 'กำลังซ่อน...' : 'ยืนยันลบออกจากประวัติ'}</span>
               </button>
             </div>
           </div>

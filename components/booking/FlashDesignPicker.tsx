@@ -78,23 +78,23 @@ export default function FlashDesignPicker({ onSelect }: FlashDesignPickerProps) 
       <div className="flex flex-col md:flex-row gap-3 justify-between items-start md:items-center bg-studio-card/60 p-3 rounded-[6px] border border-studio-border">
         <PortfolioFilter activeFilter={filter} onFilterChange={setFilter} filters={dynamicFilters} />
         <div className="relative w-full md:w-48 shrink-0">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#B8B0A3]" />
+          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#ECE4D3]" />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="ค้นหาลาย / ช่าง..."
-            className="w-full bg-studio-main border border-studio-border text-xs text-studio-primary pl-8 pr-3 py-1.5 rounded-[4px] outline-none focus:border-studio-red placeholder:text-[#B8B0A3]"
+            className="w-full bg-studio-main border border-studio-border text-xs text-[#ECE4D3] pl-8 pr-3 py-1.5 rounded-[4px] outline-none focus:border-studio-red placeholder:text-[#A89F91]"
           />
         </div>
       </div>
 
-      <div className="text-xs text-[#E2DDD4] px-1">
-        แสดงลายสักพร้อมจอง: <strong className="text-studio-primary">{filteredItems.length}</strong> รายการ
+      <div className="text-xs text-[#ECE4D3] px-1">
+        แสดงลายสักพร้อมจอง: <strong className="text-[#ECE4D3]">{filteredItems.length}</strong> รายการ
       </div>
 
       {loading && (
-        <div className="py-16 text-center text-xs text-[#E2DDD4] animate-pulse">กำลังโหลดแบบลายสัก Flash...</div>
+        <div className="py-16 text-center text-xs text-[#ECE4D3] animate-pulse">กำลังโหลดแบบลายสัก Flash...</div>
       )}
 
       {error && (
@@ -121,9 +121,20 @@ export default function FlashDesignPicker({ onSelect }: FlashDesignPickerProps) 
                   loading="lazy"
                   decoding="async"
                 />
-                <span className="absolute top-3 right-3 text-[10px] bg-emerald-950/60 border border-emerald-600/40 text-emerald-400 px-2 py-0.5 rounded font-bold">
-                  ● ว่าง พร้อมจอง
-                </span>
+                <div className="absolute top-3 right-3 flex flex-col items-end gap-1.5 pointer-events-none">
+                  <span className="text-[10px] bg-emerald-950/90 border border-emerald-500/70 text-emerald-300 px-2 py-0.5 rounded font-bold shadow-md backdrop-blur-sm">
+                    ● ว่าง พร้อมจอง
+                  </span>
+                  {item.is_repeatable ? (
+                    <span className="text-[10px] bg-[#171512]/95 border border-[#6A6256] text-[#ECE4D3] px-2 py-0.5 rounded font-semibold shadow-md backdrop-blur-sm">
+                      สักซ้ำได้
+                    </span>
+                  ) : (
+                    <span className="text-[10px] bg-[#6F1F1F]/95 border border-[#C12D2D] text-[#ECE4D3] px-2 py-0.5 rounded font-semibold shadow-md backdrop-blur-sm">
+                      ลายเดียว
+                    </span>
+                  )}
+                </div>
               </div>
               <div className="p-3 bg-studio-card flex flex-col flex-1 min-w-0 space-y-2">
                 <div className="space-y-0.5 min-w-0">
@@ -133,7 +144,7 @@ export default function FlashDesignPicker({ onSelect }: FlashDesignPickerProps) 
                   <h4 className="text-xs font-bold text-studio-primary truncate group-hover:text-studio-red-bright transition-colors">
                     {item.title}
                   </h4>
-                  <p className="text-[10px] text-[#E2DDD4] truncate">ช่าง: {item.artist?.name || 'ช่างประจำร้าน'}</p>
+                  <p className="text-[10px] text-[#ECE4D3] truncate">ช่าง: {item.artist?.name || 'ช่างประจำร้าน'}</p>
                 </div>
                 <div className="pt-2.5 mt-auto border-t border-studio-border/50 flex items-center justify-end">
                   <button
@@ -156,9 +167,9 @@ export default function FlashDesignPicker({ onSelect }: FlashDesignPickerProps) 
 
       {!loading && !error && filteredItems.length === 0 && (
         <div className="bg-studio-card border border-studio-border p-12 rounded-[8px] text-center space-y-2">
-          <Search size={32} className="text-[#B8B0A3] mx-auto" />
+          <Search size={32} className="text-[#ECE4D3] mx-auto" />
           <h3 className="text-sm font-bold text-studio-primary">ไม่พบลายสัก Flash ที่เปิดให้จอง</h3>
-          <p className="text-xs text-[#E2DDD4]">ลองเปลี่ยนคำค้นหาหรือเลือกสไตล์งานอื่น</p>
+          <p className="text-xs text-[#ECE4D3]">ลองเปลี่ยนคำค้นหาหรือเลือกสไตล์งานอื่น</p>
         </div>
       )}
     </div>

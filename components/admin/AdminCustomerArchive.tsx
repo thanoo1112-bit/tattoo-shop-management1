@@ -94,7 +94,7 @@ function CustomerArchiveReferenceGallery({
           className={`text-[10px] italic px-2.5 py-1 rounded-[4px] inline-flex items-center gap-1.5 font-prompt ${
             isTerminal
               ? 'text-zinc-500 bg-zinc-900/60 border border-zinc-800'
-              : 'text-[#7A7265] bg-[#171512] border border-[#38332E]'
+              : 'text-[#ECE4D3] bg-[#171512] border border-[#38332E]'
           }`}
         >
           <Sparkles size={11} className={isTerminal ? 'text-zinc-500' : 'text-studio-red-bright/80'} />
@@ -107,7 +107,7 @@ function CustomerArchiveReferenceGallery({
   return (
     <div className="pt-2 border-t border-[#4A443A]/30 space-y-1.5">
       <div className="flex items-center justify-between">
-        <span className={`text-[10px] uppercase font-bold tracking-wider block ${isTerminal ? 'text-zinc-500' : 'text-[#7A7265]'}`}>
+        <span className={`text-[10px] uppercase font-bold tracking-wider block ${isTerminal ? 'text-zinc-500' : 'text-[#ECE4D3]'}`}>
           รูปภาพอ้างอิง ({activeImages.length} รูป):
         </span>
       </div>
@@ -119,7 +119,7 @@ function CustomerArchiveReferenceGallery({
             className={`relative w-20 h-20 sm:w-24 sm:h-24 rounded-[6px] border ${
               isTerminal
                 ? 'border-zinc-800 hover:border-zinc-700 bg-zinc-900/60'
-                : 'border-[#4A443A] hover:border-[#9C2F2F] bg-[#171512]'
+                : 'border-[#4A443A] hover:border-[#C12D2D] bg-[#171512]'
             } overflow-hidden shrink-0 cursor-pointer group shadow-sm transition-all`}
             title={`คลิกเพื่อดูรูปที่ ${idx + 1}`}
           >
@@ -874,8 +874,8 @@ export default function AdminCustomerArchive() {
         return {
           key: 'IN_PROGRESS',
           label: 'กำลังสัก',
-          dot: 'bg-[#9C2F2F]',
-          badge: 'bg-[#9C2F2F]/20 text-[#D64545] border border-[#9C2F2F]/60 animate-pulse',
+          dot: 'bg-[#C12D2D]',
+          badge: 'bg-[#C12D2D]/20 text-[#C12D2D] border border-[#C12D2D]/60 animate-pulse',
           isTerminal: false,
         };
       case 'WAITING_DEPOSIT':
@@ -972,7 +972,7 @@ export default function AdminCustomerArchive() {
           <h1 className="text-3xl md:text-4xl font-heading font-normal tracking-wide text-[#ECE4D3]">
             ข้อมูลลูกค้า
           </h1>
-          <p className="text-xs text-[#A89F91] mt-0.5 font-light">
+          <p className="text-xs text-[#ECE4D3] mt-0.5 font-light">
             ดูข้อมูลและประวัติการใช้บริการของลูกค้าร้าน
           </p>
         </div>
@@ -999,7 +999,7 @@ export default function AdminCustomerArchive() {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="ค้นหาชื่อ อีเมล หรือเบอร์โทร..."
-            className="w-full h-[38px] pl-9 pr-8 bg-[#0E0D0C] border border-[#4A443A] hover:border-[#7A7265] focus:border-[#9C2F2F] rounded-[6px] text-xs text-[#ECE4D3] placeholder-[#7A7265] outline-none transition-colors"
+            className="w-full h-[38px] pl-9 pr-8 bg-[#0E0D0C] border border-[#4A443A] hover:border-[#7A7265] focus:border-[#C12D2D] rounded-[6px] text-xs text-[#ECE4D3] placeholder-[#7A7265] outline-none transition-colors"
           />
           {searchQuery && (
             <button
@@ -1018,7 +1018,7 @@ export default function AdminCustomerArchive() {
             <button
               type="button"
               onClick={() => setIsArtistDropdownOpen((prev) => !prev)}
-              className="h-[38px] px-3 bg-[#0E0D0C] border border-[#4A443A] hover:border-[#7A7265] rounded-[6px] text-xs font-medium text-[#ECE4D3] flex items-center space-x-2 transition-colors outline-none focus:ring-1 focus:ring-[#9C2F2F]"
+              className="h-[38px] px-3 bg-[#0E0D0C] border border-[#4A443A] hover:border-[#7A7265] rounded-[6px] text-xs font-medium text-[#ECE4D3] flex items-center space-x-2 transition-colors outline-none focus:ring-1 focus:ring-[#C12D2D]"
             >
               <User size={13} className="text-studio-red-bright" />
               <span className="truncate max-w-[120px]">
@@ -1039,7 +1039,7 @@ export default function AdminCustomerArchive() {
                   }}
                   className={`w-full h-[34px] px-2.5 rounded-[4px] flex items-center justify-between text-left text-xs font-medium transition-colors ${
                     selectedArtistFilter === 'ALL'
-                      ? 'bg-[#9C2F2F]/[0.14] text-[#ECE4D3]'
+                      ? 'bg-[#C12D2D]/[0.14] text-[#ECE4D3]'
                       : 'text-[#ECE4D3] hover:bg-[#ECE4D3]/[0.06]'
                   }`}
                 >
@@ -1058,7 +1058,7 @@ export default function AdminCustomerArchive() {
                     }}
                     className={`w-full h-[34px] px-2.5 rounded-[4px] flex items-center justify-between text-left text-xs font-medium transition-colors ${
                       selectedArtistFilter === artist.id
-                        ? 'bg-[#9C2F2F]/[0.14] text-[#ECE4D3]'
+                        ? 'bg-[#C12D2D]/[0.14] text-[#ECE4D3]'
                         : 'text-[#ECE4D3] hover:bg-[#ECE4D3]/[0.06]'
                     }`}
                   >
@@ -1077,7 +1077,7 @@ export default function AdminCustomerArchive() {
             <button
               type="button"
               onClick={() => setIsStatusDropdownOpen((prev) => !prev)}
-              className="h-[38px] px-3 bg-[#0E0D0C] border border-[#4A443A] hover:border-[#7A7265] rounded-[6px] text-xs font-medium text-[#ECE4D3] flex items-center space-x-2 transition-colors outline-none focus:ring-1 focus:ring-[#9C2F2F]"
+              className="h-[38px] px-3 bg-[#0E0D0C] border border-[#4A443A] hover:border-[#7A7265] rounded-[6px] text-xs font-medium text-[#ECE4D3] flex items-center space-x-2 transition-colors outline-none focus:ring-1 focus:ring-[#C12D2D]"
             >
               <span className="w-1.5 h-1.5 rounded-full bg-studio-red-bright" />
               <span>
@@ -1106,7 +1106,7 @@ export default function AdminCustomerArchive() {
                     }}
                     className={`w-full h-[34px] px-2.5 rounded-[4px] flex items-center justify-between text-left text-xs font-medium transition-colors ${
                       selectedStatusFilter === item.id
-                        ? 'bg-[#9C2F2F]/[0.14] text-[#ECE4D3]'
+                        ? 'bg-[#C12D2D]/[0.14] text-[#ECE4D3]'
                         : 'text-[#ECE4D3] hover:bg-[#ECE4D3]/[0.06]'
                     }`}
                   >
@@ -1139,7 +1139,7 @@ export default function AdminCustomerArchive() {
         <div className="py-12 text-center border border-dashed border-[#4A443A]/60 rounded-lg bg-[#0E0D0C]/40 space-y-2">
           <Users size={28} className="text-[#7A7265] mx-auto opacity-60" />
           <h4 className="text-xs sm:text-sm font-semibold text-[#ECE4D3]">ยังไม่มีประวัติลูกค้า</h4>
-          <p className="text-[11px] text-[#7A7265] max-w-sm mx-auto">
+          <p className="text-[11px] text-[#ECE4D3] max-w-sm mx-auto">
             ลูกค้าที่มีคำขอจองหรือนัดหมายจะแสดงที่นี่
           </p>
         </div>
@@ -1149,7 +1149,7 @@ export default function AdminCustomerArchive() {
           <div className="hidden md:block bg-[#171512] border border-[#4A443A] rounded-[8px] overflow-hidden shadow-xl">
         <table className="w-full text-left border-collapse text-xs">
           <thead>
-            <tr className="border-b border-[#4A443A] bg-[#0E0D0C] text-[10px] uppercase font-semibold text-[#B8B0A3] tracking-wider">
+            <tr className="border-b border-[#4A443A] bg-[#0E0D0C] text-[10px] uppercase font-semibold text-[#ECE4D3] tracking-wider">
               <th className="py-3 px-4">ลูกค้า</th>
               <th className="py-3 px-4">ข้อมูลติดต่อ</th>
               <th className="py-3 px-4">ช่างของนัดถัดไป</th>
@@ -1162,7 +1162,7 @@ export default function AdminCustomerArchive() {
           <tbody className="divide-y divide-[#4A443A]/50">
             {filteredCustomers.length === 0 ? (
               <tr>
-                <td colSpan={7} className="py-12 text-center text-xs text-[#7A7265]">
+                <td colSpan={7} className="py-12 text-center text-xs text-[#ECE4D3]">
                   {searchQuery ? 'ไม่พบลูกค้าที่ตรงกับการค้นหา' : 'ยังไม่มีข้อมูลลูกค้า'}
                 </td>
               </tr>
@@ -1179,7 +1179,7 @@ export default function AdminCustomerArchive() {
                     }}
                     className={`h-[68px] cursor-pointer transition-colors group ${
                       isSelected
-                        ? 'bg-[#1C1A16] ring-1 ring-[#9C2F2F]'
+                        ? 'bg-[#1C1A16] ring-1 ring-[#C12D2D]'
                         : 'hover:bg-[#1C1A16]'
                     }`}
                   >
@@ -1202,10 +1202,10 @@ export default function AdminCustomerArchive() {
 
                     {/* Contact */}
                     <td className="py-3 px-4">
-                      <span className="text-[#A89F91] font-mono text-[11px] block">
+                      <span className="text-[#ECE4D3] font-mono text-[11px] block">
                         {cust.email}
                       </span>
-                      <span className="text-[#7A7265] font-mono text-[10px] block">
+                      <span className="text-[#ECE4D3] font-mono text-[10px] block">
                         {cust.phone}
                       </span>
                     </td>
@@ -1221,7 +1221,7 @@ export default function AdminCustomerArchive() {
                         {cust.nextAppointment ? (cust.nextAppointment.artworkTitle || 'Custom Tattoo') : '—'}
                       </span>
                       {cust.nextAppointment?.date && (
-                        <span className="text-[10px] text-[#7A7265] font-mono block">
+                        <span className="text-[10px] text-[#ECE4D3] font-mono block">
                           {formatThaiDate(cust.nextAppointment.date)}
                         </span>
                       )}
@@ -1231,18 +1231,18 @@ export default function AdminCustomerArchive() {
                     <td className="py-3 px-4">
                       {cust.nextAppointment ? (
                         <div className="flex items-center space-x-1.5">
-                          <span className="w-1.5 h-1.5 rounded-full bg-[#9C2F2F]" />
+                          <span className="w-1.5 h-1.5 rounded-full bg-[#C12D2D]" />
                           <div>
                             <span className="font-mono text-[#ECE4D3] block font-semibold">
                               {formatThaiDate(cust.nextAppointment.date)}
                             </span>
-                            <span className="text-[10px] text-[#A89F91] font-mono block">
+                            <span className="text-[10px] text-[#ECE4D3] font-mono block">
                               {cust.nextAppointment.startTime} • {cust.nextAppointment.artistName}
                             </span>
                           </div>
                         </div>
                       ) : (
-                        <span className="text-[#7A7265] text-xs">-</span>
+                        <span className="text-[#ECE4D3] text-xs">-</span>
                       )}
                     </td>
 
@@ -1260,7 +1260,7 @@ export default function AdminCustomerArchive() {
                           setSelectedCustomer(cust);
                           setActiveDetailTab('overview');
                         }}
-                        className="px-3 py-1.5 bg-[#0E0D0C] hover:bg-[#9C2F2F] border border-[#4A443A] hover:border-[#9C2F2F] text-[#ECE4D3] rounded-[4px] text-xs font-semibold transition-colors"
+                        className="px-3 py-1.5 bg-[#0E0D0C] hover:bg-[#C12D2D] border border-[#4A443A] hover:border-[#C12D2D] text-[#ECE4D3] rounded-[4px] text-xs font-semibold transition-colors"
                       >
                         ดูข้อมูล
                       </button>
@@ -1276,7 +1276,7 @@ export default function AdminCustomerArchive() {
       {/* 4. MOBILE CUSTOMER CARD LIST */}
       <div className="md:hidden space-y-3">
         {filteredCustomers.length === 0 ? (
-          <div className="p-8 bg-[#171512] border border-[#4A443A] rounded-[8px] text-center text-xs text-[#7A7265]">
+          <div className="p-8 bg-[#171512] border border-[#4A443A] rounded-[8px] text-center text-xs text-[#ECE4D3]">
             {searchQuery ? 'ไม่พบลูกค้าที่ตรงกับการค้นหา' : 'ยังไม่มีข้อมูลลูกค้า'}
           </div>
         ) : (
@@ -1287,7 +1287,7 @@ export default function AdminCustomerArchive() {
                 setSelectedCustomer(cust);
                 setActiveDetailTab('overview');
               }}
-              className="p-4 bg-[#171512] border border-[#4A443A] hover:border-[#9C2F2F] rounded-[8px] space-y-3 cursor-pointer shadow transition-all"
+              className="p-4 bg-[#171512] border border-[#4A443A] hover:border-[#C12D2D] rounded-[8px] space-y-3 cursor-pointer shadow transition-all"
             >
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-3">
@@ -1296,7 +1296,7 @@ export default function AdminCustomerArchive() {
                     <h4 className="text-sm font-semibold text-[#ECE4D3]">
                       {cust.name}
                     </h4>
-                    <span className="text-[11px] text-[#B8B0A3] font-mono block">
+                    <span className="text-[11px] text-[#ECE4D3] font-mono block">
                       {cust.phone}
                     </span>
                   </div>
@@ -1306,15 +1306,15 @@ export default function AdminCustomerArchive() {
                 </span>
               </div>
 
-              <div className="grid grid-cols-2 gap-2 text-xs border-t border-[#4A443A]/40 pt-2 text-[#A89F91]">
+              <div className="grid grid-cols-2 gap-2 text-xs border-t border-[#4A443A]/40 pt-2 text-[#ECE4D3]">
                 <div>
-                  <span className="text-[10px] text-[#B8B0A3] block">งานนัดถัดไป:</span>
+                  <span className="text-[10px] text-[#ECE4D3] block">งานนัดถัดไป:</span>
                   <span className="text-[#ECE4D3] truncate block">
                     {cust.nextAppointment ? (cust.nextAppointment.artworkTitle || 'Custom Tattoo') : '—'}
                   </span>
                 </div>
                 <div>
-                  <span className="text-[10px] text-[#B8B0A3] block">ช่างของนัดถัดไป:</span>
+                  <span className="text-[10px] text-[#ECE4D3] block">ช่างของนัดถัดไป:</span>
                   <span className="text-[#ECE4D3] block">
                     {cust.nextAppointment ? cust.nextAppointment.artistName : '—'}
                   </span>
@@ -1322,7 +1322,7 @@ export default function AdminCustomerArchive() {
               </div>
 
               {cust.nextAppointment && (
-                <div className="p-2 bg-[#0E0D0C] border-l-2 border-[#9C2F2F] rounded text-xs flex items-center justify-between">
+                <div className="p-2 bg-[#0E0D0C] border-l-2 border-[#C12D2D] rounded text-xs flex items-center justify-between">
                   <div>
                     <span className="text-[9px] text-studio-red-bright font-bold block uppercase">
                       นัดหมายถัดไป:
@@ -1331,7 +1331,7 @@ export default function AdminCustomerArchive() {
                       {formatThaiDate(cust.nextAppointment.date)} • {cust.nextAppointment.startTime}
                     </span>
                   </div>
-                  <span className="text-[10px] text-[#A89F91]">
+                  <span className="text-[10px] text-[#ECE4D3]">
                     {cust.nextAppointment.artistName}
                   </span>
                 </div>
@@ -1345,7 +1345,7 @@ export default function AdminCustomerArchive() {
                     setSelectedCustomer(cust);
                     setActiveDetailTab('overview');
                   }}
-                  className="px-3 py-1.5 bg-[#9C2F2F] text-[#ECE4D3] text-xs font-semibold rounded-[4px]"
+                  className="px-3 py-1.5 bg-[#C12D2D] text-[#ECE4D3] text-xs font-semibold rounded-[4px]"
                 >
                   ดูข้อมูลลูกค้า
                 </button>
@@ -1386,17 +1386,17 @@ export default function AdminCustomerArchive() {
                   <h2 className="text-xl sm:text-2xl font-heading font-normal tracking-wide text-[#ECE4D3] truncate">
                     {selectedCustomer.name}
                   </h2>
-                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-[#A89F91] mt-0.5">
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-[#ECE4D3] mt-0.5">
                     <span className="flex items-center space-x-1">
-                      <Mail size={11} className="text-[#B8B0A3]" />
+                      <Mail size={11} className="text-[#ECE4D3]" />
                       <span className="font-mono">{selectedCustomer.email}</span>
                     </span>
                     <span className="flex items-center space-x-1">
-                      <Phone size={11} className="text-[#B8B0A3]" />
+                      <Phone size={11} className="text-[#ECE4D3]" />
                       <span className="font-mono">{selectedCustomer.phone}</span>
                     </span>
                     <span className="flex items-center space-x-1">
-                      <Calendar size={11} className="text-[#B8B0A3]" />
+                      <Calendar size={11} className="text-[#ECE4D3]" />
                       <span className="font-mono">
                         {`อายุ: ${formatCustomerAgeDisplay(selectedCustomer.dateOfBirth)}`}
                       </span>
@@ -1423,12 +1423,12 @@ export default function AdminCustomerArchive() {
                   className={`pb-2 font-medium transition-colors relative ${
                     activeDetailTab === 'overview'
                       ? 'text-[#ECE4D3] font-semibold'
-                      : 'text-[#7A7265] hover:text-[#A89F91]'
+                      : 'text-[#ECE4D3]/70 hover:text-[#ECE4D3]'
                   }`}
                 >
                   ภาพรวม
                   {activeDetailTab === 'overview' && (
-                    <span className="absolute bottom-0 left-0 right-0 h-[2px] bg-[#9C2F2F]" />
+                    <span className="absolute bottom-0 left-0 right-0 h-[2px] bg-[#C12D2D]" />
                   )}
                 </button>
                 <button
@@ -1437,7 +1437,7 @@ export default function AdminCustomerArchive() {
                   className={`pb-2 font-medium transition-colors relative ${
                     activeDetailTab === 'requests'
                       ? 'text-[#ECE4D3] font-semibold'
-                      : 'text-[#7A7265] hover:text-[#A89F91]'
+                      : 'text-[#ECE4D3]/70 hover:text-[#ECE4D3]'
                   }`}
                 >
                   คำขอจอง ({(() => {
@@ -1466,7 +1466,7 @@ export default function AdminCustomerArchive() {
                     return count;
                   })()})
                   {activeDetailTab === 'requests' && (
-                    <span className="absolute bottom-0 left-0 right-0 h-[2px] bg-[#9C2F2F]" />
+                    <span className="absolute bottom-0 left-0 right-0 h-[2px] bg-[#C12D2D]" />
                   )}
                 </button>
                 <button
@@ -1475,12 +1475,12 @@ export default function AdminCustomerArchive() {
                   className={`pb-2 font-medium transition-colors relative ${
                     activeDetailTab === 'active'
                       ? 'text-[#ECE4D3] font-semibold'
-                      : 'text-[#7A7265] hover:text-[#A89F91]'
+                      : 'text-[#ECE4D3]/70 hover:text-[#ECE4D3]'
                   }`}
                 >
                   คิวงาน ({selectedCustomer.activeBookings.length})
                   {activeDetailTab === 'active' && (
-                    <span className="absolute bottom-0 left-0 right-0 h-[2px] bg-[#9C2F2F]" />
+                    <span className="absolute bottom-0 left-0 right-0 h-[2px] bg-[#C12D2D]" />
                   )}
                 </button>
                 <button
@@ -1489,12 +1489,12 @@ export default function AdminCustomerArchive() {
                   className={`pb-2 font-medium transition-colors relative ${
                     activeDetailTab === 'tattoos'
                       ? 'text-[#ECE4D3] font-semibold'
-                      : 'text-[#7A7265] hover:text-[#A89F91]'
+                      : 'text-[#ECE4D3]/70 hover:text-[#ECE4D3]'
                   }`}
                 >
                   ประวัติงานสัก ({selectedCustomer.completedBookings.length})
                   {activeDetailTab === 'tattoos' && (
-                    <span className="absolute bottom-0 left-0 right-0 h-[2px] bg-[#9C2F2F]" />
+                    <span className="absolute bottom-0 left-0 right-0 h-[2px] bg-[#C12D2D]" />
                   )}
                 </button>
               </div>
@@ -1507,7 +1507,7 @@ export default function AdminCustomerArchive() {
                 <div className="space-y-4">
                   {/* NEXT APPOINTMENT */}
                   {selectedCustomer.nextAppointment ? (
-                    <div className="bg-[#171512] border-l-4 border-l-[#9C2F2F] border border-[#4A443A] p-4 rounded-[6px] space-y-3 shadow-lg">
+                    <div className="bg-[#171512] border-l-4 border-l-[#C12D2D] border border-[#4A443A] p-4 rounded-[6px] space-y-3 shadow-lg">
                       <div className="flex justify-between items-center">
                         <div className="flex items-center space-x-1.5 text-xs text-[#ECE4D3] font-bold">
                           <Clock3 size={14} className="text-studio-red-bright" />
@@ -1527,28 +1527,28 @@ export default function AdminCustomerArchive() {
                         })()}
                       </div>
 
-                      <div className="grid grid-cols-2 gap-2 text-xs text-[#A89F91]">
+                      <div className="grid grid-cols-2 gap-2 text-xs text-[#ECE4D3]">
                         <div>
-                          <span className="text-[10px] text-[#B8B0A3] block">ผลงาน / ลายสัก:</span>
+                          <span className="text-[10px] text-[#ECE4D3] block">ผลงาน / ลายสัก:</span>
                           <strong className="text-[#ECE4D3]">
                             {selectedCustomer.nextAppointment.artworkTitle || 'Custom Tattoo'}
                           </strong>
                         </div>
                         <div>
-                          <span className="text-[10px] text-[#B8B0A3] block">ช่างสัก:</span>
+                          <span className="text-[10px] text-[#ECE4D3] block">ช่างสัก:</span>
                           <strong className="text-[#ECE4D3]">
                             {selectedCustomer.nextAppointment.artistName}
                           </strong>
                         </div>
                         <div>
-                          <span className="text-[10px] text-[#B8B0A3] block">วันและเวลา:</span>
+                          <span className="text-[10px] text-[#ECE4D3] block">วันและเวลา:</span>
                           <span className="font-mono text-[#ECE4D3]">
                             {formatThaiDate(selectedCustomer.nextAppointment.date)} •{' '}
                             {selectedCustomer.nextAppointment.startTime}
                           </span>
                         </div>
                         <div>
-                          <span className="text-[10px] text-[#B8B0A3] block">ตำแหน่งและขนาด:</span>
+                          <span className="text-[10px] text-[#ECE4D3] block">ตำแหน่งและขนาด:</span>
                           <span className="text-[#ECE4D3]">
                             {selectedCustomer.nextAppointment.placement || 'ตามที่ตกลง'}
                             {formatTattooSize(
@@ -1566,7 +1566,7 @@ export default function AdminCustomerArchive() {
 
                       {/* Payment Status Row */}
                       <div className="pt-2 border-t border-[#4A443A]/40 flex justify-between items-center text-xs">
-                        <span className="text-[#A89F91]">สถานะการชำระ:</span>
+                        <span className="text-[#ECE4D3]">สถานะการชำระ:</span>
                         {(() => {
                           const na = selectedCustomer.nextAppointment;
                           const st = (na?.status || '').toUpperCase();
@@ -1607,7 +1607,7 @@ export default function AdminCustomerArchive() {
                             );
                           }
                           return (
-                            <span className="font-mono text-[#7A7265] italic text-xs">
+                            <span className="font-mono text-[#ECE4D3] italic text-xs">
                               ยังไม่ชำระมัดจำ
                             </span>
                           );
@@ -1615,31 +1615,31 @@ export default function AdminCustomerArchive() {
                       </div>
                     </div>
                   ) : (
-                    <div className="p-4 bg-[#0E0D0C] border border-[#4A443A] rounded-[6px] text-center text-xs text-[#7A7265]">
+                    <div className="p-4 bg-[#0E0D0C] border border-[#4A443A] rounded-[6px] text-center text-xs text-[#ECE4D3]">
                       ไม่มีนัดหมายถัดไปในขณะนี้
                     </div>
                   )}
 
                   {/* Client Summary Specs */}
                   <div className="bg-[#0E0D0C] border border-[#4A443A] p-4 rounded-[6px] space-y-2.5">
-                    <span className="text-[10px] uppercase font-bold text-[#7A7265] tracking-wider block">
+                    <span className="text-[10px] uppercase font-bold text-[#ECE4D3] tracking-wider block">
                       ข้อมูลสรุปการใช้บริการ:
                     </span>
                     <div className="grid grid-cols-2 gap-3 text-xs">
                       <div>
-                        <span className="text-[#7A7265] text-[10px] block">ช่างที่เคยดูแล:</span>
+                        <span className="text-[#ECE4D3] text-[10px] block">ช่างที่เคยดูแล:</span>
                         <span className="text-[#ECE4D3] font-medium">
                           {selectedCustomer.lastArtistName}
                         </span>
                       </div>
                       <div>
-                        <span className="text-[#7A7265] text-[10px] block">งานล่าสุด:</span>
+                        <span className="text-[#ECE4D3] text-[10px] block">งานล่าสุด:</span>
                         <span className="text-[#ECE4D3] font-medium truncate block">
                           {selectedCustomer.lastArtworkTitle}
                         </span>
                       </div>
                       <div>
-                        <span className="text-[#7A7265] text-[10px] block">
+                        <span className="text-[#ECE4D3] text-[10px] block">
                           วันที่ใช้บริการล่าสุด:
                         </span>
                         <span className="text-[#ECE4D3] font-mono">
@@ -1647,24 +1647,24 @@ export default function AdminCustomerArchive() {
                         </span>
                       </div>
                       <div>
-                        <span className="text-[#7A7265] text-[10px] block">ยอดใช้จ่ายรวม:</span>
-                        <span className={`font-mono font-semibold ${selectedCustomer.totalSpent > 0 ? 'text-green-400' : 'text-[#A89F91]'}`}>
+                        <span className="text-[#ECE4D3] text-[10px] block">ยอดใช้จ่ายรวม:</span>
+                        <span className={`font-mono font-semibold ${selectedCustomer.totalSpent > 0 ? 'text-green-400' : 'text-[#ECE4D3]'}`}>
                           {selectedCustomer.totalSpent > 0 ? `฿${selectedCustomer.totalSpent.toLocaleString()}` : '—'}
                         </span>
                       </div>
                       <div className="col-span-2 pt-2 border-t border-[#4A443A]/40 space-y-2">
-                        <span className="text-[#B8B0A3] text-[10px] uppercase font-bold tracking-wider block">
+                        <span className="text-[#ECE4D3] text-[10px] uppercase font-bold tracking-wider block">
                           ข้อมูลสุขภาพ (สำหรับ Admin/ช่างเท่านั้น):
                         </span>
                         <div className="grid grid-cols-2 gap-2 text-xs">
                           <div className="p-2 bg-[#171512] rounded border border-[#4A443A]/50 space-y-0.5">
-                            <span className="text-[10px] text-[#B8B0A3] block font-medium">โรคประจำตัว:</span>
+                            <span className="text-[10px] text-[#ECE4D3] block font-medium">โรคประจำตัว:</span>
                             <span className="text-[#ECE4D3] font-medium block">
                               {formatCustomerHealthInfo({ estimates: selectedCustomer.estimates }).medicalCondition}
                             </span>
                           </div>
                           <div className="p-2 bg-[#171512] rounded border border-[#4A443A]/50 space-y-0.5">
-                            <span className="text-[10px] text-[#B8B0A3] block font-medium">อาการแพ้ (เช่น ยา, โลหะ, ยาชา):</span>
+                            <span className="text-[10px] text-[#ECE4D3] block font-medium">อาการแพ้ (เช่น ยา, โลหะ, ยาชา):</span>
                             <span className="text-[#ECE4D3] font-medium block">
                               {formatCustomerHealthInfo({ estimates: selectedCustomer.estimates }).allergy}
                             </span>
@@ -1676,10 +1676,10 @@ export default function AdminCustomerArchive() {
 
                   {/* Customer Note Section */}
                   <div className="bg-[#0E0D0C] border border-[#4A443A] p-4 rounded-[6px] space-y-1.5">
-                    <span className="text-[10px] uppercase font-bold text-[#7A7265] tracking-wider block">
+                    <span className="text-[10px] uppercase font-bold text-[#ECE4D3] tracking-wider block">
                       บันทึกเกี่ยวกับลูกค้า (Client Notes):
                     </span>
-                    <p className="text-[#7A7265] text-xs italic">
+                    <p className="text-[#ECE4D3] text-xs italic">
                       ยังไม่มีบันทึกสำหรับลูกค้ารายนี้
                     </p>
                   </div>
@@ -1832,7 +1832,7 @@ export default function AdminCustomerArchive() {
                 return (
                   <div className="space-y-3">
                     {unifiedRequests.length === 0 ? (
-                      <div className="p-8 text-center text-xs text-[#7A7265]">
+                      <div className="p-8 text-center text-xs text-[#ECE4D3]">
                         ยังไม่มีประวัติคำขอจองคิว
                       </div>
                     ) : (
@@ -1854,7 +1854,7 @@ export default function AdminCustomerArchive() {
                                 <strong className={`text-xs block ${isTerminal ? 'text-zinc-400' : 'text-[#ECE4D3]'}`}>
                                   {req.title}
                                 </strong>
-                                <span className={`text-[10px] block mt-0.5 ${isTerminal ? 'text-zinc-500' : 'text-[#A89F91]'}`}>
+                                <span className={`text-[10px] block mt-0.5 ${isTerminal ? 'text-zinc-500' : 'text-[#ECE4D3]'}`}>
                                   ตำแหน่ง: {req.placement} • ช่าง: {req.artistName}
                                 </span>
                                 <span className="text-[10px] text-zinc-500 font-mono block mt-0.5">
@@ -1932,7 +1932,7 @@ export default function AdminCustomerArchive() {
                               </div>
                             ) : req.quotedPrice ? (
                               <div className="p-2 bg-[#171512] rounded border border-blue-400/40 text-[11px] flex justify-between items-center">
-                                <span className="text-[#A89F91]">ราคาที่เสนอ:</span>
+                                <span className="text-[#ECE4D3]">ราคาที่เสนอ:</span>
                                 <span className="font-mono font-semibold text-[#ECE4D3]">
                                   ฿{req.quotedPrice.toLocaleString()} (มัดจำ ฿
                                   {(req.quotedDeposit || 500).toLocaleString()})
@@ -1959,7 +1959,7 @@ export default function AdminCustomerArchive() {
               {activeDetailTab === 'active' && (
                 <div className="space-y-3">
                   {selectedCustomer.activeBookings.length === 0 ? (
-                    <div className="p-8 text-center text-xs text-[#7A7265]">
+                    <div className="p-8 text-center text-xs text-[#ECE4D3]">
                       ไม่มีรายการคิวงานที่กำลังดำเนินการในขณะนี้
                     </div>
                   ) : (
@@ -1978,10 +1978,10 @@ export default function AdminCustomerArchive() {
                               <strong className="text-xs text-[#ECE4D3] block">
                                 {titleLine}
                               </strong>
-                              <span className="text-[10px] text-[#A89F91] block mt-0.5">
+                              <span className="text-[10px] text-[#ECE4D3] block mt-0.5">
                                 ตำแหน่ง: {b.placement || 'ตามที่ตกลง'} • ช่าง: {b.artistName}
                               </span>
-                              <span className="text-[10px] text-[#7A7265] font-mono block mt-0.5">
+                              <span className="text-[10px] text-[#ECE4D3] font-mono block mt-0.5">
                                 {formatThaiDate(b.date)} • {b.startTime}
                               </span>
                             </div>
@@ -2015,7 +2015,7 @@ export default function AdminCustomerArchive() {
               {activeDetailTab === 'tattoos' && (
                 <div className="space-y-3">
                   {selectedCustomer.completedBookings.length === 0 ? (
-                    <div className="p-8 text-center text-xs text-[#7A7265]">
+                    <div className="p-8 text-center text-xs text-[#ECE4D3]">
                       ยังไม่มีประวัติงานสักที่เสร็จสิ้น
                     </div>
                   ) : (
@@ -2029,10 +2029,10 @@ export default function AdminCustomerArchive() {
                             <strong className="text-xs text-[#ECE4D3] block">
                               {b.artworkTitle || 'Custom Tattoo Piece'}{formatTattooSize((b as any).width_cm, (b as any).height_cm) ? ` • ${formatTattooSize((b as any).width_cm, (b as any).height_cm)}` : ''}
                             </strong>
-                            <span className="text-[10px] text-[#A89F91] block mt-0.5">
+                            <span className="text-[10px] text-[#ECE4D3] block mt-0.5">
                               ช่างสัก: {b.artistName || 'ช่างสักประจำร้าน'} • {formatThaiDate(b.date)}
                             </span>
-                            <span className="text-[10px] text-[#7A7265] block mt-0.5">
+                            <span className="text-[10px] text-[#ECE4D3] block mt-0.5">
                               ตำแหน่ง: {b.placement || 'ตามกำหนด'} • {calculateDurationTextFromTimes(b.startTime, b.endTime) || `${b.duration} ชม.`}
                             </span>
                           </div>
@@ -2065,7 +2065,7 @@ export default function AdminCustomerArchive() {
               <button
                 type="button"
                 onClick={() => setSelectedCustomer(null)}
-                className="w-full min-h-[44px] bg-transparent hover:bg-[#0E0D0C] border border-[#4A443A] text-[#A89F91] hover:text-[#ECE4D3] rounded-[4px] text-xs font-medium transition-colors"
+                className="w-full min-h-[44px] bg-transparent hover:bg-[#0E0D0C] border border-[#4A443A] text-[#ECE4D3] hover:text-white rounded-[4px] text-xs font-medium transition-colors"
               >
                 ปิดหน้าต่าง
               </button>
@@ -2121,7 +2121,7 @@ export default function AdminCustomerArchive() {
                       : null
                   )
                 }
-                className="p-2 bg-[#171512] border border-[#4A443A] hover:border-[#9C2F2F] hover:bg-[#9C2F2F] text-white rounded-full transition-colors shadow-lg"
+                className="p-2 bg-[#171512] border border-[#4A443A] hover:border-[#C12D2D] hover:bg-[#C12D2D] text-white rounded-full transition-colors shadow-lg"
                 title="รูปก่อนหน้า"
               >
                 <ChevronLeft size={20} />
@@ -2141,7 +2141,7 @@ export default function AdminCustomerArchive() {
                       : null
                   )
                 }
-                className="p-2 bg-[#171512] border border-[#4A443A] hover:border-[#9C2F2F] hover:bg-[#9C2F2F] text-white rounded-full transition-colors shadow-lg"
+                className="p-2 bg-[#171512] border border-[#4A443A] hover:border-[#C12D2D] hover:bg-[#C12D2D] text-white rounded-full transition-colors shadow-lg"
                 title="รูปถัดไป"
               >
                 <ChevronRight size={20} />

@@ -47,7 +47,7 @@ export default function CustomerHeader({ showLogo = false }: { showLogo?: boolea
                 className={`text-xs xl:text-sm tracking-wide font-medium flex items-center relative transition-colors duration-200 ${
                   isActive
                     ? 'text-[#ECE4D3] font-semibold'
-                    : 'text-[#E2DDD4] hover:text-[#ECE4D3]'
+                    : 'text-[#ECE4D3] hover:text-[#ECE4D3]'
                 }`}
               >
                 <span>{item.name}</span>
@@ -67,7 +67,7 @@ export default function CustomerHeader({ showLogo = false }: { showLogo?: boolea
                 href="/portal"
                 className="flex items-center space-x-2 text-xs xl:text-sm font-medium text-[#ECE4D3] hover:text-white transition-colors tracking-wide"
               >
-                <Calendar size={15} className="text-[#D64545]" />
+                <Calendar size={15} className="text-[#C12D2D]" />
                 <span>การจองของฉัน</span>
               </Link>
               <div className="flex items-center space-x-3 border-l border-studio-border pl-5">
@@ -75,14 +75,14 @@ export default function CustomerHeader({ showLogo = false }: { showLogo?: boolea
                   href="/portal?tab=profile"
                   className="text-xs xl:text-sm text-[#ECE4D3] font-medium flex items-center space-x-2 hover:text-studio-red-bright transition-colors"
                 >
-                  <div className="w-7 h-7 rounded-full bg-studio-red/15 border border-studio-red/30 flex items-center justify-center text-[#D64545]">
+                  <div className="w-7 h-7 rounded-full bg-studio-red/15 border border-studio-red/30 flex items-center justify-center text-[#C12D2D]">
                     <User size={13} />
                   </div>
                   <span>{customerName}</span>
                 </Link>
                 <button
                   onClick={logoutCustomer}
-                  className="text-xs text-[#F2EEE8] hover:text-[#ECE4D3] transition-colors flex items-center space-x-1"
+                  className="text-xs text-[#ECE4D3] hover:text-[#ECE4D3] transition-colors flex items-center space-x-1"
                   title="ออกจากระบบ"
                 >
                   <LogOut size={14} />

@@ -134,7 +134,7 @@ export function CompleteBookingDialog({
               <h3 className="text-base sm:text-lg font-bold text-[#ECE4D3] tracking-normal">
                 ยืนยันปิดงาน
               </h3>
-              <p className="text-xs text-[#B8B0A3] tracking-normal font-normal">
+              <p className="text-xs text-[#ECE4D3] tracking-normal font-normal">
                 คิวงาน <span className="font-mono text-[#B8B0A3]">#{booking.id.slice(0, 8)}</span> • <span className="text-emerald-400 font-medium">{booking.customer_name}</span>
               </p>
             </div>
@@ -152,19 +152,19 @@ export function CompleteBookingDialog({
         <div className="bg-[#0E0D0C] border border-[#4A443A]/80 rounded-xl p-3.5 text-xs space-y-2 font-prompt tracking-normal">
           <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs">
             <div>
-              <span className="text-[#B8B0A3] font-normal">ลูกค้า: </span>
+              <span className="text-[#ECE4D3] font-normal">ลูกค้า: </span>
               <span className="text-[#ECE4D3] font-medium">{booking.customer_name}</span>
             </div>
             <div>
-              <span className="text-[#B8B0A3] font-normal">ช่างสัก: </span>
+              <span className="text-[#ECE4D3] font-normal">ช่างสัก: </span>
               <span className="text-[#ECE4D3] font-medium">{booking.artist_name || 'ไม่ระบุ'}</span>
             </div>
             <div>
-              <span className="text-[#B8B0A3] font-normal">สไตล์ลายสัก: </span>
+              <span className="text-[#ECE4D3] font-normal">สไตล์ลายสัก: </span>
               <span className="text-[#ECE4D3] font-medium">{booking.style_preference || 'ไม่ระบุ'}</span>
             </div>
             <div>
-              <span className="text-[#B8B0A3] font-normal">ขนาดงาน: </span>
+              <span className="text-[#ECE4D3] font-normal">ขนาดงาน: </span>
               <span className="text-[#ECE4D3] font-medium">{dimensionsText}</span>
             </div>
           </div>
@@ -190,7 +190,7 @@ export function CompleteBookingDialog({
             type="button"
             disabled={isSubmitting}
             onClick={onClose}
-            className="px-4 py-2 text-xs font-medium text-[#B8B0A3] hover:text-white bg-[#0E0D0C] hover:bg-[#26231E] border border-[#4A443A] rounded-xl transition-colors cursor-pointer disabled:opacity-50 tracking-normal"
+            className="px-4 py-2 text-xs font-medium text-[#ECE4D3] hover:text-white bg-[#0E0D0C] hover:bg-[#26231E] border border-[#4A443A] rounded-xl transition-colors cursor-pointer disabled:opacity-50 tracking-normal"
           >
             ยกเลิก
           </button>

@@ -72,7 +72,7 @@ export default function ForgotPasswordPage() {
           <h2 className="text-lg font-semibold text-studio-primary pt-2">
             ลืมรหัสผ่าน
           </h2>
-          <p className="text-xs sm:text-sm text-studio-secondary font-light max-w-xs mx-auto leading-relaxed">
+          <p className="text-xs sm:text-sm text-[#ECE4D3] font-light max-w-xs mx-auto leading-relaxed">
             กรอกอีเมลที่ใช้สมัครสมาชิก เราจะส่งลิงก์สำหรับตั้งรหัสผ่านใหม่ให้คุณ
           </p>
         </div>
@@ -95,7 +95,7 @@ export default function ForgotPasswordPage() {
               <h3 className="text-sm font-semibold text-emerald-300">
                 ✓ ตรวจสอบอีเมลของคุณ
               </h3>
-              <p className="text-xs text-studio-secondary leading-relaxed max-w-xs">
+              <p className="text-xs text-[#ECE4D3] leading-relaxed max-w-xs">
                 หากอีเมลนี้มีบัญชีอยู่ในระบบ เราได้ส่งลิงก์สำหรับตั้งรหัสผ่านใหม่ให้แล้ว กรุณาตรวจสอบกล่องข้อความหรืออีเมลขยะของคุณ
               </p>
             </div>
@@ -114,7 +114,7 @@ export default function ForgotPasswordPage() {
             <div>
               <label 
                 htmlFor="forgot-email-input"
-                className="text-[11px] uppercase tracking-wider text-studio-secondary block mb-2 font-medium"
+                className="text-[11px] uppercase tracking-wider text-[#ECE4D3] block mb-2 font-medium"
               >
                 อีเมล (EMAIL ADDRESS)
               </label>

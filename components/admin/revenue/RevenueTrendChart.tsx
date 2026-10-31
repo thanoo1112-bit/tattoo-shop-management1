@@ -25,21 +25,21 @@ export default function RevenueTrendChart({
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#4A443A]/60 pb-3">
         <div className="flex items-center gap-2">
-          <div className="w-7 h-7 rounded-md bg-[#0E0D0C] border border-[#4A443A] flex items-center justify-center text-[#9C2F2F]">
+          <div className="w-7 h-7 rounded-md bg-[#0E0D0C] border border-[#4A443A] flex items-center justify-center text-[#C12D2D]">
             <BarChart3 size={15} />
           </div>
           <div>
             <h3 className="text-sm sm:text-base font-heading font-semibold text-[#ECE4D3]">
               แนวโน้มรายได้
             </h3>
-            <p className="text-[11px] text-[#A89F91]">
+            <p className="text-[11px] text-[#ECE4D3]">
               รายได้เงินจริงตามวันที่ชำระ (RECORDED เท่านั้น)
             </p>
           </div>
         </div>
 
         <div className="text-left sm:text-right">
-          <span className="text-[10px] text-[#7A7265] block">ยอดรวมช่วงเวลาที่เลือก</span>
+          <span className="text-[10px] text-[#ECE4D3] block">ยอดรวมช่วงเวลาที่เลือก</span>
           <span className="text-base sm:text-lg font-heading font-bold text-emerald-400">
             {formatCurrency(totalPeriodRevenue)}
           </span>
@@ -51,7 +51,7 @@ export default function RevenueTrendChart({
         <div className="h-44 sm:h-56 flex flex-col items-center justify-center text-center p-6 border border-dashed border-[#4A443A]/60 rounded-lg bg-[#0E0D0C]/40">
           <Calendar size={28} className="text-[#7A7265] mb-2 opacity-60" />
           <p className="text-xs font-medium text-[#ECE4D3]">ยังไม่มีรายได้ในช่วงเวลานี้</p>
-          <p className="text-[11px] text-[#7A7265] mt-0.5">
+          <p className="text-[11px] text-[#ECE4D3] mt-0.5">
             เมื่อมีการบันทึกรับเงินจริง กราฟแท่งรายวันจะแสดงที่นี่
           </p>
         </div>
@@ -61,16 +61,16 @@ export default function RevenueTrendChart({
           <div className="h-6 flex items-center justify-between text-xs">
             {hoveredDay ? (
               <div className="flex items-center gap-2 text-xs animate-fadeIn">
-                <span className="text-[#A89F91]">{hoveredDay.date}:</span>
+                <span className="text-[#ECE4D3]">{hoveredDay.date}:</span>
                 <span className="font-semibold text-emerald-400">
                   {formatCurrency(hoveredDay.amount)}
                 </span>
-                <span className="text-[10px] text-[#7A7265]">
+                <span className="text-[10px] text-[#ECE4D3]">
                   ({hoveredDay.count} รายการ)
                 </span>
               </div>
             ) : (
-              <span className="text-[11px] text-[#7A7265]">
+              <span className="text-[11px] text-[#ECE4D3]">
                 เลื่อนเมาส์หรือแตะที่แท่งเพื่อดูรายละเอียดยอดเงินรายวัน
               </span>
             )}
@@ -105,7 +105,7 @@ export default function RevenueTrendChart({
                   </div>
 
                   {/* Date label */}
-                  <span className="text-[9px] text-[#7A7265] mt-1.5 truncate max-w-full block text-center">
+                  <span className="text-[9px] text-[#ECE4D3] mt-1.5 truncate max-w-full block text-center">
                     {item.displayDate}
                   </span>
                 </div>

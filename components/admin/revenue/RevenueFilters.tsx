@@ -15,6 +15,7 @@ interface RevenueFiltersProps {
   onArtistChange?: (artistId: string) => void;
   artists?: Array<{ id: string; name: string; nickname: string | null }>;
   onResetFilters: () => void;
+  customPresetLabel?: string;
 }
 
 export default function RevenueFilters({
@@ -28,11 +29,12 @@ export default function RevenueFilters({
   onArtistChange,
   artists,
   onResetFilters,
+  customPresetLabel = 'ช่วงกำหนดเอง',
 }: RevenueFiltersProps) {
   const datePresets: Array<{ id: DateFilterPreset; label: string }> = [
     { id: 'this_month', label: 'เดือนนี้' },
     { id: 'last_month', label: 'เดือนก่อน' },
-    { id: 'custom', label: 'กำหนดเอง' },
+    { id: 'custom', label: customPresetLabel },
   ];
 
   return (

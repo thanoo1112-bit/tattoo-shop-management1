@@ -549,7 +549,7 @@ export default function ArtistPaymentReviewDrawer({
             <div className="space-y-2 bg-[#171512] p-2.5 rounded-lg border border-[#4A443A]/40 text-xs">
               {/* ชื่อลูกค้า */}
               <div className="flex items-center justify-between">
-                <span className="text-[#B8B0A3] flex items-center gap-1">
+                <span className="text-[#ECE4D3] flex items-center gap-1">
                   <User size={12} className="text-studio-red-bright" />
                   <span>ชื่อลูกค้า:</span>
                 </span>
@@ -558,8 +558,8 @@ export default function ArtistPaymentReviewDrawer({
 
               {/* อีเมล */}
               <div className="flex items-center justify-between border-t border-[#4A443A]/30 pt-2">
-                <span className="text-[#B8B0A3] flex items-center gap-1">
-                  <Mail size={12} className="text-[#B8B0A3]" />
+                <span className="text-[#ECE4D3] flex items-center gap-1">
+                  <Mail size={12} className="text-[#ECE4D3]" />
                   <span>อีเมล:</span>
                 </span>
                 <span className="font-mono text-[#ECE4D3] text-[11px]">
@@ -569,27 +569,27 @@ export default function ArtistPaymentReviewDrawer({
 
               {/* เบอร์โทรศัพท์ */}
               <div className="flex items-center justify-between border-t border-[#4A443A]/30 pt-2">
-                <span className="text-[#B8B0A3] flex items-center gap-1">
-                  <Phone size={12} className="text-[#B8B0A3]" />
+                <span className="text-[#ECE4D3] flex items-center gap-1">
+                  <Phone size={12} className="text-[#ECE4D3]" />
                   <span>เบอร์โทรศัพท์:</span>
                 </span>
                 {displayCustPhone && displayCustPhone !== 'ไม่ระบุ' && displayCustPhone !== 'ไม่ระบุเบอร์โทร' ? (
                   <a
                     href={`tel:${displayCustPhone}`}
-                    className="text-xs text-[#A89F91] hover:text-[#ECE4D3] flex items-center gap-1 bg-[#0E0D0C] px-2 py-0.5 rounded border border-[#4A443A]/50 transition-colors"
+                    className="text-xs text-[#ECE4D3] hover:text-white flex items-center gap-1 bg-[#0E0D0C] px-2 py-0.5 rounded border border-[#4A443A]/50 transition-colors"
                   >
                     <Phone size={10} className="text-emerald-400" />
                     <span className="font-mono">{displayCustPhone}</span>
                   </a>
                 ) : (
-                  <span className="text-[#B8B0A3]">ไม่ระบุเบอร์โทร</span>
+                  <span className="text-[#ECE4D3]">ไม่ระบุเบอร์โทร</span>
                 )}
               </div>
 
               {/* อายุลูกค้า */}
               <div className="flex items-center justify-between border-t border-[#4A443A]/30 pt-2">
-                <span className="text-[#B8B0A3] flex items-center gap-1">
-                  <Calendar size={12} className="text-[#B8B0A3]" />
+                <span className="text-[#ECE4D3] flex items-center gap-1">
+                  <Calendar size={12} className="text-[#ECE4D3]" />
                   <span>อายุลูกค้า:</span>
                 </span>
                 <span className="font-medium text-[#ECE4D3]">{displayCustAge}</span>
@@ -607,7 +607,7 @@ export default function ArtistPaymentReviewDrawer({
             <div className="space-y-2 text-xs">
               {/* โรคประจำตัว / การเจ็บป่วย */}
               <div className="bg-[#171512] p-2.5 rounded-lg border border-[#4A443A]/40 space-y-1">
-                <span className="text-[#B8B0A3] text-[10px] uppercase font-semibold block">โรคประจำตัว / การเจ็บป่วย</span>
+                <span className="text-[#ECE4D3] text-[10px] uppercase font-semibold block">โรคประจำตัว / การเจ็บป่วย</span>
                 {customerDetails?.hasMedicalCondition === true ? (
                   <p className="text-amber-200/90 font-medium leading-relaxed bg-amber-500/10 p-2 rounded border border-amber-400/40 flex items-start gap-1.5">
                     <AlertTriangle size={13} className="shrink-0 text-amber-400 mt-0.5" />
@@ -618,13 +618,13 @@ export default function ArtistPaymentReviewDrawer({
                     <CheckCircle2 size={13} /> ไม่มีโรคประจำตัว
                   </p>
                 ) : (
-                  <p className="text-[#B8B0A3] font-light italic text-xs">ยังไม่ให้ข้อมูล</p>
+                  <p className="text-[#ECE4D3] font-light italic text-xs">ยังไม่ให้ข้อมูล</p>
                 )}
               </div>
 
               {/* ประวัติการแพ้ยา / แพ้สารเคมี */}
               <div className="bg-[#171512] p-2.5 rounded-lg border border-[#4A443A]/40 space-y-1">
-                <span className="text-[#B8B0A3] text-[10px] uppercase font-semibold block">ประวัติการแพ้ยา / แพ้สารเคมี</span>
+                <span className="text-[#ECE4D3] text-[10px] uppercase font-semibold block">ประวัติการแพ้ยา / แพ้สารเคมี</span>
                 {customerDetails?.hasAllergy === true ? (
                   <p className="text-amber-200/90 font-medium leading-relaxed bg-amber-500/10 p-2 rounded border border-amber-400/40 flex items-start gap-1.5">
                     <AlertTriangle size={13} className="shrink-0 text-amber-400 mt-0.5" />
@@ -635,14 +635,14 @@ export default function ArtistPaymentReviewDrawer({
                     <CheckCircle2 size={13} /> ไม่มีประวัติแพ้
                   </p>
                 ) : (
-                  <p className="text-[#B8B0A3] font-light italic text-xs">ยังไม่ให้ข้อมูล</p>
+                  <p className="text-[#ECE4D3] font-light italic text-xs">ยังไม่ให้ข้อมูล</p>
                 )}
               </div>
 
               {/* ข้อจำกัดสุขภาพเพิ่มเติม (ถ้ามี) */}
               {customerDetails?.extraHealthNotes && customerDetails.extraHealthNotes.trim() !== '' && (
                 <div className="bg-[#171512] p-2.5 rounded-lg border border-[#4A443A]/40 space-y-1">
-                  <span className="text-[#B8B0A3] text-[10px] uppercase font-semibold block">ข้อจำกัดสุขภาพเพิ่มเติม</span>
+                  <span className="text-[#ECE4D3] text-[10px] uppercase font-semibold block">ข้อจำกัดสุขภาพเพิ่มเติม</span>
                   <p className="text-[#ECE4D3] font-light leading-relaxed whitespace-pre-wrap">
                     {customerDetails.extraHealthNotes}
                   </p>
@@ -660,16 +660,16 @@ export default function ArtistPaymentReviewDrawer({
 
             <div className="space-y-2 bg-[#171512] p-2.5 rounded-lg border border-[#4A443A]/40 text-xs">
               <div className="flex items-center justify-between">
-                <span className="text-[#B8B0A3] flex items-center gap-1">
-                  <Calendar size={12} className="text-[#B8B0A3]" />
+                <span className="text-[#ECE4D3] flex items-center gap-1">
+                  <Calendar size={12} className="text-[#ECE4D3]" />
                   <span>วันนัดหมาย:</span>
                 </span>
                 <span className="font-medium text-[#ECE4D3]">{appointmentDate}</span>
               </div>
 
               <div className="flex items-center justify-between border-t border-[#4A443A]/30 pt-2">
-                <span className="text-[#B8B0A3] flex items-center gap-1">
-                  <Clock size={12} className="text-[#B8B0A3]" />
+                <span className="text-[#ECE4D3] flex items-center gap-1">
+                  <Clock size={12} className="text-[#ECE4D3]" />
                   <span>เวลาเริ่ม:</span>
                 </span>
                 <span className="font-medium text-[#ECE4D3]">{appointmentTime}</span>
@@ -677,8 +677,8 @@ export default function ArtistPaymentReviewDrawer({
 
               {requestSubmittedDate && (
                 <div className="flex items-center justify-between border-t border-[#4A443A]/30 pt-2">
-                  <span className="text-[#B8B0A3] flex items-center gap-1">
-                    <FileText size={12} className="text-[#B8B0A3]" />
+                  <span className="text-[#ECE4D3] flex items-center gap-1">
+                    <FileText size={12} className="text-[#ECE4D3]" />
                     <span>วันที่ยื่นคำขอ:</span>
                   </span>
                   <span className="text-[#ECE4D3] font-medium">{requestSubmittedDate}</span>
@@ -686,11 +686,11 @@ export default function ArtistPaymentReviewDrawer({
               )}
 
               <div className="flex items-center justify-between border-t border-[#4A443A]/30 pt-2">
-                <span className="text-[#B8B0A3] flex items-center gap-1">
-                  <Send size={12} className="text-[#B8B0A3]" />
+                <span className="text-[#ECE4D3] flex items-center gap-1">
+                  <Send size={12} className="text-[#ECE4D3]" />
                   <span>วันที่ส่งสลิป:</span>
                 </span>
-                <span className="text-[#A89F91]">{submittedDate}</span>
+                <span className="text-[#ECE4D3]">{submittedDate}</span>
               </div>
             </div>
           </div>
@@ -704,35 +704,35 @@ export default function ArtistPaymentReviewDrawer({
 
             <div className="space-y-2 bg-[#171512] p-2.5 rounded-lg border border-[#4A443A]/40 text-xs">
               <div className="flex items-center justify-between">
-                <span className="text-[#B8B0A3]">ประเภทงาน:</span>
+                <span className="text-[#ECE4D3]">ประเภทงาน:</span>
                 <span className="font-semibold text-[#ECE4D3]">{workType}</span>
               </div>
 
               {designTitle && (
                 <div className="flex items-center justify-between border-t border-[#4A443A]/30 pt-2">
-                  <span className="text-[#B8B0A3]">ชื่อผลงาน:</span>
+                  <span className="text-[#ECE4D3]">ชื่อผลงาน:</span>
                   <span className="font-semibold text-[#ECE4D3]">{designTitle}</span>
                 </div>
               )}
 
               <div className="flex items-center justify-between border-t border-[#4A443A]/30 pt-2">
-                <span className="text-[#B8B0A3]">สไตล์งาน:</span>
+                <span className="text-[#ECE4D3]">สไตล์งาน:</span>
                 <span className="font-medium text-[#ECE4D3]">{styleDisplay}</span>
               </div>
 
               <div className="flex items-center justify-between border-t border-[#4A443A]/30 pt-2">
-                <span className="text-[#B8B0A3]">ตำแหน่งสัก:</span>
+                <span className="text-[#ECE4D3]">ตำแหน่งสัก:</span>
                 <span className="font-medium text-[#ECE4D3]">{placement}</span>
               </div>
 
               <div className="flex items-center justify-between border-t border-[#4A443A]/30 pt-2">
-                <span className="text-[#B8B0A3]">ขนาดงาน:</span>
+                <span className="text-[#ECE4D3]">ขนาดงาน:</span>
                 <span className="font-medium text-[#ECE4D3]">{tattooSize}</span>
               </div>
 
               {description && (
                 <div className="border-t border-[#4A443A]/30 pt-2">
-                  <span className="text-[#B8B0A3] block mb-1">รายละเอียดเพิ่มเติม:</span>
+                  <span className="text-[#ECE4D3] block mb-1">รายละเอียดเพิ่มเติม:</span>
                   <p className="text-[#ECE4D3] font-light leading-relaxed whitespace-pre-wrap break-words">
                     {description}
                   </p>
@@ -748,7 +748,7 @@ export default function ArtistPaymentReviewDrawer({
                 <ImageIcon size={13} className="text-studio-red-bright" />
                 <span>รูปภาพอ้างอิง</span>
               </span>
-              <span className="text-xs text-[#A89F91]">({refImages.length} รูป)</span>
+              <span className="text-xs text-[#ECE4D3]">({refImages.length} รูป)</span>
             </div>
 
             {refImages.length > 0 ? (
@@ -785,14 +785,14 @@ export default function ArtistPaymentReviewDrawer({
 
             <div className="space-y-2 bg-[#171512] p-2.5 rounded-lg border border-[#4A443A]/40 text-xs">
               <div className="flex items-center justify-between gap-2">
-                <span className="text-[#A89F91]">ยอดมัดจำที่ต้องชำระ:</span>
+                <span className="text-[#ECE4D3]">ยอดมัดจำที่ต้องชำระ:</span>
                 <span className="font-bold text-red-400 font-mono text-sm">
                   ฿{formatCurrency(effectiveDepositRequired)}
                 </span>
               </div>
 
               <div className="flex items-center justify-between gap-2 border-t border-[#4A443A]/30 pt-2">
-                <span className="text-[#A89F91]">ยอดที่ลูกค้าจ่าย:</span>
+                <span className="text-[#ECE4D3]">ยอดที่ลูกค้าจ่าย:</span>
                 <span className="text-sm font-bold text-amber-300 font-mono">
                   ฿{formatCurrency(Number(submission.claimed_amount))}
                 </span>
@@ -800,13 +800,13 @@ export default function ArtistPaymentReviewDrawer({
 
               {submission.reference_no && (
                 <div className="flex items-center justify-between gap-2 border-t border-[#4A443A]/30 pt-2">
-                  <span className="text-[#A89F91]">เลขที่อ้างอิง:</span>
+                  <span className="text-[#ECE4D3]">เลขที่อ้างอิง:</span>
                   <span className="font-mono text-[#ECE4D3]">{submission.reference_no}</span>
                 </div>
               )}
 
               <div className="flex items-center justify-between gap-2 pt-2 border-t border-[#4A443A]/30">
-                <span className="text-[#A89F91]">หลักฐานสลิป:</span>
+                <span className="text-[#ECE4D3]">หลักฐานสลิป:</span>
                 <button
                   type="button"
                   onClick={() => {
@@ -860,14 +860,14 @@ export default function ArtistPaymentReviewDrawer({
                       setIsRejectMode(false);
                       setRejectionReason('');
                     }}
-                    className="px-3 py-1.5 bg-[#171512] text-xs text-[#A89F91] rounded-lg border border-[#4A443A] hover:text-[#ECE4D3] cursor-pointer"
+                    className="px-3 py-1.5 bg-[#171512] text-xs text-[#ECE4D3] rounded-lg border border-[#4A443A] hover:text-white cursor-pointer"
                   >
                     ยกเลิก
                   </button>
                   <button
                     type="submit"
                     disabled={submitting || !rejectionReason.trim()}
-                    className="px-4 py-1.5 bg-red-600 hover:bg-red-500 text-xs text-white rounded-lg font-bold disabled:opacity-50 flex items-center gap-1.5 cursor-pointer shadow"
+                    className="px-4 py-1.5 bg-[#C12D2D] hover:bg-[#A82525] text-xs text-white rounded-lg font-bold disabled:opacity-50 flex items-center gap-1.5 cursor-pointer shadow"
                   >
                     {submitting ? (
                       <>
@@ -908,7 +908,7 @@ export default function ArtistPaymentReviewDrawer({
                   type="button"
                   disabled={submitting}
                   onClick={() => setIsRejectMode(true)}
-                  className="w-full py-2 bg-red-950/60 hover:bg-red-900 active:bg-red-950 text-red-300 border border-red-800/80 rounded-lg text-xs font-bold transition-colors flex items-center justify-center gap-2 cursor-pointer"
+                  className="w-full py-2 bg-[#C12D2D] hover:bg-[#A82525] active:bg-[#C12D2D] text-white rounded-lg text-xs font-bold transition-colors flex items-center justify-center gap-2 cursor-pointer"
                 >
                   <Ban size={15} />
                   <span>ปฏิเสธสลิป</span>
@@ -918,7 +918,7 @@ export default function ArtistPaymentReviewDrawer({
           )}
 
           {submission.status !== 'PENDING' && !actionSuccess && (
-            <div className="p-3 bg-[#171512] border border-[#4A443A] rounded-xl text-xs text-[#A89F91] text-center font-medium">
+            <div className="p-3 bg-[#171512] border border-[#4A443A] rounded-xl text-xs text-[#ECE4D3] text-center font-medium">
               สถานะสลิป: {submission.status === 'APPROVED' ? 'อนุมัติแล้ว' : submission.status === 'REJECTED' ? 'ปฏิเสธแล้ว' : submission.status}
             </div>
           )}

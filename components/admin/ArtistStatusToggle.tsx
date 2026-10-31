@@ -50,7 +50,7 @@ export default function ArtistStatusToggle({
     {
       value: 'Tattooing',
       label: 'กำลังสัก',
-      dotColor: 'bg-[#9C2F2F]', // Tattoo Red #9C2F2F
+      dotColor: 'bg-[#C12D2D]', // Tattoo Red #C12D2D
     },
     {
       value: 'Break',
@@ -190,7 +190,7 @@ export default function ArtistStatusToggle({
               onMouseEnter={() => setHighlightedIndex(index)}
               className={`w-full h-[42px] sm:h-[40px] px-3 rounded-[6px] flex items-center justify-between text-left text-sm font-medium transition-colors select-none ${
                 isSelected
-                  ? 'bg-[#9C2F2F]/[0.14] text-[#ECE4D3]'
+                  ? 'bg-[#C12D2D]/[0.14] text-[#ECE4D3]'
                   : isHighlighted
                   ? 'bg-[#ECE4D3]/[0.06] text-[#ECE4D3]'
                   : 'text-[#ECE4D3] hover:bg-[#ECE4D3]/[0.06]'
@@ -207,7 +207,7 @@ export default function ArtistStatusToggle({
 
               {/* Right: Selected Checkmark */}
               {isSelected && (
-                <Check size={15} className="text-[#9C2F2F] shrink-0" strokeWidth={2.5} />
+                <Check size={15} className="text-[#C12D2D] shrink-0" strokeWidth={2.5} />
               )}
             </button>
           );
@@ -234,8 +234,8 @@ export default function ArtistStatusToggle({
         onKeyDown={handleKeyDown}
         aria-haspopup="listbox"
         aria-expanded={isOpen}
-        className={`h-[44px] min-w-[130px] sm:min-w-[140px] px-3.5 bg-[#171512] border border-[#4A443A] hover:border-[#7A7265] rounded-[6px] text-[#ECE4D3] font-medium flex items-center justify-between gap-2.5 transition-all outline-none focus:ring-1 focus:ring-[#9C2F2F] shadow-sm select-none ${
-          isOpen ? 'border-[#7A7265] ring-1 ring-[#9C2F2F]/40' : ''
+        className={`h-[44px] min-w-[130px] sm:min-w-[140px] px-3.5 bg-[#171512] border border-[#4A443A] hover:border-[#7A7265] rounded-[6px] text-[#ECE4D3] font-medium flex items-center justify-between gap-2.5 transition-all outline-none focus:ring-1 focus:ring-[#C12D2D] shadow-sm select-none ${
+          isOpen ? 'border-[#7A7265] ring-1 ring-[#C12D2D]/40' : ''
         }`}
       >
         {/* Left: Status Dot + Label */}

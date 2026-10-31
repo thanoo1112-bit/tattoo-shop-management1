@@ -253,8 +253,8 @@ export default function AdminRequestCenter() {
       case 'PENDING':
         return {
           label: 'รอตรวจสอบ',
-          dot: 'bg-[#9C2F2F] animate-pulse',
-          badge: 'bg-[#9C2F2F]/20 border-[#9C2F2F] text-[#9C2F2F]',
+          dot: 'bg-[#C12D2D] animate-pulse',
+          badge: 'bg-[#C12D2D]/20 border-[#C12D2D] text-[#C12D2D]',
         };
       case 'WAITING_DEPOSIT':
         return {
@@ -271,8 +271,8 @@ export default function AdminRequestCenter() {
       case 'IN_PROGRESS':
         return {
           label: 'กำลังสัก',
-          dot: 'bg-[#9C2F2F]',
-          badge: 'bg-[#9C2F2F]/20 border-[#9C2F2F] text-[#9C2F2F]',
+          dot: 'bg-[#C12D2D]',
+          badge: 'bg-[#C12D2D]/20 border-[#C12D2D] text-[#C12D2D]',
         };
       case 'COMPLETED':
         return {
@@ -301,8 +301,8 @@ export default function AdminRequestCenter() {
       case 'PENDING':
         return {
           label: 'รอเสนอราคา',
-          dot: 'bg-[#9C2F2F] animate-pulse',
-          badge: 'bg-[#9C2F2F]/20 border-[#9C2F2F] text-[#9C2F2F]',
+          dot: 'bg-[#C12D2D] animate-pulse',
+          badge: 'bg-[#C12D2D]/20 border-[#C12D2D] text-[#C12D2D]',
         };
       case 'QUOTED':
         return {
@@ -336,8 +336,8 @@ export default function AdminRequestCenter() {
       case 'SUBMITTED':
         return {
           label: 'แจ้งชำระแล้ว (รอตรวจ)',
-          dot: 'bg-[#9C2F2F] animate-pulse',
-          badge: 'bg-[#9C2F2F]/20 border-[#9C2F2F] text-[#9C2F2F]',
+          dot: 'bg-[#C12D2D] animate-pulse',
+          badge: 'bg-[#C12D2D]/20 border-[#C12D2D] text-[#C12D2D]',
         };
       case 'VERIFIED':
         return {
@@ -404,7 +404,7 @@ export default function AdminRequestCenter() {
           }}
           className={`p-3.5 sm:p-4 rounded-[8px] border text-left transition-all relative overflow-hidden ${
             activeTab === 'bookings'
-              ? 'bg-[#171512] border-[#9C2F2F] ring-1 ring-[#9C2F2F]/40 shadow-lg'
+              ? 'bg-[#171512] border-[#C12D2D] ring-1 ring-[#C12D2D]/40 shadow-lg'
               : 'bg-[#171512]/60 border-[#4A443A] hover:border-[#7A7265]'
           }`}
         >
@@ -427,7 +427,7 @@ export default function AdminRequestCenter() {
             )}
           </div>
           {activeTab === 'bookings' && (
-            <span className="absolute bottom-0 left-0 right-0 h-[2px] bg-[#9C2F2F]" />
+            <span className="absolute bottom-0 left-0 right-0 h-[2px] bg-[#C12D2D]" />
           )}
         </button>
 
@@ -440,7 +440,7 @@ export default function AdminRequestCenter() {
           }}
           className={`p-3.5 sm:p-4 rounded-[8px] border text-left transition-all relative overflow-hidden ${
             activeTab === 'estimates'
-              ? 'bg-[#171512] border-[#9C2F2F] ring-1 ring-[#9C2F2F]/40 shadow-lg'
+              ? 'bg-[#171512] border-[#C12D2D] ring-1 ring-[#C12D2D]/40 shadow-lg'
               : 'bg-[#171512]/60 border-[#4A443A] hover:border-[#7A7265]'
           }`}
         >
@@ -463,7 +463,7 @@ export default function AdminRequestCenter() {
             )}
           </div>
           {activeTab === 'estimates' && (
-            <span className="absolute bottom-0 left-0 right-0 h-[2px] bg-[#9C2F2F]" />
+            <span className="absolute bottom-0 left-0 right-0 h-[2px] bg-[#C12D2D]" />
           )}
         </button>
 
@@ -476,7 +476,7 @@ export default function AdminRequestCenter() {
           }}
           className={`p-3.5 sm:p-4 rounded-[8px] border text-left transition-all relative overflow-hidden ${
             activeTab === 'deposits'
-              ? 'bg-[#171512] border-[#9C2F2F] ring-1 ring-[#9C2F2F]/40 shadow-lg'
+              ? 'bg-[#171512] border-[#C12D2D] ring-1 ring-[#C12D2D]/40 shadow-lg'
               : 'bg-[#171512]/60 border-[#4A443A] hover:border-[#7A7265]'
           }`}
         >
@@ -499,7 +499,7 @@ export default function AdminRequestCenter() {
             )}
           </div>
           {activeTab === 'deposits' && (
-            <span className="absolute bottom-0 left-0 right-0 h-[2px] bg-[#9C2F2F]" />
+            <span className="absolute bottom-0 left-0 right-0 h-[2px] bg-[#C12D2D]" />
           )}
         </button>
       </div>
@@ -522,14 +522,14 @@ export default function AdminRequestCenter() {
           <span
             className={`text-[11px] px-2 py-0.5 rounded-full font-mono ${
               activeTab === 'bookings'
-                ? 'bg-[#9C2F2F] text-[#ECE4D3]'
+                ? 'bg-[#C12D2D] text-[#ECE4D3]'
                 : 'bg-[#171512] text-[#7A7265] border border-[#4A443A]'
             }`}
           >
             {bookings.length}
           </span>
           {activeTab === 'bookings' && (
-            <span className="absolute bottom-0 left-0 right-0 h-[2px] bg-[#9C2F2F] rounded-full" />
+            <span className="absolute bottom-0 left-0 right-0 h-[2px] bg-[#C12D2D] rounded-full" />
           )}
         </button>
 
@@ -549,14 +549,14 @@ export default function AdminRequestCenter() {
           <span
             className={`text-[11px] px-2 py-0.5 rounded-full font-mono ${
               activeTab === 'estimates'
-                ? 'bg-[#9C2F2F] text-[#ECE4D3]'
+                ? 'bg-[#C12D2D] text-[#ECE4D3]'
                 : 'bg-[#171512] text-[#7A7265] border border-[#4A443A]'
             }`}
           >
             {estimateRequests.length}
           </span>
           {activeTab === 'estimates' && (
-            <span className="absolute bottom-0 left-0 right-0 h-[2px] bg-[#9C2F2F] rounded-full" />
+            <span className="absolute bottom-0 left-0 right-0 h-[2px] bg-[#C12D2D] rounded-full" />
           )}
         </button>
 
@@ -576,14 +576,14 @@ export default function AdminRequestCenter() {
           <span
             className={`text-[11px] px-2 py-0.5 rounded-full font-mono ${
               activeTab === 'deposits'
-                ? 'bg-[#9C2F2F] text-[#ECE4D3]'
+                ? 'bg-[#C12D2D] text-[#ECE4D3]'
                 : 'bg-[#171512] text-[#7A7265] border border-[#4A443A]'
             }`}
           >
             {bookingPayments.filter((p) => p.paymentType === 'DEPOSIT').length}
           </span>
           {activeTab === 'deposits' && (
-            <span className="absolute bottom-0 left-0 right-0 h-[2px] bg-[#9C2F2F] rounded-full" />
+            <span className="absolute bottom-0 left-0 right-0 h-[2px] bg-[#C12D2D] rounded-full" />
           )}
         </button>
       </div>
@@ -601,7 +601,7 @@ export default function AdminRequestCenter() {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="ค้นหาลูกค้าหรืองาน..."
-            className="w-full h-[38px] pl-9 pr-8 bg-[#0E0D0C] border border-[#4A443A] hover:border-[#7A7265] focus:border-[#9C2F2F] rounded-[6px] text-xs text-[#ECE4D3] placeholder-[#7A7265] outline-none transition-colors"
+            className="w-full h-[38px] pl-9 pr-8 bg-[#0E0D0C] border border-[#4A443A] hover:border-[#7A7265] focus:border-[#C12D2D] rounded-[6px] text-xs text-[#ECE4D3] placeholder-[#7A7265] outline-none transition-colors"
           />
           {searchQuery && (
             <button
@@ -620,7 +620,7 @@ export default function AdminRequestCenter() {
             <button
               type="button"
               onClick={() => setIsArtistDropdownOpen((prev) => !prev)}
-              className="h-[38px] px-3 bg-[#0E0D0C] border border-[#4A443A] hover:border-[#7A7265] rounded-[6px] text-xs font-medium text-[#ECE4D3] flex items-center space-x-2 transition-colors outline-none focus:ring-1 focus:ring-[#9C2F2F]"
+              className="h-[38px] px-3 bg-[#0E0D0C] border border-[#4A443A] hover:border-[#7A7265] rounded-[6px] text-xs font-medium text-[#ECE4D3] flex items-center space-x-2 transition-colors outline-none focus:ring-1 focus:ring-[#C12D2D]"
             >
               <User size={13} className="text-studio-red-bright" />
               <span className="truncate max-w-[110px]">
@@ -641,7 +641,7 @@ export default function AdminRequestCenter() {
                   }}
                   className={`w-full h-[34px] px-2.5 rounded-[4px] flex items-center justify-between text-left text-xs font-medium transition-colors ${
                     selectedArtistFilter === 'ALL'
-                      ? 'bg-[#9C2F2F]/[0.14] text-[#ECE4D3]'
+                      ? 'bg-[#C12D2D]/[0.14] text-[#ECE4D3]'
                       : 'text-[#ECE4D3] hover:bg-[#ECE4D3]/[0.06]'
                   }`}
                 >
@@ -660,7 +660,7 @@ export default function AdminRequestCenter() {
                     }}
                     className={`w-full h-[34px] px-2.5 rounded-[4px] flex items-center justify-between text-left text-xs font-medium transition-colors ${
                       selectedArtistFilter === artist.id
-                        ? 'bg-[#9C2F2F]/[0.14] text-[#ECE4D3]'
+                        ? 'bg-[#C12D2D]/[0.14] text-[#ECE4D3]'
                         : 'text-[#ECE4D3] hover:bg-[#ECE4D3]/[0.06]'
                     }`}
                   >
@@ -774,7 +774,7 @@ export default function AdminRequestCenter() {
                             }}
                             className={`px-3 py-1.5 rounded-[4px] text-xs font-semibold transition-colors ${
                               isPending
-                                ? 'bg-[#9C2F2F] hover:bg-[#7F2424] text-[#ECE4D3]'
+                                ? 'bg-[#C12D2D] hover:bg-[#7F2424] text-[#ECE4D3]'
                                 : 'bg-[#0E0D0C] border border-[#4A443A] hover:border-[#7A7265] text-[#ECE4D3]'
                             }`}
                           >
@@ -803,7 +803,7 @@ export default function AdminRequestCenter() {
                   <div
                     key={b.id}
                     onClick={() => setSelectedBooking(b)}
-                    className="p-4 bg-[#171512] border border-[#4A443A] hover:border-[#9C2F2F] rounded-[8px] space-y-3 cursor-pointer shadow transition-all"
+                    className="p-4 bg-[#171512] border border-[#4A443A] hover:border-[#C12D2D] rounded-[8px] space-y-3 cursor-pointer shadow transition-all"
                   >
                     <div className="flex justify-between items-start">
                       <div>
@@ -844,7 +844,7 @@ export default function AdminRequestCenter() {
                           e.stopPropagation();
                           setSelectedBooking(b);
                         }}
-                        className="px-3 py-1.5 bg-[#9C2F2F] text-[#ECE4D3] text-xs font-semibold rounded-[4px]"
+                        className="px-3 py-1.5 bg-[#C12D2D] text-[#ECE4D3] text-xs font-semibold rounded-[4px]"
                       >
                         ดูรายละเอียด
                       </button>
@@ -944,7 +944,7 @@ export default function AdminRequestCenter() {
                               evt.stopPropagation();
                               setSelectedEstimate(e);
                             }}
-                            className="px-3 py-1.5 bg-[#0E0D0C] hover:bg-[#9C2F2F] border border-[#4A443A] hover:border-[#9C2F2F] text-[#ECE4D3] rounded-[4px] text-xs font-semibold transition-colors"
+                            className="px-3 py-1.5 bg-[#0E0D0C] hover:bg-[#C12D2D] border border-[#4A443A] hover:border-[#C12D2D] text-[#ECE4D3] rounded-[4px] text-xs font-semibold transition-colors"
                           >
                             ดูรายละเอียด
                           </button>
@@ -971,7 +971,7 @@ export default function AdminRequestCenter() {
                   <div
                     key={e.id}
                     onClick={() => setSelectedEstimate(e)}
-                    className="p-4 bg-[#171512] border border-[#4A443A] hover:border-[#9C2F2F] rounded-[8px] space-y-3 cursor-pointer shadow transition-all"
+                    className="p-4 bg-[#171512] border border-[#4A443A] hover:border-[#C12D2D] rounded-[8px] space-y-3 cursor-pointer shadow transition-all"
                   >
                     <div className="flex space-x-3 items-center">
                       {e.referenceImage ? (
@@ -1010,7 +1010,7 @@ export default function AdminRequestCenter() {
                           evt.stopPropagation();
                           setSelectedEstimate(e);
                         }}
-                        className="px-3 py-1.5 bg-[#9C2F2F] text-[#ECE4D3] text-xs font-semibold rounded-[4px]"
+                        className="px-3 py-1.5 bg-[#C12D2D] text-[#ECE4D3] text-xs font-semibold rounded-[4px]"
                       >
                         ดูรายละเอียด
                       </button>
@@ -1101,7 +1101,7 @@ export default function AdminRequestCenter() {
                             }}
                             className={`px-3 py-1.5 rounded-[4px] text-xs font-semibold transition-colors ${
                               isSubmitted
-                                ? 'bg-[#9C2F2F] hover:bg-[#7F2424] text-[#ECE4D3]'
+                                ? 'bg-[#C12D2D] hover:bg-[#7F2424] text-[#ECE4D3]'
                                 : 'bg-[#0E0D0C] border border-[#4A443A] hover:border-[#7A7265] text-[#ECE4D3]'
                             }`}
                           >
@@ -1130,7 +1130,7 @@ export default function AdminRequestCenter() {
                   <div
                     key={payment.id}
                     onClick={() => setSelectedDeposit({ payment, booking })}
-                    className="p-4 bg-[#171512] border border-[#4A443A] hover:border-[#9C2F2F] rounded-[8px] space-y-3 cursor-pointer shadow transition-all"
+                    className="p-4 bg-[#171512] border border-[#4A443A] hover:border-[#C12D2D] rounded-[8px] space-y-3 cursor-pointer shadow transition-all"
                   >
                     <div className="flex justify-between items-start">
                       <div>
@@ -1150,7 +1150,7 @@ export default function AdminRequestCenter() {
 
                     <div className="grid grid-cols-2 gap-2 text-xs border-t border-[#4A443A]/40 pt-2 text-[#A89F91]">
                       <div>
-                        <span className="text-[10px] text-[#7A7265] block">ยอดมัดจำ:</span>
+                        <span className="text-[10px] text-[#ECE4D3] block">ยอดมัดจำ:</span>
                         <strong className="text-green-400 font-mono text-sm">
                           ฿{payment.amount?.toLocaleString()}
                         </strong>
@@ -1173,7 +1173,7 @@ export default function AdminRequestCenter() {
                           evt.stopPropagation();
                           setSelectedDeposit({ payment, booking });
                         }}
-                        className="px-3 py-1.5 bg-[#9C2F2F] text-[#ECE4D3] text-xs font-semibold rounded-[4px]"
+                        className="px-3 py-1.5 bg-[#C12D2D] text-[#ECE4D3] text-xs font-semibold rounded-[4px]"
                       >
                         ตรวจสอบ
                       </button>
@@ -1371,7 +1371,7 @@ export default function AdminRequestCenter() {
                         updateBookingStatus(selectedBooking.id, 'WAITING_DEPOSIT');
                         closeAllDrawers();
                       }}
-                      className="flex-1 min-h-[44px] bg-[#9C2F2F] hover:bg-[#7F2424] text-[#ECE4D3] rounded-[4px] text-xs font-semibold flex items-center justify-center space-x-1.5 transition-colors shadow-md"
+                      className="flex-1 min-h-[44px] bg-[#C12D2D] hover:bg-[#7F2424] text-[#ECE4D3] rounded-[4px] text-xs font-semibold flex items-center justify-center space-x-1.5 transition-colors shadow-md"
                     >
                       <CheckCircle2 size={15} />
                       <span>อนุมัติคำขอและรอมัดจำ</span>
@@ -1655,7 +1655,7 @@ export default function AdminRequestCenter() {
                     </strong>
                   </div>
                   <div>
-                    <span className="text-[#7A7265] block text-[10px]">ช่างสัก:</span>
+                    <span className="text-[#ECE4D3] block text-[10px]">ช่างสัก:</span>
                     <strong className="text-[#ECE4D3]">
                       {selectedDeposit.booking?.artistName || 'ช่างสัก'}
                     </strong>
@@ -1667,7 +1667,7 @@ export default function AdminRequestCenter() {
                     </span>
                   </div>
                   <div>
-                    <span className="text-[#7A7265] block text-[10px]">วันที่แจ้ง:</span>
+                    <span className="text-[#ECE4D3] block text-[10px]">วันที่แจ้ง:</span>
                     <span className="font-mono text-[#ECE4D3]">
                       {formatThaiDateTime(
                         selectedDeposit.payment.submittedAt || selectedDeposit.payment.createdAt
@@ -1753,7 +1753,7 @@ export default function AdminRequestCenter() {
                     <button
                       type="button"
                       onClick={() => setIsConfirmingVerifyDeposit(true)}
-                      className="flex-1 min-h-[44px] bg-[#9C2F2F] hover:bg-[#7F2424] text-[#ECE4D3] rounded-[4px] text-xs font-semibold flex items-center justify-center space-x-1.5 transition-colors shadow-md"
+                      className="flex-1 min-h-[44px] bg-[#C12D2D] hover:bg-[#7F2424] text-[#ECE4D3] rounded-[4px] text-xs font-semibold flex items-center justify-center space-x-1.5 transition-colors shadow-md"
                     >
                       <CheckCircle2 size={15} />
                       <span>ยืนยันมัดจำ</span>

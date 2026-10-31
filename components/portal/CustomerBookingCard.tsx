@@ -214,7 +214,7 @@ export default function CustomerBookingCard({
             <h4 className={isInactive ? "text-xs font-semibold text-zinc-300 truncate" : "text-xs font-bold text-[#ECE4D3] truncate"}>
               {mainTitle}
             </h4>
-            <span className={isInactive ? "text-[10px] text-zinc-400 font-mono" : "text-[10px] text-[#F2EEE8] font-mono"}>
+            <span className={isInactive ? "text-[10px] text-zinc-400 font-mono" : "text-[10px] text-[#ECE4D3] font-mono"}>
               #{item.id.slice(0, 8)}
             </span>
             <BookingStatusBadge status={displayStatus as any} type={type === 'flash' ? 'booking' : type} />
@@ -226,7 +226,7 @@ export default function CustomerBookingCard({
           </div>
 
           {/* Row 2: Job Summary (Artist · Placement · Size) */}
-          <div className={isInactive ? "text-[11px] text-zinc-400 truncate" : "text-[11px] text-[#E2DDD4] truncate"}>
+          <div className={isInactive ? "text-[11px] text-zinc-400 truncate" : "text-[11px] text-[#ECE4D3] truncate"}>
             {isFlash
               ? [artistDisplayName, flashPlacementStr, flashSizeStr].filter(Boolean).join(' · ')
               : `${artistDisplayName} · ${placementDisplay} · ${sizeDisplay}`}
@@ -234,9 +234,9 @@ export default function CustomerBookingCard({
 
 
           {/* Row 3: Appointment (Date · Time) */}
-          <div className={isInactive ? "flex items-center space-x-1.5 text-[11px] text-zinc-400" : "flex items-center space-x-1.5 text-[11px] text-[#F2EEE8]"}>
+          <div className={isInactive ? "flex items-center space-x-1.5 text-[11px] text-zinc-400" : "flex items-center space-x-1.5 text-[11px] text-[#ECE4D3]"}>
             <Calendar size={12} className={isInactive ? "text-zinc-500 shrink-0" : "text-studio-red shrink-0"} />
-            <span className="truncate text-[#F2EEE8]">{appointmentDisplay}</span>
+            <span className="truncate text-[#ECE4D3]">{appointmentDisplay}</span>
             {isBooking && booking.sessions && booking.sessions.length > 1 && (
               <span className={isInactive ? "flex items-center space-x-1 text-zinc-500 ml-1.5 shrink-0" : "flex items-center space-x-1 text-[#C9A86A] ml-1.5 shrink-0"}>
                 <Layers size={11} />
@@ -248,7 +248,7 @@ export default function CustomerBookingCard({
       </div>
 
       {/* Chevron Right Icon */}
-      <ChevronRight size={16} className={isInactive ? "text-zinc-600 group-hover:text-zinc-400 transition-colors ml-4 shrink-0" : "text-[#E2DDD4] group-hover:text-studio-red transition-colors ml-4 shrink-0"} />
+      <ChevronRight size={16} className={isInactive ? "text-zinc-600 group-hover:text-zinc-400 transition-colors ml-4 shrink-0" : "text-[#ECE4D3] group-hover:text-studio-red transition-colors ml-4 shrink-0"} />
     </div>
   );
 }

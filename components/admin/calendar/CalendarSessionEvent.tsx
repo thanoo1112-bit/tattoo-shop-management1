@@ -31,11 +31,11 @@ export default function CalendarSessionEvent({
           <span className="font-semibold text-[#ECE4D3] truncate">
             เวลานัด {startStr}
           </span>
-          <span className="text-[10px] text-[#A89F91] truncate font-medium">
+          <span className="text-[10px] text-[#ECE4D3] truncate font-medium">
             {event.artist?.nickname || event.artist?.name || 'ช่างสัก'}
           </span>
         </div>
-        <div className="text-[10px] text-[#A89F91] truncate flex items-center justify-between">
+        <div className="text-[10px] text-[#ECE4D3] truncate flex items-center justify-between">
           <span>{event.customer?.display_name || 'ลูกค้า'}</span>
         </div>
       </button>
@@ -57,7 +57,7 @@ export default function CalendarSessionEvent({
           className={`px-1.5 py-0.5 rounded text-[10px] font-semibold border ${statusCfg.badgeBg} ${statusCfg.badgeText} ${statusCfg.badgeBorder} shrink-0`}
         >
           {event.status === 'IN_PROGRESS' && (
-            <span className="inline-block w-1.5 h-1.5 rounded-full bg-[#D64545] animate-pulse mr-1" />
+            <span className="inline-block w-1.5 h-1.5 rounded-full bg-[#C12D2D] animate-pulse mr-1" />
           )}
           {statusCfg.label}
         </span>
@@ -68,12 +68,12 @@ export default function CalendarSessionEvent({
         <div className="text-xs font-semibold text-[#ECE4D3] truncate">
           {event.customer?.display_name || 'ลูกค้า'}
         </div>
-        <div className="text-[11px] text-[#A89F91] flex items-center gap-1 truncate">
-          <User size={11} className="text-[#7A7265]" />
+        <div className="text-[11px] text-[#ECE4D3] flex items-center gap-1 truncate">
+          <User size={11} className="text-[#ECE4D3]" />
           <span>
             {event.artist?.name} {event.artist?.nickname ? `(${event.artist.nickname})` : ''}
           </span>
-          <span className="text-[10px] text-[#7A7265] ml-auto">
+          <span className="text-[10px] text-[#ECE4D3] ml-auto">
             รอบ #{event.session_number}
           </span>
         </div>

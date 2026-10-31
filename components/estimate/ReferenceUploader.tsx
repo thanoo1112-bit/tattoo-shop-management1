@@ -267,12 +267,12 @@ export default function ReferenceUploader({
                   openLightbox(idx);
                 }
               }}
-              className="relative w-full h-[85px] sm:h-[95px] rounded-[6px] overflow-hidden border border-[#4A443A] bg-[#0E0D0C] group cursor-pointer hover:border-[#9C2F2F] transition-colors"
+              className="relative w-full h-[85px] sm:h-[95px] rounded-[6px] overflow-hidden border border-[#4A443A] bg-[#0E0D0C] group cursor-pointer hover:border-[#C12D2D] transition-colors"
             >
               {/* Image / Loading / Error */}
               {isPending || loadingPreviews ? (
                 <div className="w-full h-full flex items-center justify-center bg-[#171512]">
-                  <Loader2 size={16} className="animate-spin text-[#9C2F2F]" />
+                  <Loader2 size={16} className="animate-spin text-[#C12D2D]" />
                 </div>
               ) : isFailed || !displayUrl ? (
                 <div className="w-full h-full flex flex-col items-center justify-center bg-[#171512] p-1 text-center">
@@ -307,7 +307,7 @@ export default function ReferenceUploader({
                 <button
                   type="button"
                   onClick={(e) => { e.stopPropagation(); handleRemove(idx); }}
-                  className="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/80 hover:bg-[#9C2F2F] text-white border border-white/20 flex items-center justify-center transition-colors shadow z-10 text-xs font-bold leading-none cursor-pointer"
+                  className="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/80 hover:bg-[#C12D2D] text-white border border-white/20 flex items-center justify-center transition-colors shadow z-10 text-xs font-bold leading-none cursor-pointer"
                   title="ลบรูปนี้"
                 >
                   ×
@@ -334,20 +334,20 @@ export default function ReferenceUploader({
               flex flex-col items-center justify-center gap-1 p-2
               cursor-pointer select-none transition-all duration-200 text-center group
               ${isDragging
-                ? 'border-[#9C2F2F] bg-[#9C2F2F]/10'
-                : 'border-[#4A443A] bg-[#0E0D0C] hover:border-[#9C2F2F] hover:bg-[#171512]'
+                ? 'border-[#C12D2D] bg-[#C12D2D]/10'
+                : 'border-[#4A443A] bg-[#0E0D0C] hover:border-[#C12D2D] hover:bg-[#171512]'
               }
             `}
           >
             {isUploading ? (
               <>
-                <Loader2 size={18} className="animate-spin text-[#9C2F2F]" />
+                <Loader2 size={18} className="animate-spin text-[#C12D2D]" />
                 <span className="text-[10px] text-[#A89F91]">กำลังอัปโหลด...</span>
               </>
             ) : (
               <>
                 <div className="flex items-center gap-1 text-xs font-semibold text-[#ECE4D3] group-hover:text-white transition-colors">
-                  <Plus size={14} className="text-[#9C2F2F]" />
+                  <Plus size={14} className="text-[#C12D2D]" />
                   <span>เพิ่มรูปภาพ</span>
                 </div>
                 <span className="text-[9px] text-[#A89F91] group-hover:text-[#ECE4D3] transition-colors leading-tight font-mono">
@@ -384,7 +384,7 @@ export default function ReferenceUploader({
                 type="button"
                 onClick={closeLightbox}
                 aria-label="ปิดรูปภาพ"
-                className="absolute top-2 right-2 w-8 h-8 rounded-full bg-black/80 hover:bg-[#9C2F2F] text-white border border-white/20 flex items-center justify-center transition-colors z-20 cursor-pointer shadow"
+                className="absolute top-2 right-2 w-8 h-8 rounded-full bg-black/80 hover:bg-[#C12D2D] text-white border border-white/20 flex items-center justify-center transition-colors z-20 cursor-pointer shadow"
               >
                 <X size={16} />
               </button>
@@ -445,7 +445,7 @@ export default function ReferenceUploader({
                       onClick={() => setLightboxIndex(idx)}
                       className={`h-1.5 rounded-full transition-all cursor-pointer ${
                         idx === lightboxIndex
-                          ? 'w-5 bg-[#9C2F2F]'
+                          ? 'w-5 bg-[#C12D2D]'
                           : 'w-1.5 bg-[#4A443A] hover:bg-[#A89F91]'
                       }`}
                     />

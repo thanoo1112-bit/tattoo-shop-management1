@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useApp } from '@/components/AppContext';
-import { uploadStudioImage } from '@/lib/utils/storageUploader';
+import { uploadStudioImage, deleteStudioAssets } from '@/lib/utils/storageUploader';
 import { getThumbnailUrl, handleThumbnailError } from '@/lib/utils/thumbnailHelper';
 import {
   Sparkles,
@@ -69,6 +69,7 @@ export default function AdminPortfolioManagement() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [actionSuccess, setActionSuccess] = useState<string | null>(null);
+  const [actionWarning, setActionWarning] = useState<string | null>(null);
 
   // Search & Filter
   const [searchQuery, setSearchQuery] = useState('');
@@ -248,6 +249,13 @@ export default function AdminPortfolioManagement() {
     }
   }, [actionSuccess]);
 
+  useEffect(() => {
+    if (actionWarning) {
+      const timer = setTimeout(() => setActionWarning(null), 6000);
+      return () => clearTimeout(timer);
+    }
+  }, [actionWarning]);
+
   // 2. Open Create Modal
   const handleOpenCreateModal = () => {
     const defaultArtistId = artists.find((a) => a.is_active)?.id || artists[0]?.id || '';
@@ -400,14 +408,52 @@ export default function AdminPortfolioManagement() {
     if (!deleteTarget) return;
     setDeleting(true);
     try {
+      const targetId = deleteTarget.id;
+      const targetTitle = deleteTarget.title;
+      const targetImageUrl = deleteTarget.image_url;
+
+      // 1. Shared image check: check if any OTHER portfolio artwork references the same image_url
+      let isShared = false;
+      if (targetImageUrl) {
+        const { count, error: countErr } = await supabase
+          .from('portfolio_artworks')
+          .select('id', { count: 'exact', head: true })
+          .eq('image_url', targetImageUrl)
+          .neq('id', targetId);
+
+        if (!countErr && typeof count === 'number' && count > 0) {
+          isShared = true;
+          console.info(`[AdminPortfolio] Image is shared with ${count} other portfolio item(s). Skipping storage file deletion.`);
+        }
+      }
+
+      // 2. Database Delete MUST happen FIRST
       const { error: deleteErr } = await supabase
         .from('portfolio_artworks')
         .delete()
-        .eq('id', deleteTarget.id);
+        .eq('id', targetId);
 
       if (deleteErr) throw deleteErr;
 
-      setActionSuccess(`ลบผลงาน "${deleteTarget.title}" เรียบร้อยแล้ว`);
+      // 3. Storage Cleanup AFTER DB delete succeeds (if not shared)
+      let storageWarning = false;
+      if (targetImageUrl && !isShared) {
+        const { error: storageErr } = await deleteStudioAssets([targetImageUrl], supabase);
+        if (storageErr) {
+          console.warn('[AdminPortfolio] Storage file cleanup failed after DB delete:', storageErr);
+          storageWarning = true;
+        }
+      }
+
+      // 4. Feedback
+      if (storageWarning) {
+        setActionWarning(`ลบข้อมูลผลงาน "${targetTitle}" เรียบร้อยแล้ว (แต่ไม่สามารถลบไฟล์รูปภาพใน Storage ได้)`);
+      } else if (isShared) {
+        setActionSuccess(`ลบผลงาน "${targetTitle}" เรียบร้อยแล้ว (เก็บไฟล์รูปภาพไว้เนื่องจากมีผลงานอื่นใช้อยู่)`);
+      } else {
+        setActionSuccess(`ลบผลงาน "${targetTitle}" และไฟล์รูปภาพเรียบร้อยแล้ว`);
+      }
+
       setDeleteTarget(null);
       fetchData();
     } catch (err: any) {
@@ -444,18 +490,18 @@ export default function AdminPortfolioManagement() {
   }, [artworks, filterStyle, filterArtist, searchQuery]);
 
   return (
-    <div className="space-y-6 font-prompt">
+    <div className="space-y-6 font-prompt pb-24 lg:pb-8">
       {/* Header Banner */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-[#171512] border border-[#2D2820] p-5 sm:p-6 rounded-[8px]">
         <div>
           <div className="inline-flex items-center space-x-1.5 bg-[#25201A] border border-[#3E372C] px-2.5 py-0.5 rounded text-[#C5A880] text-[10px] uppercase font-bold tracking-widest mb-1.5">
-            <Sparkles size={12} className="text-[#9C2F2F]" />
+            <Sparkles size={12} className="text-[#C12D2D]" />
             <span>PORTFOLIO SHOWCASE CMS</span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-bold tracking-wider text-[#ECE4D3]">
             จัดการผลงานสัก (PORTFOLIO)
           </h1>
-          <p className="text-xs text-[#A89F91] mt-1">
+          <p className="text-xs text-[#ECE4D3] mt-1">
             เพิ่ม แก้ไข และจัดลำดับผลงานสักคัสตอมจริงที่เสร็จสมบูรณ์ เพื่อแสดงในหน้า Gallery ของสตูดิโอ
           </p>
         </div>
@@ -471,7 +517,7 @@ export default function AdminPortfolioManagement() {
           </button>
           <button
             onClick={handleOpenCreateModal}
-            className="flex-1 sm:flex-initial bg-[#9C2F2F] hover:bg-[#802222] text-[#ECE4D3] px-4 py-2.5 rounded-[4px] text-xs font-bold uppercase tracking-wider flex items-center justify-center space-x-1.5 transition-all shadow-lg shadow-[#9C2F2F]/20"
+            className="flex-1 sm:flex-initial bg-[#C12D2D] hover:bg-[#802222] text-[#ECE4D3] px-4 py-2.5 rounded-[4px] text-xs font-bold uppercase tracking-wider flex items-center justify-center space-x-1.5 transition-all shadow-lg shadow-[#C12D2D]/20"
           >
             <Plus size={15} />
             <span>เพิ่มผลงานสักใหม่</span>
@@ -487,6 +533,19 @@ export default function AdminPortfolioManagement() {
             <span>{actionSuccess}</span>
           </div>
           <button onClick={() => setActionSuccess(null)} className="text-green-400 hover:text-green-200">
+            <X size={14} />
+          </button>
+        </div>
+      )}
+
+      {/* Warning Banner */}
+      {actionWarning && (
+        <div className="bg-[#2D2415] border border-amber-600/50 p-3.5 rounded-[6px] flex items-center justify-between text-xs text-amber-200 animate-fadeIn">
+          <div className="flex items-center space-x-2">
+            <AlertCircle size={16} className="text-amber-400 shrink-0" />
+            <span>{actionWarning}</span>
+          </div>
+          <button onClick={() => setActionWarning(null)} className="text-amber-400 hover:text-amber-200">
             <X size={14} />
           </button>
         </div>
@@ -510,13 +569,13 @@ export default function AdminPortfolioManagement() {
         <div className="flex flex-col sm:flex-row gap-2.5 flex-1 items-stretch sm:items-center">
           {/* Search Input */}
           <div className="relative flex-1">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#7A7162]" />
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#ECE4D3]" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="ค้นหาชื่อผลงาน, สไตล์, ช่าง..."
-              className="w-full bg-[#0E0D0C] border border-[#3E372C] rounded-[4px] pl-9 pr-8 py-2 text-xs text-[#ECE4D3] placeholder:text-[#7A7162] focus:outline-none focus:border-[#9C2F2F] transition-colors"
+              className="w-full bg-[#0E0D0C] border border-[#3E372C] rounded-[4px] pl-9 pr-8 py-2 text-xs text-[#ECE4D3] placeholder:text-[#7A7162] focus:outline-none focus:border-[#C12D2D] transition-colors"
             />
             {searchQuery && (
               <button
@@ -532,7 +591,7 @@ export default function AdminPortfolioManagement() {
           <select
             value={filterStyle}
             onChange={(e) => setFilterStyle(e.target.value)}
-            className="bg-[#0E0D0C] border border-[#3E372C] rounded-[4px] px-3 py-2 text-xs text-[#ECE4D3] focus:outline-none focus:border-[#9C2F2F] cursor-pointer"
+            className="bg-[#0E0D0C] border border-[#3E372C] rounded-[4px] px-3 py-2 text-xs text-[#ECE4D3] focus:outline-none focus:border-[#C12D2D] cursor-pointer"
           >
             <option value="ALL">สไตล์ทั้งหมด</option>
             {availableFilterStyles.map((style) => (
@@ -546,7 +605,7 @@ export default function AdminPortfolioManagement() {
           <select
             value={filterArtist}
             onChange={(e) => setFilterArtist(e.target.value)}
-            className="bg-[#0E0D0C] border border-[#3E372C] rounded-[4px] px-3 py-2 text-xs text-[#ECE4D3] focus:outline-none focus:border-[#9C2F2F] cursor-pointer"
+            className="bg-[#0E0D0C] border border-[#3E372C] rounded-[4px] px-3 py-2 text-xs text-[#ECE4D3] focus:outline-none focus:border-[#C12D2D] cursor-pointer"
           >
             <option value="ALL">ช่างทุกคน</option>
             {artists.map((artist) => (
@@ -558,20 +617,21 @@ export default function AdminPortfolioManagement() {
         </div>
 
         {/* Results Counter */}
-        <div className="text-xs text-[#A89F91] shrink-0 self-center">
+        <div className="text-xs text-[#ECE4D3] shrink-0 self-center">
           ผลงาน <strong className="text-[#ECE4D3]">{filteredArtworks.length}</strong> / {artworks.length} รายการ
         </div>
       </div>
 
       {/* Artworks List Grid */}
       {loading ? (
-        <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2.5 sm:gap-4">
-          {[1, 2, 3, 4, 5, 6, 7, 8].map((idx) => (
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2.5 sm:gap-4">
+          {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((idx) => (
             <div key={idx} className="bg-[#171512] border border-[#2D2820] rounded-[6px] overflow-hidden animate-pulse">
-              <div className="aspect-[4/3] bg-[#25201A]" />
-              <div className="p-3 sm:p-4 space-y-2">
+              <div className="aspect-[4/5] bg-[#25201A]" />
+              <div className="p-2.5 sm:p-3 space-y-1.5">
+                <div className="h-2.5 bg-[#2D2820] rounded w-1/3" />
                 <div className="h-3 bg-[#2D2820] rounded w-3/4" />
-                <div className="h-2 bg-[#2D2820] rounded w-1/2" />
+                <div className="h-2.5 bg-[#2D2820] rounded w-1/2" />
               </div>
             </div>
           ))}
@@ -580,19 +640,19 @@ export default function AdminPortfolioManagement() {
         <div className="bg-[#171512] border border-[#2D2820] p-12 rounded-[6px] text-center space-y-3">
           <ImageIcon size={36} className="text-[#7A7162] mx-auto" />
           <h3 className="text-base font-bold text-[#ECE4D3]">ยังไม่มีผลงานใน Portfolio</h3>
-          <p className="text-xs text-[#A89F91] max-w-md mx-auto">
+          <p className="text-xs text-[#ECE4D3] max-w-md mx-auto">
             กดปุ่ม &quot;+ เพิ่มผลงานสักใหม่&quot; เพื่อสร้างรายการผลงานสักจริงและจัดแสดงใน Portfolio Gallery
           </p>
           <button
             onClick={handleOpenCreateModal}
-            className="inline-flex items-center gap-1.5 bg-[#9C2F2F] hover:bg-[#802222] text-[#ECE4D3] px-4 py-2 rounded text-xs font-bold uppercase tracking-wider mt-2"
+            className="inline-flex items-center gap-1.5 bg-[#C12D2D] hover:bg-[#802222] text-[#ECE4D3] px-4 py-2 rounded text-xs font-bold uppercase tracking-wider mt-2 cursor-pointer transition-colors"
           >
             <Plus size={14} />
             <span>เพิ่มผลงานแรก</span>
           </button>
         </div>
       ) : (
-        <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2.5 sm:gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2.5 sm:gap-4">
           {filteredArtworks.map((item) => {
             const artistName = item.artists?.name || 'ไม่ระบุช่าง';
 
@@ -603,86 +663,79 @@ export default function AdminPortfolioManagement() {
             return (
               <div
                 key={item.id}
-                className={`bg-[#171512] border rounded-[6px] overflow-hidden flex flex-col justify-between transition-all ${
+                className={`bg-[#171512] border rounded-[6px] overflow-hidden flex flex-col justify-between transition-all duration-300 group shadow-md hover:shadow-lg hover:shadow-[#C12D2D]/5 min-w-0 ${
                   isArtistInactive
                     ? 'border-[#2D2820]/60 opacity-80 bg-[#13110F]'
                     : item.is_visible
-                    ? 'border-[#2D2820] hover:border-[#3E372C]'
+                    ? 'border-[#2D2820] hover:border-[#C12D2D]/60'
                     : 'border-[#2D2820]/40 opacity-70 bg-[#13110F]'
                 }`}
               >
-                <div>
-                  {/* Image & Status Tag */}
-                  <div className="aspect-[4/3] bg-[#0E0D0C] relative overflow-hidden group">
-                    <img
-                      src={getThumbnailUrl(item.image_url)}
-                      onError={(e) => handleThumbnailError(e, item.image_url)}
-                      alt={item.title}
-                      className={`w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-500 ${
-                        isArtistInactive ? 'grayscale contrast-90 brightness-90' : ''
-                      }`}
-                      loading="lazy"
-                      decoding="async"
-                    />
+                {/* Image Area */}
+                <div className="aspect-[4/5] bg-[#0E0D0C] relative overflow-hidden group">
+                  <img
+                    src={getThumbnailUrl(item.image_url)}
+                    onError={(e) => handleThumbnailError(e, item.image_url)}
+                    alt={item.title}
+                    className={`w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-500 ${
+                      isArtistInactive ? 'grayscale contrast-90 brightness-90' : ''
+                    }`}
+                    loading="lazy"
+                    decoding="async"
+                  />
 
-                    {/* Style Badge */}
-                    <div className="absolute top-2 left-2 bg-[#171512]/90 backdrop-blur-sm border border-[#2D2820] text-[#ECE4D3] text-[9px] font-bold px-2 py-0.5 rounded">
-                      {item.style}
+                  {/* Inactive Artist Indicator */}
+                  {isArtistInactive && (
+                    <div className="absolute top-1.5 sm:top-2.5 right-1.5 sm:right-2.5">
+                      <span className="bg-[#171512]/95 backdrop-blur-sm border border-[#4A443A] text-[#ECE4D3] text-[8px] sm:text-[10px] font-medium px-1.5 sm:px-2 py-0.5 rounded flex items-center gap-1 shadow-md">
+                        <EyeOff size={10} className="text-[#C12D2D]" />
+                        <span className="hidden sm:inline">ซ่อนตามสถานะช่าง</span>
+                        <span className="sm:hidden">ซ่อน</span>
+                      </span>
                     </div>
-
-                    {/* Inactive Artist Indicator */}
-                    {isArtistInactive && (
-                      <div className="absolute top-2 right-2">
-                        <span className="bg-[#2D2820]/90 border border-[#4A443A] text-[#A89F91] text-[9px] font-bold px-2 py-0.5 rounded flex items-center gap-1">
-                          <EyeOff size={10} /> ซ่อนตามสถานะช่าง
-                        </span>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Card Content */}
-                  <div className="p-2.5 sm:p-4 space-y-1.5 sm:space-y-2.5 min-w-0">
-                    <div className="min-w-0">
-                      <h3 className="text-xs sm:text-sm font-bold text-[#ECE4D3] truncate" title={item.title}>
-                        {item.title}
-                      </h3>
-                      <div className="flex items-center gap-1 text-[11px] sm:text-xs text-[#A89F91] mt-0.5 min-w-0">
-                        <User size={12} className="text-[#C5A880] shrink-0" />
-                        <span className="truncate">
-                          {artistName}
-                          {isArtistInactive && (
-                            <span className="text-red-400/90 ml-1 font-medium">· ปิดใช้งาน</span>
-                          )}
-                        </span>
-                      </div>
-                    </div>
-
-                    {item.description && (
-                      <p className="text-[10px] sm:text-[11px] text-[#A89F91] line-clamp-2 leading-relaxed">
-                        {item.description}
-                      </p>
-                    )}
-                  </div>
+                  )}
                 </div>
 
-                {/* Card Actions Footer */}
-                <div className="p-2 sm:p-3 bg-[#13110F] border-t border-[#2D2820] flex items-center justify-end gap-1 sm:gap-1.5 min-w-0">
-                  <button
-                    type="button"
-                    onClick={() => handleOpenEditModal(item)}
-                    className="px-2 sm:px-2.5 py-1 sm:py-1.5 bg-[#25201A] hover:bg-[#2D2820] text-[#ECE4D3] rounded text-[11px] sm:text-xs font-medium flex items-center gap-1 transition-colors cursor-pointer"
-                  >
-                    <Edit2 size={12} />
-                    <span>แก้ไข</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setDeleteTarget(item)}
-                    className="p-1.5 bg-[#2D1B1B] hover:bg-red-900/60 text-red-300 rounded transition-colors cursor-pointer"
-                    title="ลบผลงาน"
-                  >
-                    <Trash2 size={13} />
-                  </button>
+                {/* Info Area Below Image */}
+                <div className="p-2 sm:p-3 bg-[#171512] flex flex-col justify-between flex-1 min-w-0 space-y-1.5 sm:space-y-2">
+                  <div className="space-y-0.5 sm:space-y-1 min-w-0">
+                    <span className="text-[9px] sm:text-[10px] uppercase tracking-wider text-[#C12D2D] font-bold block truncate">
+                      {item.style}
+                    </span>
+                    <h3
+                      className="text-xs sm:text-sm font-bold text-[#ECE4D3] truncate group-hover:text-[#C12D2D] transition-colors"
+                      title={item.title}
+                    >
+                      {item.title}
+                    </h3>
+                    <p className="text-[10px] sm:text-xs text-[#ECE4D3] truncate">
+                      ช่าง: <span className="text-[#ECE4D3] font-medium">{artistName}</span>
+                      {isArtistInactive && (
+                        <span className="text-[#C12D2D] ml-1 font-medium">· ปิดใช้งาน</span>
+                      )}
+                    </p>
+                  </div>
+
+                  {/* Card Actions Footer */}
+                  <div className="pt-2 sm:pt-2.5 mt-auto border-t border-[#2D2820] flex items-center justify-end gap-1.5 sm:gap-2 min-w-0">
+                    <button
+                      type="button"
+                      onClick={() => handleOpenEditModal(item)}
+                      className="px-2 sm:px-2.5 py-1 sm:py-1.5 bg-[#25201A] hover:bg-[#2D2820] border border-[#3E372C] hover:border-[#C12D2D]/60 text-[#ECE4D3] rounded-[4px] text-[11px] sm:text-xs font-medium flex items-center gap-1 transition-colors cursor-pointer shrink-0"
+                      title="แก้ไขผลงานสัก"
+                    >
+                      <Edit2 size={11} className="shrink-0" />
+                      <span>แก้ไข</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setDeleteTarget(item)}
+                      className="p-1 sm:p-1.5 bg-[#25201A] hover:bg-[#C12D2D]/20 border border-[#3E372C] hover:border-[#C12D2D] text-[#ECE4D3] hover:text-[#C12D2D] rounded-[4px] transition-colors cursor-pointer shrink-0"
+                      title="ลบผลงาน"
+                    >
+                      <Trash2 size={12} />
+                    </button>
+                  </div>
                 </div>
               </div>
             );
@@ -697,7 +750,7 @@ export default function AdminPortfolioManagement() {
             {/* Modal Header */}
             <div className="p-4 border-b border-[#2D2820] flex items-center justify-between shrink-0 bg-[#171512]">
               <h2 className="text-base font-bold text-[#ECE4D3] flex items-center gap-2">
-                <Sparkles size={16} className="text-[#9C2F2F]" />
+                <Sparkles size={16} className="text-[#C12D2D]" />
                 <span>{editingArtwork ? 'แก้ไขผลงานสัก' : 'เพิ่มผลงานสักใหม่'}</span>
               </h2>
               <button
@@ -736,7 +789,7 @@ export default function AdminPortfolioManagement() {
                 <div className="bg-[#171512] border border-[#2D2820] rounded-lg p-3 space-y-3">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-semibold text-[#ECE4D3] flex items-center gap-1.5">
-                      <ImageIcon size={14} className="text-[#9C2F2F]" />
+                      <ImageIcon size={14} className="text-[#C12D2D]" />
                       <span>รูปผลงานหลัก</span>
                       <span className="text-red-400">*</span>
                     </span>
@@ -752,7 +805,7 @@ export default function AdminPortfolioManagement() {
                     <div className="w-[120px] h-[120px] sm:w-[140px] sm:h-[140px] shrink-0 bg-[#0E0D0C] border border-[#2D2820] rounded-lg p-1.5 flex items-center justify-center relative overflow-hidden">
                       {isUploadingImage ? (
                         <div className="flex flex-col items-center justify-center space-y-1 text-center">
-                          <Loader2 size={24} className="animate-spin text-[#9C2F2F]" />
+                          <Loader2 size={24} className="animate-spin text-[#C12D2D]" />
                           <span className="text-[10px] text-[#ECE4D3]">กำลังอัปโหลด...</span>
                         </div>
                       ) : formData.image_url ? (
@@ -770,7 +823,7 @@ export default function AdminPortfolioManagement() {
                           onClick={() => fileInputRef.current?.click()}
                           className="w-full h-full flex flex-col items-center justify-center p-2 text-center text-[#7A7162] hover:text-[#ECE4D3] transition-colors group"
                         >
-                          <Upload size={22} className="group-hover:text-[#9C2F2F] transition-colors mb-1" />
+                          <Upload size={22} className="group-hover:text-[#C12D2D] transition-colors mb-1" />
                           <span className="text-[11px] font-medium leading-tight text-[#ECE4D3]">เลือกรูปผลงาน</span>
                           <span className="text-[9px] text-[#7A7162] mt-0.5">JPG, PNG, WEBP</span>
                         </button>
@@ -785,7 +838,7 @@ export default function AdminPortfolioManagement() {
                         onClick={() => fileInputRef.current?.click()}
                         className="w-full h-9 bg-[#25201A] hover:bg-[#322A22] border border-[#2D2820] text-xs text-[#ECE4D3] rounded font-medium flex items-center justify-center gap-1.5 transition-colors active:scale-[0.98] disabled:opacity-50"
                       >
-                        <Camera size={14} className="text-[#9C2F2F] shrink-0" />
+                        <Camera size={14} className="text-[#C12D2D] shrink-0" />
                         <span>{formData.image_url ? 'เลือกรูปใหม่' : 'เลือกรูปภาพ'}</span>
                       </button>
                       {formData.image_url && (
@@ -796,7 +849,7 @@ export default function AdminPortfolioManagement() {
                             setFormData((prev) => ({ ...prev, image_url: '' }));
                             setImageUploadError(null);
                           }}
-                          className="w-full h-8 bg-[#0E0D0C] hover:bg-red-950/40 border border-[#2D2820] hover:border-red-900/60 text-xs text-red-400 rounded font-medium flex items-center justify-center gap-1.5 transition-colors active:scale-[0.98] disabled:opacity-50"
+                          className="w-full h-8 bg-[#0E0D0C] hover:bg-[#C12D2D]/20 border border-[#2D2820] hover:border-[#C12D2D]/60 text-xs text-[#C12D2D] rounded font-medium flex items-center justify-center gap-1.5 transition-colors active:scale-[0.98] disabled:opacity-50"
                         >
                           <Trash2 size={13} className="shrink-0" />
                           <span>ลบรูป</span>
@@ -817,7 +870,7 @@ export default function AdminPortfolioManagement() {
                 <div className="space-y-3">
                   <div className="border-b border-[#2D2820] pb-1">
                     <h3 className="text-xs font-bold text-[#ECE4D3] uppercase tracking-wider flex items-center gap-1.5">
-                      <User size={13} className="text-[#9C2F2F]" />
+                      <User size={13} className="text-[#C12D2D]" />
                       <span>ข้อมูลผลงาน</span>
                     </h3>
                   </div>
@@ -830,7 +883,7 @@ export default function AdminPortfolioManagement() {
                       value={formData.artist_id}
                       onChange={(e) => handleArtistChange(e.target.value)}
                       required
-                      className="w-full bg-[#0E0D0C] border border-[#3E372C] rounded-[4px] px-3 py-2 text-xs text-[#ECE4D3] focus:outline-none focus:border-[#9C2F2F] cursor-pointer"
+                      className="w-full bg-[#0E0D0C] border border-[#3E372C] rounded-[4px] px-3 py-2 text-xs text-[#ECE4D3] focus:outline-none focus:border-[#C12D2D] cursor-pointer"
                     >
                       <option value="">-- เลือกช่างสัก --</option>
                       {artists.map((artist) => (
@@ -852,7 +905,7 @@ export default function AdminPortfolioManagement() {
                       onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                       placeholder="เช่น Dark Skull & Serpent Sleeve"
                       required
-                      className="w-full bg-[#0E0D0C] border border-[#3E372C] rounded-[4px] px-3 py-2 text-xs text-[#ECE4D3] placeholder:text-[#7A7162] focus:outline-none focus:border-[#9C2F2F]"
+                      className="w-full bg-[#0E0D0C] border border-[#3E372C] rounded-[4px] px-3 py-2 text-xs text-[#ECE4D3] placeholder:text-[#7A7162] focus:outline-none focus:border-[#C12D2D]"
                     />
                   </div>
 
@@ -865,7 +918,7 @@ export default function AdminPortfolioManagement() {
                       onChange={(e) => setFormData({ ...formData, style: e.target.value })}
                       required
                       disabled={!formData.artist_id || selectedArtistSpecialties.length === 0}
-                      className="w-full bg-[#0E0D0C] border border-[#3E372C] rounded-[4px] px-3 py-2 text-xs text-[#ECE4D3] focus:outline-none focus:border-[#9C2F2F] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="w-full bg-[#0E0D0C] border border-[#3E372C] rounded-[4px] px-3 py-2 text-xs text-[#ECE4D3] focus:outline-none focus:border-[#C12D2D] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       {!formData.artist_id ? (
                         <option value="">กรุณาเลือกช่างก่อน</option>
@@ -884,18 +937,6 @@ export default function AdminPortfolioManagement() {
                     </select>
                   </div>
 
-                  <div className="space-y-1">
-                    <label className="text-xs font-semibold text-[#ECE4D3] block">
-                      รายละเอียดผลงาน
-                    </label>
-                    <textarea
-                      rows={3}
-                      value={formData.description}
-                      onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                      placeholder="อธิบายเทคนิค ลวดลาย หรือแนวคิดของผลงานสักนี้..."
-                      className="w-full bg-[#0E0D0C] border border-[#3E372C] rounded-[4px] px-3 py-2 text-xs text-[#ECE4D3] placeholder:text-[#7A7162] focus:outline-none focus:border-[#9C2F2F] resize-none"
-                    />
-                  </div>
                 </div>
 
                 {/* Section: การแสดงผล */}
@@ -912,7 +953,7 @@ export default function AdminPortfolioManagement() {
                       type="number"
                       value={formData.sort_order}
                       onChange={(e) => setFormData({ ...formData, sort_order: parseInt(e.target.value, 10) || 0 })}
-                      className="w-full bg-[#0E0D0C] border border-[#3E372C] rounded-[4px] px-3 py-2 text-xs text-[#ECE4D3] focus:outline-none focus:border-[#9C2F2F]"
+                      className="w-full bg-[#0E0D0C] border border-[#3E372C] rounded-[4px] px-3 py-2 text-xs text-[#ECE4D3] focus:outline-none focus:border-[#C12D2D]"
                     />
                   </div>
                 </div>
@@ -939,7 +980,7 @@ export default function AdminPortfolioManagement() {
                   <div className="w-full min-h-[380px] max-h-[460px] bg-[#0E0D0C] border border-[#2D2820] rounded-lg p-2 flex items-center justify-center relative overflow-hidden">
                     {isUploadingImage ? (
                       <div className="flex flex-col items-center justify-center space-y-2 text-center animate-pulse p-6">
-                        <Loader2 size={28} className="animate-spin text-[#9C2F2F]" />
+                        <Loader2 size={28} className="animate-spin text-[#C12D2D]" />
                         <span className="text-xs text-[#ECE4D3] font-medium">กำลังอัปโหลดรูปภาพไปยัง Storage...</span>
                       </div>
                     ) : formData.image_url ? (
@@ -960,9 +1001,9 @@ export default function AdminPortfolioManagement() {
                             fileInputRef.current?.click();
                           }
                         }}
-                        className="w-full h-full min-h-[360px] border border-dashed border-[#2D2820] hover:border-[#9C2F2F]/60 bg-[#0E0D0C] hover:bg-[#141210] rounded-lg text-center cursor-pointer transition-colors flex flex-col items-center justify-center p-6 space-y-2 group"
+                        className="w-full h-full min-h-[360px] border border-dashed border-[#2D2820] hover:border-[#C12D2D]/60 bg-[#0E0D0C] hover:bg-[#141210] rounded-lg text-center cursor-pointer transition-colors flex flex-col items-center justify-center p-6 space-y-2 group"
                       >
-                        <div className="w-12 h-12 rounded-full bg-[#171512] border border-[#2D2820] group-hover:border-[#9C2F2F]/60 flex items-center justify-center text-[#7A7162] group-hover:text-[#ECE4D3] transition-colors">
+                        <div className="w-12 h-12 rounded-full bg-[#171512] border border-[#2D2820] group-hover:border-[#C12D2D]/60 flex items-center justify-center text-[#7A7162] group-hover:text-[#ECE4D3] transition-colors">
                           <Upload size={20} />
                         </div>
                         <div>
@@ -985,7 +1026,7 @@ export default function AdminPortfolioManagement() {
                       onClick={() => fileInputRef.current?.click()}
                       className="px-3 py-1.5 bg-[#25201A] hover:bg-[#322A22] border border-[#2D2820] text-xs text-[#ECE4D3] rounded transition-colors flex items-center gap-1.5 font-medium"
                     >
-                      <Camera size={13} className="text-[#9C2F2F]" />
+                      <Camera size={13} className="text-[#C12D2D]" />
                       <span>{formData.image_url ? 'เปลี่ยนรูปภาพ' : 'เลือกรูปภาพ'}</span>
                     </button>
 
@@ -997,7 +1038,7 @@ export default function AdminPortfolioManagement() {
                           setFormData((prev) => ({ ...prev, image_url: '' }));
                           setImageUploadError(null);
                         }}
-                        className="px-3 py-1.5 bg-[#0E0D0C] hover:bg-red-950/40 border border-[#2D2820] hover:border-red-900/60 text-xs text-red-400 rounded transition-colors flex items-center gap-1.5 font-medium"
+                        className="px-3 py-1.5 bg-[#0E0D0C] hover:bg-[#C12D2D]/20 border border-[#2D2820] hover:border-[#C12D2D]/60 text-xs text-[#C12D2D] rounded transition-colors flex items-center gap-1.5 font-medium"
                       >
                         <Trash2 size={13} />
                         <span>ลบรูป</span>
@@ -1024,7 +1065,7 @@ export default function AdminPortfolioManagement() {
                       value={formData.artist_id}
                       onChange={(e) => handleArtistChange(e.target.value)}
                       required
-                      className="w-full bg-[#0E0D0C] border border-[#3E372C] rounded-[4px] px-3 py-2 text-xs text-[#ECE4D3] focus:outline-none focus:border-[#9C2F2F] cursor-pointer"
+                      className="w-full bg-[#0E0D0C] border border-[#3E372C] rounded-[4px] px-3 py-2 text-xs text-[#ECE4D3] focus:outline-none focus:border-[#C12D2D] cursor-pointer"
                     >
                       <option value="">-- เลือกช่างสัก --</option>
                       {artists.map((artist) => (
@@ -1047,7 +1088,7 @@ export default function AdminPortfolioManagement() {
                       onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                       placeholder="เช่น Dark Skull & Serpent Sleeve"
                       required
-                      className="w-full bg-[#0E0D0C] border border-[#3E372C] rounded-[4px] px-3 py-2 text-xs text-[#ECE4D3] placeholder:text-[#7A7162] focus:outline-none focus:border-[#9C2F2F]"
+                      className="w-full bg-[#0E0D0C] border border-[#3E372C] rounded-[4px] px-3 py-2 text-xs text-[#ECE4D3] placeholder:text-[#7A7162] focus:outline-none focus:border-[#C12D2D]"
                     />
                   </div>
 
@@ -1061,7 +1102,7 @@ export default function AdminPortfolioManagement() {
                       onChange={(e) => setFormData({ ...formData, style: e.target.value })}
                       required
                       disabled={!formData.artist_id || selectedArtistSpecialties.length === 0}
-                      className="w-full bg-[#0E0D0C] border border-[#3E372C] rounded-[4px] px-3 py-2 text-xs text-[#ECE4D3] focus:outline-none focus:border-[#9C2F2F] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="w-full bg-[#0E0D0C] border border-[#3E372C] rounded-[4px] px-3 py-2 text-xs text-[#ECE4D3] focus:outline-none focus:border-[#C12D2D] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       {!formData.artist_id ? (
                         <option value="">กรุณาเลือกช่างก่อน</option>
@@ -1080,17 +1121,6 @@ export default function AdminPortfolioManagement() {
                     </select>
                   </div>
 
-                  {/* รายละเอียดผลงาน */}
-                  <div className="space-y-1">
-                    <label className="text-xs font-semibold text-[#ECE4D3] block">รายละเอียดผลงาน</label>
-                    <textarea
-                      rows={3}
-                      value={formData.description}
-                      onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                      placeholder="อธิบายเทคนิค ลวดลาย หรือแนวคิดของผลงานสักนี้..."
-                      className="w-full bg-[#0E0D0C] border border-[#3E372C] rounded-[4px] px-3 py-2 text-xs text-[#ECE4D3] placeholder:text-[#7A7162] focus:outline-none focus:border-[#9C2F2F] resize-none"
-                    />
-                  </div>
 
                   {/* ลำดับการแสดงผล */}
                   <div className="space-y-1 pt-1">
@@ -1099,7 +1129,7 @@ export default function AdminPortfolioManagement() {
                       type="number"
                       value={formData.sort_order}
                       onChange={(e) => setFormData({ ...formData, sort_order: parseInt(e.target.value, 10) || 0 })}
-                      className="w-full bg-[#0E0D0C] border border-[#3E372C] rounded-[4px] px-3 py-2 text-xs text-[#ECE4D3] focus:outline-none focus:border-[#9C2F2F]"
+                      className="w-full bg-[#0E0D0C] border border-[#3E372C] rounded-[4px] px-3 py-2 text-xs text-[#ECE4D3] focus:outline-none focus:border-[#C12D2D]"
                     />
                     <span className="text-[10px] text-[#7A7162]">ค่าน้อยกว่าจะแสดงผลก่อน</span>
                   </div>
@@ -1111,7 +1141,7 @@ export default function AdminPortfolioManagement() {
                 <button
                   type="submit"
                   disabled={submitting || isUploadingImage || !formData.image_url}
-                  className="px-5 py-2.5 bg-[#9C2F2F] hover:bg-[#802222] text-[#ECE4D3] rounded text-xs font-bold uppercase tracking-wider transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5 min-h-[38px]"
+                  className="px-5 py-2.5 bg-[#C12D2D] hover:bg-[#802222] text-[#ECE4D3] rounded text-xs font-bold uppercase tracking-wider transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5 min-h-[38px]"
                 >
                   {isUploadingImage ? (
                     <>
@@ -1140,12 +1170,12 @@ export default function AdminPortfolioManagement() {
       {deleteTarget && isMounted && createPortal(
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/95 backdrop-blur-md animate-fadeIn">
           <div className="relative w-full max-w-md bg-[#171512] border border-[#2D2820] rounded-[8px] p-6 shadow-2xl space-y-4">
-            <div className="flex items-center space-x-3 text-red-400">
+            <div className="flex items-center space-x-3 text-[#C12D2D]">
               <AlertCircle size={24} className="shrink-0" />
               <h3 className="text-base font-bold text-[#ECE4D3]">ยืนยันการลบผลงาน</h3>
             </div>
 
-            <p className="text-xs text-[#A89F91] leading-relaxed">
+            <p className="text-xs text-[#ECE4D3] leading-relaxed">
               คุณต้องการลบผลงาน <strong className="text-[#ECE4D3]">&quot;{deleteTarget.title}&quot;</strong> ออกจากระบบใช่หรือไม่?
               การลบผลงานนี้จะไม่กระทบข้อมูลช่างหรือประวัติการจองคิว
             </p>
@@ -1163,7 +1193,7 @@ export default function AdminPortfolioManagement() {
                 type="button"
                 onClick={handleConfirmDelete}
                 disabled={deleting}
-                className="px-4 py-2 bg-red-800 hover:bg-red-700 text-[#ECE4D3] rounded text-xs font-bold transition-colors disabled:opacity-50"
+                className="px-4 py-2 bg-[#C12D2D] hover:bg-[#802222] text-[#ECE4D3] rounded text-xs font-bold transition-colors disabled:opacity-50"
               >
                 {deleting ? 'กำลังลบ...' : 'ยืนยันลบ'}
               </button>

@@ -356,7 +356,7 @@ export default function WeekCalendarView({
             <div className="grid grid-cols-[60px_repeat(7,1fr)] border-b border-[#4A443A]/40 bg-[#171512] sticky top-0 z-30 shadow-md">
               {/* Intersection Header Cell (Top-Left) */}
               <div className="p-2 border-r border-[#4A443A]/30 flex flex-col items-center justify-center bg-[#171512] sticky left-0 z-40">
-                <span className="text-[9px] font-bold text-[#A89F91] uppercase">เวลา</span>
+                <span className="text-[9px] font-bold text-[#ECE4D3] uppercase">เวลา</span>
               </div>
 
               {/* 7 Day Header Columns */}
@@ -366,7 +366,7 @@ export default function WeekCalendarView({
                   onClick={() => onSelectDate(day.dateStr)}
                   className={`p-2 text-center border-r border-[#4A443A]/20 last:border-r-0 cursor-pointer transition-colors ${
                     day.isToday
-                      ? 'border-b-2 border-[#9C2F2F] bg-[#1A1815]'
+                      ? 'border-b-2 border-[#C12D2D] bg-[#1A1815]'
                       : day.isSelected
                       ? 'bg-[#1A1815]'
                       : 'hover:bg-[#1A1815]/60'
@@ -374,7 +374,7 @@ export default function WeekCalendarView({
                 >
                   <span
                     className={`text-[10px] block uppercase tracking-wider font-semibold ${
-                      day.isToday ? 'text-[#9C2F2F]' : 'text-[#A89F91]'
+                      day.isToday ? 'text-[#C12D2D]' : 'text-[#ECE4D3]'
                     }`}
                   >
                     {day.dayName}
@@ -383,7 +383,7 @@ export default function WeekCalendarView({
                     <span
                       className={`text-xs font-bold ${
                         day.isToday
-                          ? 'text-[#9C2F2F]'
+                          ? 'text-[#C12D2D]'
                           : day.isSelected
                           ? 'text-[#ECE4D3]'
                           : 'text-[#ECE4D3]/90'
@@ -391,7 +391,7 @@ export default function WeekCalendarView({
                     >
                       {day.dayNumber}
                     </span>
-                    <span className="text-[9px] text-[#7A7265] font-mono">{day.shortMonth}</span>
+                    <span className="text-[9px] text-[#ECE4D3] font-mono">{day.shortMonth}</span>
                   </div>
                 </div>
               ))}
@@ -404,7 +404,7 @@ export default function WeekCalendarView({
                 {HOURS.map((hour, i) => (
                   <div
                     key={hour}
-                    className="absolute left-0 right-0 flex items-center justify-end pr-2 text-[10px] font-mono text-[#7A7265]"
+                    className="absolute left-0 right-0 flex items-center justify-end pr-2 text-[10px] font-mono text-[#ECE4D3]"
                     style={{ top: i === 0 ? '2px' : `${i * HOUR_HEIGHT - 7}px` }}
                   >
                     {`${hour.toString().padStart(2, '0')}:00`}
@@ -446,10 +446,10 @@ export default function WeekCalendarView({
                     {/* Current Time Red Line on Today Column */}
                     {day.isToday && currentLineTop >= 0 && currentLineTop <= maxColumnHeight && (
                       <div
-                        className="absolute left-0 right-0 border-t-2 border-[#9C2F2F] z-30 pointer-events-none flex items-center"
+                        className="absolute left-0 right-0 border-t-2 border-[#C12D2D] z-30 pointer-events-none flex items-center"
                         style={{ top: `${currentLineTop}px` }}
                       >
-                        <div className="w-2 h-2 rounded-full bg-[#9C2F2F] -ml-1 shrink-0" />
+                        <div className="w-2 h-2 rounded-full bg-[#C12D2D] -ml-1 shrink-0" />
                       </div>
                     )}
 
@@ -510,7 +510,7 @@ export default function WeekCalendarView({
 
                             {/* Line 3: Customer & Artist */}
                             <div className="text-[10px] text-[#A89F91] truncate flex items-center gap-1 leading-tight border-t border-white/10 pt-1 mt-0.5">
-                              <User size={10} className="text-[#9C2F2F] shrink-0" />
+                              <User size={10} className="text-[#C12D2D] shrink-0" />
                               <span className="truncate text-[#ECE4D3]/90 font-medium">
                                 {customerName} • {artistName}
                               </span>
@@ -607,21 +607,21 @@ export default function WeekCalendarView({
               <div className="bg-[#171512] border border-[#4A443A]/40 rounded-lg p-2.5 space-y-1.5 text-xs">
                 <div className="flex justify-between items-center">
                   <span className="text-[#A89F91] flex items-center gap-1.5 text-[11px]">
-                    <Palette size={12} className="text-[#9C2F2F]" /> สไตล์งาน
+                    <Palette size={12} className="text-[#C12D2D]" /> สไตล์งาน
                   </span>
                   <span className="font-bold text-[#ECE4D3] text-[11px]">{selectedSpecs.style}</span>
                 </div>
 
                 <div className="flex justify-between items-center pt-1.5 border-t border-[#4A443A]/30">
                   <span className="text-[#A89F91] flex items-center gap-1.5 text-[11px]">
-                    <Maximize2 size={12} className="text-[#9C2F2F]" /> ขนาดรอยสัก
+                    <Maximize2 size={12} className="text-[#C12D2D]" /> ขนาดรอยสัก
                   </span>
                   <span className="font-bold text-[#ECE4D3] text-[11px]">{selectedSpecs.size}</span>
                 </div>
 
                 <div className="flex justify-between items-center pt-1.5 border-t border-[#4A443A]/30">
                   <span className="text-[#A89F91] flex items-center gap-1.5 text-[11px]">
-                    <MapPin size={12} className="text-[#9C2F2F]" /> ตำแหน่งที่สัก
+                    <MapPin size={12} className="text-[#C12D2D]" /> ตำแหน่งที่สัก
                   </span>
                   <span className="font-bold text-[#ECE4D3] text-[11px]">{selectedSpecs.placement}</span>
                 </div>
@@ -630,12 +630,12 @@ export default function WeekCalendarView({
               {/* Date & Time Box */}
               <div className="bg-[#171512] border border-[#4A443A]/40 rounded-lg p-2.5 space-y-1.5 text-xs">
                 <div className="flex items-center gap-2 text-[#ECE4D3] font-bold text-[11px]">
-                  <CalendarIcon size={13} className="text-[#9C2F2F]" />
+                  <CalendarIcon size={13} className="text-[#C12D2D]" />
                   <span>{formatDateBangkok(selectedEvent.start_at, true)}</span>
                 </div>
                 <div className="flex items-center text-[#A89F91] pt-1.5 border-t border-[#4A443A]/30">
                   <div className="flex items-center gap-1.5 text-[11px] text-[#ECE4D3] font-medium">
-                    <Clock size={12} className="text-[#9C2F2F]" />
+                    <Clock size={12} className="text-[#C12D2D]" />
                     <span>{selectedSpecs.timeText}</span>
                   </div>
                 </div>
@@ -726,7 +726,7 @@ export default function WeekCalendarView({
             <div className="p-3 border-t border-[#4A443A]/40 bg-[#171512]">
               <a
                 href={`/admin/requests?tab=bookings${selectedEvent?.booking_id ? `&booking_id=${selectedEvent.booking_id}` : ''}`}
-                className="w-full py-2 bg-[#9C2F2F] hover:bg-[#852525] text-xs font-bold text-white rounded-lg transition-colors flex items-center justify-center gap-1.5 shadow"
+                className="w-full py-2 bg-[#C12D2D] hover:bg-[#852525] text-xs font-bold text-white rounded-lg transition-colors flex items-center justify-center gap-1.5 shadow"
               >
                 <ExternalLink size={12} />
                 <span>ดูรายละเอียดและจัดการคิวงาน</span>
@@ -743,7 +743,7 @@ export default function WeekCalendarView({
                   ตารางงานประจำสัปดาห์
                 </span>
                 <h3 className="text-xs font-bold text-[#ECE4D3] flex items-center gap-1.5 mt-0.5">
-                  <TrendingUp size={14} className="text-[#9C2F2F]" />
+                  <TrendingUp size={14} className="text-[#C12D2D]" />
                   <span>สรุปภาพรวม (WEEKLY SUMMARY)</span>
                 </h3>
               </div>
@@ -767,7 +767,7 @@ export default function WeekCalendarView({
                 </div>
                 <div className="bg-[#171512] border border-[#4A443A]/40 rounded-lg p-2.5">
                   <span className="text-[9px] text-[#A89F91] block">กำลังสัก</span>
-                  <span className="text-lg font-bold text-[#D64545] mt-0.5 block">
+                  <span className="text-lg font-bold text-[#C12D2D] mt-0.5 block">
                     {metrics.inProgress} <span className="text-[10px] text-[#B8B0A3] font-normal">งาน</span>
                   </span>
                 </div>
@@ -783,7 +783,7 @@ export default function WeekCalendarView({
               <div className="bg-[#171512] border border-[#4A443A]/40 rounded-lg p-3 space-y-2.5">
                 <div className="flex items-center justify-between">
                   <span className="text-[10px] font-bold text-[#ECE4D3] flex items-center gap-1.5">
-                    <CalendarDays size={13} className="text-[#9C2F2F]" />
+                    <CalendarDays size={13} className="text-[#C12D2D]" />
                     <span>คิวงานวันที่ {formatDateBangkok(selectedDateStr, false)}</span>
                   </span>
                   <span className="text-[9px] text-[#A89F91] font-mono">
@@ -794,7 +794,7 @@ export default function WeekCalendarView({
                 <div className="space-y-1.5">
                   {selectedDateEvents.length === 0 ? (
                     <div className="p-3 text-center bg-[#0E0D0C] rounded border border-[#4A443A]/20">
-                      <span className="text-[11px] text-[#7A7265] italic">ไม่มีคิวนัดหมายในวันนี้</span>
+                      <span className="text-[11px] text-[#ECE4D3] italic">ไม่มีคิวนัดหมายในวันนี้</span>
                     </div>
                   ) : (
                     selectedDateEvents.map((ev) => {
@@ -805,7 +805,7 @@ export default function WeekCalendarView({
                         <div
                           key={ev.id}
                           onClick={() => onSelectEvent(ev)}
-                          className="p-2 bg-[#0E0D0C] hover:bg-[#1A1815] border border-[#4A443A]/30 hover:border-[#9C2F2F]/60 rounded-md transition-all cursor-pointer flex items-center justify-between gap-2 group"
+                          className="p-2 bg-[#0E0D0C] hover:bg-[#1A1815] border border-[#4A443A]/30 hover:border-[#C12D2D]/60 rounded-md transition-all cursor-pointer flex items-center justify-between gap-2 group"
                         >
                           <div className="min-w-0 flex-1">
                             <div className="flex items-center gap-1.5">
@@ -841,7 +841,7 @@ export default function WeekCalendarView({
               <div className="bg-[#171512] border border-[#4A443A]/40 rounded-lg p-3 space-y-2.5">
                 <div className="flex items-center justify-between">
                   <span className="text-[10px] font-bold text-[#ECE4D3] flex items-center gap-1.5">
-                    <Users size={13} className="text-[#9C2F2F]" />
+                    <Users size={13} className="text-[#C12D2D]" />
                     <span>ภาระงานช่างสัก (Artist Workload)</span>
                   </span>
                 </div>
@@ -869,7 +869,7 @@ export default function WeekCalendarView({
                           </div>
                           <div className="w-full h-1.5 bg-[#0E0D0C] rounded-full overflow-hidden border border-[#4A443A]/30">
                             <div
-                              className="h-full bg-[#9C2F2F] rounded-full transition-all"
+                              className="h-full bg-[#C12D2D] rounded-full transition-all"
                               style={{ width: `${percent}%` }}
                             />
                           </div>
@@ -966,21 +966,21 @@ export default function WeekCalendarView({
             <div className="bg-[#171512] border border-[#4A443A]/40 rounded-xl p-3 space-y-2 text-xs">
               <div className="flex justify-between items-center">
                 <span className="text-[#A89F91] flex items-center gap-1.5 text-[11px]">
-                  <Palette size={13} className="text-[#9C2F2F]" /> สไตล์งาน
+                  <Palette size={13} className="text-[#C12D2D]" /> สไตล์งาน
                 </span>
                 <span className="font-bold text-[#ECE4D3] text-[11px]">{selectedSpecs.style}</span>
               </div>
 
               <div className="flex justify-between items-center pt-2 border-t border-[#4A443A]/30">
                 <span className="text-[#A89F91] flex items-center gap-1.5 text-[11px]">
-                  <Maximize2 size={13} className="text-[#9C2F2F]" /> ขนาดรอยสัก
+                  <Maximize2 size={13} className="text-[#C12D2D]" /> ขนาดรอยสัก
                 </span>
                 <span className="font-bold text-[#ECE4D3] text-[11px]">{selectedSpecs.size}</span>
               </div>
 
               <div className="flex justify-between items-center pt-2 border-t border-[#4A443A]/30">
                 <span className="text-[#A89F91] flex items-center gap-1.5 text-[11px]">
-                  <MapPin size={13} className="text-[#9C2F2F]" /> ตำแหน่งที่สัก
+                  <MapPin size={13} className="text-[#C12D2D]" /> ตำแหน่งที่สัก
                 </span>
                 <span className="font-bold text-[#ECE4D3] text-[11px]">{selectedSpecs.placement}</span>
               </div>
@@ -989,12 +989,12 @@ export default function WeekCalendarView({
             {/* Date & Time Box */}
             <div className="bg-[#171512] border border-[#4A443A]/40 rounded-xl p-3 space-y-2 text-xs">
               <div className="flex items-center gap-2 text-[#ECE4D3] font-bold text-xs">
-                <CalendarIcon size={14} className="text-[#9C2F2F]" />
+                <CalendarIcon size={14} className="text-[#C12D2D]" />
                 <span>{formatDateBangkok(selectedEvent.start_at, true)}</span>
               </div>
               <div className="flex items-center text-[#A89F91] pt-2 border-t border-[#4A443A]/30">
                 <div className="flex items-center gap-1.5 text-xs text-[#ECE4D3] font-medium">
-                  <Clock size={13} className="text-[#9C2F2F]" />
+                  <Clock size={13} className="text-[#C12D2D]" />
                   <span>{selectedSpecs.timeText}</span>
                 </div>
               </div>
@@ -1085,7 +1085,7 @@ export default function WeekCalendarView({
           <div className="p-3.5 border-t border-[#4A443A]/40 bg-[#171512] shrink-0 pb-3.5">
             <a
               href={`/admin/requests?tab=bookings${selectedEvent?.booking_id ? `&booking_id=${selectedEvent.booking_id}` : ''}`}
-              className="w-full py-2.5 bg-[#9C2F2F] hover:bg-[#852525] text-xs font-bold text-white rounded-xl transition-colors flex items-center justify-center gap-1.5 shadow-md"
+              className="w-full py-2.5 bg-[#C12D2D] hover:bg-[#852525] text-xs font-bold text-white rounded-xl transition-colors flex items-center justify-center gap-1.5 shadow-md"
             >
               <ExternalLink size={14} />
               <span>ดูรายละเอียดและจัดการคิวงาน</span>
@@ -1105,7 +1105,7 @@ export default function WeekCalendarView({
                   ตารางงานประจำสัปดาห์
                 </span>
                 <h3 className="text-xs font-bold text-[#ECE4D3] flex items-center gap-1.5 mt-0.5">
-                  <TrendingUp size={14} className="text-[#9C2F2F]" />
+                  <TrendingUp size={14} className="text-[#C12D2D]" />
                   <span>สรุปภาพรวม (WEEKLY SUMMARY)</span>
                 </h3>
               </div>
@@ -1129,7 +1129,7 @@ export default function WeekCalendarView({
                 </div>
                 <div className="bg-[#171512] border border-[#4A443A]/40 rounded-lg p-2.5">
                   <span className="text-[9px] text-[#A89F91] block">กำลังสัก</span>
-                  <span className="text-lg font-bold text-[#D64545] mt-0.5 block">
+                  <span className="text-lg font-bold text-[#C12D2D] mt-0.5 block">
                     {metrics.inProgress} <span className="text-[10px] text-[#B8B0A3] font-normal">งาน</span>
                   </span>
                 </div>
@@ -1145,7 +1145,7 @@ export default function WeekCalendarView({
               <div className="bg-[#171512] border border-[#4A443A]/40 rounded-lg p-3 space-y-2.5">
                 <div className="flex items-center justify-between">
                   <span className="text-[10px] font-bold text-[#ECE4D3] flex items-center gap-1.5">
-                    <CalendarDays size={13} className="text-[#9C2F2F]" />
+                    <CalendarDays size={13} className="text-[#C12D2D]" />
                     <span>คิวงานวันที่ {formatDateBangkok(selectedDateStr, false)}</span>
                   </span>
                   <span className="text-[9px] text-[#A89F91] font-mono">
@@ -1156,7 +1156,7 @@ export default function WeekCalendarView({
                 <div className="space-y-1.5">
                   {selectedDateEvents.length === 0 ? (
                     <div className="p-3 text-center bg-[#0E0D0C] rounded border border-[#4A443A]/20">
-                      <span className="text-[11px] text-[#7A7265] italic">ไม่มีคิวนัดหมายในวันนี้</span>
+                      <span className="text-[11px] text-[#ECE4D3] italic">ไม่มีคิวนัดหมายในวันนี้</span>
                     </div>
                   ) : (
                     selectedDateEvents.map((ev) => {
@@ -1167,7 +1167,7 @@ export default function WeekCalendarView({
                         <div
                           key={ev.id}
                           onClick={() => onSelectEvent(ev)}
-                          className="p-2 bg-[#0E0D0C] hover:bg-[#1A1815] border border-[#4A443A]/30 hover:border-[#9C2F2F]/60 rounded-md transition-all cursor-pointer flex items-center justify-between gap-2 group"
+                          className="p-2 bg-[#0E0D0C] hover:bg-[#1A1815] border border-[#4A443A]/30 hover:border-[#C12D2D]/60 rounded-md transition-all cursor-pointer flex items-center justify-between gap-2 group"
                         >
                           <div className="min-w-0 flex-1">
                             <div className="flex items-center gap-1.5">
@@ -1203,7 +1203,7 @@ export default function WeekCalendarView({
               <div className="bg-[#171512] border border-[#4A443A]/40 rounded-lg p-3 space-y-2.5">
                 <div className="flex items-center justify-between">
                   <span className="text-[10px] font-bold text-[#ECE4D3] flex items-center gap-1.5">
-                    <Users size={13} className="text-[#9C2F2F]" />
+                    <Users size={13} className="text-[#C12D2D]" />
                     <span>ภาระงานช่างสัก (Artist Workload)</span>
                   </span>
                 </div>
@@ -1231,7 +1231,7 @@ export default function WeekCalendarView({
                           </div>
                           <div className="w-full h-1.5 bg-[#0E0D0C] rounded-full overflow-hidden border border-[#4A443A]/30">
                             <div
-                              className="h-full bg-[#9C2F2F] rounded-full transition-all"
+                              className="h-full bg-[#C12D2D] rounded-full transition-all"
                               style={{ width: `${percent}%` }}
                             />
                           </div>

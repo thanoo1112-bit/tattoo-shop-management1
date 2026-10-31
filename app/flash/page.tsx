@@ -7,6 +7,7 @@ import MobileBottomNav from '@/components/customer/MobileBottomNav';
 import PortfolioFilter from '@/components/customer/PortfolioFilter';
 import FlashReservationModal, { FlashDesignData } from '@/components/flash/FlashReservationModal';
 import { fetchLiveFlashDesigns as fetchSharedFlashDesigns } from '@/lib/flash/fetchLiveFlashDesigns';
+import { getCachedFlash, setCachedFlash } from '@/lib/cache/customerGalleryCache';
 import { useApp } from '@/components/AppContext';
 import { getThumbnailUrl, handleThumbnailError } from '@/lib/utils/thumbnailHelper';
 import Link from 'next/link';
@@ -18,7 +19,6 @@ import {
   ArrowRight,
   ArrowUpRight,
   Search,
-  SlidersHorizontal,
   User,
   Clock,
   DollarSign,
@@ -41,14 +41,15 @@ function FlashContent() {
   const searchParams = useSearchParams();
   const { user } = useApp();
 
-  const [flashDesigns, setFlashDesigns] = useState<FlashDesignWithMeta[]>([]);
-  const [loading, setLoading] = useState(true);
+  const cachedFlash = getCachedFlash<FlashDesignWithMeta[]>();
+  const [flashDesigns, setFlashDesigns] = useState<FlashDesignWithMeta[]>(() => cachedFlash?.data || []);
+  const [loading, setLoading] = useState(() => !cachedFlash);
   const [error, setError] = useState<string | null>(null);
 
   // Filters & Controls
   const [filter, setFilter] = useState('All');
   const [searchQuery, setSearchQuery] = useState('');
-  const [sortBy, setSortBy] = useState<'default' | 'newest' | 'oldest'>('default');
+  const [selectedArtistId, setSelectedArtistId] = useState<string>('All');
 
   // Selected Artwork for 37% Sticky Panel
   const [selectedArtwork, setSelectedArtwork] = useState<FlashDesignWithMeta | null>(null);
@@ -61,23 +62,31 @@ function FlashContent() {
 
   const [selectError, setSelectError] = useState<string | null>(null);
 
-  // Fetch Live Flash Designs from Supabase
-  const fetchLiveFlashDesigns = useCallback(async () => {
-    setLoading(true);
-    setError(null);
+  // Fetch Live Flash Designs with background revalidation
+  const fetchLiveFlashDesigns = useCallback(async (isBackground = false) => {
+    if (!isBackground) {
+      setLoading(true);
+      setError(null);
+    }
     try {
-      const formatted: FlashDesignWithMeta[] = await fetchSharedFlashDesigns();
+      const formatted: FlashDesignWithMeta[] = await fetchSharedFlashDesigns({ forceRefresh: isBackground });
       setFlashDesigns(formatted);
+      setError(null);
     } catch (err: any) {
       console.error('Error fetching live flash designs:', err);
-      setError('ไม่สามารถโหลดข้อมูลแบบลายสัก Flash ได้ในขณะนี้');
+      if (!isBackground) {
+        setError('ไม่สามารถโหลดข้อมูลแบบลายสัก Flash ได้ในขณะนี้');
+      }
     } finally {
       setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    fetchLiveFlashDesigns();
+    const cached = getCachedFlash<FlashDesignWithMeta[]>();
+    if (!cached || !cached.isFresh) {
+      fetchLiveFlashDesigns(Boolean(cached));
+    }
   }, [fetchLiveFlashDesigns]);
 
   // Sync URL query params (e.g. ?select=uuid)
@@ -114,12 +123,29 @@ function FlashContent() {
     }
   }, [searchParams, flashDesigns, loading]);
 
-  // Filter & Search & Sort
+  // Available Artists derived from active flash designs
+  const availableArtists = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const d of flashDesigns) {
+      if (d.artist_id && d.artist?.name) {
+        map.set(d.artist_id, d.artist.name);
+      }
+    }
+    return Array.from(map.entries())
+      .map(([id, name]) => ({ id, name }))
+      .sort((a, b) => a.name.localeCompare(b.name, 'th'));
+  }, [flashDesigns]);
+
+  // Filter: Style + Artist + Search
   const filteredItems = useMemo(() => {
     let list = flashDesigns;
 
     if (filter !== 'All') {
       list = list.filter((item) => item.style.toLowerCase() === filter.toLowerCase());
+    }
+
+    if (selectedArtistId !== 'All') {
+      list = list.filter((item) => item.artist_id === selectedArtistId);
     }
 
     if (searchQuery.trim()) {
@@ -132,22 +158,21 @@ function FlashContent() {
       );
     }
 
-    if (sortBy === 'newest') {
-      return [...list].sort((a, b) => {
-        const timeA = a.created_at ? new Date(a.created_at).getTime() : 0;
-        const timeB = b.created_at ? new Date(b.created_at).getTime() : 0;
-        return timeB - timeA;
-      });
-    } else if (sortBy === 'oldest') {
-      return [...list].sort((a, b) => {
-        const timeA = a.created_at ? new Date(a.created_at).getTime() : 0;
-        const timeB = b.created_at ? new Date(b.created_at).getTime() : 0;
-        return timeA - timeB;
-      });
-    }
-
     return list;
-  }, [flashDesigns, filter, searchQuery, sortBy]);
+  }, [flashDesigns, filter, selectedArtistId, searchQuery]);
+
+  // Keep selectedArtwork in sync with filtered items
+  useEffect(() => {
+    if (filteredItems.length > 0) {
+      setSelectedArtwork((prev) => {
+        if (prev && filteredItems.some((f) => f.id === prev.id)) return prev;
+        return filteredItems[0];
+      });
+    } else {
+      setSelectedArtwork(null);
+      setShowMobileDetail(false);
+    }
+  }, [filteredItems]);
 
   const dynamicFilters = useMemo(() => {
     const seen = new Set<string>();
@@ -172,29 +197,44 @@ function FlashContent() {
     }
   };
 
+  const getTypeBadge = (isRepeatable?: boolean) => {
+    if (isRepeatable) {
+      return (
+        <span className="text-[10px] bg-[#171512]/95 border border-[#6A6256] text-[#ECE4D3] px-2 py-0.5 rounded font-semibold shadow-md backdrop-blur-sm">
+          สักซ้ำได้
+        </span>
+      );
+    }
+    return (
+      <span className="text-[10px] bg-[#6F1F1F]/95 border border-[#C12D2D] text-[#ECE4D3] px-2 py-0.5 rounded font-semibold shadow-md backdrop-blur-sm">
+        ลายเดียว
+      </span>
+    );
+  };
+
   const getStatusBadge = (status: FlashDesignData['status']) => {
     switch (status) {
       case 'AVAILABLE':
         return (
-          <span className="text-[10px] bg-emerald-950/60 border border-emerald-600/40 text-emerald-400 px-2 py-0.5 rounded font-bold">
+          <span className="text-[10px] bg-emerald-950/90 border border-emerald-500/70 text-emerald-300 px-2 py-0.5 rounded font-bold shadow-md backdrop-blur-sm">
             ● ว่าง พร้อมจอง
           </span>
         );
       case 'HELD':
         return (
-          <span className="text-[10px] bg-amber-950/60 border border-amber-600/40 text-amber-300 px-2 py-0.5 rounded font-bold">
+          <span className="text-[10px] bg-amber-950/90 border border-amber-500/70 text-amber-200 px-2 py-0.5 rounded font-bold shadow-md backdrop-blur-sm">
             ● กำลังรอการยืนยัน
           </span>
         );
       case 'RESERVED':
         return (
-          <span className="text-[10px] bg-indigo-950/60 border border-indigo-600/40 text-indigo-300 px-2 py-0.5 rounded font-bold">
+          <span className="text-[10px] bg-indigo-950/90 border border-indigo-500/70 text-indigo-200 px-2 py-0.5 rounded font-bold shadow-md backdrop-blur-sm">
             ● จองแล้ว
           </span>
         );
       case 'SOLD':
         return (
-          <span className="text-[10px] bg-[#171512] border border-[#4A443A] text-[#7A7265] px-2 py-0.5 rounded font-bold">
+          <span className="text-[10px] bg-[#171512]/95 border border-[#6A6256] text-[#ECE4D3] px-2 py-0.5 rounded font-bold shadow-md backdrop-blur-sm">
             ✕ ปิดจอง
           </span>
         );
@@ -228,7 +268,7 @@ function FlashContent() {
               <h1 className="text-2xl md:text-3xl font-black tracking-wider text-studio-primary mt-1">
                 แบบลายสักพร้อมจอง (FLASH DESIGNS)
               </h1>
-              <p className="text-xs text-[#E2DDD4] mt-1 font-light">
+              <p className="text-xs text-[#ECE4D3] mt-1 font-light">
                 รวมแบบลายสักว่างพร้อมสักจากช่างประจำร้าน 157 TATTOO เลือกลายที่ชอบและส่งคำขอจองคิวได้ทันที
               </p>
             </div>
@@ -239,52 +279,69 @@ function FlashContent() {
 
               <div className="flex items-center gap-3 w-full xl:w-auto shrink-0">
                 <div className="relative flex-1 xl:w-48">
-                  <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#B8B0A3]" />
+                  <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#ECE4D3]" />
                   <input
                     type="text"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     placeholder="ค้นหาลาย / ช่าง..."
-                    className="w-full bg-studio-main border border-studio-border text-xs text-studio-primary pl-8 pr-3 py-1.5 rounded-[4px] outline-none focus:border-studio-red placeholder:text-[#B8B0A3]"
+                    className="w-full bg-studio-main border border-studio-border text-xs text-[#ECE4D3] pl-8 pr-3 py-1.5 rounded-[4px] outline-none focus:border-studio-red placeholder:text-[#A89F91]"
                   />
                 </div>
 
-                <div className="flex items-center space-x-1.5 bg-studio-main border border-studio-border px-2.5 py-1.5 rounded-[4px] shrink-0" title="เรียงตาม">
-                  <SlidersHorizontal size={13} className="text-[#B8B0A3]" />
-                  <span className="text-[11px] text-[#F2EEE8] shrink-0">เรียงตาม</span>
+                <div className="relative shrink-0">
                   <select
-                    value={sortBy}
-                    onChange={(e) => setSortBy(e.target.value as any)}
-                    aria-label="เรียงตาม"
-                    className="bg-transparent text-[11px] text-[#E2DDD4] outline-none cursor-pointer"
+                    value={selectedArtistId}
+                    onChange={(e) => setSelectedArtistId(e.target.value)}
+                    aria-label="กรองตามช่าง"
+                    className="bg-studio-main border border-studio-border rounded-[4px] px-3 py-1.5 text-xs text-[#ECE4D3] focus:outline-none focus:border-studio-red cursor-pointer max-w-[140px] xl:max-w-none truncate"
                   >
-                    <option value="default" className="bg-[#171512] text-studio-primary">ค่าเริ่มต้น</option>
-                    <option value="newest" className="bg-[#171512] text-studio-primary">ล่าสุด</option>
-                    <option value="oldest" className="bg-[#171512] text-studio-primary">เก่าสุด</option>
+                    <option value="All" className="bg-[#171512] text-[#ECE4D3]">ช่างทุกคน</option>
+                    {availableArtists.map((artist) => (
+                      <option key={artist.id} value={artist.id} className="bg-[#171512] text-[#ECE4D3]">
+                        {artist.name}
+                      </option>
+                    ))}
                   </select>
                 </div>
               </div>
             </div>
 
             {/* Gallery Results Count */}
-            <div className="flex justify-between items-center text-xs text-[#E2DDD4] px-1">
-              <span>
-                แสดงลายสักพร้อมจอง: <strong className="text-studio-primary">{filteredItems.length}</strong> รายการ
-              </span>
-              {filter !== 'All' && (
-                <button onClick={() => setFilter('All')} className="text-studio-red-bright hover:underline text-[11px]">
+            <div className="flex justify-between items-center text-xs text-[#ECE4D3] px-1">
+              {loading && flashDesigns.length === 0 ? (
+                <span className="text-[#A89F91] animate-pulse">กำลังโหลดแบบลายสัก Flash...</span>
+              ) : (
+                <span>
+                  แสดงลายสักพร้อมจอง: <strong className="text-[#ECE4D3]">{filteredItems.length}</strong> รายการ
+                  {filter !== 'All' && <span> • สไตล์: <strong className="text-studio-red-bright">{filter}</strong></span>}
+                  {selectedArtistId !== 'All' && (
+                    <span> • ช่าง: <strong className="text-[#ECE4D3]">{availableArtists.find((a) => a.id === selectedArtistId)?.name || 'ช่าง'}</strong></span>
+                  )}
+                  {searchQuery && <span> • ค้นหา: &quot;<strong className="text-[#ECE4D3]">{searchQuery}</strong>&quot;</span>}
+                </span>
+              )}
+              {flashDesigns.length > 0 && (filter !== 'All' || selectedArtistId !== 'All' || searchQuery) && (
+                <button
+                  onClick={() => {
+                    setFilter('All');
+                    setSelectedArtistId('All');
+                    setSearchQuery('');
+                  }}
+                  className="text-studio-red-bright hover:underline text-[11px] cursor-pointer"
+                >
                   ล้างตัวกรองทั้งหมด
                 </button>
               )}
             </div>
 
-            {loading && (
-              <div className="py-16 text-center text-xs text-[#E2DDD4] animate-pulse">
+            {loading && flashDesigns.length === 0 && (
+              <div className="py-16 text-center text-xs text-[#ECE4D3] animate-pulse">
                 กำลังโหลดแบบลายสัก Flash...
               </div>
             )}
 
-            {error && (
+            {!loading && error && flashDesigns.length === 0 && (
               <div className="bg-red-950/40 border border-red-900/60 p-4 rounded-[6px] text-xs text-red-400 flex items-center gap-2">
                 <AlertCircle size={16} />
                 <span>{error}</span>
@@ -292,10 +349,11 @@ function FlashContent() {
             )}
 
             {/* Desktop Masonry Grid: 3 Columns on 1440px / 4 Columns on 1920px */}
-            {!loading && !error && (
+            {(!loading || flashDesigns.length > 0) && !error && (
               <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
-                {filteredItems.map((item) => {
+                {filteredItems.map((item, index) => {
                   const isSelected = selectedArtwork?.id === item.id;
+                  const isPriority = index < 4;
 
                   return (
                     <div
@@ -314,11 +372,13 @@ function FlashContent() {
                           onError={(e) => handleThumbnailError(e, item.image_url)}
                           alt={item.title}
                           className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-500"
-                          loading="lazy"
+                          loading={isPriority ? 'eager' : 'lazy'}
+                          fetchPriority={isPriority ? 'high' : 'auto'}
                           decoding="async"
                         />
                         <div className="absolute top-3 right-3 flex flex-col items-end gap-1.5">
                           {getStatusBadge(item.status)}
+                          {getTypeBadge(item.is_repeatable)}
                         </div>
                       </div>
 
@@ -331,7 +391,7 @@ function FlashContent() {
                           <h4 className="text-xs font-bold text-studio-primary truncate group-hover:text-studio-red-bright transition-colors">
                             {item.title}
                           </h4>
-                          <p className="text-[10px] text-[#E2DDD4] truncate">
+                          <p className="text-[10px] text-[#ECE4D3] truncate">
                             ช่าง: {item.artist?.name || 'ช่างประจำร้าน'}
                           </p>
                         </div>
@@ -348,7 +408,7 @@ function FlashContent() {
                               <ArrowRight size={13} className="transform group-hover/btn:translate-x-0.5 transition-transform" />
                             </Link>
                           ) : (
-                            <span className="text-[10px] text-[#F2EEE8] font-medium">
+                            <span className="text-[10px] text-[#ECE4D3] font-medium">
                               {item.status === 'HELD' ? 'รอการยืนยัน' : item.status === 'RESERVED' ? 'จองแล้ว' : 'ปิดจอง'}
                             </span>
                           )}
@@ -364,7 +424,7 @@ function FlashContent() {
               <div className="bg-studio-card border border-studio-border p-12 rounded-[8px] text-center space-y-2">
                 <Search size={32} className="text-[#B8B0A3] mx-auto" />
                 <h3 className="text-sm font-bold text-studio-primary">ไม่พบลายสัก Flash ที่ตรงกับการค้นหา</h3>
-                <p className="text-xs text-[#E2DDD4]">ลองเปลี่ยนคำค้นหาหรือเลือกสไตล์งานอื่น</p>
+                <p className="text-xs text-[#ECE4D3]">ลองเปลี่ยนคำค้นหาหรือเลือกสไตล์งานอื่น</p>
               </div>
             )}
           </div>
@@ -415,15 +475,29 @@ function FlashContent() {
                     </>
                   )}
                 </div>
+
+                {/* Detail summary below image */}
+                <div className="mt-4 pt-4 border-t border-studio-border/60 space-y-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-[11px] text-[#7A7162]">ประเภทลาย:</span>
+                    <span className="text-xs font-semibold text-[#ECE4D3]">
+                      {selectedArtwork.is_repeatable ? 'สักซ้ำได้' : 'ลายเดียว'}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-[11px] text-[#7A7162]">สถานะ:</span>
+                    <div>{getStatusBadge(selectedArtwork.status)}</div>
+                  </div>
+                </div>
               </div>
             ) : selectError ? (
               <div className="py-12 px-4 text-center space-y-3">
                 <AlertCircle size={32} className="text-amber-400 mx-auto" />
                 <h3 className="text-sm font-bold text-studio-primary">ลายสักไม่เปิดให้จอง</h3>
-                <p className="text-xs text-[#E2DDD4]">{selectError}</p>
+                <p className="text-xs text-[#ECE4D3]">{selectError}</p>
               </div>
             ) : (
-              <div className="py-20 text-center text-xs text-[#F2EEE8]">
+              <div className="py-20 text-center text-xs text-[#ECE4D3]">
                 เลือกลายสักเพื่อดูรูปภาพ
               </div>
             )}
@@ -512,7 +586,7 @@ function FlashContent() {
               alt={selectedArtwork?.title || ''}
               className="max-w-full max-h-[85vh] object-contain rounded-lg border border-white/20 shadow-2xl mx-auto"
             />
-            <p className="text-center text-xs text-[#E2DDD4] mt-2.5">
+            <p className="text-center text-xs text-[#ECE4D3] mt-2.5">
               {selectedArtwork?.title} — รูปภาพความละเอียดสูงต้นฉบับ
             </p>
           </div>

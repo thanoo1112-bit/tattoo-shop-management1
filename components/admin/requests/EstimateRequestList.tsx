@@ -283,11 +283,11 @@ export default function EstimateRequestList({
                 className={`px-3 py-1.5 text-xs rounded-md font-medium transition-colors border shrink-0 cursor-pointer whitespace-nowrap ${
                   isSelected
                     ? 'bg-[#ECE4D3] text-[#0E0D0C] border-[#ECE4D3] shadow'
-                    : 'bg-[#0E0D0C] text-[#CFC7BA] border-[#4A443A] hover:text-[#ECE4D3] hover:border-[#7A7265]'
+                    : 'bg-[#0E0D0C] text-[#ECE4D3] border-[#4A443A] hover:border-[#C12D2D]'
                 }`}
               >
                 <span>{pill.label}</span>
-                <span className={`ml-1 text-[11px] ${isSelected ? 'text-[#0E0D0C]/80 font-normal' : 'text-[#AFA79A] font-normal'}`}>
+                <span className={`ml-1 text-[11px] ${isSelected ? 'text-[#0E0D0C]/80 font-normal' : 'text-[#ECE4D3] font-normal'}`}>
                   ({pill.count})
                 </span>
               </button>
@@ -313,7 +313,7 @@ export default function EstimateRequestList({
         <div className="py-12 text-center border border-dashed border-[#4A443A]/60 rounded-lg bg-[#0E0D0C]/40 space-y-2">
           <FileText size={28} className="text-[#AFA79A] mx-auto opacity-60" />
           <h4 className="text-xs sm:text-sm font-semibold text-[#ECE4D3]">ยังไม่มีคำขอจากลูกค้า</h4>
-          <p className="text-[11px] text-[#AFA79A] max-w-sm mx-auto">
+          <p className="text-[11px] text-[#ECE4D3] max-w-sm mx-auto">
             เมื่อมีลูกค้าส่งคำขอจองคิวสัก รายการจะแสดงที่นี่เพื่อให้ผู้ดูแลระบบตรวจสอบและลงคิวงานได้
           </p>
         </div>
@@ -322,7 +322,7 @@ export default function EstimateRequestList({
           {/* Desktop Table */}
           <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-left text-xs text-[#ECE4D3]">
-              <thead className="bg-[#0E0D0C] text-[#CFC7BA] uppercase text-[10px] tracking-wider border-b border-[#4A443A]">
+              <thead className="bg-[#0E0D0C] text-[#ECE4D3] uppercase text-[10px] tracking-wider border-b border-[#4A443A]">
                 <tr>
                   <th className="py-3 px-3">รหัส / ลูกค้า</th>
                   <th className="py-3 px-3">ยื่นคำขอเมื่อ</th>
@@ -371,7 +371,7 @@ export default function EstimateRequestList({
                         {(() => {
                           const submitTime = (est as any).submitted_at || est.created_at;
                           if (!submitTime) {
-                            return <span className={isInactive ? 'text-zinc-500' : 'text-[#AFA79A]'}>-</span>;
+                            return <span className={isInactive ? 'text-zinc-500' : 'text-[#ECE4D3]'}>-</span>;
                           }
                           const timeStr = formatTimeBangkok(submitTime);
                           const formattedTime = timeStr ? (timeStr.endsWith('น.') || timeStr.endsWith('น') ? timeStr : `${timeStr} น.`) : null;
@@ -414,7 +414,7 @@ export default function EstimateRequestList({
                             <span className={`block font-medium truncate ${isInactive ? 'text-zinc-400' : 'text-[#ECE4D3]'}`}>
                               {est.artwork_title || (est.request_type === 'FLASH' ? 'งานสัก Flash' : 'งานสัก Custom')}
                             </span>
-                            <span className={`text-[10px] ${isInactive ? 'text-zinc-500' : 'text-[#AFA79A]'} block truncate`}>
+                            <span className={`text-[10px] ${isInactive ? 'text-zinc-500' : 'text-[#ECE4D3]'} block truncate`}>
                               {est.placement || 'ไม่ระบุ'}
                               {formatTattooSize(est.width_cm, est.height_cm) !== 'ไม่ระบุ' ? ` • ${formatTattooSize(est.width_cm, est.height_cm)}` : ''}
                             </span>
@@ -427,7 +427,7 @@ export default function EstimateRequestList({
                         <span className={`${isInactive ? 'text-zinc-400' : 'text-[#ECE4D3]'} block font-medium`}>
                           {est.artist_name}
                         </span>
-                        <span className={`text-[10px] ${isInactive ? 'text-zinc-500' : 'text-[#AFA79A]'} block`}>
+                        <span className={`text-[10px] ${isInactive ? 'text-zinc-500' : 'text-[#ECE4D3]'} block`}>
                           {est.style || est.style_preference || 'ไม่ระบุ'}
                         </span>
                       </td>
@@ -451,7 +451,7 @@ export default function EstimateRequestList({
                           }
 
                           if (!est.preferred_date) {
-                            return <span className={isInactive ? 'text-zinc-500' : 'text-[#AFA79A]'}>ไม่ระบุ</span>;
+                            return <span className={isInactive ? 'text-zinc-500' : 'text-[#ECE4D3]'}>ไม่ระบุ</span>;
                           }
 
                           return (
@@ -460,7 +460,7 @@ export default function EstimateRequestList({
                                 {formatDateBangkok(est.preferred_date)}
                               </span>
                               {timeStr && (
-                                <span className={`text-[10px] ${isInactive ? 'text-zinc-500' : 'text-[#AFA79A]'} block`}>
+                                <span className={`text-[10px] ${isInactive ? 'text-zinc-500' : 'text-[#ECE4D3]'} block`}>
                                   {timeStr}
                                 </span>
                               )}
@@ -525,7 +525,7 @@ export default function EstimateRequestList({
                   {/* 1. แถวบน: รหัสคำขอด้านซ้าย และสถานะคำขอด้านขวา */}
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-2 min-w-0">
-                      <span className={`text-xs font-mono font-bold ${isInactive ? 'text-zinc-500' : 'text-[#9C2F2F]'}`}>
+                      <span className={`text-xs font-mono font-bold ${isInactive ? 'text-zinc-500' : 'text-[#C12D2D]'}`}>
                         #{est.id.slice(0, 8)}
                       </span>
                       {renderRequestTypeBadge(est)}
@@ -539,7 +539,7 @@ export default function EstimateRequestList({
                   {/* 2. แถวถัดมา: วันที่ลูกค้าเลือกและชื่อลูกค้า */}
                   <div className="flex items-center justify-between text-xs border-y border-[#4A443A]/40 py-2 my-1">
                     <div>
-                      <span className={isInactive ? "text-[10px] text-zinc-500 block" : "text-[10px] text-[#CFC7BA] block"}>วันที่ลูกค้าเลือก</span>
+                      <span className={isInactive ? "text-[10px] text-zinc-500 block" : "text-[10px] text-[#ECE4D3] block"}>วันที่ลูกค้าเลือก</span>
                       {(() => {
                         const prefDate = est.preferred_date;
                         const rawTime = est.preferred_time || (est as any).preferredTime;
@@ -564,7 +564,7 @@ export default function EstimateRequestList({
                       })()}
                     </div>
                     <div className="text-right">
-                      <span className={isInactive ? "text-[10px] text-zinc-500 block" : "text-[10px] text-[#CFC7BA] block"}>ลูกค้า</span>
+                      <span className={isInactive ? "text-[10px] text-zinc-500 block" : "text-[10px] text-[#ECE4D3] block"}>ลูกค้า</span>
                       <span className={isInactive ? "font-semibold text-zinc-400" : "font-semibold text-[#ECE4D3]"}>{est.customer_name}</span>
                     </div>
                   </div>
@@ -572,7 +572,7 @@ export default function EstimateRequestList({
                   {/* 3. แถวล่าง: ช่างสักและสไตล์งาน พร้อมตำแหน่งและขนาดในรูปแบบกระชับ */}
                   <div className="flex items-center justify-between text-xs gap-2">
                     <div className="min-w-0 flex-1">
-                      <span className={isInactive ? "text-[10px] text-zinc-500 block" : "text-[10px] text-[#CFC7BA] block"}>{workTitle}</span>
+                      <span className={isInactive ? "text-[10px] text-zinc-500 block" : "text-[10px] text-[#ECE4D3] block"}>{workTitle}</span>
                       <p className={isInactive ? "font-medium text-zinc-400 truncate" : "font-medium text-[#ECE4D3] truncate"}>
                         {artistAndStyle}
                       </p>

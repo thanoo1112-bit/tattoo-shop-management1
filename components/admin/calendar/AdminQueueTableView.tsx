@@ -308,8 +308,8 @@ export default function AdminQueueTableView({
               สร้างโดยแอดมิน
             </span>
           )}
-          <span className="bg-[#9C2F2F]/20 text-[#D64545] border border-[#9C2F2F]/60 px-2 py-0.5 rounded text-[10px] font-semibold inline-flex items-center gap-1 animate-pulse">
-            <span className="w-1.5 h-1.5 rounded-full bg-[#D64545] animate-pulse" />
+          <span className="bg-[#C12D2D]/20 text-[#C12D2D] border border-[#C12D2D]/60 px-2 py-0.5 rounded text-[10px] font-semibold inline-flex items-center gap-1 animate-pulse">
+            <span className="w-1.5 h-1.5 rounded-full bg-[#C12D2D] animate-pulse" />
             กำลังสัก
           </span>
         </div>
@@ -385,7 +385,7 @@ export default function AdminQueueTableView({
               className={`px-3 py-1.5 text-xs rounded-md font-medium transition-colors border shrink-0 cursor-pointer ${
                 isSelected
                   ? 'bg-[#ECE4D3] text-[#0E0D0C] border-[#ECE4D3] shadow'
-                  : 'bg-[#0E0D0C] text-[#A89F91] border-[#4A443A] hover:text-[#ECE4D3] hover:border-[#7A7265]'
+                  : 'bg-[#0E0D0C] text-[#ECE4D3] border-[#4A443A] hover:border-[#C12D2D]'
               }`}
             >
               {pill.label}
@@ -400,7 +400,7 @@ export default function AdminQueueTableView({
             <Eye size={20} />
           </div>
           <h3 className="text-sm sm:text-base font-semibold text-[#ECE4D3]">ไม่พบคิวงานในเดือนนี้</h3>
-          <p className="text-xs text-[#B8B0A3] max-w-sm mx-auto">
+          <p className="text-xs text-[#ECE4D3] max-w-sm mx-auto">
             ลองเปลี่ยนเดือนด้วยปุ่มลูกศร &lt; &gt; หรือปรับเปลี่ยนเงื่อนไขตัวกรอง
           </p>
         </div>
@@ -409,7 +409,7 @@ export default function AdminQueueTableView({
           {/* Desktop & Tablet Table View */}
           <div className="hidden md:block overflow-x-auto">
         <table className="w-full text-left text-xs text-[#ECE4D3] border-collapse">
-          <thead className="bg-[#0E0D0C] text-[#B8B0A3] uppercase text-[10px] tracking-wider border-b border-[#4A443A]">
+          <thead className="bg-[#0E0D0C] text-[#ECE4D3] uppercase text-[10px] tracking-wider border-b border-[#4A443A]">
             <tr>
               <th className="py-3.5 px-4 font-medium">รหัส / ลูกค้า</th>
               <th className="py-3.5 px-4 font-medium">งานที่จองและขนาด</th>
@@ -469,7 +469,7 @@ export default function AdminQueueTableView({
                 >
                   {/* Column 1: รหัส / ลูกค้า */}
                   <td className="py-3.5 px-4 text-[#ECE4D3]">
-                    <span className="text-[10px] text-[#B8B0A3] font-mono block font-semibold">
+                    <span className="text-[10px] text-[#ECE4D3] font-mono block font-semibold">
                       #{b.id.slice(0, 8).toUpperCase()}
                     </span>
                     <div className="font-semibold text-xs text-[#ECE4D3] mt-0.5">
@@ -500,9 +500,9 @@ export default function AdminQueueTableView({
                       <div className="min-w-0 flex-1">
                         <div className="font-medium text-xs text-[#ECE4D3] truncate">{artworkTitle}</div>
                         {detailsText ? (
-                          <div className="text-[11px] text-[#B8B0A3] truncate mt-0.5">{detailsText}</div>
+                          <div className="text-[11px] text-[#ECE4D3] truncate mt-0.5">{detailsText}</div>
                         ) : (
-                          <div className="text-[11px] text-[#B8B0A3] truncate mt-0.5">ไม่ได้ระบุขนาด</div>
+                          <div className="text-[11px] text-[#ECE4D3] truncate mt-0.5">ไม่ได้ระบุขนาด</div>
                         )}
                       </div>
                     </div>
@@ -511,7 +511,7 @@ export default function AdminQueueTableView({
                   {/* Column 3: ช่างสัก / สไตล์ */}
                   <td className="py-3.5 px-4 text-[#ECE4D3]">
                     <div className="font-medium text-xs text-[#ECE4D3]">{artistDisplayName}</div>
-                    <div className="text-[11px] text-[#B8B0A3] mt-0.5">{styleStr}</div>
+                    <div className="text-[11px] text-[#ECE4D3] mt-0.5">{styleStr}</div>
                   </td>
 
                   {/* Column 4: วันและเวลานัดหมาย */}
@@ -524,7 +524,7 @@ export default function AdminQueueTableView({
                         {timeFormatted} น.
                       </div>
                     ) : (
-                      <div className="text-[11px] text-[#B8B0A3] font-mono mt-0.5">
+                      <div className="text-[11px] text-[#ECE4D3] font-mono mt-0.5">
                         ไม่ได้ระบุเวลา
                       </div>
                     )}
@@ -598,9 +598,9 @@ export default function AdminQueueTableView({
                   : 'bg-[#0E0D0C] border border-[#4A443A] hover:border-[#7A7265] rounded-xl p-3.5 space-y-2.5 shadow cursor-pointer active:scale-[0.99] transition-all'
               }
             >
-              {/* Top Header: ID (#9C2F2F), Health Badge & Status */}
+              {/* Top Header: ID (#C12D2D), Health Badge & Status */}
               <div className="flex items-center justify-between gap-2">
-                <span className={`text-xs font-mono font-bold ${isInactive ? 'text-zinc-500' : 'text-[#9C2F2F]'}`}>
+                <span className={`text-xs font-mono font-bold ${isInactive ? 'text-zinc-500' : 'text-[#C12D2D]'}`}>
                   #{b.id.slice(0, 8).toUpperCase()}
                 </span>
                 <div className="flex items-center gap-1.5 shrink-0">
@@ -612,13 +612,13 @@ export default function AdminQueueTableView({
               {/* Info Row: Date & Customer */}
               <div className="flex items-center justify-between text-xs border-y border-[#4A443A]/40 py-2 my-1">
                 <div>
-                  <span className="text-[10px] text-[#B8B0A3] block font-medium">วัน/เวลานัดหมาย</span>
+                  <span className="text-[10px] text-[#ECE4D3] block font-medium">วัน/เวลานัดหมาย</span>
                   <span className="font-semibold text-[#ECE4D3]">
                     {dateDisplay} {timeDisplay}
                   </span>
                 </div>
                 <div className="text-right">
-                  <span className="text-[10px] text-[#B8B0A3] block font-medium">ลูกค้า</span>
+                  <span className="text-[10px] text-[#ECE4D3] block font-medium">ลูกค้า</span>
                   <span className="font-semibold text-[#ECE4D3]">{b.customer_name || 'ไม่ระบุชื่อ'}</span>
                 </div>
               </div>
@@ -626,11 +626,11 @@ export default function AdminQueueTableView({
               {/* Bottom Row: Artist/Style, Placement/Size & Action Button */}
               <div className="flex items-center justify-between text-xs gap-2">
                 <div className="min-w-0 flex-1">
-                  <span className="text-[10px] text-[#B8B0A3] block font-medium">ช่างสัก / สไตล์ • ตำแหน่งและขนาด</span>
+                  <span className="text-[10px] text-[#ECE4D3] block font-medium">ช่างสัก / สไตล์ • ตำแหน่งและขนาด</span>
                   <p className="font-medium text-[#ECE4D3] truncate">
                     {artistAndStyle}
                   </p>
-                  <p className="text-[11px] text-[#B8B0A3] truncate">
+                  <p className="text-[11px] text-[#ECE4D3] truncate">
                     {placementAndSize}
                   </p>
                 </div>
@@ -644,7 +644,7 @@ export default function AdminQueueTableView({
                     className={
                       isInactive
                         ? "text-xs font-medium text-zinc-400 hover:text-zinc-300 flex items-center gap-0.5 cursor-pointer"
-                        : "text-xs font-medium text-[#B8B0A3] hover:text-[#ECE4D3] flex items-center gap-0.5 cursor-pointer"
+                        : "text-xs font-medium text-[#ECE4D3] hover:text-white flex items-center gap-0.5 cursor-pointer"
                     }
                   >
                     <span>ดูรายละเอียด</span>

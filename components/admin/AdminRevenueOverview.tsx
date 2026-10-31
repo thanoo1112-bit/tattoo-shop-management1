@@ -277,11 +277,11 @@ export default function AdminRevenueOverview() {
       case 'CONFIRMED':
         return { label: 'ยืนยันคิวแล้ว', dot: 'bg-green-400', badge: 'text-green-300 bg-green-950/60 border-green-800' };
       case 'IN_PROGRESS':
-        return { label: 'กำลังสัก', dot: 'bg-[#9C2F2F]', badge: 'text-[#9C2F2F] bg-[#9C2F2F]/20 border-[#9C2F2F]' };
+        return { label: 'กำลังสัก', dot: 'bg-[#C12D2D]', badge: 'text-[#C12D2D] bg-[#C12D2D]/20 border-[#C12D2D]' };
       case 'WAITING_DEPOSIT':
         return { label: 'รอมัดจำ', dot: 'bg-amber-400', badge: 'text-amber-300 bg-amber-950/60 border-amber-800' };
       case 'PENDING':
-        return { label: 'รอตรวจสอบ', dot: 'bg-[#9C2F2F] animate-pulse', badge: 'text-[#9C2F2F] bg-[#9C2F2F]/20 border-[#9C2F2F]' };
+        return { label: 'รอตรวจสอบ', dot: 'bg-[#C12D2D] animate-pulse', badge: 'text-[#C12D2D] bg-[#C12D2D]/20 border-[#C12D2D]' };
       case 'COMPLETED':
         return { label: 'เสร็จสิ้น', dot: 'bg-zinc-500', badge: 'text-[#7A7265] bg-zinc-900 border-[#4A443A]' };
       default:
@@ -311,7 +311,7 @@ export default function AdminRevenueOverview() {
           <button
             type="button"
             onClick={() => setIsDateDropdownOpen((prev) => !prev)}
-            className="h-[38px] px-3.5 bg-[#171512] border border-[#4A443A] hover:border-[#7A7265] rounded-[6px] text-xs font-medium text-[#ECE4D3] flex items-center space-x-2 transition-colors outline-none focus:ring-1 focus:ring-[#9C2F2F]"
+            className="h-[38px] px-3.5 bg-[#171512] border border-[#4A443A] hover:border-[#7A7265] rounded-[6px] text-xs font-medium text-[#ECE4D3] flex items-center space-x-2 transition-colors outline-none focus:ring-1 focus:ring-[#C12D2D]"
           >
             <Calendar size={13} className="text-studio-red-bright" />
             <span>
@@ -342,7 +342,7 @@ export default function AdminRevenueOverview() {
                   }}
                   className={`w-full h-[34px] px-2.5 rounded-[4px] flex items-center justify-between text-left text-xs font-medium transition-colors ${
                     dateRange === item.id
-                      ? 'bg-[#9C2F2F]/[0.14] text-[#ECE4D3]'
+                      ? 'bg-[#C12D2D]/[0.14] text-[#ECE4D3]'
                       : 'text-[#ECE4D3] hover:bg-[#ECE4D3]/[0.06]'
                   }`}
                 >
@@ -360,7 +360,7 @@ export default function AdminRevenueOverview() {
       {/* 2. TOP FINANCIAL SUMMARY (4 COMPACT CARDS) */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         {/* Card 1: Total Work Value (Aged Paper Accent) */}
-        <div className="p-4 bg-[#171512] border-l-4 border-l-[#9C2F2F] border border-[#4A443A] rounded-[8px] space-y-1 shadow-md">
+        <div className="p-4 bg-[#171512] border-l-4 border-l-[#C12D2D] border border-[#4A443A] rounded-[8px] space-y-1 shadow-md">
           <span className="text-[10px] uppercase font-bold text-[#A89F91] tracking-wider block">
             รายได้รวม (Total Work Value)
           </span>
@@ -425,7 +425,7 @@ export default function AdminRevenueOverview() {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="ค้นหาลูกค้าหรืองาน..."
-            className="w-full h-[38px] pl-9 pr-8 bg-[#0E0D0C] border border-[#4A443A] hover:border-[#7A7265] focus:border-[#9C2F2F] rounded-[6px] text-xs text-[#ECE4D3] placeholder-[#7A7265] outline-none transition-colors"
+            className="w-full h-[38px] pl-9 pr-8 bg-[#0E0D0C] border border-[#4A443A] hover:border-[#7A7265] focus:border-[#C12D2D] rounded-[6px] text-xs text-[#ECE4D3] placeholder-[#7A7265] outline-none transition-colors"
           />
           {searchQuery && (
             <button
@@ -444,7 +444,7 @@ export default function AdminRevenueOverview() {
             <button
               type="button"
               onClick={() => setIsArtistDropdownOpen((prev) => !prev)}
-              className="h-[38px] px-3 bg-[#0E0D0C] border border-[#4A443A] hover:border-[#7A7265] rounded-[6px] text-xs font-medium text-[#ECE4D3] flex items-center space-x-2 transition-colors outline-none focus:ring-1 focus:ring-[#9C2F2F]"
+              className="h-[38px] px-3 bg-[#0E0D0C] border border-[#4A443A] hover:border-[#7A7265] rounded-[6px] text-xs font-medium text-[#ECE4D3] flex items-center space-x-2 transition-colors outline-none focus:ring-1 focus:ring-[#C12D2D]"
             >
               <User size={13} className="text-studio-red-bright" />
               <span className="truncate max-w-[120px]">
@@ -465,7 +465,7 @@ export default function AdminRevenueOverview() {
                   }}
                   className={`w-full h-[34px] px-2.5 rounded-[4px] flex items-center justify-between text-left text-xs font-medium transition-colors ${
                     selectedArtistFilter === 'ALL'
-                      ? 'bg-[#9C2F2F]/[0.14] text-[#ECE4D3]'
+                      ? 'bg-[#C12D2D]/[0.14] text-[#ECE4D3]'
                       : 'text-[#ECE4D3] hover:bg-[#ECE4D3]/[0.06]'
                   }`}
                 >
@@ -484,7 +484,7 @@ export default function AdminRevenueOverview() {
                     }}
                     className={`w-full h-[34px] px-2.5 rounded-[4px] flex items-center justify-between text-left text-xs font-medium transition-colors ${
                       selectedArtistFilter === artist.id
-                        ? 'bg-[#9C2F2F]/[0.14] text-[#ECE4D3]'
+                        ? 'bg-[#C12D2D]/[0.14] text-[#ECE4D3]'
                         : 'text-[#ECE4D3] hover:bg-[#ECE4D3]/[0.06]'
                     }`}
                   >
@@ -503,7 +503,7 @@ export default function AdminRevenueOverview() {
             <button
               type="button"
               onClick={() => setIsPaymentStatusDropdownOpen((prev) => !prev)}
-              className="h-[38px] px-3 bg-[#0E0D0C] border border-[#4A443A] hover:border-[#7A7265] rounded-[6px] text-xs font-medium text-[#ECE4D3] flex items-center space-x-2 transition-colors outline-none focus:ring-1 focus:ring-[#9C2F2F]"
+              className="h-[38px] px-3 bg-[#0E0D0C] border border-[#4A443A] hover:border-[#7A7265] rounded-[6px] text-xs font-medium text-[#ECE4D3] flex items-center space-x-2 transition-colors outline-none focus:ring-1 focus:ring-[#C12D2D]"
             >
               <CreditCard size={13} className="text-studio-red-bright" />
               <span>
@@ -532,7 +532,7 @@ export default function AdminRevenueOverview() {
                     }}
                     className={`w-full h-[34px] px-2.5 rounded-[4px] flex items-center justify-between text-left text-xs font-medium transition-colors ${
                       selectedPaymentStatusFilter === item.id
-                        ? 'bg-[#9C2F2F]/[0.14] text-[#ECE4D3]'
+                        ? 'bg-[#C12D2D]/[0.14] text-[#ECE4D3]'
                         : 'text-[#ECE4D3] hover:bg-[#ECE4D3]/[0.06]'
                     }`}
                   >
@@ -586,7 +586,7 @@ export default function AdminRevenueOverview() {
                       style={{ height: `${heightPercent}%` }}
                       className={`w-full max-w-[42px] rounded-t-[4px] transition-all duration-300 ${
                         d.amount > 0
-                          ? 'bg-[#ECE4D3]/80 group-hover:bg-[#9C2F2F]'
+                          ? 'bg-[#ECE4D3]/80 group-hover:bg-[#C12D2D]'
                           : 'bg-[#0E0D0C] border border-[#4A443A]/40'
                       }`}
                     />
@@ -616,7 +616,7 @@ export default function AdminRevenueOverview() {
             <div className="hidden md:block bg-[#171512] border border-[#4A443A] rounded-[8px] overflow-hidden shadow-xl">
               <table className="w-full text-left border-collapse text-xs">
                 <thead>
-                  <tr className="border-b border-[#4A443A] bg-[#0E0D0C] text-[10px] uppercase font-semibold text-[#7A7265] tracking-wider">
+                  <tr className="border-b border-[#4A443A] bg-[#0E0D0C] text-[10px] uppercase font-semibold text-[#ECE4D3] tracking-wider">
                     <th className="py-3 px-4">วันที่</th>
                     <th className="py-3 px-4">ลูกค้า</th>
                     <th className="py-3 px-4">ผลงาน / ลายสัก</th>
@@ -644,7 +644,7 @@ export default function AdminRevenueOverview() {
                           key={b.id}
                           onClick={() => setSelectedBookingRevenue({ booking: b })}
                           className={`h-[68px] cursor-pointer transition-colors group ${
-                            isSelected ? 'bg-[#1C1A16] ring-1 ring-[#9C2F2F]' : 'hover:bg-[#1C1A16]'
+                            isSelected ? 'bg-[#1C1A16] ring-1 ring-[#C12D2D]' : 'hover:bg-[#1C1A16]'
                           }`}
                         >
                           <td className="py-3 px-4 font-mono text-[#ECE4D3]">
@@ -706,14 +706,14 @@ export default function AdminRevenueOverview() {
                     <div
                       key={b.id}
                       onClick={() => setSelectedBookingRevenue({ booking: b })}
-                      className="p-4 bg-[#171512] border border-[#4A443A] hover:border-[#9C2F2F] rounded-[8px] space-y-3 cursor-pointer shadow transition-all"
+                      className="p-4 bg-[#171512] border border-[#4A443A] hover:border-[#C12D2D] rounded-[8px] space-y-3 cursor-pointer shadow transition-all"
                     >
                       <div className="flex justify-between items-start">
                         <div>
                           <h4 className="text-sm font-semibold text-[#ECE4D3]">
                             {b.customerName}
                           </h4>
-                          <span className="text-xs text-[#A89F91] block mt-0.5">
+                          <span className="text-xs text-[#ECE4D3] block mt-0.5">
                             {b.artworkTitle || 'Custom Tattoo'} • {b.artistName}
                           </span>
                         </div>
@@ -729,7 +729,7 @@ export default function AdminRevenueOverview() {
                       {/* 3-Col Money Breakdown */}
                       <div className="grid grid-cols-3 gap-2 pt-2 border-t border-[#4A443A]/40 text-center text-xs">
                         <div className="p-2 bg-[#0E0D0C] rounded border border-[#4A443A]/30">
-                          <span className="text-[9px] text-[#7A7265] block">ราคางาน:</span>
+                          <span className="text-[9px] text-[#ECE4D3] block">ราคางาน:</span>
                           <strong className="text-xs font-mono text-[#ECE4D3]">
                             ฿{b.price?.toLocaleString()}
                           </strong>
@@ -741,7 +741,7 @@ export default function AdminRevenueOverview() {
                           </strong>
                         </div>
                         <div className="p-2 bg-[#0E0D0C] rounded border border-[#4A443A]/30">
-                          <span className="text-[9px] text-[#7A7265] block">คงเหลือ:</span>
+                          <span className="text-[9px] text-[#ECE4D3] block">คงเหลือ:</span>
                           <strong className="text-xs font-mono text-studio-red-bright">
                             ฿{balance.toLocaleString()}
                           </strong>
@@ -806,7 +806,7 @@ export default function AdminRevenueOverview() {
                     <div className="w-full h-1.5 bg-[#0E0D0C] rounded-full overflow-hidden border border-[#4A443A]/30">
                       <div
                         style={{ width: `${percent}%` }}
-                        className="h-full bg-[#9C2F2F] rounded-full"
+                        className="h-full bg-[#C12D2D] rounded-full"
                       />
                     </div>
                   </div>
@@ -821,7 +821,7 @@ export default function AdminRevenueOverview() {
               <h3 className="text-xs uppercase font-heading tracking-wider text-[#ECE4D3]">
                 PAYMENT STATUS • สถานะการชำระ
               </h3>
-              <CreditCard size={14} className="text-[#7A7265]" />
+              <CreditCard size={14} className="text-[#ECE4D3]" />
             </div>
 
             <div className="space-y-2.5 text-xs">
@@ -830,7 +830,7 @@ export default function AdminRevenueOverview() {
                   <span className="text-[#ECE4D3] font-medium block">
                     ● มัดจำแล้ว ({paymentStatusBreakdown.depositPaidCount} งาน)
                   </span>
-                  <span className="text-[10px] text-[#7A7265]">รับเงินมัดจำแล้ว</span>
+                  <span className="text-[10px] text-[#ECE4D3]">รับเงินมัดจำแล้ว</span>
                 </div>
                 <strong className="font-mono text-green-400 text-sm">
                   ฿{paymentStatusBreakdown.depositPaidTotal.toLocaleString()}
@@ -854,7 +854,7 @@ export default function AdminRevenueOverview() {
                   <span className="text-[#ECE4D3] font-medium block">
                     ● ยังไม่ชำระ ({paymentStatusBreakdown.unpaidPendingCount} งาน)
                   </span>
-                  <span className="text-[10px] text-[#7A7265]">รอการยืนยันคิว</span>
+                  <span className="text-[10px] text-[#ECE4D3]">รอการยืนยันคิว</span>
                 </div>
                 <strong className="font-mono text-studio-red-bright text-sm">
                   ฿{paymentStatusBreakdown.unpaidPendingTotal.toLocaleString()}
@@ -920,7 +920,7 @@ export default function AdminRevenueOverview() {
                     </strong>
                   </div>
                   <div className="p-2.5 bg-[#171512] rounded border border-[#4A443A]/40">
-                    <span className="text-[10px] text-[#7A7265] block">มัดจำแล้ว:</span>
+                    <span className="text-[10px] text-[#ECE4D3] block">มัดจำแล้ว:</span>
                     <strong className="text-sm font-mono text-green-400">
                       {selectedBookingRevenue.booking.paymentStatus === 'DEPOSIT_PAID'
                         ? `฿${selectedBookingRevenue.booking.deposit?.toLocaleString()}`
@@ -954,7 +954,7 @@ export default function AdminRevenueOverview() {
                     </strong>
                   </div>
                   <div>
-                    <span className="text-[#7A7265] text-[10px] block">ช่างสัก:</span>
+                    <span className="text-[#ECE4D3] text-[10px] block">ช่างสัก:</span>
                     <strong className="text-[#ECE4D3]">
                       {selectedBookingRevenue.booking.artistName}
                     </strong>
@@ -966,7 +966,7 @@ export default function AdminRevenueOverview() {
                     </span>
                   </div>
                   <div>
-                    <span className="text-[#7A7265] text-[10px] block">วันและเวลา:</span>
+                    <span className="text-[#ECE4D3] text-[10px] block">วันและเวลา:</span>
                     <span className="font-mono text-[#ECE4D3]">
                       {formatThaiDate(selectedBookingRevenue.booking.date)}{' '}
                       {selectedBookingRevenue.booking.startTime} ({selectedBookingRevenue.booking.duration}h)

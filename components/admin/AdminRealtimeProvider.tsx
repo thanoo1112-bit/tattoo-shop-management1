@@ -3,11 +3,16 @@
 import React, { createContext, useContext, useEffect, useState, useRef, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useApp } from '@/components/AppContext';
+import {
+  readAll,
+  subscribeRescheduleRequests,
+  isRescheduleRequestUiEnabled,
+} from '@/lib/reschedule/rescheduleRequestStore';
 import { CheckCircle2, FileText, CreditCard, Calendar, User, Sparkles, X } from 'lucide-react';
 
 interface ToastNotification {
   id: string;
-  type: 'estimate' | 'submission' | 'booking' | 'customer' | 'general';
+  type: 'estimate' | 'submission' | 'booking' | 'customer' | 'reschedule' | 'general';
   title: string;
   message: string;
   timestamp: Date;
@@ -29,7 +34,7 @@ export const useAdminRealtime = () => useContext(AdminRealtimeContext);
 
 export default function AdminRealtimeProvider({ children }: { children: React.ReactNode }) {
   const supabase = createClient();
-  const { fetchEstimates, fetchBookings, fetchArtists } = useApp();
+  const { fetchEstimates, fetchBookings, fetchArtists, fetchFlashReservations } = useApp();
 
   const [connectionStatus, setConnectionStatus] = useState<'CONNECTING' | 'CONNECTED' | 'DISCONNECTED' | 'ERROR'>('CONNECTING');
   const [lastEventTime, setLastEventTime] = useState<number | null>(null);
@@ -62,6 +67,39 @@ export default function AdminRealtimeProvider({ children }: { children: React.Re
     }, 4000);
   }, [removeToast]);
 
+  // Reschedule request listener for Toast alerts (Group 3: New Reschedule Requests)
+  const knownPendingRescheduleIdsRef = useRef<Set<string>>(new Set());
+  const isRescheduleInitializedRef = useRef<boolean>(false);
+
+  useEffect(() => {
+    if (!isRescheduleRequestUiEnabled()) return;
+
+    const checkRescheduleRequests = () => {
+      try {
+        const all = readAll();
+        const pending = all.filter((r) => r.status === 'PENDING');
+        const known = knownPendingRescheduleIdsRef.current;
+
+        if (isRescheduleInitializedRef.current) {
+          const newItems = pending.filter((r) => !known.has(r.id));
+          if (newItems.length > 0) {
+            addToast('reschedule', 'มีคำขอเลื่อนนัดใหม่', 'ลูกค้าขอเลื่อนวันหรือเวลานัดหมาย');
+          }
+        } else {
+          isRescheduleInitializedRef.current = true;
+        }
+
+        knownPendingRescheduleIdsRef.current = new Set(pending.map((r) => r.id));
+      } catch (err) {
+        console.error('Error monitoring reschedule requests for toast:', err);
+      }
+    };
+
+    checkRescheduleRequests();
+    const unsubscribe = subscribeRescheduleRequests(checkRescheduleRequests);
+    return () => unsubscribe();
+  }, [addToast]);
+
   // Handle Realtime Postgres Changes
   const handleRealtimePayload = useCallback((table: string, payload: any) => {
     const eventType = payload.eventType; // 'INSERT' | 'UPDATE' | 'DELETE'
@@ -87,6 +125,8 @@ export default function AdminRealtimeProvider({ children }: { children: React.Re
     debounceTimerRef.current[table] = setTimeout(() => {
       if (table === 'estimate_requests') {
         fetchEstimates();
+      } else if (table === 'flash_reservations') {
+        fetchFlashReservations();
       } else if (['bookings', 'booking_sessions', 'booking_payments', 'booking_payment_submissions'].includes(table)) {
         fetchBookings();
       } else if (table === 'artists') {
@@ -94,23 +134,25 @@ export default function AdminRealtimeProvider({ children }: { children: React.Re
       }
     }, 300);
 
-    // 3. Selective Non-Intrusive UX Toast Notifications for Admin
+    // 3. Selective Non-Intrusive UX Toast Notifications for Admin (Unified 3 categories)
     if (eventType === 'INSERT') {
       if (table === 'estimate_requests') {
-        addToast('estimate', 'คำขอใหม่', 'มีคำขอประเมินราคาใหม่จากลูกค้า');
+        // Category 1: New Custom Request
+        addToast('estimate', 'มีคำขอใหม่', 'มีคำขอออกแบบหรือประเมินราคาใหม่จากลูกค้า');
+      } else if (table === 'flash_reservations') {
+        // Category 1: New Flash Request
+        addToast('estimate', 'มีคำขอใหม่', 'มีคำขอลายสัก Flash ใหม่จากลูกค้า');
       } else if (table === 'booking_payment_submissions') {
-        addToast('submission', 'สลิปใหม่', 'ลูกค้าส่งสลิปชำระเงินมัดจำแล้ว');
-      } else if (table === 'bookings') {
-        addToast('booking', 'รายการจองใหม่', 'มีรายการคิวงานใหม่ในระบบ');
+        // Category 2: New Deposit Slip
+        addToast('submission', 'มีสลิปมัดจำใหม่', 'ลูกค้าแนบสลิปมัดจำรอตรวจสอบ');
       }
     } else if (eventType === 'UPDATE') {
       if (table === 'booking_payment_submissions' && payload.new?.status === 'PENDING' && payload.old?.status !== 'PENDING') {
-        addToast('submission', 'สลิปใหม่อัปเดต', 'ลูกค้าส่งสลิปชำระเงินมัดจำแล้ว');
-      } else if (table === 'customers') {
-        addToast('customer', 'ข้อมูลลูกค้า', 'ข้อมูล Profile ลูกค้าถูกอัปเดต');
+        // Category 2: Deposit slip re-submitted / updated to PENDING
+        addToast('submission', 'มีสลิปมัดจำใหม่', 'ลูกค้าแนบสลิปมัดจำรอตรวจสอบ');
       }
     }
-  }, [fetchEstimates, fetchBookings, fetchArtists, addToast]);
+  }, [fetchEstimates, fetchFlashReservations, fetchBookings, fetchArtists, addToast]);
 
   // Single Channel Lifecycle
   useEffect(() => {
@@ -128,6 +170,11 @@ export default function AdminRealtimeProvider({ children }: { children: React.Re
         'postgres_changes',
         { event: '*', schema: 'public', table: 'estimate_requests' },
         (payload) => handleRealtimePayload('estimate_requests', payload)
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'flash_reservations' },
+        (payload) => handleRealtimePayload('flash_reservations', payload)
       )
       .on(
         'postgres_changes',
@@ -197,11 +244,12 @@ export default function AdminRealtimeProvider({ children }: { children: React.Re
         {toasts.map((toast) => (
           <div
             key={toast.id}
-            className="pointer-events-auto bg-[#171512]/95 text-[#ECE4D3] border border-[#9C2F2F]/60 px-4 py-3 rounded-xl shadow-2xl backdrop-blur-md flex items-start gap-3 animate-in fade-in slide-in-from-bottom-3 duration-300 font-prompt"
+            className="pointer-events-auto bg-[#171512]/95 text-[#ECE4D3] border border-[#C12D2D]/60 px-4 py-3 rounded-xl shadow-2xl backdrop-blur-md flex items-start gap-3 animate-in fade-in slide-in-from-bottom-3 duration-300 font-prompt"
           >
             <div className="mt-0.5 shrink-0">
-              {toast.type === 'estimate' && <FileText size={18} className="text-[#9C2F2F]" />}
+              {toast.type === 'estimate' && <FileText size={18} className="text-[#C12D2D]" />}
               {toast.type === 'submission' && <CreditCard size={18} className="text-amber-400" />}
+              {toast.type === 'reschedule' && <Calendar size={18} className="text-sky-400" />}
               {toast.type === 'booking' && <Calendar size={18} className="text-emerald-400" />}
               {toast.type === 'customer' && <User size={18} className="text-sky-400" />}
               {toast.type === 'general' && <Sparkles size={18} className="text-amber-400" />}

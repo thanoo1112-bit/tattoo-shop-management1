@@ -22,7 +22,7 @@ export default function PortfolioFilter({ activeFilter, onFilterChange, filters 
             className={`whitespace-nowrap px-3.5 py-2 text-xs uppercase tracking-wider transition-all duration-200 rounded-[4px] border ${
               isActive
                 ? 'bg-studio-red text-studio-paper border-studio-red font-semibold'
-                : 'bg-studio-card text-studio-secondary border-studio-border hover:border-studio-red/60 hover:text-studio-primary'
+                : 'bg-studio-card text-[#ECE4D3] border-studio-border hover:border-studio-red/60 hover:text-white'
             }`}
           >
             {filter}

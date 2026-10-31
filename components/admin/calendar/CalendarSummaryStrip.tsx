@@ -17,25 +17,25 @@ export default function CalendarSummaryStrip({ metrics }: CalendarSummaryStripPr
           <Calendar size={16} />
         </div>
         <div>
-          <span className="text-[10px] text-[#A89F91] block uppercase tracking-wider">คิวงานวันนี้</span>
+          <span className="text-[10px] text-[#ECE4D3] block uppercase tracking-wider">คิวงานวันนี้</span>
           <div className="flex items-baseline gap-1">
             <span className="text-lg sm:text-xl font-bold text-[#ECE4D3] font-bebas">
               {metrics.todaySessionsCount}
             </span>
-            <span className="text-[10px] text-[#7A7265]">คิว</span>
+            <span className="text-[10px] text-[#ECE4D3]">คิว</span>
           </div>
         </div>
       </div>
 
       {/* 2. In-Progress Sessions */}
       <div className="bg-[#171512] border border-[#4A443A]/40 rounded-xl p-3 sm:p-3.5 flex items-center gap-3">
-        <div className="w-8 h-8 rounded-lg bg-[#9C2F2F]/20 border border-[#9C2F2F]/40 flex items-center justify-center text-[#9C2F2F] shrink-0">
+        <div className="w-8 h-8 rounded-lg bg-[#C12D2D]/20 border border-[#C12D2D]/40 flex items-center justify-center text-[#C12D2D] shrink-0">
           <PlayCircle size={16} />
         </div>
         <div>
-          <span className="text-[10px] text-[#A89F91] block uppercase tracking-wider">กำลังสัก</span>
+          <span className="text-[10px] text-[#ECE4D3] block uppercase tracking-wider">กำลังสัก</span>
           <div className="flex items-baseline gap-1">
-            <span className="text-lg sm:text-xl font-bold text-[#9C2F2F] font-bebas">
+            <span className="text-lg sm:text-xl font-bold text-[#C12D2D] font-bebas">
               {metrics.inProgressCount}
             </span>
             <span className="text-[10px] text-[#7A7265]">คิว</span>
@@ -49,7 +49,7 @@ export default function CalendarSummaryStrip({ metrics }: CalendarSummaryStripPr
           <CheckCircle2 size={16} />
         </div>
         <div>
-          <span className="text-[10px] text-[#A89F91] block uppercase tracking-wider">นัดหมายแล้ว</span>
+          <span className="text-[10px] text-[#ECE4D3] block uppercase tracking-wider">นัดหมายแล้ว</span>
           <div className="flex items-baseline gap-1">
             <span className="text-lg sm:text-xl font-bold text-blue-400 font-bebas">
               {metrics.confirmedCount ?? 0}
@@ -65,12 +65,12 @@ export default function CalendarSummaryStrip({ metrics }: CalendarSummaryStripPr
           <Users size={16} />
         </div>
         <div>
-          <span className="text-[10px] text-[#A89F91] block uppercase tracking-wider">ช่างมีงานวันนี้</span>
+          <span className="text-[10px] text-[#ECE4D3] block uppercase tracking-wider">ช่างมีงานวันนี้</span>
           <div className="flex items-baseline gap-1">
             <span className="text-lg sm:text-xl font-bold text-emerald-400 font-bebas">
               {metrics.activeArtistsCount}
             </span>
-            <span className="text-[10px] text-[#7A7265]">ท่าน</span>
+            <span className="text-[10px] text-[#ECE4D3]">ท่าน</span>
           </div>
         </div>
       </div>

@@ -51,7 +51,7 @@ export default function CalendarFilters({
           value={searchQuery}
           onChange={(e) => onSearchChange(e.target.value)}
           placeholder="ค้นหาชื่อลูกค้า หรือชื่อช่าง..."
-          className="w-full bg-[#171512] border border-[#4A443A]/60 rounded-xl pl-9 pr-3 py-2 text-xs text-[#ECE4D3] placeholder-[#B8B0A3] focus:outline-none focus:border-[#9C2F2F] transition-colors"
+          className="w-full bg-[#171512] border border-[#4A443A]/60 rounded-xl pl-9 pr-3 py-2 text-xs text-[#ECE4D3] placeholder-[#B8B0A3] focus:outline-none focus:border-[#C12D2D] transition-colors"
         />
       </div>
 
@@ -63,7 +63,7 @@ export default function CalendarFilters({
             id="select-calendar-artist"
             value={selectedArtistId}
             onChange={(e) => onArtistChange(e.target.value)}
-            className="w-full bg-[#171512] border border-[#4A443A]/60 rounded-xl px-3 py-2 text-xs text-[#ECE4D3] focus:outline-none focus:border-[#9C2F2F] appearance-none transition-colors pr-8 cursor-pointer"
+            className="w-full bg-[#171512] border border-[#4A443A]/60 rounded-xl px-3 py-2 text-xs text-[#ECE4D3] focus:outline-none focus:border-[#C12D2D] appearance-none transition-colors pr-8 cursor-pointer"
           >
             <option value="ALL">ช่างทั้งหมด ({artists.length})</option>
             {artists.map((art) => (
@@ -84,7 +84,7 @@ export default function CalendarFilters({
             id="select-calendar-status"
             value={selectedStatus}
             onChange={(e) => onStatusChange(e.target.value)}
-            className="w-full bg-[#171512] border border-[#4A443A]/60 rounded-xl px-3 py-2 text-xs text-[#ECE4D3] focus:outline-none focus:border-[#9C2F2F] appearance-none transition-colors pr-8 cursor-pointer"
+            className="w-full bg-[#171512] border border-[#4A443A]/60 rounded-xl px-3 py-2 text-xs text-[#ECE4D3] focus:outline-none focus:border-[#C12D2D] appearance-none transition-colors pr-8 cursor-pointer"
           >
             {statusOptions.map((opt) => (
               <option key={opt.value} value={opt.value}>

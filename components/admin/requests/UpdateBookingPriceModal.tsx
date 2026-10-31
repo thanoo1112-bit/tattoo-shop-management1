@@ -91,13 +91,13 @@ export default function UpdateBookingPriceModal({
           {/* Current Financial Context */}
           <div className="grid grid-cols-2 gap-3 text-xs">
             <div className="bg-[#171512] p-3 rounded-xl border border-[#4A443A]/40">
-              <span className="text-[10px] text-[#7A7265] block">ราคาปัจจุบัน</span>
+              <span className="text-[10px] text-[#ECE4D3] block">ราคาปัจจุบัน</span>
               <span className="text-sm font-semibold text-[#ECE4D3] mt-0.5 block">
                 ฿{formatCurrency(currentPrice)}
               </span>
             </div>
             <div className="bg-[#171512] p-3 rounded-xl border border-[#4A443A]/40">
-              <span className="text-[10px] text-[#7A7265] block">ชำระแล้ว</span>
+              <span className="text-[10px] text-[#ECE4D3] block">ชำระแล้ว</span>
               <span className="text-sm font-semibold text-emerald-400 mt-0.5 block">
                 ฿{formatCurrency(paidTotal)}
               </span>
@@ -130,7 +130,7 @@ export default function UpdateBookingPriceModal({
           {/* Difference Indicator */}
           {newPriceNum > 0 && newPriceNum !== currentPrice && (
             <div className="flex items-center justify-between p-3 bg-[#171512] border border-[#4A443A]/60 rounded-xl text-xs">
-              <span className="text-[#A89F91]">ผลต่างการปรับราคา:</span>
+              <span className="text-[#ECE4D3]">ผลต่างการปรับราคา:</span>
               <span
                 className={`font-semibold flex items-center gap-1 ${
                   diff > 0 ? 'text-amber-400' : 'text-emerald-400'
@@ -170,7 +170,7 @@ export default function UpdateBookingPriceModal({
               type="button"
               onClick={onClose}
               disabled={isSubmitting}
-              className="px-4 py-2.5 rounded-xl border border-[#4A443A] text-xs font-medium text-[#A89F91] hover:text-[#ECE4D3] hover:bg-[#26231F] transition-colors"
+              className="px-4 py-2.5 rounded-xl border border-[#4A443A] text-xs font-medium text-[#ECE4D3] hover:text-white hover:bg-[#26231F] transition-colors"
             >
               ยกเลิก
             </button>

@@ -31,9 +31,14 @@ yarn-error.log*
 
 # scratch and temporary scripts
 scratch/
-scratch_*.mjs
-temp_*.mjs
-test_*.mjs
+scratch*
+*.mjs
+*.spec.js
+*.zip
+temp_*
+test_*
+supabase_purge_all_customer_accounts.sql
+test-results/
 
 # vercel
 .vercel

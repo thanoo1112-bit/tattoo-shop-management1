@@ -79,7 +79,7 @@ export default function CustomerReferenceImage({
   if (loading && showSkeleton) {
     return (
       <div className="w-full h-full flex items-center justify-center bg-[#171512] text-[#7A7265] animate-pulse">
-        <Loader2 size={16} className="animate-spin text-[#9C2F2F]" />
+        <Loader2 size={16} className="animate-spin text-[#C12D2D]" />
       </div>
     );
   }

@@ -412,7 +412,7 @@ export default function BookingCalendar({
       </div>
 
       {/* Week Days Header: จ  อ  พ  พฤ  ศ  ส  อา */}
-      <div className="grid grid-cols-7 text-center text-[11px] font-normal text-[#A89F91] mb-1">
+      <div className="grid grid-cols-7 text-center text-[11px] font-normal text-[#ECE4D3] mb-1">
         {DAYS_OF_WEEK_THAI.map((day) => (
           <div key={day} className="py-1">
             {day}

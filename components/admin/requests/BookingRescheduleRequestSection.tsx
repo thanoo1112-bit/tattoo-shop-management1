@@ -308,31 +308,31 @@ export default function BookingRescheduleRequestSection({
 
       <div className="bg-studio-sec/80 border border-studio-border rounded-lg p-3 space-y-2 text-xs">
         <div className="flex justify-between gap-3">
-          <span className="text-[#B8B0A3]">ลูกค้า:</span>
+          <span className="text-[#ECE4D3]">ลูกค้า:</span>
           <span className="text-studio-primary font-semibold text-right">
             {request.customer_name || customerName}
           </span>
         </div>
         <div className="flex justify-between gap-3">
-          <span className="text-[#B8B0A3]">วัน/เวลาเดิม:</span>
+          <span className="text-[#ECE4D3]">วัน/เวลาเดิม:</span>
           <span className="text-[#ECE4D3] font-medium text-right">
             {formatDateBangkok(request.original_date)} · {request.original_start_time} น.
           </span>
         </div>
         <div className="flex justify-between gap-3">
-          <span className="text-[#B8B0A3]">วัน/เวลาใหม่ที่ลูกค้าขอ:</span>
+          <span className="text-[#ECE4D3]">วัน/เวลาใหม่ที่ลูกค้าขอ:</span>
           <span className="text-amber-300 font-bold text-right">
             {formatDateBangkok(request.requested_date)} · {request.requested_start_time} น.
           </span>
         </div>
         <div className="pt-1 border-t border-studio-border/50 space-y-1">
-          <span className="text-[#B8B0A3] block text-[11px]">เหตุผล:</span>
+          <span className="text-[#ECE4D3] block text-[11px]">เหตุผล:</span>
           <p className="text-[#ECE4D3] bg-studio-card/70 px-2.5 py-1.5 rounded border border-studio-border/50 whitespace-pre-wrap">
             {request.reason}
           </p>
         </div>
         <div className="flex justify-between gap-3 pt-1 text-[11px]">
-          <span className="text-[#B8B0A3]">วันที่ส่งคำขอ:</span>
+          <span className="text-[#ECE4D3]">วันที่ส่งคำขอ:</span>
           <span className="text-[#ECE4D3] font-mono">{formatDateTimeBangkok(request.created_at)}</span>
         </div>
       </div>
@@ -395,7 +395,7 @@ export default function BookingRescheduleRequestSection({
                 </button>
                 <button
                   type="submit"
-                  className="px-3.5 py-1.5 bg-red-600 hover:bg-red-500 text-xs text-white rounded-lg font-semibold cursor-pointer"
+                  className="px-3.5 py-1.5 bg-[#C12D2D] hover:bg-[#A82525] text-xs text-white rounded-lg font-semibold cursor-pointer"
                 >
                   ยืนยันปฏิเสธคำขอ
                 </button>

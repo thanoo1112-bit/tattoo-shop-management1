@@ -6,7 +6,7 @@
   --ink: #0E0D0C;
   --ink-secondary: #171512;
   --paper: #ECE4D3;
-  --tattoo-red: #9C2F2F;
+  --tattoo-red: #C12D2D;
   --line: #4A443A;
   color-scheme: dark;
 }
@@ -70,7 +70,7 @@ h1, h2, h3, .font-heading {
   border-radius: 2px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #9C2F2F;
+  background: #C12D2D;
 }
 
 /* Flash Sheet border texture accent */
@@ -104,14 +104,14 @@ input::-ms-clear {
 /* Fix date & time picker native icons on dark background */
 input[type="date"],
 input[type="time"] {
-  color-scheme: dark;
+  color-scheme: dark !important;
 }
 
 input[type="date"]::-webkit-calendar-picker-indicator,
 input[type="time"]::-webkit-calendar-picker-indicator {
-  filter: invert(1) brightness(1.2);
-  cursor: pointer !important;
+  cursor: pointer;
   opacity: 1 !important;
+  filter: brightness(0.95) sepia(0.25) saturate(1.2);
   transition: filter 0.15s ease, opacity 0.15s ease;
 }
 
@@ -119,8 +119,17 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover,
 input[type="time"]::-webkit-calendar-picker-indicator:hover,
 input[type="date"]:focus::-webkit-calendar-picker-indicator,
 input[type="time"]:focus::-webkit-calendar-picker-indicator {
-  filter: invert(1) brightness(1.8);
+  filter: brightness(1.1) sepia(0.2);
   opacity: 1 !important;
+}
+
+input[type="date"]:disabled::-webkit-calendar-picker-indicator,
+input[type="time"]:disabled::-webkit-calendar-picker-indicator,
+input[type="date"][disabled]::-webkit-calendar-picker-indicator,
+input[type="time"][disabled]::-webkit-calendar-picker-indicator {
+  cursor: not-allowed;
+  opacity: 0.35 !important;
+  filter: grayscale(1) opacity(0.35);
 }
 
 

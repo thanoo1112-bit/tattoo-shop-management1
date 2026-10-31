@@ -750,33 +750,33 @@ export default function ArtistRequestDetailDrawer({ estimate, isOpen, onClose, o
           )}
           {resolvedOpStatus === 'CANCELLED_CUSTOMER' && (
             <div className="p-3 bg-[#1F1D1A] border border-[#4A443A] rounded-xl flex items-center space-x-2.5 text-[#ECE4D3]">
-              <span className="text-xs px-2.5 py-0.5 rounded-full font-semibold bg-[#2A2723] text-[#A89F91] border border-[#4A443A] shrink-0">
+              <span className="text-xs px-2.5 py-0.5 rounded-full font-semibold bg-[#2A2723] text-[#ECE4D3] border border-[#4A443A] shrink-0">
                 ลูกค้ายกเลิก
               </span>
-              <span className="text-xs text-[#A89F91]">
+              <span className="text-xs text-[#ECE4D3]">
                 ลูกค้ายกเลิกคำขอนี้แล้ว
               </span>
             </div>
           )}
           {resolvedOpStatus === 'CANCELLED' && (
             <div className="p-3 bg-[#1F1D1A] border border-[#4A443A] rounded-xl flex items-center space-x-2.5 text-[#ECE4D3]">
-              <span className="text-xs px-2.5 py-0.5 rounded-full font-semibold bg-[#2A2723] text-[#A89F91] border border-[#4A443A] shrink-0">
+              <span className="text-xs px-2.5 py-0.5 rounded-full font-semibold bg-[#2A2723] text-[#ECE4D3] border border-[#4A443A] shrink-0">
                 ยกเลิก
               </span>
-              <span className="text-xs text-[#A89F91]">
+              <span className="text-xs text-[#ECE4D3]">
                 คำขอนี้ถูกยกเลิกแล้ว
               </span>
             </div>
           )}
 
           {/* Read-only Notice */}
-          <div className="p-3.5 bg-studio-sec/80 border border-studio-border rounded-xl flex items-start space-x-3 text-studio-secondary">
+          <div className="p-3.5 bg-studio-sec/80 border border-studio-border rounded-xl flex items-start space-x-3 text-[#ECE4D3]">
             <ShieldCheck size={16} className="text-studio-red-bright shrink-0 mt-0.5" />
             <div className="space-y-0.5">
               <span className="font-semibold text-studio-primary block text-xs">
                 {isFlash ? 'รายละเอียดคำขอ Flash (Artist View)' : 'รายละเอียดคำขอจองงานสัก (Artist View)'}
               </span>
-              <p className="text-[11px] text-studio-muted leading-relaxed">
+              <p className="text-[11px] text-[#ECE4D3] leading-relaxed">
                 {isTerminal
                   ? 'ประวัติคำขอที่สิ้นสุดแล้ว ท่านสามารถตรวจสอบข้อมูลลูกค้า รายละเอียดงานสัก และบันทึกสุขภาพได้'
                   : isFlash
@@ -794,11 +794,11 @@ export default function ArtistRequestDetailDrawer({ estimate, isOpen, onClose, o
             </div>
             <div className="space-y-2.5 pt-1 divide-y divide-studio-border/50">
               <div className="flex justify-between items-center pb-2">
-                <span className="text-[#B8B0A3]">ชื่อลูกค้า:</span>
+                <span className="text-[#ECE4D3]">ชื่อลูกค้า:</span>
                 <span className="text-studio-primary font-medium">{estimate.customer_name ?? 'ลูกค้า (ไม่ระบุชื่อ)'}</span>
               </div>
               <div className="flex justify-between items-center py-2">
-                <span className="text-[#B8B0A3]">เบอร์โทรศัพท์:</span>
+                <span className="text-[#ECE4D3]">เบอร์โทรศัพท์:</span>
                 {estimate.customer_phone ? (
                   <a
                     href={`tel:${estimate.customer_phone}`}
@@ -808,17 +808,17 @@ export default function ArtistRequestDetailDrawer({ estimate, isOpen, onClose, o
                     <span>{estimate.customer_phone}</span>
                   </a>
                 ) : (
-                  <span className="text-[#B8B0A3] text-xs">ไม่ระบุเบอร์โทร</span>
+                  <span className="text-[#ECE4D3] text-xs">ไม่ระบุเบอร์โทร</span>
                 )}
               </div>
               {estimate.customer_email && (
                 <div className="flex justify-between items-center py-2">
-                  <span className="text-[#B8B0A3]">อีเมล:</span>
-                  <span className="text-studio-secondary font-mono truncate max-w-[200px]">{estimate.customer_email}</span>
+                  <span className="text-[#ECE4D3]">อีเมล:</span>
+                  <span className="text-[#ECE4D3] font-mono truncate max-w-[200px]">{estimate.customer_email}</span>
                 </div>
               )}
               <div className="flex justify-between items-center pt-2">
-                <span className="text-[#B8B0A3]">อายุลูกค้า:</span>
+                <span className="text-[#ECE4D3]">อายุลูกค้า:</span>
                 <span className="text-studio-primary font-mono text-xs font-semibold">
                   {formatCustomerAgeDisplay(estimate.customer_dob ?? estimate.date_of_birth)}
                 </span>
@@ -886,15 +886,15 @@ export default function ArtistRequestDetailDrawer({ estimate, isOpen, onClose, o
                       </div>
                     ) : hasMed === false ? (
                       <div className="flex items-center justify-between text-xs py-0.5">
-                        <span className="text-[#B8B0A3]">โรคประจำตัว:</span>
+                        <span className="text-[#ECE4D3]">โรคประจำตัว:</span>
                         <span className="text-emerald-400 font-medium flex items-center gap-1 text-[11px]">
                           <CheckCircle2 size={12} /> ไม่มีโรคประจำตัว
                         </span>
                       </div>
                     ) : (
                       <div className="flex items-center justify-between text-xs py-0.5">
-                        <span className="text-[#B8B0A3]">โรคประจำตัว:</span>
-                        <span className="text-[#B8B0A3] text-[11px]">ไม่พบข้อมูล</span>
+                        <span className="text-[#ECE4D3]">โรคประจำตัว:</span>
+                        <span className="text-[#ECE4D3] text-[11px]">ไม่พบข้อมูล</span>
                       </div>
                     )}
 
@@ -917,15 +917,15 @@ export default function ArtistRequestDetailDrawer({ estimate, isOpen, onClose, o
                       </div>
                     ) : hasAll === false ? (
                       <div className={`flex items-center justify-between text-xs py-0.5 ${hasMed !== undefined && hasMed !== null ? 'pt-2.5 border-t border-[#4A443A]/40' : ''}`}>
-                        <span className="text-[#B8B0A3]">ประวัติภูมิแพ้ / แพ้ยา:</span>
+                        <span className="text-[#ECE4D3]">ประวัติภูมิแพ้ / แพ้ยา:</span>
                         <span className="text-emerald-400 font-medium flex items-center gap-1 text-[11px]">
                           <CheckCircle2 size={12} /> ไม่มีอาการแพ้
                         </span>
                       </div>
                     ) : (
                       <div className={`flex items-center justify-between text-xs py-0.5 ${hasMed !== undefined && hasMed !== null ? 'pt-2.5 border-t border-[#4A443A]/40' : ''}`}>
-                        <span className="text-[#B8B0A3]">ประวัติภูมิแพ้ / แพ้ยา:</span>
-                        <span className="text-[#B8B0A3] text-[11px]">ไม่พบข้อมูล</span>
+                        <span className="text-[#ECE4D3]">ประวัติภูมิแพ้ / แพ้ยา:</span>
+                        <span className="text-[#ECE4D3] text-[11px]">ไม่พบข้อมูล</span>
                       </div>
                     )}
                   </div>
@@ -968,26 +968,26 @@ export default function ArtistRequestDetailDrawer({ estimate, isOpen, onClose, o
                 <>
                   {/* การ์ดวันที่ต้องการสัก & วันที่ส่งคำขอ */}
                   <div className="bg-studio-card border border-studio-border rounded-xl p-4 space-y-3 font-prompt">
-                    <div className="flex items-center space-x-2 text-studio-secondary text-[11px] uppercase tracking-wider font-semibold">
+                    <div className="flex items-center space-x-2 text-[#ECE4D3] text-[11px] uppercase tracking-wider font-semibold">
                       <Calendar size={14} className="text-studio-red-bright" />
                       <span>วันที่ต้องการสัก & วันที่ส่งคำขอ</span>
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
                       <div>
-                        <span className="text-studio-muted text-[10px] block">วันที่ต้องการสัก</span>
+                        <span className="text-[#ECE4D3] text-[10px] block">วันที่ต้องการสัก</span>
                         <span className="text-sm font-semibold text-studio-primary">
                           {flashReqDate ? formatDateBangkok(flashReqDate) : '-'}
                         </span>
                       </div>
                       <div>
-                        <span className="text-studio-muted text-[10px] block">เวลาที่สะดวก</span>
+                        <span className="text-[#ECE4D3] text-[10px] block">เวลาที่สะดวก</span>
                         <span className="text-sm font-semibold text-studio-primary">
                           {flashTimeDisplay}
                         </span>
                       </div>
                       <div>
-                        <span className="text-studio-muted text-[10px] block">วันที่ส่งคำขอ</span>
-                        <span className="text-xs font-medium text-studio-secondary">
+                        <span className="text-[#ECE4D3] text-[10px] block">วันที่ส่งคำขอ</span>
+                        <span className="text-xs font-medium text-[#ECE4D3]">
                           {(() => {
                             const submitTime = estimate.submitted_at || estimate.created_at;
                             return submitTime ? formatDateTimeBangkok(submitTime) : '-';
@@ -1008,7 +1008,7 @@ export default function ArtistRequestDetailDrawer({ estimate, isOpen, onClose, o
                           </span>
                         </div>
                         {(resolvedProposedDate || estimate.proposed_date) && (
-                          <div className="text-xs text-studio-secondary">
+                          <div className="text-xs text-[#ECE4D3]">
                             <span>วันและเวลาที่เสนอ: </span>
                             <span className="text-amber-200 font-semibold">
                               {formatDateBangkok(resolvedProposedDate || estimate.proposed_date)}
@@ -1017,7 +1017,7 @@ export default function ArtistRequestDetailDrawer({ estimate, isOpen, onClose, o
                           </div>
                         )}
                         {(estimate.proposed_artist_note || (estimate as any).proposal_note) && (
-                          <p className="text-xs text-studio-secondary leading-relaxed">
+                          <p className="text-xs text-[#ECE4D3] leading-relaxed">
                             ข้อความถึงลูกค้า: <span className="text-studio-primary font-medium">{estimate.proposed_artist_note || (estimate as any).proposal_note}</span>
                           </p>
                         )}
@@ -1034,27 +1034,27 @@ export default function ArtistRequestDetailDrawer({ estimate, isOpen, onClose, o
                     <div className="space-y-2 pt-1 divide-y divide-studio-border/50">
                       {flashTitleDisplay && (
                         <div className="flex justify-between items-center pb-2">
-                          <span className="text-[#B8B0A3]">ชื่อลาย Flash:</span>
+                          <span className="text-[#ECE4D3]">ชื่อลาย Flash:</span>
                           <span className="text-studio-primary font-medium">{flashTitleDisplay}</span>
                         </div>
                       )}
                       <div className="flex justify-between items-center py-2">
-                        <span className="text-[#B8B0A3]">สไตล์ลายสัก:</span>
+                        <span className="text-[#ECE4D3]">สไตล์ลายสัก:</span>
                         <span className="text-studio-primary font-medium">{flashStyleDisplay}</span>
                       </div>
                       <div className="flex justify-between items-center py-2">
-                        <span className="text-[#B8B0A3]">ตำแหน่งที่สัก:</span>
+                        <span className="text-[#ECE4D3]">ตำแหน่งที่สัก:</span>
                         <span className="text-studio-primary font-medium">{estimate.placement ?? 'ไม่ระบุ'}</span>
                       </div>
                       <div className="flex justify-between items-center py-2">
-                        <span className="text-[#B8B0A3]">ขนาดประมาณ:</span>
+                        <span className="text-[#ECE4D3]">ขนาดประมาณ:</span>
                         <span className="text-studio-primary font-mono">{flashSizeDisplay}</span>
                       </div>
                     </div>
 
                     {cleanNote && (
                       <div className="pt-2 border-t border-studio-border/60">
-                        <span className="text-[#B8B0A3] text-[10px] block mb-1">รายละเอียดหรือหมายเหตุจากลูกค้า:</span>
+                        <span className="text-[#ECE4D3] text-[10px] block mb-1">รายละเอียดหรือหมายเหตุจากลูกค้า:</span>
                         <p className="text-studio-primary text-xs bg-studio-sec p-3 rounded-lg border border-studio-border whitespace-pre-wrap leading-relaxed">
                           {cleanNote}
                         </p>
@@ -1074,20 +1074,20 @@ export default function ArtistRequestDetailDrawer({ estimate, isOpen, onClose, o
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
                     <div>
-                      <span className="text-[#B8B0A3] text-[10px] block">วันที่ลูกค้าสะดวก</span>
+                      <span className="text-[#ECE4D3] text-[10px] block">วันที่ลูกค้าสะดวก</span>
                       <span className="text-sm font-semibold text-studio-primary">
                         {estimate.preferred_date ? formatDateBangkok(estimate.preferred_date) : 'ไม่ระบุ'}
                       </span>
                     </div>
                     <div>
-                      <span className="text-[#B8B0A3] text-[10px] block">เวลาที่สะดวก</span>
+                      <span className="text-[#ECE4D3] text-[10px] block">เวลาที่สะดวก</span>
                       <span className="text-sm font-semibold text-studio-primary">
                         {timeDisplay}
                       </span>
                     </div>
                     <div>
-                      <span className="text-[#B8B0A3] text-[10px] block">วันที่ส่งคำขอ</span>
-                      <span className="text-xs font-medium text-studio-secondary">
+                      <span className="text-[#ECE4D3] text-[10px] block">วันที่ส่งคำขอ</span>
+                      <span className="text-xs font-medium text-[#ECE4D3]">
                         {(() => {
                           const submitTime = estimate.submitted_at || estimate.created_at;
                           return submitTime ? formatDateTimeBangkok(submitTime) : '-';
@@ -1108,7 +1108,7 @@ export default function ArtistRequestDetailDrawer({ estimate, isOpen, onClose, o
                         </span>
                       </div>
                       {resolvedProposedDate && (
-                        <div className="text-xs text-studio-secondary">
+                        <div className="text-xs text-[#ECE4D3]">
                           <span>วันและเวลาที่เสนอ: </span>
                           <span className="text-amber-200 font-semibold">
                             {formatDateBangkok(resolvedProposedDate)}
@@ -1117,7 +1117,7 @@ export default function ArtistRequestDetailDrawer({ estimate, isOpen, onClose, o
                         </div>
                       )}
                       {estimate.proposed_artist_note && (
-                        <p className="text-xs text-studio-secondary leading-relaxed">
+                        <p className="text-xs text-[#ECE4D3] leading-relaxed">
                           ข้อความถึงลูกค้า: <span className="text-studio-primary font-medium">{estimate.proposed_artist_note}</span>
                         </p>
                       )}
@@ -1133,12 +1133,12 @@ export default function ArtistRequestDetailDrawer({ estimate, isOpen, onClose, o
                   </div>
                   <div className="space-y-2 pt-1 divide-y divide-studio-border/50">
                     <div className="flex justify-between items-center pb-2">
-                      <span className="text-[#B8B0A3]">ตำแหน่งที่สัก:</span>
+                      <span className="text-[#ECE4D3]">ตำแหน่งที่สัก:</span>
                       <span className="text-studio-primary font-medium">{estimate.placement ?? 'ไม่ระบุ'}</span>
                     </div>
                     {(estimate.width_cm || estimate.height_cm) && (
                       <div className="flex justify-between items-center py-2">
-                        <span className="text-[#B8B0A3]">ขนาดประมาณ:</span>
+                        <span className="text-[#ECE4D3]">ขนาดประมาณ:</span>
                         <span className="text-studio-primary font-mono">
                           {formatTattooSize(estimate.width_cm, estimate.height_cm)}
                         </span>
@@ -1146,7 +1146,7 @@ export default function ArtistRequestDetailDrawer({ estimate, isOpen, onClose, o
                     )}
                     {(estimate.style_preference || (estimate as any).style) && (
                       <div className="flex justify-between items-center py-2">
-                        <span className="text-[#B8B0A3]">สไตล์ลายสัก:</span>
+                        <span className="text-[#ECE4D3]">สไตล์ลายสัก:</span>
                         <span className="text-studio-primary font-medium">{estimate.style_preference ?? (estimate as any).style}</span>
                       </div>
                     )}
@@ -1154,7 +1154,7 @@ export default function ArtistRequestDetailDrawer({ estimate, isOpen, onClose, o
 
                   {cleanNote && (
                     <div className="pt-2 border-t border-studio-border/60">
-                      <span className="text-[#B8B0A3] text-[10px] block mb-1">รายละเอียดเพิ่มเติมจากลูกค้า:</span>
+                      <span className="text-[#ECE4D3] text-[10px] block mb-1">รายละเอียดเพิ่มเติมจากลูกค้า:</span>
                       <p className="text-studio-primary text-xs bg-studio-sec p-3 rounded-lg border border-studio-border whitespace-pre-wrap leading-relaxed">
                         {cleanNote}
                       </p>
@@ -1168,7 +1168,7 @@ export default function ArtistRequestDetailDrawer({ estimate, isOpen, onClose, o
           {/* Flash Design Image Card (Dedicated Section) */}
           {isFlash && estimate.flash_image_url && (
             <div className="bg-studio-card border border-studio-border rounded-xl p-4 space-y-3 font-prompt">
-              <div className="flex items-center space-x-2 text-studio-secondary text-[11px] uppercase tracking-wider font-semibold">
+              <div className="flex items-center space-x-2 text-[#ECE4D3] text-[11px] uppercase tracking-wider font-semibold">
                 <ImageIcon size={14} className="text-amber-400" />
                 <span>ภาพลาย Flash (Flash Design Image)</span>
               </div>
@@ -1191,7 +1191,7 @@ export default function ArtistRequestDetailDrawer({ estimate, isOpen, onClose, o
           {/* Reference Images attached by customer */}
           {(!isFlash || loadingImages || signedImageUrls.length > 0) && (
             <div className="bg-studio-card border border-studio-border rounded-xl p-4 space-y-3">
-              <span className="text-studio-secondary text-[11px] uppercase tracking-wider font-semibold block">
+              <span className="text-[#ECE4D3] text-[11px] uppercase tracking-wider font-semibold block">
                 {isFlash ? 'ภาพอ้างอิงที่ลูกค้าแนบ (Customer Reference Images)' : 'ภาพตัวอย่าง (Reference Images)'}
               </span>
 
@@ -1270,7 +1270,7 @@ export default function ArtistRequestDetailDrawer({ estimate, isOpen, onClose, o
                   setShowRejectModal(true);
                 }}
                 disabled={submitting}
-                className="w-full py-2.5 px-4 bg-red-800 hover:bg-red-700 border border-red-700 hover:border-red-600 text-white rounded-xl font-semibold text-xs transition-colors duration-150 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                className="w-full py-2.5 px-4 bg-[#C12D2D] hover:bg-[#A82525] border border-[#C12D2D] hover:border-[#A82525] text-white rounded-xl font-semibold text-xs transition-colors duration-150 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 <XCircle size={14} className="shrink-0 text-white" />
                 <span>ปฏิเสธคำขอ</span>
@@ -1309,7 +1309,7 @@ export default function ArtistRequestDetailDrawer({ estimate, isOpen, onClose, o
 
             {/* Body */}
             <div className="space-y-3 text-xs">
-              <p className="text-studio-secondary leading-relaxed">
+              <p className="text-[#ECE4D3] leading-relaxed">
                 ระบบจะส่งคำขอมัดจำ 500 บาทให้ลูกค้า และคงล็อกวัน/เวลาที่ลูกค้าเลือกไว้
               </p>
 
@@ -1328,7 +1328,7 @@ export default function ArtistRequestDetailDrawer({ estimate, isOpen, onClose, o
                     setAcceptError(null);
                   }}
                   disabled={submitting}
-                  className="px-4 py-2 bg-studio-sec hover:bg-studio-card text-xs text-studio-secondary rounded-xl border border-studio-border font-medium cursor-pointer disabled:opacity-50"
+                  className="px-4 py-2 bg-studio-sec hover:bg-studio-card text-xs text-[#ECE4D3] rounded-xl border border-studio-border font-medium cursor-pointer disabled:opacity-50"
                 >
                   ยกเลิก
                 </button>
@@ -1375,7 +1375,7 @@ export default function ArtistRequestDetailDrawer({ estimate, isOpen, onClose, o
             )}
 
             <div>
-              <label className="block text-studio-secondary mb-1.5 text-xs">
+              <label className="block text-[#ECE4D3] mb-1.5 text-xs">
                 เหตุผลในการปฏิเสธคำขอ <span className="text-red-400">*</span>
               </label>
               <textarea
@@ -1396,7 +1396,7 @@ export default function ArtistRequestDetailDrawer({ estimate, isOpen, onClose, o
                   setShowRejectModal(false);
                 }}
                 disabled={submitting}
-                className="w-full py-2.5 px-3 rounded-xl border border-studio-border bg-studio-sec hover:bg-studio-card text-studio-secondary font-medium text-xs cursor-pointer"
+                className="w-full py-2.5 px-3 rounded-xl border border-studio-border bg-studio-sec hover:bg-studio-card text-[#ECE4D3] font-medium text-xs cursor-pointer"
               >
                 ยกเลิก
               </button>
@@ -1404,7 +1404,7 @@ export default function ArtistRequestDetailDrawer({ estimate, isOpen, onClose, o
                 type="button"
                 onClick={handleConfirmReject}
                 disabled={submitting || !rejectReason.trim()}
-                className="w-full py-2.5 px-3 rounded-xl bg-red-800 hover:bg-red-900 text-white font-semibold text-xs shadow flex items-center justify-center space-x-1.5 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full py-2.5 px-3 rounded-xl bg-[#C12D2D] hover:bg-[#A82525] text-white font-semibold text-xs shadow flex items-center justify-center space-x-1.5 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {submitting ? 'กำลังบันทึก...' : 'ยืนยันปฏิเสธ'}
               </button>

@@ -233,7 +233,7 @@ export default function BookingSessionList({
 
       {/* Sessions List */}
       {sessions.length === 0 ? (
-        <div className="py-5 text-center text-xs text-[#B8B0A3] border border-dashed border-[#4A443A]/50 rounded-lg bg-[#171512]/40">
+        <div className="py-5 text-center text-xs text-[#ECE4D3] border border-dashed border-[#4A443A]/50 rounded-lg bg-[#171512]/40">
           {canCreateSession
             ? 'ยังไม่มีรอบนัดหมาย กดปุ่ม "+ เพิ่มรอบสัก" เพื่อกำหนดวันและเวลาทำงาน'
             : 'ยังไม่มีรอบนัดหมาย (สามารถเพิ่มรอบสักได้เมื่อคิวได้รับการยืนยันแล้ว)'}
@@ -348,7 +348,7 @@ export default function BookingSessionList({
                     if (isQuoteNote) return null;
                     return (
                       <div className="text-right truncate max-w-[60%]">
-                        <span className="text-[#B8B0A3]">หมายเหตุ: </span>
+                        <span className="text-[#ECE4D3]">หมายเหตุ: </span>
                         <span className="text-[#ECE4D3] font-medium">{rawNote}</span>
                       </div>
                     );
@@ -492,7 +492,7 @@ export default function BookingSessionList({
                 type="button"
                 onClick={handleExecuteDelete}
                 disabled={isSubmittingModal}
-                className="w-full py-2.5 px-3 rounded-xl bg-red-800 hover:bg-red-700 text-white font-semibold text-xs flex items-center justify-center space-x-1.5 transition-colors cursor-pointer shadow"
+                className="w-full py-2.5 px-3 rounded-xl bg-[#C12D2D] hover:bg-[#A82525] text-white font-semibold text-xs flex items-center justify-center space-x-1.5 transition-colors cursor-pointer shadow"
               >
                 {isSubmittingModal ? (
                   <>

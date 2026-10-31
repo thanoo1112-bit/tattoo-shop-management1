@@ -659,7 +659,7 @@ export default function ArtistCustomersPage() {
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
           {/* Search input */}
           <div className="relative flex-1">
-            <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#B8B0A3]" />
+            <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#ECE4D3]" />
             <input
               type="text"
               value={searchQuery}
@@ -798,7 +798,7 @@ export default function ArtistCustomersPage() {
             <div className="hidden md:block bg-studio-card border border-studio-border rounded-xl overflow-hidden shadow-lg font-prompt">
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs">
-                  <thead className="bg-studio-sec/80 border-b border-studio-border text-studio-secondary font-medium uppercase tracking-wider">
+                  <thead className="bg-studio-sec/80 border-b border-studio-border text-[#ECE4D3] font-medium uppercase tracking-wider">
                     <tr>
                       <th className="py-3.5 px-4">ลูกค้า</th>
                       <th className="py-3.5 px-4">ข้อมูลติดต่อ</th>
@@ -832,7 +832,7 @@ export default function ArtistCustomersPage() {
 
                           {/* 2. Contact Info */}
                           <td className="py-3 px-4">
-                            <span className="text-studio-secondary font-mono text-[11px] block">
+                            <span className="text-[#ECE4D3] font-mono text-[11px] block">
                               {cust.email || '-'}
                             </span>
                             <span className="text-studio-muted font-mono text-[10px] block">
@@ -864,7 +864,7 @@ export default function ArtistCustomersPage() {
                                   <span className="font-mono text-studio-primary block font-semibold">
                                     {formatDateBangkok(cust.nextAppointment.date)}
                                   </span>
-                                  <span className="text-[10px] text-studio-secondary font-mono block">
+                                  <span className="text-[10px] text-[#ECE4D3] font-mono block">
                                     {cust.nextAppointment.startTime} • {cust.nextAppointment.artistName}
                                   </span>
                                 </div>
@@ -920,7 +920,7 @@ export default function ArtistCustomersPage() {
                           <h4 className="text-sm font-semibold text-studio-primary truncate">
                             {cust.display_name}
                           </h4>
-                          <span className="text-[11px] text-[#B8B0A3] font-mono block">
+                          <span className="text-[11px] text-[#ECE4D3] font-mono block">
                             {phoneFormatted}
                           </span>
                         </div>
@@ -934,15 +934,15 @@ export default function ArtistCustomersPage() {
                     <div className="border-t border-studio-border/50" />
 
                     {/* 3. 2-Column Grid: Last Job & Last Artist */}
-                    <div className="grid grid-cols-2 gap-2 text-xs text-studio-secondary">
+                    <div className="grid grid-cols-2 gap-2 text-xs text-[#ECE4D3]">
                       <div>
-                        <span className="text-[10px] text-[#B8B0A3] block">งานล่าสุด:</span>
+                        <span className="text-[10px] text-[#ECE4D3] block">งานล่าสุด:</span>
                         <span className="text-studio-primary truncate block font-medium">
                           {cust.lastArtworkTitle}
                         </span>
                       </div>
                       <div>
-                        <span className="text-[10px] text-[#B8B0A3] block">ช่างล่าสุด:</span>
+                        <span className="text-[10px] text-[#ECE4D3] block">ช่างล่าสุด:</span>
                         <span className="text-studio-primary block font-medium">{cust.lastArtistName}</span>
                       </div>
                     </div>
@@ -958,7 +958,7 @@ export default function ArtistCustomersPage() {
                             {formatDateBangkok(cust.nextAppointment.date)} • {cust.nextAppointment.startTime}
                           </span>
                         </div>
-                        <span className="text-[10px] text-studio-secondary font-medium">
+                        <span className="text-[10px] text-[#ECE4D3] font-medium">
                           {cust.nextAppointment.artistName}
                         </span>
                       </div>

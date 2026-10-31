@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { createPortal } from 'react-dom';
 import { useSearchParams } from 'next/navigation';
 import { useApp } from '@/components/AppContext';
-import { uploadStudioImage } from '@/lib/utils/storageUploader';
+import { uploadStudioImage, deleteStudioAssets } from '@/lib/utils/storageUploader';
 import { getThumbnailUrl, handleThumbnailError } from '@/lib/utils/thumbnailHelper';
 import {
   Sparkles,
@@ -47,6 +47,7 @@ export default function ArtistPortfolioManagement() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [actionSuccess, setActionSuccess] = useState<string | null>(null);
+  const [actionWarning, setActionWarning] = useState<string | null>(null);
 
   // Search & Filter
   const [searchQuery, setSearchQuery] = useState('');
@@ -172,6 +173,13 @@ export default function ArtistPortfolioManagement() {
       return () => clearTimeout(timer);
     }
   }, [actionSuccess]);
+
+  useEffect(() => {
+    if (actionWarning) {
+      const timer = setTimeout(() => setActionWarning(null), 6000);
+      return () => clearTimeout(timer);
+    }
+  }, [actionWarning]);
 
   // Handle URL action parameter (e.g. ?action=add)
   useEffect(() => {
@@ -322,15 +330,78 @@ export default function ArtistPortfolioManagement() {
     if (!deleteTarget || !staffArtistId) return;
     setDeleting(true);
     try {
+      const targetId = deleteTarget.id;
+      const targetTitle = deleteTarget.title;
+      const targetImageUrl = deleteTarget.image_url;
+      const targetArtistId = deleteTarget.artist_id;
+
+      // 1. Ownership validation
+      if (targetArtistId !== staffArtistId) {
+        setError('คุณไม่มีสิทธิ์ลบผลงานของช่างท่านอื่น');
+        setDeleteTarget(null);
+        return;
+      }
+
+      // 2. Shared File Protection: check if image_url is referenced by other records
+      let isShared = false;
+      if (targetImageUrl) {
+        // A. Other portfolio artworks
+        const { count: portfolioCount } = await supabase
+          .from('portfolio_artworks')
+          .select('id', { count: 'exact', head: true })
+          .eq('image_url', targetImageUrl)
+          .neq('id', targetId);
+
+        // B. Flash designs image_url
+        const { count: flashCount1 } = await supabase
+          .from('flash_designs')
+          .select('id', { count: 'exact', head: true })
+          .eq('image_url', targetImageUrl);
+
+        // C. Flash designs image_url_2
+        const { count: flashCount2 } = await supabase
+          .from('flash_designs')
+          .select('id', { count: 'exact', head: true })
+          .eq('image_url_2', targetImageUrl);
+
+        if (
+          (portfolioCount && portfolioCount > 0) ||
+          (flashCount1 && flashCount1 > 0) ||
+          (flashCount2 && flashCount2 > 0)
+        ) {
+          isShared = true;
+          console.info(`[ArtistPortfolio] Image is shared with other record(s). Skipping storage file deletion.`);
+        }
+      }
+
+      // 3. Database Delete MUST happen FIRST
       const { error: delErr } = await supabase
         .from('portfolio_artworks')
         .delete()
-        .eq('id', deleteTarget.id)
+        .eq('id', targetId)
         .eq('artist_id', staffArtistId);
 
       if (delErr) throw delErr;
 
-      setActionSuccess(`ลบผลงาน "${deleteTarget.title}" สำเร็จ`);
+      // 4. Storage Cleanup AFTER DB delete succeeds (if not shared)
+      let storageWarning = false;
+      if (targetImageUrl && !isShared) {
+        const { error: storageErr } = await deleteStudioAssets([targetImageUrl], supabase);
+        if (storageErr) {
+          console.warn('[ArtistPortfolio] Storage cleanup failed after DB delete:', storageErr);
+          storageWarning = true;
+        }
+      }
+
+      // 5. User Feedback
+      if (storageWarning) {
+        setActionWarning(`ลบข้อมูลผลงาน "${targetTitle}" เรียบร้อยแล้ว แต่ไม่สามารถลบไฟล์รูปภาพบางส่วนจาก Storage ได้`);
+      } else if (isShared) {
+        setActionSuccess(`ลบผลงาน "${targetTitle}" เรียบร้อยแล้ว (เก็บไฟล์รูปภาพไว้เนื่องจากมีรายการอื่นใช้อยู่)`);
+      } else {
+        setActionSuccess(`ลบผลงาน "${targetTitle}" และไฟล์รูปภาพเรียบร้อยแล้ว`);
+      }
+
       setDeleteTarget(null);
       fetchData();
     } catch (err: any) {
@@ -370,7 +441,7 @@ export default function ArtistPortfolioManagement() {
               ARTIST PORTFOLIO
             </span>
             <span className="text-studio-muted text-xs">•</span>
-            <span className="text-xs text-studio-secondary font-mono">
+            <span className="text-xs text-[#ECE4D3] font-mono">
               ช่างประจำผลงาน: {staffArtistRecord?.name || 'ช่างสัก'} {staffArtistRecord?.nickname ? `(${staffArtistRecord.nickname})` : ''}
             </span>
           </div>
@@ -378,7 +449,7 @@ export default function ArtistPortfolioManagement() {
             <ImageIcon className="text-studio-red-bright" size={24} />
             <span>จัดการผลงานของฉัน</span>
           </h1>
-          <p className="text-xs text-studio-secondary max-w-2xl">
+          <p className="text-xs text-[#ECE4D3] max-w-2xl">
             คุณสามารถเพิ่ม แก้ไข ซ่อน หรือลบรูปผลงานสักของตนเองเพื่อแสดงบนหน้าพอร์ตโฟลิโอของร้าน
           </p>
         </div>
@@ -387,7 +458,7 @@ export default function ArtistPortfolioManagement() {
           <button
             onClick={() => fetchData()}
             disabled={loading}
-            className="p-2.5 bg-studio-sec border border-studio-border hover:border-studio-red/50 text-studio-secondary hover:text-studio-primary rounded-lg transition-colors cursor-pointer"
+            className="p-2.5 bg-studio-sec border border-studio-border hover:border-studio-red/50 text-[#ECE4D3] hover:text-white rounded-lg transition-colors cursor-pointer"
             title="รีเฟรชข้อมูล"
           >
             <RefreshCw size={16} className={loading ? 'animate-spin text-studio-red-bright' : ''} />
@@ -408,6 +479,19 @@ export default function ArtistPortfolioManagement() {
         <div className="bg-emerald-950/80 border border-emerald-800/80 text-emerald-300 p-4 rounded-xl flex items-center space-x-3 shadow-lg animate-fadeIn">
           <CheckCircle2 size={18} className="text-emerald-400 shrink-0" />
           <span className="text-xs sm:text-sm font-medium">{actionSuccess}</span>
+        </div>
+      )}
+
+      {/* Action Warning Toast Banner */}
+      {actionWarning && (
+        <div className="bg-amber-950/80 border border-amber-800/80 text-amber-300 p-4 rounded-xl flex items-center justify-between shadow-lg animate-fadeIn">
+          <div className="flex items-center space-x-3">
+            <AlertCircle size={18} className="text-amber-400 shrink-0" />
+            <span className="text-xs sm:text-sm font-medium">{actionWarning}</span>
+          </div>
+          <button onClick={() => setActionWarning(null)} className="text-amber-400 hover:text-white p-1 rounded">
+            <X size={16} />
+          </button>
         </div>
       )}
 
@@ -432,7 +516,7 @@ export default function ArtistPortfolioManagement() {
         <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
           {/* Search Box */}
           <div className="md:col-span-8 relative">
-            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#B8B0A3]" />
+            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#ECE4D3]" />
             <input
               type="text"
               value={searchQuery}
@@ -468,7 +552,7 @@ export default function ArtistPortfolioManagement() {
         </div>
 
         {/* Counter Summary */}
-        <div className="flex items-center justify-between text-xs text-studio-secondary pt-2 border-t border-studio-border/60">
+        <div className="flex items-center justify-between text-xs text-[#ECE4D3] pt-2 border-t border-studio-border/60">
           <div>
             แสดง <strong className="text-studio-primary font-bold">{filteredArtworks.length}</strong> จากทั้งหมด {artworks.length} รายการ
           </div>
@@ -499,7 +583,7 @@ export default function ArtistPortfolioManagement() {
           </div>
           <div className="space-y-1">
             <p className="text-sm font-medium text-studio-primary">ไม่พบรายการผลงาน</p>
-            <p className="text-xs text-studio-muted">
+            <p className="text-xs text-[#ECE4D3]">
               {artworks.length === 0
                 ? 'คุณยังไม่มีรายการผลงานในระบบ กดปุ่ม "เพิ่มผลงานใหม่" เพื่อเริ่มต้น'
                 : 'ไม่พบผลงานที่ตรงกับเงื่อนไขการค้นหา/ตัวกรอง'}
@@ -516,74 +600,72 @@ export default function ArtistPortfolioManagement() {
           )}
         </div>
       ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2.5 sm:gap-4">
-          {filteredArtworks.map((artwork) => (
-            <div
-              key={artwork.id}
-              className={`group bg-studio-card border rounded-xl overflow-hidden transition-all duration-200 shadow-md flex flex-col justify-between ${
-                artwork.is_visible
-                  ? 'border-studio-border hover:border-studio-red/60'
-                  : 'border-studio-border/40 opacity-75 bg-studio-card/60'
-              }`}
-            >
-              {/* Image Preview Container */}
-              <div className="relative aspect-square w-full bg-black/40 overflow-hidden">
-                <img
-                  src={getThumbnailUrl(artwork.image_url)}
-                  onError={(e) => handleThumbnailError(e, artwork.image_url)}
-                  alt={artwork.title}
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                  loading="lazy"
-                  decoding="async"
-                />
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2.5 sm:gap-4">
+          {filteredArtworks.map((artwork) => {
+            const artistName = staffArtistRecord?.name || 'ช่างประจำร้าน';
 
-
-                {/* Style Badge */}
-                <div className="absolute top-2 right-2">
-                  <span className="text-[9px] sm:text-[10px] font-mono px-1.5 sm:px-2 py-0.5 rounded bg-black/70 text-studio-secondary border border-studio-border/60 backdrop-blur-md">
-                    {artwork.style}
-                  </span>
+            return (
+              <div
+                key={artwork.id}
+                className={`bg-[#171512] border rounded-[6px] overflow-hidden flex flex-col justify-between transition-all duration-300 group shadow-md hover:shadow-lg hover:shadow-[#C12D2D]/5 min-w-0 ${
+                  artwork.is_visible
+                    ? 'border-[#2D2820] hover:border-[#C12D2D]/60'
+                    : 'border-[#2D2820]/40 opacity-70 bg-[#13110F]'
+                }`}
+              >
+                {/* Image Area */}
+                <div className="aspect-[4/5] bg-[#0E0D0C] relative overflow-hidden group">
+                  <img
+                    src={getThumbnailUrl(artwork.image_url)}
+                    onError={(e) => handleThumbnailError(e, artwork.image_url)}
+                    alt={artwork.title}
+                    className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-500"
+                    loading="lazy"
+                    decoding="async"
+                  />
                 </div>
-              </div>
 
-              {/* Artwork Information */}
-              <div className="p-3 sm:p-4 flex-1 flex flex-col justify-between space-y-2.5">
-                <div className="space-y-0.5">
-                  <h3 className="text-xs sm:text-sm font-semibold text-studio-primary group-hover:text-studio-red-bright transition-colors line-clamp-1">
-                    {artwork.title}
-                  </h3>
-                  {artwork.description && (
-                    <p className="text-[11px] sm:text-xs text-studio-secondary line-clamp-2 leading-relaxed">
-                      {artwork.description}
+                {/* Info Area Below Image */}
+                <div className="p-2 sm:p-3 bg-[#171512] flex flex-col justify-between flex-1 min-w-0 space-y-1.5 sm:space-y-2">
+                  <div className="space-y-0.5 sm:space-y-1 min-w-0">
+                    <span className="text-[9px] sm:text-[10px] uppercase tracking-wider text-[#C12D2D] font-bold block truncate">
+                      {artwork.style}
+                    </span>
+                    <h3
+                      className="text-xs sm:text-sm font-bold text-[#ECE4D3] truncate group-hover:text-[#C12D2D] transition-colors"
+                      title={artwork.title}
+                    >
+                      {artwork.title}
+                    </h3>
+                    <p className="text-[10px] sm:text-xs text-[#ECE4D3] truncate">
+                      ช่าง: <span className="text-[#ECE4D3] font-medium">{artistName}</span>
                     </p>
-                  )}
-                </div>
+                  </div>
 
-                {/* Action Buttons */}
-                <div className="pt-2 sm:pt-3 border-t border-studio-border/60 flex items-center justify-end gap-1 sm:gap-1.5">
-                  {/* Edit Button */}
-                  <button
-                    type="button"
-                    onClick={() => handleOpenEditModal(artwork)}
-                    className="px-2.5 sm:px-3 py-1.5 bg-studio-sec hover:bg-studio-border border border-studio-border text-[11px] sm:text-xs text-studio-primary font-medium rounded-lg transition-colors flex items-center space-x-1 cursor-pointer"
-                  >
-                    <Edit2 size={12} />
-                    <span>แก้ไข</span>
-                  </button>
-
-                  {/* Delete Button */}
-                  <button
-                    type="button"
-                    onClick={() => setDeleteTarget(artwork)}
-                    className="p-1.5 bg-studio-sec hover:bg-red-950/60 text-studio-muted hover:text-red-400 border border-studio-border hover:border-red-800/60 rounded-lg transition-colors cursor-pointer"
-                    title="ลบผลงาน"
-                  >
-                    <Trash2 size={14} />
-                  </button>
+                  {/* Card Actions Footer */}
+                  <div className="pt-2 sm:pt-2.5 mt-auto border-t border-[#2D2820] flex items-center justify-end gap-1.5 sm:gap-2 min-w-0">
+                    <button
+                      type="button"
+                      onClick={() => handleOpenEditModal(artwork)}
+                      className="px-2 sm:px-2.5 py-1 sm:py-1.5 bg-[#25201A] hover:bg-[#2D2820] border border-[#3E372C] hover:border-[#C12D2D]/60 text-[#ECE4D3] rounded-[4px] text-[11px] sm:text-xs font-medium flex items-center gap-1 transition-colors cursor-pointer shrink-0"
+                      title="แก้ไขผลงานสัก"
+                    >
+                      <Edit2 size={11} className="shrink-0" />
+                      <span>แก้ไข</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setDeleteTarget(artwork)}
+                      className="p-1 sm:p-1.5 bg-[#25201A] hover:bg-[#C12D2D]/20 border border-[#3E372C] hover:border-[#C12D2D] text-[#ECE4D3] hover:text-[#C12D2D] rounded-[4px] transition-colors cursor-pointer shrink-0"
+                      title="ลบผลงาน"
+                    >
+                      <Trash2 size={12} />
+                    </button>
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
@@ -618,7 +700,7 @@ export default function ArtistPortfolioManagement() {
 
                 {/* Artwork Title */}
                 <div className="space-y-1.5">
-                  <label className="text-xs text-studio-secondary font-medium block">
+                  <label className="text-xs text-[#ECE4D3] font-medium block">
                     ชื่อผลงาน <span className="text-red-400">*</span>
                   </label>
                   <input
@@ -633,7 +715,7 @@ export default function ArtistPortfolioManagement() {
 
                 {/* Style */}
                 <div className="space-y-1.5">
-                  <label className="text-xs text-studio-secondary font-medium block">
+                  <label className="text-xs text-[#ECE4D3] font-medium block">
                     สไตล์ผลงาน <span className="text-red-400">*</span>
                   </label>
                   <select
@@ -653,7 +735,7 @@ export default function ArtistPortfolioManagement() {
 
                 {/* Image Upload / URL Input */}
                 <div className="space-y-1.5">
-                  <label className="text-xs text-studio-secondary font-medium block">
+                  <label className="text-xs text-[#ECE4D3] font-medium block">
                     รูปภาพผลงาน <span className="text-red-400">*</span>
                   </label>
 
@@ -712,19 +794,6 @@ export default function ArtistPortfolioManagement() {
                   </div>
                 </div>
 
-                {/* Description */}
-                <div className="space-y-1.5">
-                  <label className="text-xs text-studio-secondary font-medium block">
-                    รายละเอียด / คำอธิบายผลงาน (ถ้ามี)
-                  </label>
-                  <textarea
-                    rows={3}
-                    value={formData.description}
-                    onChange={(e) => setFormData((prev) => ({ ...prev, description: e.target.value }))}
-                    placeholder="อธิบายรายละเอียดผลงาน เทคนิค หรือแนวคิด..."
-                    className="w-full bg-studio-main border border-studio-border focus:border-studio-red/60 text-studio-primary px-3.5 py-2 rounded-lg text-xs focus:outline-none resize-none"
-                  />
-                </div>
 
 
                 {/* Submit Buttons */}
@@ -732,7 +801,7 @@ export default function ArtistPortfolioManagement() {
                   <button
                     type="button"
                     onClick={() => setIsModalOpen(false)}
-                    className="px-4 py-2 bg-studio-sec border border-studio-border text-xs text-studio-secondary hover:text-studio-primary rounded-lg transition-colors cursor-pointer"
+                    className="px-4 py-2 bg-studio-sec border border-studio-border text-xs text-[#ECE4D3] hover:text-white rounded-lg transition-colors cursor-pointer"
                   >
                     ยกเลิก
                   </button>
@@ -766,7 +835,7 @@ export default function ArtistPortfolioManagement() {
                 <h3 className="text-base font-semibold text-studio-primary">
                   ยืนยันลบผลงาน?
                 </h3>
-                <p className="text-xs text-studio-secondary">
+                <p className="text-xs text-[#ECE4D3]">
                   คุณกำลังจะลบผลงาน <strong className="text-studio-primary font-semibold font-mono">&quot;{deleteTarget.title}&quot;</strong> ออกจากระบบ ข้อมูลนี้จะไม่สามารถกู้คืนได้
                 </p>
               </div>
@@ -776,7 +845,7 @@ export default function ArtistPortfolioManagement() {
                   type="button"
                   onClick={() => setDeleteTarget(null)}
                   disabled={deleting}
-                  className="px-4 py-2 bg-studio-sec border border-studio-border text-xs text-studio-secondary hover:text-studio-primary rounded-lg transition-colors cursor-pointer"
+                  className="px-4 py-2 bg-studio-sec border border-studio-border text-xs text-[#ECE4D3] hover:text-white rounded-lg transition-colors cursor-pointer"
                 >
                   ยกเลิก
                 </button>
@@ -785,7 +854,7 @@ export default function ArtistPortfolioManagement() {
                   type="button"
                   onClick={handleDeleteArtwork}
                   disabled={deleting}
-                  className="px-5 py-2 bg-red-600 hover:bg-red-700 text-white text-xs font-medium rounded-lg transition-colors flex items-center space-x-1.5 cursor-pointer disabled:opacity-50"
+                  className="px-5 py-2 bg-[#C12D2D] hover:bg-[#A82525] text-white text-xs font-medium rounded-lg transition-colors flex items-center space-x-1.5 cursor-pointer disabled:opacity-50"
                 >
                   {deleting && <Loader2 size={14} className="animate-spin" />}
                   <span>ยืนยันลบผลงาน</span>

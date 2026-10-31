@@ -598,8 +598,8 @@ export default function BookingDetailPanel({
         );
       case 'IN_PROGRESS':
         return (
-          <span className="bg-[#9C2F2F]/20 text-[#D64545] border border-[#9C2F2F]/60 px-2.5 py-0.5 rounded text-xs font-semibold flex items-center gap-1 animate-pulse">
-            <span className="w-1.5 h-1.5 rounded-full bg-[#D64545] animate-pulse" />
+          <span className="bg-[#C12D2D]/20 text-[#C12D2D] border border-[#C12D2D]/60 px-2.5 py-0.5 rounded text-xs font-semibold flex items-center gap-1 animate-pulse">
+            <span className="w-1.5 h-1.5 rounded-full bg-[#C12D2D] animate-pulse" />
             กำลังดำเนินงาน
           </span>
         );
@@ -875,7 +875,7 @@ export default function BookingDetailPanel({
         {/* Drawer Header */}
         <div className="p-4 sm:p-5 border-b border-studio-border flex items-center justify-between bg-studio-card/95">
           <div className="flex items-center space-x-2.5">
-            <span className="text-xs font-mono font-bold text-[#B8B0A3] bg-studio-sec px-2 py-1 rounded border border-studio-border">
+            <span className="text-xs font-mono font-bold text-[#ECE4D3] bg-studio-sec px-2 py-1 rounded border border-studio-border">
               คิว #{booking.id.slice(0, 8)}
             </span>
             {(booking.operational_status?.key === 'WAITING_SLIP_VERIFICATION' || booking.has_pending_payment_submission) &&
@@ -890,8 +890,8 @@ export default function BookingDetailPanel({
               </button>
             ) : (isDashboard || isArtistView) && dashboardCalendarStatus ? (
               dashboardCalendarStatus === 'IN_PROGRESS' ? (
-                <span className="bg-[#9C2F2F]/20 text-[#D64545] border border-[#9C2F2F]/60 px-2.5 py-0.5 rounded text-xs font-semibold flex items-center gap-1 animate-pulse">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#D64545] animate-pulse" />
+                <span className="bg-[#C12D2D]/20 text-[#C12D2D] border border-[#C12D2D]/60 px-2.5 py-0.5 rounded text-xs font-semibold flex items-center gap-1 animate-pulse">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#C12D2D] animate-pulse" />
                   กำลังสัก
                 </span>
               ) : dashboardCalendarStatus === 'SCHEDULED' ? (
@@ -945,7 +945,7 @@ export default function BookingDetailPanel({
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg text-[#B8B0A3] hover:text-studio-primary hover:bg-studio-sec border border-studio-border transition-colors cursor-pointer"
+            className="p-1.5 rounded-lg text-[#ECE4D3] hover:text-white hover:bg-studio-sec border border-studio-border transition-colors cursor-pointer"
           >
             <X size={18} />
           </button>
@@ -980,15 +980,15 @@ export default function BookingDetailPanel({
             </div>
             <div className="grid grid-cols-2 gap-3 pt-1">
               <div>
-                <span className="text-[#B8B0A3] text-[10px] block">วันที่</span>
+                <span className="text-[#ECE4D3] text-[10px] block">วันที่</span>
                 <span className="text-sm font-semibold text-studio-primary">
                   {appointmentDateDisplay}
                 </span>
               </div>
               <div>
-                <span className="text-[#B8B0A3] text-[10px] block">เวลานัด</span>
+                <span className="text-[#ECE4D3] text-[10px] block">เวลานัด</span>
                 <span className="text-sm font-semibold text-studio-primary font-mono flex items-center space-x-1">
-                  <Clock size={13} className="text-[#B8B0A3] inline mr-1" />
+                  <Clock size={13} className="text-[#ECE4D3] inline mr-1" />
                   {appointmentTimeDisplay}
                 </span>
               </div>
@@ -1039,13 +1039,13 @@ export default function BookingDetailPanel({
                 {/* Context Info Box */}
                 <div className="space-y-2 bg-studio-sec p-2.5 rounded-lg border border-studio-border/60 text-xs">
                   <div className="flex items-center justify-between gap-2">
-                    <span className="text-[#B8B0A3]">หลักฐานการชำระเงินมัดจำ:</span>
+                    <span className="text-[#ECE4D3]">หลักฐานการชำระเงินมัดจำ:</span>
                     <span className="bg-amber-950/80 text-amber-300 border border-amber-800/80 px-2 py-0.5 rounded text-[10px] font-semibold animate-pulse">
                       สลิปรอตรวจ
                     </span>
                   </div>
                   <div className="flex items-center justify-between gap-2">
-                    <span className="text-[#B8B0A3]">ยอดเงินที่ลูกค้าแจ้ง:</span>
+                    <span className="text-[#ECE4D3]">ยอดเงินที่ลูกค้าแจ้ง:</span>
                     <span className="text-sm font-bold text-amber-300 font-mono">
                       ฿{formatCurrency(pendingSubmission.claimed_amount)}
                     </span>
@@ -1088,7 +1088,7 @@ export default function BookingDetailPanel({
                       <button
                         type="button"
                         onClick={() => setIsRejectingSlip(false)}
-                        className="px-3 py-1.5 bg-studio-sec text-xs text-[#B8B0A3] rounded border border-studio-border hover:text-studio-primary"
+                        className="px-3 py-1.5 bg-studio-sec text-xs text-[#ECE4D3] rounded border border-studio-border hover:text-white"
                       >
                         ยกเลิก
                       </button>
@@ -1136,12 +1136,12 @@ export default function BookingDetailPanel({
                 <span className="text-[#ECE4D3] text-[11px] uppercase tracking-wider font-semibold block">
                   มอบหมายช่างผู้รับผิดชอบ
                 </span>
-                <p className="text-[#B8B0A3] text-[11px] leading-relaxed">
+                <p className="text-[#ECE4D3] text-[11px] leading-relaxed">
                   เลือกช่างที่รับผิดชอบงานนี้ โดยสามารถเปลี่ยนมอบหมายให้ช่างคนอื่นได้
                 </p>
 
                 <div>
-                  <label className="block text-[11px] text-[#B8B0A3] mb-1 font-medium">
+                  <label className="block text-[11px] text-[#ECE4D3] mb-1 font-medium">
                     ช่างผู้รับผิดชอบ: <span className="text-studio-red">*</span>
                   </label>
                   <select
@@ -1189,7 +1189,7 @@ export default function BookingDetailPanel({
                       <button
                         type="button"
                         onClick={() => setIsRejecting(false)}
-                        className="px-2.5 py-1 text-xs text-[#B8B0A3]"
+                        className="px-2.5 py-1 text-xs text-[#ECE4D3]"
                       >
                         ยกเลิก
                       </button>
@@ -1290,7 +1290,7 @@ export default function BookingDetailPanel({
                           setIsRejecting(false);
                           setRejectReason('');
                         }}
-                        className="px-2.5 py-1 text-xs text-[#B8B0A3] hover:text-studio-primary cursor-pointer"
+                        className="px-2.5 py-1 text-xs text-[#ECE4D3] hover:text-white cursor-pointer"
                       >
                         ยกเลิก
                       </button>
@@ -1341,7 +1341,7 @@ export default function BookingDetailPanel({
             {/* CASE 6: Waiting Deposit Banner */}
             {!pendingSubmission && booking.status === 'WAITING_DEPOSIT' && (
               <div className="pt-1 space-y-2">
-                <p className="text-[#B8B0A3] text-[11px] leading-relaxed">
+                <p className="text-[#ECE4D3] text-[11px] leading-relaxed">
                   รอมัดจำ: อยู่ระหว่างรอลูกค้าชำระเงินและส่งหลักฐานสลิปมัดจำ
                 </p>
               </div>
@@ -1365,23 +1365,23 @@ export default function BookingDetailPanel({
             </div>
             <div className="space-y-2.5 pt-1 divide-y divide-studio-border/50">
               <div className="flex justify-between items-center pb-2">
-                <span className="text-[#B8B0A3]">ชื่อลูกค้า:</span>
+                <span className="text-[#ECE4D3]">ชื่อลูกค้า:</span>
                 <span className="text-studio-primary font-medium">{customerName}</span>
               </div>
               {customerEmail ? (
                 <div className="flex justify-between items-center py-2">
-                  <span className="text-[#B8B0A3]">อีเมล:</span>
+                  <span className="text-[#ECE4D3]">อีเมล:</span>
                   <span className="text-[#ECE4D3] font-mono truncate max-w-[220px]">{customerEmail}</span>
                 </div>
               ) : (
                 <div className="flex justify-between items-center py-2">
-                  <span className="text-[#B8B0A3]">อีเมล:</span>
-                  <span className="text-[#B8B0A3] text-xs">ไม่ระบุอีเมล</span>
+                  <span className="text-[#ECE4D3]">อีเมล:</span>
+                  <span className="text-[#ECE4D3] text-xs">ไม่ระบุอีเมล</span>
                 </div>
               )}
               {customerPhone ? (
                 <div className="flex justify-between items-center py-2">
-                  <span className="text-[#B8B0A3]">เบอร์โทรศัพท์:</span>
+                  <span className="text-[#ECE4D3]">เบอร์โทรศัพท์:</span>
                   <a
                     href={`tel:${customerPhone}`}
                     className="flex items-center space-x-1.5 text-emerald-400 hover:text-emerald-300 font-mono bg-emerald-950/40 border border-emerald-800/40 px-2.5 py-1 rounded transition-colors"
@@ -1392,21 +1392,21 @@ export default function BookingDetailPanel({
                 </div>
               ) : (
                 <div className="flex justify-between items-center py-2">
-                  <span className="text-[#B8B0A3]">เบอร์โทรศัพท์:</span>
-                  <span className="text-[#B8B0A3] text-xs">ไม่ระบุเบอร์โทร</span>
+                  <span className="text-[#ECE4D3]">เบอร์โทรศัพท์:</span>
+                  <span className="text-[#ECE4D3] text-xs">ไม่ระบุเบอร์โทร</span>
                 </div>
               )}
               {(() => {
                 const customerAge = calculateCustomerAgeYears(customerDob || booking?.date_of_birth || booking?.customer_dob);
                 return (
                   <div className="flex justify-between items-center py-2 border-t border-studio-border/30">
-                    <span className="text-[#B8B0A3]">อายุลูกค้า:</span>
+                    <span className="text-[#ECE4D3]">อายุลูกค้า:</span>
                     {customerAge !== null ? (
                       <span className="text-studio-primary font-mono text-xs font-semibold">
                         {customerAge} ปี
                       </span>
                     ) : (
-                      <span className="text-[#B8B0A3] text-xs">
+                      <span className="text-[#ECE4D3] text-xs">
                         ไม่พบข้อมูลวันเกิด
                       </span>
                     )}
@@ -1435,11 +1435,11 @@ export default function BookingDetailPanel({
             </div>
 
             {healthState.loading ? (
-              <div className="flex items-center space-x-2 text-xs text-[#B8B0A3] bg-studio-sec/60 border border-studio-border/50 p-2.5 rounded-lg">
+              <div className="flex items-center space-x-2 text-xs text-[#ECE4D3] bg-studio-sec/60 border border-studio-border/50 p-2.5 rounded-lg">
                 <span className="animate-pulse">กำลังโหลดข้อมูลสุขภาพ...</span>
               </div>
             ) : isHealthUnknown ? (
-              <div className="flex items-center space-x-2 text-xs text-[#B8B0A3] bg-studio-sec/60 border border-studio-border/50 p-2.5 rounded-lg">
+              <div className="flex items-center space-x-2 text-xs text-[#ECE4D3] bg-studio-sec/60 border border-studio-border/50 p-2.5 rounded-lg">
                 <AlertCircle size={15} className="shrink-0 text-[#B8B0A3]" />
                 <span>ยังไม่ให้ข้อมูล</span>
               </div>
@@ -1478,7 +1478,7 @@ export default function BookingDetailPanel({
                   </div>
                 ) : (
                   <div className="flex items-center justify-between text-xs py-0.5">
-                    <span className="text-[#B8B0A3]">โรคประจำตัว:</span>
+                    <span className="text-[#ECE4D3]">โรคประจำตัว:</span>
                     <span className="text-emerald-400 font-medium flex items-center gap-1 text-[11px]">
                       <CheckCircle2 size={12} /> ไม่มี
                     </span>
@@ -1510,7 +1510,7 @@ export default function BookingDetailPanel({
                   </div>
                 ) : (
                   <div className={`flex items-center justify-between text-xs py-0.5 ${healthState.has_medical_condition ? 'pt-2.5 border-t border-studio-border/50' : ''}`}>
-                    <span className="text-[#B8B0A3]">ประวัติการแพ้:</span>
+                    <span className="text-[#ECE4D3]">ประวัติการแพ้:</span>
                     <span className="text-emerald-400 font-medium flex items-center gap-1 text-[11px]">
                       <CheckCircle2 size={12} /> ไม่มี
                     </span>
@@ -1529,31 +1529,31 @@ export default function BookingDetailPanel({
             <div className="space-y-2 pt-1 divide-y divide-studio-border/50">
               {!isArtistView && (
                 <div className="flex justify-between items-center pb-2">
-                  <span className="text-[#B8B0A3]">ช่างสัก:</span>
+                  <span className="text-[#ECE4D3]">ช่างสัก:</span>
                   <span className="text-studio-primary font-medium">{artistDisplay}</span>
                 </div>
               )}
               {(booking as any).color_technique && (
                 <div className="flex justify-between items-center py-2">
-                  <span className="text-[#B8B0A3]">ลักษณะการลงสี:</span>
+                  <span className="text-[#ECE4D3]">ลักษณะการลงสี:</span>
                   <span className="text-studio-primary font-medium">{getColorTechniqueLabel((booking as any).color_technique)}</span>
                 </div>
               )}
               <div className="flex justify-between items-center py-2">
-                <span className="text-[#B8B0A3]">สไตล์ลายสัก (Tattoo Style):</span>
+                <span className="text-[#ECE4D3]">สไตล์ลายสัก (Tattoo Style):</span>
                 <span className="text-studio-primary font-medium">{styleDisplay}</span>
               </div>
               <div className="flex justify-between items-center py-2">
-                <span className="text-[#B8B0A3]">ตำแหน่งที่สัก (Placement):</span>
+                <span className="text-[#ECE4D3]">ตำแหน่งที่สัก (Placement):</span>
                 <span className="text-studio-primary font-medium">{placementDisplay}</span>
               </div>
               <div className="flex justify-between items-center py-2">
-                <span className="text-[#B8B0A3]">ขนาดประมาณ (Size):</span>
+                <span className="text-[#ECE4D3]">ขนาดประมาณ (Size):</span>
                 <span className="text-studio-primary font-mono">{sizeDisplay}</span>
               </div>
               {cleanDescription && (
                 <div className="py-2 space-y-1">
-                  <span className="text-[#B8B0A3] block text-[11px]">รายละเอียดเพิ่มเติม:</span>
+                  <span className="text-[#ECE4D3] block text-[11px]">รายละเอียดเพิ่มเติม:</span>
                   <p className="text-[#ECE4D3] bg-studio-sec/50 p-2.5 rounded border border-studio-border/60 whitespace-pre-wrap leading-relaxed">
                     {cleanDescription}
                   </p>
@@ -1581,7 +1581,7 @@ export default function BookingDetailPanel({
                 <ImageIcon size={14} className="text-studio-red-bright" />
                 <span>ภาพเรฟเฟอเรนซ์ / แบบลายสัก</span>
               </div>
-              <span className="text-[10px] text-[#B8B0A3]">
+              <span className="text-[10px] text-[#ECE4D3]">
                 {refImages.length} รูป
               </span>
             </div>
@@ -1606,7 +1606,7 @@ export default function BookingDetailPanel({
                 ))}
               </div>
             ) : (
-              <div className="p-4 bg-studio-sec/40 border border-studio-border/50 rounded-lg text-center text-[#B8B0A3] text-xs">
+              <div className="p-4 bg-studio-sec/40 border border-studio-border/50 rounded-lg text-center text-[#ECE4D3] text-xs">
                 ไม่มีภาพเรฟเฟอเรนซ์แนบมากับงานนี้
               </div>
             )}
@@ -1658,7 +1658,7 @@ export default function BookingDetailPanel({
 
             {booking.sessions && booking.sessions.length > 1 && (
               <div>
-                <label className="block text-[#B8B0A3] mb-1 font-medium">เลือกรอบสักที่ต้องการเลื่อน:</label>
+                <label className="block text-[#ECE4D3] mb-1 font-medium">เลือกรอบสักที่ต้องการเลื่อน:</label>
                 <select
                   value={reschedulingSession.id}
                   onChange={(e) => {
@@ -1687,7 +1687,7 @@ export default function BookingDetailPanel({
 
             <form onSubmit={handleExecuteReschedule} className="space-y-3">
               <div>
-                <label className="block text-[#B8B0A3] mb-1 font-medium">
+                <label className="block text-[#ECE4D3] mb-1 font-medium">
                   วันที่นัดหมายใหม่ <span className="text-studio-red">*</span>
                 </label>
                 <input
@@ -1695,12 +1695,12 @@ export default function BookingDetailPanel({
                   required
                   value={rescheduleDate}
                   onChange={(e) => setRescheduleDate(e.target.value)}
-                  className="w-full bg-studio-sec border border-studio-border rounded-xl px-3 py-2 text-studio-primary font-mono focus:outline-none focus:border-amber-400"
+                  className="w-full bg-studio-sec border border-studio-border rounded-xl px-3 py-2 text-studio-primary font-mono focus:outline-none focus:border-amber-400 cursor-pointer"
                 />
               </div>
 
               <div>
-                <label className="block text-[#B8B0A3] mb-1 font-medium">
+                <label className="block text-[#ECE4D3] mb-1 font-medium">
                   เวลาเริ่ม <span className="text-studio-red">*</span>
                 </label>
                 <input
@@ -1708,12 +1708,12 @@ export default function BookingDetailPanel({
                   required
                   value={rescheduleStartTime}
                   onChange={(e) => setRescheduleStartTime(e.target.value)}
-                  className="w-full bg-studio-sec border border-studio-border rounded-xl px-3 py-2 text-studio-primary font-mono focus:outline-none focus:border-amber-400"
+                  className="w-full bg-studio-sec border border-studio-border rounded-xl px-3 py-2 text-studio-primary font-mono focus:outline-none focus:border-amber-400 cursor-pointer"
                 />
               </div>
 
               <div>
-                <label className="block text-[#B8B0A3] mb-1 font-medium">หมายเหตุการเลื่อนคิว</label>
+                <label className="block text-[#ECE4D3] mb-1 font-medium">หมายเหตุการเลื่อนคิว</label>
                 <input
                   type="text"
                   value={rescheduleNote}
@@ -1728,7 +1728,7 @@ export default function BookingDetailPanel({
                   type="button"
                   onClick={() => setReschedulingSession(null)}
                   disabled={isSubmittingReschedule}
-                  className="w-full py-2.5 px-3 rounded-xl border border-studio-border bg-studio-sec hover:bg-studio-border text-[#B8B0A3] font-medium cursor-pointer"
+                  className="w-full py-2.5 px-3 rounded-xl border border-studio-border bg-studio-sec hover:bg-studio-border text-[#ECE4D3] font-medium cursor-pointer"
                 >
                   ยกเลิก
                 </button>
@@ -1766,7 +1766,7 @@ export default function BookingDetailPanel({
 
             <form onSubmit={handleExecuteCompleteSession} className="space-y-3">
               <div>
-                <label className="block text-[#B8B0A3] mb-1 font-medium">
+                <label className="block text-[#ECE4D3] mb-1 font-medium">
                   หมายเหตุการสักรอบนี้ (ถ้ามี)
                 </label>
                 <textarea
@@ -1776,7 +1776,7 @@ export default function BookingDetailPanel({
                   placeholder="เช่น เดินเส้นและลงโครงสร้างหลักเรียบร้อยแล้ว..."
                   className="w-full bg-studio-sec border border-studio-border rounded-xl p-2.5 text-studio-primary focus:outline-none focus:border-emerald-400 resize-none font-prompt"
                 />
-                <p className="text-[10px] text-[#B8B0A3] mt-1">
+                <p className="text-[10px] text-[#ECE4D3] mt-1">
                   * ข้อความหมายเหตุนี้จะแสดงเฉพาะใต้การ์ดรอบสักรอบที่ {completingSessionModal.session_number} เท่านั้น
                 </p>
               </div>
@@ -1786,7 +1786,7 @@ export default function BookingDetailPanel({
                   type="button"
                   onClick={() => setCompletingSessionModal(null)}
                   disabled={isCompletingActiveSession}
-                  className="w-full py-2.5 px-3 rounded-xl border border-studio-border bg-studio-sec hover:bg-studio-border text-[#B8B0A3] font-medium cursor-pointer"
+                  className="w-full py-2.5 px-3 rounded-xl border border-studio-border bg-studio-sec hover:bg-studio-border text-[#ECE4D3] font-medium cursor-pointer"
                 >
                   ยกเลิก
                 </button>
@@ -1828,7 +1828,7 @@ export default function BookingDetailPanel({
           </div>
           <button
             onClick={() => setPreviewModal(null)}
-            className="absolute top-4 right-4 text-studio-primary bg-studio-card border border-studio-border p-2.5 rounded-full hover:bg-studio-red transition-colors cursor-pointer shadow-lg"
+            className="absolute top-4 right-4 text-studio-primary bg-studio-card border border-studio-border p-2.5 rounded-full hover:bg-[#C12D2D] transition-colors cursor-pointer shadow-lg"
           >
             <X size={20} />
           </button>

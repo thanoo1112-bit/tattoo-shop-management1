@@ -37,7 +37,7 @@ export default function RequestSummaryCards({
           <p className="text-xl sm:text-2xl lg:text-3xl font-heading font-semibold text-blue-400 tracking-tight">
             {counts.pendingEvaluationCount}
           </p>
-          <p className="text-[10px] sm:text-[11px] text-[#B8B0A3] mt-1">
+          <p className="text-[10px] sm:text-[11px] text-[#ECE4D3] mt-1">
             รอช่างตรวจสอบรายละเอียดงาน
           </p>
         </div>
@@ -65,7 +65,7 @@ export default function RequestSummaryCards({
           <p className="text-xl sm:text-2xl lg:text-3xl font-heading font-semibold text-amber-400 tracking-tight">
             {counts.waitingDepositCount}
           </p>
-          <p className="text-[10px] sm:text-[11px] text-[#B8B0A3] mt-1">
+          <p className="text-[10px] sm:text-[11px] text-[#ECE4D3] mt-1">
             ผ่านการตรวจสอบแล้ว รอลูกค้าชำระมัดจำ
           </p>
         </div>
@@ -93,7 +93,7 @@ export default function RequestSummaryCards({
           <p className="text-xl sm:text-2xl lg:text-3xl font-heading font-semibold text-amber-400 tracking-tight">
             {counts.pendingSlipsCount}
           </p>
-          <p className="text-[10px] sm:text-[11px] text-[#B8B0A3] mt-1">
+          <p className="text-[10px] sm:text-[11px] text-[#ECE4D3] mt-1">
             สลิปโอนมัดจำที่รอการตรวจสอบ
           </p>
         </div>
@@ -121,7 +121,7 @@ export default function RequestSummaryCards({
           <p className="text-xl sm:text-2xl lg:text-3xl font-heading font-semibold text-red-400 tracking-tight">
             {counts.confirmedCount}
           </p>
-          <p className="text-[10px] sm:text-[11px] text-[#B8B0A3] mt-1">
+          <p className="text-[10px] sm:text-[11px] text-[#ECE4D3] mt-1">
             ปฏิเสธ / ยกเลิก / หมดอายุ
           </p>
         </div>

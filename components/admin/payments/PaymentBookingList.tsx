@@ -50,9 +50,6 @@ export default function PaymentBookingList({
             <h3 className="text-base sm:text-lg font-heading font-semibold text-[#ECE4D3] tracking-wide">
               ตารางบันทึกรายการธุรกรรม (Transaction Logs)
             </h3>
-            <p className="text-xs text-[#A89F91] mt-0.5 font-light">
-              แสดงรายการธุรกรรมและการรับชำระเงินทั้งหมดในระบบ
-            </p>
           </div>
         </div>
 
@@ -75,7 +72,7 @@ export default function PaymentBookingList({
 
           {/* Artist Filter Dropdown */}
           <div className="flex items-center gap-1.5 bg-[#0E0D0C] border border-[#4A443A] rounded-md px-2.5 py-1.5 text-xs shrink-0">
-            <User size={13} className="text-[#7A7265]" />
+            <User size={13} className="text-[#ECE4D3]" />
             <select
               value={selectedArtistId}
               onChange={(e) => onArtistChange(e.target.value)}
@@ -109,7 +106,7 @@ export default function PaymentBookingList({
           <h3 className="text-sm font-heading font-medium text-[#ECE4D3]">
             ยังไม่มีรายการการเงิน
           </h3>
-          <p className="text-xs text-[#7A7265] mt-1 max-w-sm mx-auto font-light">
+          <p className="text-xs text-[#ECE4D3] mt-1 max-w-sm mx-auto font-light">
             เมื่อมีคิวงานและมีการบันทึกรับเงิน รายการจะแสดงที่นี่
           </p>
         </div>
@@ -117,7 +114,7 @@ export default function PaymentBookingList({
         /* Table View (Horizontal scroll support for mobile & aligned header/data) */
         <div className="overflow-x-auto w-full">
           <table className="w-full text-left text-xs whitespace-nowrap min-w-[500px]">
-            <thead className="bg-[#0E0D0C] border-b border-[#4A443A] text-[11px] text-[#7A7265] uppercase tracking-wider font-normal">
+            <thead className="bg-[#0E0D0C] border-b border-[#4A443A] text-[11px] text-[#ECE4D3] uppercase tracking-wider font-normal">
               <tr>
                 <th className="py-3.5 px-4 font-normal">วันที่</th>
                 <th className="py-3.5 px-4 font-normal">ชื่อลูกค้า</th>
@@ -140,7 +137,7 @@ export default function PaymentBookingList({
                     }`}
                   >
                     {/* 1. Date & Time */}
-                    <td className="py-3.5 px-4 text-[#A89F91] font-mono text-[11px]">
+                    <td className="py-3.5 px-4 text-[#ECE4D3] font-mono text-[11px]">
                       {b.requested_date || (b.created_at ? new Date(b.created_at).toLocaleDateString('th-TH', { year: 'numeric', month: '2-digit', day: '2-digit' }) : 'ยังไม่ระบุ')}
                     </td>
 
@@ -150,7 +147,7 @@ export default function PaymentBookingList({
                     </td>
 
                     {/* 3. Artwork Title */}
-                    <td className="py-3.5 px-4 text-[#A89F91]">
+                    <td className="py-3.5 px-4 text-[#ECE4D3]">
                       {b.artwork_title || 'งานสัก Custom'}
                     </td>
 

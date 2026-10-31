@@ -336,7 +336,7 @@ export default function FlashReservationModal({
           <h2 className="text-lg sm:text-xl font-heading text-studio-primary">
             ส่งคำขอจองคิวสักแบบลาย Flash — {flash.title}
           </h2>
-          <p className="text-xs text-studio-secondary mt-0.5 font-light">
+          <p className="text-xs text-studio-primary mt-0.5 font-light">
             กรอกข้อมูลรายละเอียดการจองคิวสัก และระบุวันนัดหมายเข้ารับบริการ
           </p>
         </div>
@@ -359,11 +359,11 @@ export default function FlashReservationModal({
           {/* SECTION 1 — ช่างสักประจำลาย (Artist Section) */}
           <section className="space-y-2">
             <div className="flex items-center justify-between">
-              <label className="text-[11px] uppercase tracking-wider text-studio-secondary font-semibold flex items-center gap-1.5">
+              <label className="text-[11px] uppercase tracking-wider text-studio-primary font-semibold flex items-center gap-1.5">
                 <User size={13} className="text-studio-red" />
                 <span>1. ช่างสักประจำลาย (Artist)</span>
               </label>
-              <span className="text-[10px] bg-studio-main border border-studio-border text-[#B8B0A3] px-2 py-0.5 rounded flex items-center gap-1">
+              <span className="text-[10px] bg-studio-main border border-studio-border text-[#ECE4D3] px-2 py-0.5 rounded flex items-center gap-1">
                 <Lock size={10} /> ช่างสักเจ้าของลาย
               </span>
             </div>
@@ -375,7 +375,7 @@ export default function FlashReservationModal({
                 </div>
                 <div>
                   <h4 className="font-bold text-studio-primary text-sm">{artistName}</h4>
-                  <p className="text-[11px] text-studio-secondary font-light">
+                  <p className="text-[11px] text-studio-primary font-light">
                     ช่างสักประจำร้าน 157 TATTOO
                   </p>
                 </div>
@@ -389,11 +389,11 @@ export default function FlashReservationModal({
           {/* SECTION 2 — รูปภาพอ้างอิงงานสัก (Reference Image Section) */}
           <section className="space-y-2">
             <div className="flex items-center justify-between">
-              <label className="text-[11px] uppercase tracking-wider text-studio-secondary font-semibold flex items-center gap-1.5">
+              <label className="text-[11px] uppercase tracking-wider text-studio-primary font-semibold flex items-center gap-1.5">
                 <ImageIcon size={13} className="text-studio-red" />
                 <span>2. รูปภาพอ้างอิงงานสัก (Reference Image)</span>
               </label>
-              <span className="text-[10px] text-[#B8B0A3] flex items-center gap-1">
+              <span className="text-[10px] text-[#ECE4D3] flex items-center gap-1">
                 <Lock size={10} strokeWidth={2} /> รูปต้นแบบ Flash ของร้าน
               </span>
             </div>
@@ -417,11 +417,16 @@ export default function FlashReservationModal({
 
                 <div className="flex-1 min-w-0 space-y-1.5 pt-0.5">
                   <h4 className="font-bold text-studio-primary text-sm truncate">{flash.title}</h4>
-                  <div className="text-xs text-studio-secondary space-y-0.5">
+                  <div className="text-xs text-studio-primary space-y-0.5">
                     <p>สไตล์: <strong className="text-studio-primary">{flash.style}</strong></p>
-                    <p className="text-[11px] text-[#B8B0A3] font-light">
+                    <p className="text-[11px] text-[#ECE4D3] font-light">
                       • ราคาพร้อมสักแบบคงที่ (Fixed Price)<br />
                       • รูปอ้างอิงต้นแบบสงวนลิขสิทธิ์ของช่างประจำร้าน (ห้ามเปลี่ยนรูป)
+                    </p>
+                    <p className="text-[11px] text-studio-red font-medium pt-0.5">
+                      {flash.is_repeatable
+                        ? '• ลายนี้สามารถสักซ้ำได้ และยังเปิดให้ลูกค้ารายอื่นจองได้'
+                        : '• ลายนี้เป็นแบบลายเดียว เมื่อมีผู้จองแล้วจะปิดรับการจองจากลูกค้ารายอื่น'}
                     </p>
                   </div>
                 </div>
@@ -440,14 +445,14 @@ export default function FlashReservationModal({
 
             {/* 3.1 Style (Locked) */}
             <div className="space-y-1">
-              <label className="text-[11px] uppercase tracking-wider text-studio-secondary block font-semibold">
+              <label className="text-[11px] uppercase tracking-wider text-studio-primary block font-semibold">
                 สไตล์งานสัก
               </label>
               <div className="flex items-center gap-2">
                 <span className="px-3 py-1.5 rounded-[4px] text-xs bg-studio-red border border-studio-red text-white font-semibold shadow-md inline-block">
                   {flash.style}
                 </span>
-                <span className="text-[11px] text-[#B8B0A3] font-light">
+                <span className="text-[11px] text-[#ECE4D3] font-light">
                   (สไตล์ตามแบบลาย Flash)
                 </span>
               </div>
@@ -455,7 +460,7 @@ export default function FlashReservationModal({
 
             {/* 3.2 Placement Selector */}
             <div className="space-y-1">
-              <label className="text-[11px] uppercase tracking-wider text-studio-secondary block font-semibold flex items-center gap-1">
+              <label className="text-[11px] uppercase tracking-wider text-studio-primary block font-semibold flex items-center gap-1">
                 <MapPin size={12} className="text-studio-red" />
                 <span>ตำแหน่งที่ต้องการสัก <span className="text-studio-red">*</span></span>
               </label>
@@ -470,7 +475,7 @@ export default function FlashReservationModal({
 
             {/* 3.3 Size Selector */}
             <div className="space-y-1">
-              <label className="text-[11px] uppercase tracking-wider text-studio-secondary block font-semibold flex items-center gap-1">
+              <label className="text-[11px] uppercase tracking-wider text-studio-primary block font-semibold flex items-center gap-1">
                 <Maximize2 size={12} className="text-studio-red" />
                 <span>ขนาดของงานสัก <span className="text-studio-red">*</span></span>
               </label>
@@ -490,7 +495,7 @@ export default function FlashReservationModal({
 
             {/* 3.4 Customer Note / Description */}
             <div className="space-y-1">
-              <label className="text-[11px] uppercase tracking-wider text-studio-secondary block font-semibold flex items-center gap-1">
+              <label className="text-[11px] uppercase tracking-wider text-studio-primary block font-semibold flex items-center gap-1">
                 <FileText size={12} className="text-studio-red" />
                 <span>รายละเอียดเพิ่มเติม / หมายเหตุถึงช่างสัก (ไม่บังคับ)</span>
               </label>
@@ -505,7 +510,7 @@ export default function FlashReservationModal({
 
             {/* 3.5 Health Disclosure Section */}
             <div className="space-y-3 pt-2 border-t border-studio-border/60">
-              <label className="text-[11px] uppercase tracking-wider text-studio-secondary block font-semibold flex items-center gap-1">
+              <label className="text-[11px] uppercase tracking-wider text-studio-primary block font-semibold flex items-center gap-1">
                 <AlertTriangle size={13} className="text-amber-400" />
                 <span>ข้อมูลสุขภาพและข้อควรระวัง (Health Disclosure)</span>
               </label>
@@ -605,7 +610,7 @@ export default function FlashReservationModal({
 
             <div className="space-y-3">
               <div className="space-y-1">
-                <label className="block text-studio-secondary font-medium flex items-center gap-1">
+                <label className="block text-studio-primary font-medium flex items-center gap-1">
                   <Calendar size={12} className="text-studio-red" />
                   <span>วันนัดหมายเข้ารับบริการ <span className="text-studio-red">*</span></span>
                 </label>
@@ -622,12 +627,12 @@ export default function FlashReservationModal({
               </div>
 
               <div className="space-y-1.5">
-                <label className="block text-studio-secondary font-medium flex items-center justify-between">
+                <label className="block text-studio-primary font-medium flex items-center justify-between">
                   <span className="flex items-center gap-1">
                     <Clock size={12} className="text-studio-red" />
                     <span>เวลาที่สะดวกเริ่มสัก <span className="text-studio-red">*</span></span>
                   </span>
-                  <span className="text-[10px] text-[#E2DDD4] font-normal">
+                  <span className="text-[10px] text-[#ECE4D3] font-normal">
                     (10:00 - 23:00 น.)
                   </span>
                 </label>
@@ -644,7 +649,7 @@ export default function FlashReservationModal({
           </section>
 
           {/* Informational Disclaimer */}
-          <div className="bg-studio-main/80 border border-studio-border/60 p-3.5 rounded-[4px] space-y-1 text-[11px] text-studio-secondary">
+          <div className="bg-studio-main/80 border border-studio-border/60 p-3.5 rounded-[4px] space-y-1 text-[11px] text-studio-primary">
             <div className="flex items-center gap-1 text-studio-primary font-semibold">
               <ShieldCheck size={13} className="text-studio-red" />
               <span>เงื่อนไขการส่งคำขอจองลาย Flash:</span>
@@ -688,7 +693,7 @@ export default function FlashReservationModal({
                 alt={flash.title}
                 className="max-w-full max-h-[85vh] object-contain rounded-lg border border-white/20 shadow-2xl"
               />
-              <p className="text-center text-xs text-studio-secondary mt-2">
+              <p className="text-center text-xs text-studio-primary mt-2">
                 {flash.title} — รูปภาพต้นแบบ Flash (ร้าน 157 TATTOO)
               </p>
             </div>

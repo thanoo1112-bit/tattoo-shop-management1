@@ -172,7 +172,7 @@ export default function EstimateRequestQueue({ singleArtistId = null }: Estimate
       <div className="overflow-x-auto">
         <table className="w-full text-left border-collapse">
           <thead>
-            <tr className="border-b border-studio-border text-[10px] uppercase tracking-wider text-studio-secondary bg-studio-main/30">
+            <tr className="border-b border-studio-border text-[10px] uppercase tracking-wider text-[#ECE4D3] bg-studio-main/30">
               <th className="p-4 font-semibold">ลูกค้า</th>
               {!singleArtistId && <th className="p-4 font-semibold">ช่างที่ระบุ</th>}
               <th className="p-4 font-semibold">ภาพอ้างอิง</th>
@@ -186,13 +186,13 @@ export default function EstimateRequestQueue({ singleArtistId = null }: Estimate
               <tr key={req.id} className="hover:bg-studio-sec/40 transition-colors">
                 <td className="p-4">
                   <div className="font-bold">{req.customerName}</div>
-                  <div className="text-[10px] text-studio-secondary flex items-center space-x-1 mt-0.5">
+                  <div className="text-[10px] text-[#ECE4D3] flex items-center space-x-1 mt-0.5">
                     <Mail size={10} />
                     <span className="font-mono">{req.customerEmail}</span>
                   </div>
                 </td>
                 {!singleArtistId && (
-                  <td className="p-4 font-semibold text-studio-secondary">
+                  <td className="p-4 font-semibold text-[#ECE4D3]">
                     {req.artistName}
                   </td>
                 )}
@@ -208,9 +208,9 @@ export default function EstimateRequestQueue({ singleArtistId = null }: Estimate
                   </div>
                   <div className="flex items-center space-x-1">
                     <MapPin size={11} className="text-studio-red-bright" />
-                    <span>ตำแหน่ง: <span className="font-semibold text-studio-secondary">{req.placement}</span></span>
+                    <span>ตำแหน่ง: <span className="font-semibold text-[#ECE4D3]">{req.placement}</span></span>
                   </div>
-                  <div className="text-[10px] text-studio-muted font-light max-w-xs line-clamp-1 italic">
+                  <div className="text-[10px] text-[#ECE4D3] font-light max-w-xs line-clamp-1 italic">
                     “{req.description}”
                   </div>
                 </td>
@@ -234,17 +234,17 @@ export default function EstimateRequestQueue({ singleArtistId = null }: Estimate
                           )}
 
                           <div>
-                            <label className="text-[9px] uppercase tracking-wider text-studio-secondary block mb-1">วันนัดจริง</label>
+                            <label className="text-[9px] uppercase tracking-wider text-[#ECE4D3] block mb-1">วันนัดจริง</label>
                             <input
                               type="date"
                               value={appointmentDate}
                               onChange={(e) => setAppointmentDate(e.target.value)}
-                              className="bg-studio-card border border-studio-border focus:border-emerald-400 text-xs px-2 py-1.5 outline-none rounded-[3px] w-full"
+                              className="bg-studio-card border border-studio-border focus:border-emerald-400 text-xs px-2 py-1.5 outline-none rounded-[3px] w-full cursor-pointer"
                             />
                           </div>
 
                           <div>
-                            <label className="text-[9px] uppercase tracking-wider text-studio-secondary block mb-1">
+                            <label className="text-[9px] uppercase tracking-wider text-[#ECE4D3] block mb-1">
                               ระยะเวลาสักโดยประมาณ *
                             </label>
                             <div className="relative flex items-center">
@@ -265,7 +265,7 @@ export default function EstimateRequestQueue({ singleArtistId = null }: Estimate
 
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                             <div>
-                              <label className="text-[9px] uppercase tracking-wider text-studio-secondary block mb-1">ราคางานสัก (บาท)</label>
+                              <label className="text-[9px] uppercase tracking-wider text-[#ECE4D3] block mb-1">ราคางานสัก (บาท)</label>
                               <input
                                 type="number"
                                 min="0"
@@ -276,7 +276,7 @@ export default function EstimateRequestQueue({ singleArtistId = null }: Estimate
                               />
                             </div>
                             <div>
-                              <label className="text-[9px] uppercase tracking-wider text-studio-secondary block mb-1">เงินมัดจำ (บาท)</label>
+                              <label className="text-[9px] uppercase tracking-wider text-[#ECE4D3] block mb-1">เงินมัดจำ (บาท)</label>
                               <input
                                 type="number"
                                 min="0"
@@ -289,7 +289,7 @@ export default function EstimateRequestQueue({ singleArtistId = null }: Estimate
                           </div>
 
                           <div>
-                            <label className="text-[9px] uppercase tracking-wider text-studio-secondary block mb-1">หมายเหตุของร้าน</label>
+                            <label className="text-[9px] uppercase tracking-wider text-[#ECE4D3] block mb-1">หมายเหตุของร้าน</label>
                             <textarea
                               value={noteInput}
                               onChange={(e) => setNoteInput(e.target.value)}
@@ -313,7 +313,7 @@ export default function EstimateRequestQueue({ singleArtistId = null }: Estimate
                                 setError('');
                               }}
                               disabled={loading}
-                              className="bg-transparent border border-studio-border text-studio-secondary px-3 py-1.5 text-[10px] font-bold rounded-[3px] hover:bg-studio-card transition-colors"
+                              className="bg-transparent border border-studio-border text-[#ECE4D3] px-3 py-1.5 text-[10px] font-bold rounded-[3px] hover:bg-studio-card transition-colors"
                             >
                               ยกเลิก
                             </button>
@@ -352,7 +352,7 @@ export default function EstimateRequestQueue({ singleArtistId = null }: Estimate
 
             {displayedRequests.length === 0 && (
               <tr>
-                <td colSpan={6} className="p-8 text-center text-studio-secondary italic">
+                <td colSpan={6} className="p-8 text-center text-[#ECE4D3] italic">
                   ไม่มีรายการคำขอจองคิวสักเข้ามาในขณะนี้
                 </td>
               </tr>

@@ -16,7 +16,7 @@ export default function BookingStatusBadge({ status, type = 'booking' }: Booking
   const config: Record<StatusType, { label: string; dot: string; container: string; text: string }> = {
     PENDING: {
       label: 'รอตรวจสอบ',
-      dot: 'bg-[#9C2F2F] animate-pulse',
+      dot: 'bg-[#C12D2D] animate-pulse',
       container: 'bg-[#171512] border-[#4A443A]',
       text: 'text-[#ECE4D3]',
     },
@@ -64,8 +64,8 @@ export default function BookingStatusBadge({ status, type = 'booking' }: Booking
     },
     IN_PROGRESS: {
       label: 'กำลังสัก',
-      dot: 'bg-[#9C2F2F]',
-      container: 'bg-[#171512] border-[#9C2F2F]/60',
+      dot: 'bg-[#C12D2D]',
+      container: 'bg-[#171512] border-[#C12D2D]/60',
       text: 'text-[#ECE4D3]',
     },
     COMPLETED: {
