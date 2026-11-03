@@ -176,9 +176,9 @@ export default function AdminHeader() {
               >
                 <Icon size={18} className={active ? 'text-studio-red-bright' : 'text-[#ECE4D3]'} />
                 <span>{item.name}</span>
-                {item.name === 'คำขอ' && totalNotificationCount > 0 && (
+                {item.name === 'คำขอ' && (newRequestCount + pendingRescheduleCount) > 0 && (
                   <span className="ml-auto bg-[#C12D2D] text-[#ECE4D3] text-[10px] font-bold px-2 py-0.5 rounded-full">
-                    {totalNotificationCount}
+                    {newRequestCount + pendingRescheduleCount}
                   </span>
                 )}
               </Link>

@@ -1,7 +1,14 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import { Search, Filter, FileText, ChevronRight, User, Calendar, Image as ImageIcon, CreditCard, TriangleAlert, Trash2, Sparkles } from 'lucide-react';
+import { Search, Filter, FileText, ChevronRight, User, Calendar, Image as ImageIcon, CreditCard, TriangleAlert, Trash2, Sparkles, CalendarClock, Clock, ArrowRight } from 'lucide-react';
+import { createClient } from '@/lib/supabase/client';
+import {
+  RescheduleRequest,
+  fetchBookingRescheduleRequests,
+  subscribeRescheduleRequests,
+} from '@/lib/reschedule/rescheduleRequestStore';
+import { BookingItem } from './types';
 import { EstimateRequestItem, EstimateStatus, formatDateTimeBangkok, formatDateBangkok, formatTimeBangkok, hasEstimateProposalHistory } from './types';
 import { formatTattooSize } from '@/lib/utils/formatters';
 import CustomerReferenceImage from '@/components/common/CustomerReferenceImage';
@@ -14,6 +21,8 @@ interface EstimateRequestListProps {
   onCheckSlip?: (bookingId: string) => void;
   onDeleteRequest?: (estimate: EstimateRequestItem) => void;
   initialFilter?: string;
+  bookings?: BookingItem[];
+  onSelectBooking?: (booking: BookingItem) => void;
 }
 
 export default function EstimateRequestList({
@@ -23,6 +32,8 @@ export default function EstimateRequestList({
   onCheckSlip,
   onDeleteRequest,
   initialFilter,
+  bookings = [],
+  onSelectBooking,
 }: EstimateRequestListProps) {
   const [statusFilter, setStatusFilter] = useState<string>(initialFilter || 'ALL');
   const [searchQuery, setSearchQuery] = useState('');
@@ -32,6 +43,69 @@ export default function EstimateRequestList({
       setStatusFilter(initialFilter);
     }
   }, [initialFilter]);
+
+  const [rescheduleRequests, setRescheduleRequests] = useState<RescheduleRequest[]>([]);
+  const [isFetchingReschedules, setIsFetchingReschedules] = useState(false);
+
+  const loadReschedules = React.useCallback(async () => {
+    try {
+      setIsFetchingReschedules(true);
+      const list = await fetchBookingRescheduleRequests();
+      setRescheduleRequests(list);
+    } catch (err) {
+      console.error('[EstimateRequestList] Error fetching reschedule requests:', err);
+    } finally {
+      setIsFetchingReschedules(false);
+    }
+  }, []);
+
+  React.useEffect(() => {
+    loadReschedules();
+    return subscribeRescheduleRequests(loadReschedules);
+  }, [loadReschedules]);
+
+  const pendingRescheduleCount = useMemo(() => {
+    return rescheduleRequests.filter((r) => r.status === 'PENDING').length;
+  }, [rescheduleRequests]);
+
+  const filteredReschedules = useMemo(() => {
+    if (!searchQuery.trim()) return rescheduleRequests;
+    const q = searchQuery.toLowerCase();
+    return rescheduleRequests.filter((r) => {
+      const cName = (r.customer_name || '').toLowerCase();
+      const cPhone = (r.customer_phone || '').toLowerCase();
+      const aName = (r.artist_name || '').toLowerCase();
+      const rReason = (r.reason || '').toLowerCase();
+      const rDate = (r.requested_date || '').toLowerCase();
+      return (
+        cName.includes(q) ||
+        cPhone.includes(q) ||
+        aName.includes(q) ||
+        rReason.includes(q) ||
+        rDate.includes(q)
+      );
+    });
+  }, [rescheduleRequests, searchQuery]);
+
+  const handleSelectReschedule = async (req: RescheduleRequest) => {
+    if (!onSelectBooking) return;
+    const found = (bookings || []).find((b) => b.id === req.booking_id);
+    if (found) {
+      onSelectBooking(found);
+      return;
+    }
+    try {
+      const supabase = createClient();
+      const { data: bRow } = await supabase
+        .from('bookings')
+        .select('*')
+        .eq('id', req.booking_id)
+        .maybeSingle();
+      if (bRow) {
+        onSelectBooking(bRow as any);
+      }
+    } catch (_) {}
+  };
 
   const getCategory = (e: EstimateRequestItem) => {
     const opKey = e.operational_status?.key || e.status;
@@ -105,6 +179,7 @@ export default function EstimateRequestList({
     { id: 'NEW', label: 'รอตรวจสอบ', count: statusCounts.new },
     { id: 'WAITING_DEPOSIT', label: 'รอมัดจำ', count: statusCounts.waitingDeposit },
     { id: 'PENDING_SLIP', label: 'สลิปรอตรวจ', count: statusCounts.pendingSlip },
+    { id: 'RESCHEDULE', label: 'ขอเลื่อนนัด', count: pendingRescheduleCount },
     { id: 'REJECTED', label: 'ปฏิเสธ', count: statusCounts.rejected },
     { id: 'CANCELLED_CUSTOMER', label: 'ยกเลิก', count: statusCounts.cancelledCustomer },
     { id: 'CANCELLED_EXPIRED', label: 'หมดอายุ', count: statusCounts.cancelledExpired },
@@ -308,8 +383,199 @@ export default function EstimateRequestList({
         </div>
       </div>
 
-      {/* Content List */}
-      {filteredEstimates.length === 0 ? (
+
+      {/* Reschedule Requests Specific View */}
+      {statusFilter === 'RESCHEDULE' ? (
+        filteredReschedules.length === 0 ? (
+          <div className="py-12 text-center border border-dashed border-[#4A443A]/60 rounded-lg bg-[#0E0D0C]/40 space-y-2">
+            <CalendarClock size={28} className="text-[#AFA79A] mx-auto opacity-60" />
+            <h4 className="text-xs sm:text-sm font-semibold text-[#ECE4D3]">ยังไม่มีคำขอเลื่อนนัดจากลูกค้า</h4>
+            <p className="text-[11px] text-[#AFA79A] max-w-sm mx-auto">
+              เมื่อลูกค้าส่งคำขอเลื่อนวันหรือเวลานัดหมายผ่าน Customer Portal รายการจะแสดงที่นี่เพื่อรอพิจารณา
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {/* Desktop Table for Reschedule Requests */}
+            <div className="hidden md:block overflow-x-auto">
+              <table className="w-full text-left text-xs text-[#ECE4D3]">
+                <thead className="bg-[#0E0D0C] text-[#ECE4D3] uppercase text-[10px] tracking-wider border-b border-[#4A443A]">
+                  <tr>
+                    <th className="py-3 px-3">รหัส / ลูกค้า</th>
+                    <th className="py-3 px-3">ยื่นคำขอเมื่อ</th>
+                    <th className="py-3 px-3">ช่างสัก</th>
+                    <th className="py-3 px-3">วัน/เวลาเดิม</th>
+                    <th className="py-3 px-3">วัน/เวลาใหม่ที่ขอ</th>
+                    <th className="py-3 px-3">เหตุผล</th>
+                    <th className="py-3 px-3 text-center">สถานะ</th>
+                    <th className="py-3 px-3 text-center">การจัดการ</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#4A443A]/50">
+                  {filteredReschedules.map((req) => (
+                    <tr
+                      key={req.id}
+                      onClick={() => handleSelectReschedule(req)}
+                      className="cursor-pointer transition-colors hover:bg-[#0E0D0C]/70"
+                    >
+                      <td className="py-3 px-3">
+                        <span className="text-[10px] font-mono text-[#AFA79A] block">
+                          #{req.id.slice(0, 8).toUpperCase()}
+                        </span>
+                        <div className="font-semibold text-[#ECE4D3] mt-0.5">
+                          {req.customer_name || 'ลูกค้า'}
+                        </div>
+                        {req.customer_phone && (
+                          <div className="text-[10px] text-[#AFA79A] font-mono">
+                            {req.customer_phone}
+                          </div>
+                        )}
+                      </td>
+                      <td className="py-3 px-3 font-mono">
+                        <span className="block text-[#ECE4D3] font-medium">{formatDateBangkok(req.created_at)}</span>
+                        <span className="block text-[10px] text-[#AFA79A]">{formatTimeBangkok(req.created_at)} น.</span>
+                      </td>
+                      <td className="py-3 px-3">
+                        <span className="font-medium text-[#ECE4D3]">{req.artist_name || 'ไม่ระบุช่าง'}</span>
+                      </td>
+                      <td className="py-3 px-3">
+                        <div className="text-[#ECE4D3] font-medium">{formatDateBangkok(req.original_date)}</div>
+                        <div className="text-[10px] text-[#AFA79A] font-mono">{req.original_start_time} น.</div>
+                      </td>
+                      <td className="py-3 px-3">
+                        <div className="text-amber-300 font-bold">{formatDateBangkok(req.requested_date)}</div>
+                        <div className="text-[10px] text-amber-200/80 font-mono font-semibold">{req.requested_start_time} น.</div>
+                      </td>
+                      <td className="py-3 px-3 max-w-[200px]">
+                        <p className="text-[11px] text-[#ECE4D3] truncate bg-[#0E0D0C] px-2 py-1 rounded border border-[#4A443A]/60" title={req.reason}>
+                          {req.reason}
+                        </p>
+                      </td>
+                      <td className="py-3 px-3 text-center">
+                        {req.status === 'PENDING' ? (
+                          <span className="bg-amber-500/15 text-amber-300 border border-amber-400/40 px-2 py-0.5 rounded text-[10px] font-semibold inline-flex items-center gap-1">
+                            <Clock size={11} className="animate-pulse" />
+                            รอพิจารณา
+                          </span>
+                        ) : req.status === 'APPROVED' ? (
+                          <span className="bg-emerald-500/15 text-emerald-300 border border-emerald-400/40 px-2 py-0.5 rounded text-[10px] font-semibold">
+                            อนุมัติแล้ว
+                          </span>
+                        ) : req.status === 'REJECTED' ? (
+                          <span className="bg-red-500/15 text-red-300 border border-red-400/40 px-2 py-0.5 rounded text-[10px] font-semibold">
+                            ปฏิเสธแล้ว
+                          </span>
+                        ) : (
+                          <span className="bg-zinc-800 text-zinc-400 border border-zinc-700 px-2 py-0.5 rounded text-[10px] font-semibold">
+                            ยกเลิกแล้ว
+                          </span>
+                        )}
+                      </td>
+                      <td className="py-3 px-3 text-center">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleSelectReschedule(req);
+                          }}
+                          className="px-3 py-1 bg-[#171512] hover:bg-[#201D19] text-[#ECE4D3] hover:text-white border border-[#4A443A] hover:border-[#6A6256] text-xs font-semibold rounded-lg transition-colors inline-flex items-center space-x-1 cursor-pointer"
+                        >
+                          <span>พิจารณา</span>
+                          <ChevronRight size={12} />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Mobile Cards for Reschedule Requests */}
+            <div className="grid grid-cols-1 gap-3 md:hidden font-prompt">
+              {filteredReschedules.map((req) => (
+                <div
+                  key={req.id}
+                  onClick={() => handleSelectReschedule(req)}
+                  className="bg-[#0E0D0C] border border-[#4A443A] rounded-xl p-3.5 space-y-3 cursor-pointer hover:border-amber-500/50 transition-colors"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-[10px] font-mono text-[#AFA79A]">
+                      #{req.id.slice(0, 8).toUpperCase()}
+                    </span>
+                    {req.status === 'PENDING' ? (
+                      <span className="bg-amber-500/15 text-amber-300 border border-amber-400/40 px-2 py-0.5 rounded text-[10px] font-semibold inline-flex items-center gap-1">
+                        <Clock size={10} className="animate-pulse" />
+                        รอพิจารณา
+                      </span>
+                    ) : req.status === 'APPROVED' ? (
+                      <span className="bg-emerald-500/15 text-emerald-300 border border-emerald-400/40 px-2 py-0.5 rounded text-[10px] font-semibold">
+                        อนุมัติแล้ว
+                      </span>
+                    ) : req.status === 'REJECTED' ? (
+                      <span className="bg-red-500/15 text-red-300 border border-red-400/40 px-2 py-0.5 rounded text-[10px] font-semibold">
+                        ปฏิเสธแล้ว
+                      </span>
+                    ) : (
+                      <span className="bg-zinc-800 text-zinc-400 border border-zinc-700 px-2 py-0.5 rounded text-[10px] font-semibold">
+                        ยกเลิกแล้ว
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="flex justify-between items-start gap-2">
+                    <div>
+                      <div className="font-semibold text-sm text-[#ECE4D3]">
+                        {req.customer_name || 'ลูกค้า'}
+                      </div>
+                      {req.customer_phone && (
+                        <div className="text-[11px] text-[#AFA79A] font-mono">
+                          {req.customer_phone}
+                        </div>
+                      )}
+                    </div>
+                    <div className="text-right">
+                      <span className="text-[10px] text-[#AFA79A] block">ช่างสัก</span>
+                      <span className="text-xs font-medium text-[#ECE4D3]">{req.artist_name || 'ไม่ระบุ'}</span>
+                    </div>
+                  </div>
+
+                  <div className="bg-[#171512] rounded-lg p-2.5 border border-[#4A443A]/50 space-y-1.5 text-xs">
+                    <div className="flex justify-between items-center text-[11px]">
+                      <span className="text-[#AFA79A]">วันเดิม:</span>
+                      <span className="text-[#ECE4D3]">{formatDateBangkok(req.original_date)} · {req.original_start_time} น.</span>
+                    </div>
+                    <div className="flex justify-between items-center text-[11px]">
+                      <span className="text-amber-400 font-semibold">ขอเลื่อนเป็น:</span>
+                      <span className="text-amber-300 font-bold">{formatDateBangkok(req.requested_date)} · {req.requested_start_time} น.</span>
+                    </div>
+                    <div className="pt-1 border-t border-[#4A443A]/40 text-[11px]">
+                      <span className="text-[#AFA79A] block">เหตุผล:</span>
+                      <p className="text-[#ECE4D3] mt-0.5 italic">{req.reason}</p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between pt-1">
+                    <span className="text-[10px] text-[#AFA79A] font-mono">
+                      {formatDateBangkok(req.created_at)}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleSelectReschedule(req);
+                      }}
+                      className="px-3 py-1 bg-[#171512] hover:bg-[#201D19] text-[#ECE4D3] hover:text-white border border-[#4A443A] hover:border-[#6A6256] text-xs font-semibold rounded-lg transition-colors inline-flex items-center space-x-1 cursor-pointer"
+                    >
+                      <span>พิจารณา</span>
+                      <ChevronRight size={12} />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )
+      ) : filteredEstimates.length === 0 ? (
         <div className="py-12 text-center border border-dashed border-[#4A443A]/60 rounded-lg bg-[#0E0D0C]/40 space-y-2">
           <FileText size={28} className="text-[#AFA79A] mx-auto opacity-60" />
           <h4 className="text-xs sm:text-sm font-semibold text-[#ECE4D3]">ยังไม่มีคำขอจากลูกค้า</h4>

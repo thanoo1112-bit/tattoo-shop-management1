@@ -11,8 +11,9 @@ import { getThailandTodayStr, formatThaiDate } from '@/components/portal/portalU
 import { getTattooDurationInfo, isStartTimeAllowedForSize, STUDIO_OPERATING_HOURS } from '@/lib/utils/tattooDuration';
 import {
   RescheduleRequest,
-  RESCHEDULE_REQUESTS_PROTOTYPE_MODE,
-  createRescheduleRequest,
+  customerSubmitRescheduleRequest,
+  customerCancelRescheduleRequest,
+  fetchBookingRescheduleRequests,
   getLatestRescheduleRequest,
   getPendingRescheduleRequest,
   isRescheduleRequestUiEnabled,
@@ -52,6 +53,7 @@ function rangesToIntervals(ranges: BusyRange[], dateStr: string): { startMins: n
 }
 
 interface CurrentAppointment {
+  sessionId?: string | null;
   date: string;
   start: string;
   end: string;
@@ -80,7 +82,7 @@ function resolveCurrentAppointment(
         ? approvedReq.requested_end_time.slice(0, 5)
         : minsToHHMM(Math.min(STUDIO_OPERATING_HOURS.CLOSE_MINUTES, hhmmToMins(start) + durationMins));
     ownStartMs.push(new Date(`${approvedReq.requested_date}T${start}:00+07:00`).getTime());
-    return { date: approvedReq.requested_date, start, end, durationMins, ownStartMs };
+    return { sessionId: active?.id || null, date: approvedReq.requested_date, start, end, durationMins, ownStartMs };
   }
 
   if (active?.start_at) {
@@ -88,7 +90,7 @@ function resolveCurrentAppointment(
     const diff = active.end_at ? (new Date(active.end_at).getTime() - new Date(active.start_at).getTime()) / 60000 : 0;
     const durationMins = diff > 0 ? diff : info.blockingMinutes;
     const end = active.end_at ? bkkTimeStr(active.end_at) : minsToHHMM(Math.min(STUDIO_OPERATING_HOURS.CLOSE_MINUTES, hhmmToMins(start) + durationMins));
-    return { date: bkkDateStr(active.start_at), start, end, durationMins, ownStartMs };
+    return { sessionId: active.id || null, date: bkkDateStr(active.start_at), start, end, durationMins, ownStartMs };
   }
 
   if (booking.requested_date && booking.requested_start_time) {
@@ -96,7 +98,7 @@ function resolveCurrentAppointment(
     const durationMins = info.blockingMinutes;
     const end = minsToHHMM(Math.min(STUDIO_OPERATING_HOURS.CLOSE_MINUTES, hhmmToMins(start) + durationMins));
     ownStartMs.push(new Date(`${booking.requested_date}T${start}:00+07:00`).getTime());
-    return { date: booking.requested_date, start, end, durationMins, ownStartMs };
+    return { sessionId: null, date: booking.requested_date, start, end, durationMins, ownStartMs };
   }
   return null;
 }
@@ -119,6 +121,7 @@ export default function CustomerRescheduleRequestCard({ booking, artistName, isC
   const [latest, setLatest] = useState<RescheduleRequest | null>(() =>
     bookingId ? getLatestRescheduleRequest(bookingId) : null
   );
+  const [isCancelling, setIsCancelling] = useState(false);
   const lastRefreshedApprovalKeyRef = React.useRef<string | null>(null);
 
   const syncFromStore = useCallback(() => {
@@ -134,9 +137,27 @@ export default function CustomerRescheduleRequestCard({ booking, artistName, isC
   }, [bookingId]);
 
   useEffect(() => {
+    if (bookingId) {
+      fetchBookingRescheduleRequests(bookingId).then(() => syncFromStore()).catch(() => {});
+    }
     syncFromStore();
     return subscribeRescheduleRequests(syncFromStore);
-  }, [syncFromStore]);
+  }, [bookingId, syncFromStore]);
+
+  const handleCancelRequest = async () => {
+    if (!pending?.id) return;
+    if (!confirm('คุณต้องการยกเลิกคำขอเลื่อนนัดหมายนี้ใช่หรือไม่? วันนัดเดิมจะยังคงมีผลอยู่')) return;
+    try {
+      setIsCancelling(true);
+      await customerCancelRescheduleRequest(pending.id);
+      syncFromStore();
+      if (onRefresh) onRefresh();
+    } catch (err: any) {
+      alert(err?.message || 'ไม่สามารถยกเลิกคำขอได้');
+    } finally {
+      setIsCancelling(false);
+    }
+  };
 
   const activeRequest = pending || latest;
 
@@ -193,13 +214,24 @@ export default function CustomerRescheduleRequestCard({ booking, artistName, isC
               </div>
             </div>
             <p className="text-[11px] text-amber-200/90 font-light">ระหว่างรอการพิจารณา วันนัดเดิมยังคงมีผลอยู่</p>
-            <button
-              type="button"
-              disabled
-              className="w-full bg-[#1F1D1A] border border-[#4A443A] text-[#8C8479] py-2.5 rounded-[4px] text-xs font-semibold cursor-not-allowed"
-            >
-              ส่งคำขอเลื่อนแล้ว
-            </button>
+            <div className="flex gap-2 pt-1">
+              <button
+                type="button"
+                disabled
+                className="flex-1 bg-[#1F1D1A] border border-[#4A443A] text-[#8C8479] py-2.5 rounded-[4px] text-xs font-semibold cursor-not-allowed"
+              >
+                ส่งคำขอเลื่อนแล้ว
+              </button>
+              <button
+                type="button"
+                onClick={handleCancelRequest}
+                disabled={isCancelling}
+                className="px-3 bg-red-950/30 hover:bg-red-900/50 text-red-300 hover:text-red-200 border border-red-800/50 rounded-[4px] text-xs font-medium transition-colors cursor-pointer"
+                title="ยกเลิกคำขอเลื่อนนัด"
+              >
+                {isCancelling ? 'กำลังยกเลิก...' : 'ยกเลิกคำขอ'}
+              </button>
+            </div>
           </div>
         ) : (
           <>
@@ -309,6 +341,7 @@ function RescheduleModal({
   const [newTime, setNewTime] = useState('');
   const [reason, setReason] = useState('');
   const [error, setError] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [rawRanges, setRawRanges] = useState<BusyRange[]>([]);
   const artistId = booking.artist_id;
 
@@ -368,7 +401,7 @@ function RescheduleModal({
     [booking.width_cm, booking.height_cm, newDate, current.date, current.start, current.durationMins, intervals, todayStr, nowMins]
   );
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     if (!newDate) return setError('กรุณาเลือกวันที่ใหม่');
@@ -381,23 +414,23 @@ function RescheduleModal({
     if (!reason.trim()) return setError('กรุณาระบุเหตุผลในการขอเลื่อนนัด');
 
     try {
+      setIsSubmitting(true);
       const endMins = Math.min(STUDIO_OPERATING_HOURS.CLOSE_MINUTES, hhmmToMins(newTime) + current.durationMins);
-      const created = createRescheduleRequest({
-        booking_id: booking.id,
-        artist_id: artistId,
-        customer_name: customerName,
-        original_date: current.date,
-        original_start_time: current.start,
-        original_end_time: current.end,
-        requested_date: newDate,
-        requested_start_time: newTime,
-        requested_end_time: minsToHHMM(endMins),
+      const res = await customerSubmitRescheduleRequest({
+        bookingId: booking.id,
+        requestedDate: newDate,
+        requestedStartTime: newTime,
+        requestedEndTime: minsToHHMM(endMins),
         reason: reason.trim(),
-        requested_by: requestedBy,
+        sessionId: current.sessionId || null,
       });
-      onSubmitted(created);
+      if (res.request) {
+        onSubmitted(res.request);
+      }
     } catch (err: any) {
       setError(err?.message || 'ไม่สามารถส่งคำขอเลื่อนนัดได้ กรุณาลองใหม่อีกครั้ง');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -426,12 +459,6 @@ function RescheduleModal({
               ส่งคำขอให้ช่างสักหรือร้านพิจารณา วันนัดเดิมจะยังคงมีผลจนกว่าคำขอจะได้รับการอนุมัติ
             </p>
           </div>
-
-          {RESCHEDULE_REQUESTS_PROTOTYPE_MODE && (
-            <div className="bg-amber-950/30 border border-amber-800/50 rounded-[6px] p-2.5 text-[10px] text-amber-200 leading-relaxed">
-              โหมดต้นแบบ (Prototype): ระบบยังไม่ได้เชื่อมฐานข้อมูลสำหรับคำขอเลื่อนนัด คำขอจะถูกบันทึกในเบราว์เซอร์นี้เท่านั้นและยังไม่ถูกส่งถึงช่าง
-            </div>
-          )}
 
           {error && (
             <div className="bg-red-950/40 border border-red-900/60 p-3 rounded-[4px] flex items-start gap-2 text-[11px] text-red-400">
@@ -523,9 +550,10 @@ function RescheduleModal({
             </button>
             <button
               type="submit"
-              className="flex-[2] bg-studio-red hover:bg-studio-red/80 border border-studio-red text-white py-2.5 rounded-[4px] text-xs font-bold tracking-wider transition-all shadow-md shadow-studio-red/20"
+              disabled={isSubmitting}
+              className="flex-[2] bg-studio-red hover:bg-studio-red/80 disabled:opacity-50 border border-studio-red text-white py-2.5 rounded-[4px] text-xs font-bold tracking-wider transition-all shadow-md shadow-studio-red/20 cursor-pointer disabled:cursor-not-allowed"
             >
-              ส่งคำขอเลื่อนนัด
+              {isSubmitting ? 'กำลังส่งคำขอ...' : 'ส่งคำขอเลื่อนนัด'}
             </button>
           </div>
         </form>

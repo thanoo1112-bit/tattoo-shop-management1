@@ -7,10 +7,10 @@ import { BlockedDateRecord, checkDateAvailability } from '@/lib/availabilityUtil
 import { getTattooDurationInfo, STUDIO_OPERATING_HOURS } from '@/lib/utils/tattooDuration';
 import {
   RescheduleRequest,
-  RESCHEDULE_REQUESTS_PROTOTYPE_MODE,
+  fetchBookingRescheduleRequests,
   getPendingRescheduleRequest,
   isRescheduleRequestUiEnabled,
-  reviewRescheduleRequest,
+  staffReviewRescheduleRequest,
   subscribeRescheduleRequests,
 } from '@/lib/reschedule/rescheduleRequestStore';
 import { BookingItem, formatDateBangkok, formatDateTimeBangkok } from './types';
@@ -63,8 +63,22 @@ export default function BookingRescheduleRequestSection({
 
   useEffect(() => {
     syncFromStore();
-    return subscribeRescheduleRequests(syncFromStore);
-  }, [syncFromStore]);
+    let isMounted = true;
+    if (bookingId) {
+      fetchBookingRescheduleRequests({ bookingId })
+        .then((list) => {
+          if (!isMounted) return;
+          const pending = list.find((r) => r.status === 'PENDING') || null;
+          if (pending) setRequest(pending);
+        })
+        .catch(() => {});
+    }
+    const unsub = subscribeRescheduleRequests(syncFromStore);
+    return () => {
+      isMounted = false;
+      unsub();
+    };
+  }, [bookingId, syncFromStore]);
 
   if (!isRescheduleRequestUiEnabled() || !request || request.status !== 'PENDING') return null;
 
@@ -104,9 +118,37 @@ export default function BookingRescheduleRequestSection({
 
     setIsProcessing(true);
     try {
+      // 1. Try atomic database RPC (checks permissions, capacity, overlap and updates tables in one transaction)
+      try {
+        const rpcRes = await staffReviewRescheduleRequest({
+          requestId: request.id,
+          action: 'APPROVE',
+          reviewNote: null,
+        });
+        if (rpcRes.success) {
+          syncFromStore();
+          onApproved(rpcRes.message || 'อนุมัติคำขอเลื่อนนัดแล้ว');
+          return;
+        }
+      } catch (rpcErr: any) {
+        const msg = rpcErr?.message || '';
+        if (
+          msg.includes('โควตา') ||
+          msg.includes('ทับซ้อน') ||
+          msg.includes('ปิดรับคิว') ||
+          msg.includes('สิทธิ์') ||
+          msg.includes('สถานะ')
+        ) {
+          setErrorMsg(msg);
+          setIsProcessing(false);
+          return;
+        }
+        console.warn('[RescheduleRequest] RPC error, attempting fallback update:', rpcErr);
+      }
+
+      // 2. Fallback direct table updates
       const supabase = createClient();
 
-      // 1. Re-verify Studio & Artist blocked dates (fetch live if prop is empty)
       let effectiveBlockedDates: BlockedDateRecord[] = blockedDates;
       if (!effectiveBlockedDates || effectiveBlockedDates.length === 0) {
         const { data: liveBlocks } = await supabase
@@ -140,7 +182,6 @@ export default function BookingRescheduleRequestSection({
       const newStartMs = new Date(newStartIso).getTime();
       const newEndMs = new Date(newEndIso).getTime();
 
-      // 2. Re-verify artist daily capacity & strict time overlap on newDate (excluding this booking/session)
       const [{ data: dateBookings }, { data: dateSessions }] = await Promise.all([
         supabase
           .from('bookings')
@@ -171,7 +212,6 @@ export default function BookingRescheduleRequestSection({
         return;
       }
 
-      // Check time overlap against other active sessions on newDate (excluding targetSession being moved)
       for (const ses of dateSessions || []) {
         if (targetSession && ses.id === targetSession.id) continue;
         if (ses.booking_id === booking.id) continue;
@@ -191,8 +231,6 @@ export default function BookingRescheduleRequestSection({
         }
       }
 
-      // 3. Apply reschedule using SECURITY DEFINER RPCs (works identically for both Artist and Admin)
-      //    with direct table update fallback
       const reschedNote = targetSession?.note
         ? targetSession.note
         : `เลื่อนนัดตามคำขอลูกค้า: ${request.reason}`;
@@ -229,7 +267,6 @@ export default function BookingRescheduleRequestSection({
         }
       }
 
-      // Direct table fallback (for Admin or non-SCHEDULED session states)
       if (targetSession && !sessionUpdated) {
         const { error: updateErr } = await supabase
           .from('booking_sessions')
@@ -253,11 +290,19 @@ export default function BookingRescheduleRequestSection({
           .eq('id', booking.id);
       }
 
-      reviewRescheduleRequest(request.id, 'APPROVED', {
-        reviewed_by: reviewerId ?? null,
-      });
-      syncFromStore();
+      try {
+        await supabase
+          .from('booking_reschedule_requests')
+          .update({
+            status: 'APPROVED',
+            reviewed_by: reviewerId ?? null,
+            reviewed_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', request.id);
+      } catch (_) {}
 
+      syncFromStore();
       onApproved('อนุมัติคำขอเลื่อนนัดแล้ว');
     } catch (err: any) {
       console.error('[RescheduleRequest] Error approving reschedule:', err);
@@ -267,19 +312,53 @@ export default function BookingRescheduleRequestSection({
     }
   };
 
-  const handleReject = (e: React.FormEvent) => {
+  const handleReject = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!request || request.status !== 'PENDING') return;
     setErrorMsg(null);
-    reviewRescheduleRequest(request.id, 'REJECTED', {
-      reviewed_by: reviewerId ?? null,
-      review_note: rejectNote.trim() || null,
-    });
-    syncFromStore();
-    setShowRejectBox(false);
-    setRejectNote('');
-    if (onRejected) {
-      onRejected('ปฏิเสธคำขอเลื่อนนัดแล้ว (คงวันและเวลาเดิม)');
+    if (!rejectNote.trim()) {
+      setErrorMsg('กรุณาระบุเหตุผลในการปฏิเสธคำขอเลื่อนนัด');
+      return;
+    }
+    setIsProcessing(true);
+    try {
+      try {
+        await staffReviewRescheduleRequest({
+          requestId: request.id,
+          action: 'REJECT',
+          reviewNote: rejectNote.trim(),
+        });
+      } catch (err: any) {
+        const msg = err?.message || '';
+        if (msg.includes('กรุณาระบุเหตุผล')) {
+          setErrorMsg(msg);
+          setIsProcessing(false);
+          return;
+        }
+        console.warn('[RescheduleRequest] RPC error on reject, attempting fallback update:', err);
+        const supabase = createClient();
+        await supabase
+          .from('booking_reschedule_requests')
+          .update({
+            status: 'REJECTED',
+            review_note: rejectNote.trim(),
+            reviewed_by: reviewerId ?? null,
+            reviewed_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', request.id);
+      }
+      syncFromStore();
+      setShowRejectBox(false);
+      setRejectNote('');
+      if (onRejected) {
+        onRejected('ปฏิเสธคำขอเลื่อนนัดแล้ว (คงวันและเวลาเดิม)');
+      }
+    } catch (err: any) {
+      console.error('[RescheduleRequest] Error rejecting reschedule:', err);
+      setErrorMsg(err?.message || 'เกิดข้อผิดพลาดในการปฏิเสธคำขอ');
+    } finally {
+      setIsProcessing(false);
     }
   };
 
@@ -299,12 +378,6 @@ export default function BookingRescheduleRequestSection({
         </div>
         {statusBadge}
       </div>
-
-      {RESCHEDULE_REQUESTS_PROTOTYPE_MODE && (
-        <div className="bg-amber-950/30 border border-amber-800/40 rounded-lg px-2.5 py-1.5 text-[10px] text-amber-200/90">
-          โหมดต้นแบบ (Prototype): ข้อมูลคำขอเลื่อนนัดนี้อ่านจากเบราว์เซอร์ปัจจุบัน (localStorage)
-        </div>
-      )}
 
       <div className="bg-studio-sec/80 border border-studio-border rounded-lg p-3 space-y-2 text-xs">
         <div className="flex justify-between gap-3">
@@ -373,10 +446,11 @@ export default function BookingRescheduleRequestSection({
           ) : (
             <form onSubmit={handleReject} className="pt-2 border-t border-studio-border/50 space-y-2">
               <span className="text-[11px] text-red-300 font-semibold block">
-                ระบุหมายเหตุการปฏิเสธคำขอเลื่อนนัด (ถ้ามี)
+                ระบุหมายเหตุการปฏิเสธคำขอเลื่อนนัด (จำเป็น) *
               </span>
               <input
                 type="text"
+                required
                 value={rejectNote}
                 onChange={(e) => setRejectNote(e.target.value)}
                 placeholder="เช่น ช่างติดคิวอื่นในเวลาดังกล่าว กรุณาเลือกวันอื่น..."
@@ -395,7 +469,8 @@ export default function BookingRescheduleRequestSection({
                 </button>
                 <button
                   type="submit"
-                  className="px-3.5 py-1.5 bg-[#C12D2D] hover:bg-[#A82525] text-xs text-white rounded-lg font-semibold cursor-pointer"
+                  disabled={!rejectNote.trim() || isProcessing}
+                  className="px-3.5 py-1.5 bg-[#C12D2D] hover:bg-[#A82525] text-xs text-white rounded-lg font-semibold cursor-pointer disabled:opacity-50"
                 >
                   ยืนยันปฏิเสธคำขอ
                 </button>

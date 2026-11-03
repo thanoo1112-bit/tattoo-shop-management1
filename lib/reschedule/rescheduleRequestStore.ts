@@ -1,20 +1,21 @@
 /**
- * 157 TATTOO — Customer reschedule request store (FRONTEND PROTOTYPE).
- *
- * IMPORTANT: The database currently has NO table for reschedule requests, and this task
- * forbids schema/SQL/RPC changes. Requests are persisted in localStorage
- * (`157_reschedule_requests_prototype`) and synchronized across tabs/windows via
- * `storage` events, `BroadcastChannel`, and the local prototype endpoint
- * (`/api/prototype/reschedule-requests`).
+ * 157 TATTOO — Real Supabase Reschedule Request Service
+ * Backed by table: public.booking_reschedule_requests & security definer RPCs.
  */
 
-export type RescheduleRequestStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
+import { createClient } from '@/lib/supabase/client';
+
+export type RescheduleRequestStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELLED';
 
 export interface RescheduleRequest {
-  id: string; // reschedule_request_id
-  booking_id: string; // Full booking UUID (lowercase)
-  artist_id: string | null;
+  id: string; // UUID
+  booking_id: string; // UUID
+  session_id?: string | null;
+  customer_user_id: string;
+  artist_id: string;
   customer_name?: string | null;
+  customer_phone?: string | null;
+  artist_name?: string | null;
   original_date: string; // YYYY-MM-DD (Asia/Bangkok)
   original_start_time: string; // HH:MM
   original_end_time?: string | null; // HH:MM
@@ -28,409 +29,359 @@ export interface RescheduleRequest {
   reviewed_at?: string | null;
   review_note?: string | null;
   created_at: string;
+  updated_at?: string;
+  booking?: any;
 }
 
-export const STORAGE_KEY = '157_reschedule_requests_prototype';
 const CHANGE_EVENT = '157-reschedule-requests-changed';
-const BROADCAST_CHANNEL_NAME = '157_reschedule_requests_channel';
-const SYNC_ENDPOINT = '/api/prototype/reschedule-requests';
+export const LEGACY_STORAGE_KEY = '157_reschedule_requests_prototype';
 
-const INITIAL_PROTOTYPE_SEED: RescheduleRequest = {
-  id: 'rr_mvaixyp1_5xifcv',
-  booking_id: 'ffa5b820-d249-43bd-8792-3a2cf979f2d4',
-  artist_id: 'd5af5064-d973-4bbb-b205-1ab6b2929abb',
-  customer_name: 'ต้นกล้า อามอ',
-  original_date: '2026-10-16',
-  original_start_time: '15:20',
-  original_end_time: '17:20',
-  requested_date: '2026-10-20',
-  requested_start_time: '17:00',
-  requested_end_time: '19:00',
-  reason: 'ไม่สะดวกขอเลื่อน',
-  status: 'PENDING',
-  requested_by: '07cab141-a788-47aa-926a-1cbf7988fbf9',
-  reviewed_by: null,
-  reviewed_at: null,
-  review_note: null,
-  created_at: '2026-10-16T05:25:41.989Z',
-};
-
-/** Prototype UI is enabled by default for local evaluation unless explicitly disabled. */
-export function isRescheduleRequestUiEnabled(): boolean {
-  return process.env.NEXT_PUBLIC_RESCHEDULE_PROTOTYPE !== 'off';
+// Safe one-time cleanup of legacy prototype localStorage key
+if (typeof window !== 'undefined') {
+  try {
+    window.localStorage.removeItem(LEGACY_STORAGE_KEY);
+  } catch (_) {}
 }
 
-/** True while requests are stored locally (no database table yet). */
-export const RESCHEDULE_REQUESTS_PROTOTYPE_MODE = true;
+/** Feature is enabled in all environments by default unless explicitly disabled with NEXT_PUBLIC_RESCHEDULE_ENABLED=off */
+export function isRescheduleRequestUiEnabled(): boolean {
+  return process.env.NEXT_PUBLIC_RESCHEDULE_ENABLED !== 'off';
+}
+
+/** Reschedule requests are now backed by real Supabase tables */
+export const RESCHEDULE_REQUESTS_PROTOTYPE_MODE = false;
 
 export function normalizeBookingUuid(id?: string | null): string {
   return String(id || '').trim().toLowerCase();
 }
 
-function normalizeStatus(status?: string | null): RescheduleRequestStatus {
-  const s = String(status || 'PENDING').trim().toUpperCase();
-  if (s === 'APPROVED') return 'APPROVED';
-  if (s === 'REJECTED') return 'REJECTED';
-  return 'PENDING';
-}
-
-function normalizeRecord(raw: any): RescheduleRequest | null {
-  if (!raw || typeof raw !== 'object') return null;
-  const bookingId = normalizeBookingUuid(raw.booking_id ?? raw.bookingId);
-  if (!bookingId) return null;
-  const status = normalizeStatus(raw.status);
-  return {
-    id: String(raw.id || `rr_${Date.now().toString(36)}`),
-    booking_id: bookingId,
-    artist_id: raw.artist_id ?? raw.artistId ?? null,
-    customer_name: raw.customer_name ?? raw.customerName ?? null,
-    original_date: String(raw.original_date ?? raw.originalDate ?? ''),
-    original_start_time: String(raw.original_start_time ?? raw.originalStartTime ?? '').slice(0, 5),
-    original_end_time: raw.original_end_time
-      ? String(raw.original_end_time).slice(0, 5)
-      : raw.originalEndTime
-      ? String(raw.originalEndTime).slice(0, 5)
-      : null,
-    requested_date: String(raw.requested_date ?? raw.requestedDate ?? ''),
-    requested_start_time: String(raw.requested_start_time ?? raw.requestedStartTime ?? '').slice(0, 5),
-    requested_end_time: raw.requested_end_time
-      ? String(raw.requested_end_time).slice(0, 5)
-      : raw.requestedEndTime
-      ? String(raw.requestedEndTime).slice(0, 5)
-      : null,
-    reason: String(raw.reason ?? ''),
-    status,
-    requested_by: raw.requested_by ?? raw.requestedBy ?? null,
-    reviewed_by: status === 'PENDING' ? null : (raw.reviewed_by ?? raw.reviewedBy ?? null),
-    reviewed_at: status === 'PENDING' ? null : (raw.reviewed_at ?? raw.reviewedAt ?? null),
-    review_note: status === 'PENDING' ? null : (raw.review_note ?? raw.reviewNote ?? null),
-    created_at: String(raw.created_at ?? raw.createdAt ?? new Date().toISOString()),
-  };
-}
-
-function mergeSameIdRecord(existing: RescheduleRequest, incoming: RescheduleRequest): RescheduleRequest {
-  const exReviewed = existing.status === 'APPROVED' || existing.status === 'REJECTED';
-  const incReviewed = incoming.status === 'APPROVED' || incoming.status === 'REJECTED';
-
-  if (exReviewed && !incReviewed) return existing;
-  if (!exReviewed && incReviewed) return incoming;
-  if (exReviewed && incReviewed) {
-    const exTime = String(existing.reviewed_at || '');
-    const incTime = String(incoming.reviewed_at || '');
-    return incTime >= exTime ? incoming : existing;
-  }
-  return incoming;
-}
-
-export function mergeRescheduleRequestLists(
-  baseList: RescheduleRequest[],
-  incomingList: RescheduleRequest[]
-): RescheduleRequest[] {
-  const byId = new Map<string, RescheduleRequest>();
-
-  for (const raw of baseList) {
-    const item = normalizeRecord(raw);
-    if (item) byId.set(item.id, item);
-  }
-
-  for (const raw of incomingList) {
-    const item = normalizeRecord(raw);
-    if (!item) continue;
-    const prev = byId.get(item.id);
-    byId.set(item.id, prev ? mergeSameIdRecord(prev, item) : item);
-  }
-
-  const byBooking = new Map<string, RescheduleRequest[]>();
-  for (const item of Array.from(byId.values())) {
-    const bId = normalizeBookingUuid(item.booking_id);
-    const arr = byBooking.get(bId) || [];
-    arr.push(item);
-    byBooking.set(bId, arr);
-  }
-
-  const finalItems: RescheduleRequest[] = [];
-
-  for (const [, group] of Array.from(byBooking.entries())) {
-    if (group.length === 1) {
-      finalItems.push(group[0]);
-      continue;
-    }
-
-    const reviewedRecords = group
-      .filter((r: RescheduleRequest) => r.status === 'APPROVED' || r.status === 'REJECTED')
-      .sort((a: RescheduleRequest, b: RescheduleRequest) => (String(a.reviewed_at || '') < String(b.reviewed_at || '') ? 1 : -1));
-    const latestReviewed = reviewedRecords[0] || null;
-
-    const nonSeedItems = group.filter((r: RescheduleRequest) => r.id !== 'rr_seed_ffa5b820');
-    const candidates = nonSeedItems.length > 0 ? nonSeedItems : group;
-
-    for (const item of candidates) {
-      if (item.status === 'PENDING' && latestReviewed) {
-        const itemCreated = String(item.created_at || '');
-        const revAt = String(latestReviewed.reviewed_at || '');
-        const sameTargetSlot =
-          item.requested_date === latestReviewed.requested_date &&
-          item.requested_start_time === latestReviewed.requested_start_time;
-
-        if ((revAt && itemCreated <= revAt) || (sameTargetSlot && (!revAt || itemCreated <= revAt))) {
-          if (!candidates.some((c: RescheduleRequest) => c.id === latestReviewed.id)) {
-            finalItems.push({
-              ...item,
-              status: latestReviewed.status,
-              reviewed_by: latestReviewed.reviewed_by,
-              reviewed_at: latestReviewed.reviewed_at,
-              review_note: latestReviewed.review_note,
-            });
-          }
-          continue;
-        }
-      }
-      finalItems.push(item);
-    }
-  }
-
-  return finalItems.sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
-}
+// In-memory cache for synchronous component access (e.g., calendar cells and badges)
+const memoryCache = new Map<string, RescheduleRequest>();
+let isInitialized = false;
+let realtimeChannel: any = null;
 
 function broadcastChange() {
   if (typeof window === 'undefined') return;
   try {
     window.dispatchEvent(new Event(CHANGE_EVENT));
   } catch (_) {}
-  try {
-    if (typeof BroadcastChannel !== 'undefined') {
-      const bc = new BroadcastChannel(BROADCAST_CHANNEL_NAME);
-      bc.postMessage({ type: CHANGE_EVENT, ts: Date.now() });
-      bc.close();
-    }
-  } catch (_) {}
 }
 
+export function normalizeRescheduleRecord(raw: any): RescheduleRequest | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const bookingId = normalizeBookingUuid(raw.booking_id ?? raw.bookingId);
+  if (!bookingId) return null;
+
+  const rawStatus = String(raw.status || 'PENDING').trim().toUpperCase();
+  const status: RescheduleRequestStatus =
+    rawStatus === 'APPROVED' ? 'APPROVED' : rawStatus === 'REJECTED' ? 'REJECTED' : rawStatus === 'CANCELLED' ? 'CANCELLED' : 'PENDING';
+
+  return {
+    id: String(raw.id),
+    booking_id: bookingId,
+    session_id: raw.session_id ?? raw.sessionId ?? null,
+    customer_user_id: String(raw.customer_user_id ?? raw.customerUserId ?? raw.requested_by ?? ''),
+    artist_id: String(raw.artist_id ?? raw.artistId ?? ''),
+    customer_name: raw.customer_name ?? raw.customerName ?? null,
+    customer_phone: raw.customer_phone ?? raw.customerPhone ?? null,
+    artist_name: raw.artist_name ?? raw.artistName ?? null,
+    original_date: String(raw.original_date ?? raw.originalDate ?? ''),
+    original_start_time: String(raw.original_start_time ?? raw.originalStartTime ?? '').slice(0, 5),
+    original_end_time: raw.original_end_time ? String(raw.original_end_time).slice(0, 5) : null,
+    requested_date: String(raw.requested_date ?? raw.requestedDate ?? ''),
+    requested_start_time: String(raw.requested_start_time ?? raw.requestedStartTime ?? '').slice(0, 5),
+    requested_end_time: raw.requested_end_time ? String(raw.requested_end_time).slice(0, 5) : null,
+    reason: String(raw.reason ?? ''),
+    status,
+    requested_by: raw.requested_by ?? raw.customer_user_id ?? null,
+    reviewed_by: raw.reviewed_by ?? null,
+    reviewed_at: raw.reviewed_at ?? null,
+    review_note: raw.review_note ?? null,
+    created_at: String(raw.created_at ?? raw.createdAt ?? new Date().toISOString()),
+    updated_at: raw.updated_at ? String(raw.updated_at) : undefined,
+    booking: raw.booking ?? raw.bookings ?? null,
+  };
+}
+
+/** Read all cached reschedule requests */
 export function readAll(): RescheduleRequest[] {
-  if (typeof window === 'undefined') return [];
-  try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    const parsed = raw ? JSON.parse(raw) : [];
-    const list: RescheduleRequest[] = Array.isArray(parsed)
-      ? mergeRescheduleRequestLists([], parsed.map(normalizeRecord).filter(Boolean) as RescheduleRequest[])
-      : [];
-
-    const hasSeedBooking = list.some(
-      (r) => normalizeBookingUuid(r.booking_id) === INITIAL_PROTOTYPE_SEED.booking_id
-    );
-    if (!hasSeedBooking) {
-      const seeded = [INITIAL_PROTOTYPE_SEED, ...list];
-      try {
-        window.localStorage.setItem(STORAGE_KEY, JSON.stringify(seeded));
-      } catch (_) {}
-      return seeded;
-    }
-
-    return list;
-  } catch (_) {
-    return [INITIAL_PROTOTYPE_SEED];
-  }
+  return Array.from(memoryCache.values()).sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
 }
 
-function writeAll(list: RescheduleRequest[], syncServer: boolean = true, forceReplaceIds?: string[]) {
-  if (typeof window === 'undefined') return;
-  const normalized = mergeRescheduleRequestLists([], list);
-  try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(normalized));
-  } catch (_) {}
-  broadcastChange();
-
-  if (syncServer) {
-    fetch(SYNC_ENDPOINT, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ items: normalized, forceReplaceIds }),
-      cache: 'no-store',
-    }).catch(() => {});
-  }
-}
-
-/**
- * Hydrate & synchronize localStorage with the local prototype endpoint so that
- * Customer and Artist/Admin views stay in sync across tabs/windows without overwriting
- * reviewed statuses (APPROVED / REJECTED) with stale PENDING copies.
- */
-export async function hydrateRescheduleRequests(): Promise<RescheduleRequest[]> {
-  if (typeof window === 'undefined') return [];
-  const localList = readAll();
-
-  try {
-    // 1. Pull authoritative server state first via GET
-    const getRes = await fetch(SYNC_ENDPOINT, {
-      method: 'GET',
-      cache: 'no-store',
-    });
-    if (!getRes.ok) return localList;
-    const getData = await getRes.json();
-    const serverItems: RescheduleRequest[] = Array.isArray(getData?.items)
-      ? (getData.items.map(normalizeRecord).filter(Boolean) as RescheduleRequest[])
-      : [];
-
-    // 2. Conflict-free merge: reviewed statuses (APPROVED/REJECTED) always win over stale PENDING
-    const merged = mergeRescheduleRequestLists(serverItems, localList);
-
-    const currentLocalRaw = window.localStorage.getItem(STORAGE_KEY);
-    const mergedRaw = JSON.stringify(merged);
-    if (currentLocalRaw !== mergedRaw) {
-      window.localStorage.setItem(STORAGE_KEY, mergedRaw);
-      broadcastChange();
-    }
-
-    // 3. Only push back to server if merged contains new/updated records not yet on server
-    const serverRaw = JSON.stringify(mergeRescheduleRequestLists([], serverItems));
-    if (serverRaw !== mergedRaw) {
-      fetch(SYNC_ENDPOINT, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ items: merged }),
-        cache: 'no-store',
-      }).catch(() => {});
-    }
-
-    return merged;
-  } catch (_) {}
-
-  return localList;
-}
-
-/** Subscribe to changes (same tab + other tabs + window focus + periodic sync). Returns unsubscribe. */
-export function subscribeRescheduleRequests(cb: () => void): () => void {
-  if (typeof window === 'undefined') return () => {};
-
-  const onStorage = (e: StorageEvent) => {
-    if (!e.key || e.key === STORAGE_KEY) cb();
-  };
-
-  const onFocusOrVisible = () => {
-    if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
-    hydrateRescheduleRequests().then(() => cb()).catch(() => cb());
-  };
-
-  let bc: BroadcastChannel | null = null;
-  try {
-    if (typeof BroadcastChannel !== 'undefined') {
-      bc = new BroadcastChannel(BROADCAST_CHANNEL_NAME);
-      bc.onmessage = () => cb();
-    }
-  } catch (_) {}
-
-  window.addEventListener(CHANGE_EVENT, cb);
-  window.addEventListener('storage', onStorage);
-  window.addEventListener('focus', onFocusOrVisible);
-  document.addEventListener('visibilitychange', onFocusOrVisible);
-
-  // Initial hydration on mount
-  hydrateRescheduleRequests().then(() => cb()).catch(() => {});
-
-  // Lightweight periodic sync while tab is visible so side-by-side windows sync without focus clicks
-  const intervalId = window.setInterval(() => {
-    if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
-    hydrateRescheduleRequests().then(() => cb()).catch(() => {});
-  }, 2500);
-
-  return () => {
-    window.clearInterval(intervalId);
-    window.removeEventListener(CHANGE_EVENT, cb);
-    window.removeEventListener('storage', onStorage);
-    window.removeEventListener('focus', onFocusOrVisible);
-    document.removeEventListener('visibilitychange', onFocusOrVisible);
-    if (bc) {
-      try {
-        bc.close();
-      } catch (_) {}
-    }
-  };
-}
-
-export function getRescheduleRequestsForBooking(bookingId: string): RescheduleRequest[] {
-  const target = normalizeBookingUuid(bookingId);
-  if (!target) return [];
-  return readAll()
-    .filter((r) => normalizeBookingUuid(r.booking_id) === target)
-    .sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
-}
-
+/** Get pending request for a specific booking ID from cache */
 export function getPendingRescheduleRequest(bookingId: string): RescheduleRequest | null {
-  return (
-    getRescheduleRequestsForBooking(bookingId).find((r) => r.status === 'PENDING') || null
-  );
+  const target = normalizeBookingUuid(bookingId);
+  if (!target) return null;
+  return Array.from(memoryCache.values()).find((r) => r.booking_id === target && r.status === 'PENDING') || null;
 }
 
+/** Get latest request for a booking ID from cache (prioritizing PENDING) */
 export function getLatestRescheduleRequest(bookingId: string): RescheduleRequest | null {
-  const list = getRescheduleRequestsForBooking(bookingId);
-  // Always prioritize an active PENDING request if one exists for this booking
+  const target = normalizeBookingUuid(bookingId);
+  if (!target) return null;
+  const list = Array.from(memoryCache.values())
+    .filter((r) => r.booking_id === target)
+    .sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
   return list.find((r) => r.status === 'PENDING') || list[0] || null;
 }
 
-export type CreateRescheduleRequestInput = Omit<
-  RescheduleRequest,
-  'id' | 'status' | 'created_at' | 'reviewed_by' | 'reviewed_at' | 'review_note'
->;
+/** Fetch reschedule requests from Supabase and update cache (flexible filter) */
+export async function fetchBookingRescheduleRequests(
+  filter?: string | { bookingId?: string; artistId?: string; status?: RescheduleRequestStatus }
+): Promise<RescheduleRequest[]> {
+  const bookingId = typeof filter === 'string' ? filter : filter?.bookingId;
+  const artistId = typeof filter === 'object' ? filter?.artistId : undefined;
+  const status = typeof filter === 'object' ? filter?.status : undefined;
 
-export function createRescheduleRequest(input: CreateRescheduleRequestInput): RescheduleRequest {
-  const targetBookingId = normalizeBookingUuid(input.booking_id);
-  const all = readAll().filter(
-    (r) => !(r.id === 'rr_seed_ffa5b820' && normalizeBookingUuid(r.booking_id) === targetBookingId)
-  );
-  if (all.some((r) => normalizeBookingUuid(r.booking_id) === targetBookingId && r.status === 'PENDING')) {
-    throw new Error('มีคำขอเลื่อนนัดที่กำลังรอพิจารณาอยู่แล้ว');
+  try {
+    const supabase = createClient();
+    let query = supabase
+      .from('booking_reschedule_requests')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (bookingId) {
+      const target = normalizeBookingUuid(bookingId);
+      if (target) query = query.eq('booking_id', target);
+    }
+    if (artistId) {
+      query = query.eq('artist_id', artistId);
+    }
+    if (status) {
+      query = query.eq('status', status);
+    }
+
+    const { data, error } = await query;
+    if (error || !data) return [];
+
+    const items: RescheduleRequest[] = [];
+    for (const raw of data) {
+      const rec = normalizeRescheduleRecord(raw);
+      if (rec) {
+        memoryCache.set(rec.id, rec);
+        items.push(rec);
+      }
+    }
+    broadcastChange();
+    return items;
+  } catch (err) {
+    console.error('[RescheduleStore] Error fetching requests:', err);
+    return [];
   }
-  const created: RescheduleRequest = {
-    ...input,
-    booking_id: targetBookingId,
-    id: `rr_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`,
-    status: 'PENDING',
-    created_at: new Date().toISOString(),
-    reviewed_by: null,
-    reviewed_at: null,
-    review_note: null,
-  };
-  writeAll([created, ...all], true, [created.id]);
-  return created;
 }
 
-export function reviewRescheduleRequest(
-  id: string,
-  status: Exclude<RescheduleRequestStatus, 'PENDING'>,
-  reviewer: { reviewed_by?: string | null; review_note?: string | null }
-): RescheduleRequest | null {
-  const all = readAll();
-  const targetRecord = all.find((r) => r.id === id);
-  const targetBookingId = targetRecord ? normalizeBookingUuid(targetRecord.booking_id) : null;
-  const reviewedAt = new Date().toISOString();
-  const nextStatus = normalizeStatus(status) as Exclude<RescheduleRequestStatus, 'PENDING'>;
+/** Fetch all active/pending reschedule requests from Supabase */
+export async function hydrateRescheduleRequests(): Promise<RescheduleRequest[]> {
+  try {
+    const supabase = createClient();
+    const { data, error } = await supabase
+      .from('booking_reschedule_requests')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(200);
 
-  let updated: RescheduleRequest | null = null;
-  const forceIds: string[] = [];
+    if (error || !data) return readAll();
 
-  const next = all.map((r) => {
-    const isTargetId = r.id === id;
-    const isSameBookingPending =
-      targetBookingId && normalizeBookingUuid(r.booking_id) === targetBookingId && r.status === 'PENDING';
-
-    if (!isTargetId && !isSameBookingPending) return r;
-
-    const revItem: RescheduleRequest = {
-      ...r,
-      status: nextStatus,
-      reviewed_by: reviewer.reviewed_by ?? null,
-      reviewed_at: reviewedAt,
-      review_note: reviewer.review_note ?? null,
-    };
-    forceIds.push(revItem.id);
-    if (isTargetId || !updated) {
-      updated = revItem;
+    memoryCache.clear();
+    const list: RescheduleRequest[] = [];
+    for (const raw of data) {
+      const rec = normalizeRescheduleRecord(raw);
+      if (rec) {
+        memoryCache.set(rec.id, rec);
+        list.push(rec);
+      }
     }
-    return revItem;
+    isInitialized = true;
+    broadcastChange();
+    return list;
+  } catch (err) {
+    console.error('[RescheduleStore] Error hydrating reschedule requests:', err);
+    return readAll();
+  }
+}
+
+/** Submit customer reschedule request via Supabase RPC */
+export async function customerSubmitRescheduleRequest(params: {
+  bookingId: string;
+  requestedDate: string;
+  requestedStartTime: string;
+  requestedEndTime?: string | null;
+  reason: string;
+  sessionId?: string | null;
+}): Promise<{ success: boolean; message?: string; request?: RescheduleRequest }> {
+  const supabase = createClient();
+  const { data, error } = await supabase.rpc('customer_submit_reschedule_request', {
+    p_booking_id: params.bookingId,
+    p_requested_date: params.requestedDate,
+    p_requested_start_time: params.requestedStartTime,
+    p_requested_end_time: params.requestedEndTime || null,
+    p_reason: params.reason,
+    p_session_id: params.sessionId || null,
   });
 
-  if (updated) {
-    writeAll(next, true, forceIds);
+  if (error) {
+    throw new Error(error.message || 'เกิดข้อผิดพลาดในการส่งคำขอเลื่อนนัด');
   }
-  return updated;
+
+  const rawReq = data?.request;
+  const normalized = normalizeRescheduleRecord(rawReq);
+  if (normalized) {
+    memoryCache.set(normalized.id, normalized);
+    broadcastChange();
+  }
+
+  return {
+    success: Boolean(data?.success),
+    message: data?.message,
+    request: normalized || undefined,
+  };
+}
+
+/** Legacy alias for backwards compatibility */
+export const createRescheduleRequest = (input: any): RescheduleRequest => {
+  // Synchronous stub for backward compat if synchronous caller remains
+  const normalized = normalizeRescheduleRecord({
+    ...input,
+    id: `rr_${Date.now()}`,
+    status: 'PENDING',
+    created_at: new Date().toISOString(),
+  });
+  if (normalized) {
+    memoryCache.set(normalized.id, normalized);
+    broadcastChange();
+    // Fire async RPC in background
+    customerSubmitRescheduleRequest({
+      bookingId: input.booking_id,
+      requestedDate: input.requested_date,
+      requestedStartTime: input.requested_start_time,
+      requestedEndTime: input.requested_end_time,
+      reason: input.reason,
+      sessionId: input.session_id,
+    }).catch(console.error);
+    return normalized;
+  }
+  throw new Error('Invalid input');
+};
+
+/** Cancel customer's own pending reschedule request via RPC */
+export async function customerCancelRescheduleRequest(
+  requestId: string
+): Promise<{ success: boolean; message?: string }> {
+  const supabase = createClient();
+  const { data, error } = await supabase.rpc('customer_cancel_reschedule_request', {
+    p_reschedule_request_id: requestId,
+  });
+
+  if (error) {
+    throw new Error(error.message || 'เกิดข้อผิดพลาดในการยกเลิกคำขอเลื่อนนัด');
+  }
+
+  const existing = memoryCache.get(requestId);
+  if (existing) {
+    existing.status = 'CANCELLED';
+    memoryCache.set(requestId, existing);
+    broadcastChange();
+  }
+
+  return {
+    success: Boolean(data?.success),
+    message: data?.message,
+  };
+}
+
+/** Staff (Admin / Assigned Artist) review reschedule request via RPC */
+export async function staffReviewRescheduleRequest(params: {
+  requestId: string;
+  action: 'APPROVE' | 'REJECT';
+  reviewNote?: string | null;
+}): Promise<{ success: boolean; message?: string; action?: string; new_date?: string; new_start_time?: string }> {
+  const supabase = createClient();
+  const { data, error } = await supabase.rpc('staff_review_reschedule_request', {
+    p_reschedule_request_id: params.requestId,
+    p_action: params.action,
+    p_review_note: params.reviewNote || null,
+  });
+
+  if (error) {
+    throw new Error(error.message || 'เกิดข้อผิดพลาดในการพิจารณาคำขอเลื่อนนัด');
+  }
+
+  const existing = memoryCache.get(params.requestId);
+  if (existing) {
+    existing.status = params.action === 'APPROVE' ? 'APPROVED' : 'REJECTED';
+    existing.review_note = params.reviewNote || null;
+    existing.reviewed_at = new Date().toISOString();
+    memoryCache.set(params.requestId, existing);
+    broadcastChange();
+  }
+
+  return {
+    success: Boolean(data?.success),
+    message: data?.message,
+    action: data?.action,
+    new_date: data?.new_date,
+    new_start_time: data?.new_start_time,
+  };
+}
+
+/** Legacy alias for backwards compatibility with existing components */
+export const reviewRescheduleRequest = (
+  id: string,
+  status: 'APPROVED' | 'REJECTED',
+  reviewer: { reviewed_by?: string | null; review_note?: string | null }
+): RescheduleRequest | null => {
+  const existing = memoryCache.get(id);
+  if (existing) {
+    existing.status = status;
+    existing.review_note = reviewer.review_note ?? null;
+    existing.reviewed_by = reviewer.reviewed_by ?? null;
+    existing.reviewed_at = new Date().toISOString();
+    memoryCache.set(id, existing);
+    broadcastChange();
+
+    staffReviewRescheduleRequest({
+      requestId: id,
+      action: status === 'APPROVED' ? 'APPROVE' : 'REJECT',
+      reviewNote: reviewer.review_note,
+    }).catch(console.error);
+
+    return existing;
+  }
+  return null;
+};
+
+/** Subscribe to changes (window event + Supabase realtime channel) */
+export function subscribeRescheduleRequests(cb: () => void): () => void {
+  if (typeof window === 'undefined') return () => {};
+
+  window.addEventListener(CHANGE_EVENT, cb);
+
+  if (!isInitialized) {
+    hydrateRescheduleRequests().then(cb).catch(() => {});
+  }
+
+  // Setup Supabase Realtime channel once
+  const supabase = createClient();
+  if (!realtimeChannel) {
+    realtimeChannel = supabase
+      .channel('reschedule_requests_realtime_sync')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'booking_reschedule_requests' },
+        (payload: any) => {
+          const newRec = normalizeRescheduleRecord(payload.new);
+          if (newRec) {
+            memoryCache.set(newRec.id, newRec);
+          } else if (payload.eventType === 'DELETE' && payload.old?.id) {
+            memoryCache.delete(payload.old.id);
+          }
+          broadcastChange();
+        }
+      )
+      .subscribe();
+  }
+
+  return () => {
+    window.removeEventListener(CHANGE_EVENT, cb);
+  };
 }

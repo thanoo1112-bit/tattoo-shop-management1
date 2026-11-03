@@ -1001,6 +1001,8 @@ export default function AdminRequestsPage({ defaultTab = 'estimates' }: AdminReq
         onCheckSlip={handleOpenCheckSlip}
         onDeleteRequest={handleOpenDeleteModal}
         initialFilter={estimateFilter}
+        bookings={bookings}
+        onSelectBooking={setSelectedBooking}
       />
 
       {/* Estimate Detail Panel */}

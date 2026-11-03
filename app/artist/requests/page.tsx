@@ -7,6 +7,13 @@ import ArtistHeader from '../../../components/artist/ArtistHeader';
 import ArtistMobileNav from '../../../components/artist/ArtistMobileNav';
 import ArtistRequestDetailDrawer, { ArtistPendingEstimateDetail } from '../../../components/artist/ArtistRequestDetailDrawer';
 import ArtistPaymentReviewDrawer from '../../../components/artist/ArtistPaymentReviewDrawer';
+import ArtistAppointmentDetailDrawer, { ArtistSessionDetail } from '../../../components/artist/ArtistAppointmentDetailDrawer';
+import {
+  RescheduleRequest,
+  fetchBookingRescheduleRequests,
+  subscribeRescheduleRequests,
+} from '@/lib/reschedule/rescheduleRequestStore';
+import { CalendarClock, Clock } from 'lucide-react';
 import CustomerReferenceImage from '@/components/common/CustomerReferenceImage';
 import PaymentSlipImage from '@/components/common/PaymentSlipImage';
 import PaymentSlipLightbox from '@/components/common/PaymentSlipLightbox';
@@ -55,7 +62,7 @@ export default function ArtistRequestsPage() {
   const supabase = createClient();
 
   const [loading, setLoading] = useState(true);
-  const [requestFilter, setRequestFilter] = useState<'ALL' | 'PENDING_SLIP' | 'NEW' | 'WAITING_DEPOSIT' | 'REJECTED' | 'CANCELLED_CUSTOMER' | 'EXPIRED'>('ALL');
+  const [requestFilter, setRequestFilter] = useState<'ALL' | 'PENDING_SLIP' | 'NEW' | 'WAITING_DEPOSIT' | 'RESCHEDULE' | 'REJECTED' | 'CANCELLED_CUSTOMER' | 'EXPIRED'>('ALL');
   const [allArtistRequests, setAllArtistRequests] = useState<any[]>([]);
   const [bookingsMap, setBookingsMap] = useState<Map<string, any>>(new Map());
   const [customersMap, setCustomersMap] = useState<Map<string, any>>(new Map());
@@ -69,6 +76,9 @@ export default function ArtistRequestsPage() {
   const [isRequestDrawerOpen, setIsRequestDrawerOpen] = useState(false);
   const [selectedPaymentReviewSub, setSelectedPaymentReviewSub] = useState<any | null>(null);
   const [activeLightboxSlipPath, setActiveLightboxSlipPath] = useState<string | null>(null);
+  const [artistRescheduleRequests, setArtistRescheduleRequests] = useState<RescheduleRequest[]>([]);
+  const [selectedRescheduleSession, setSelectedRescheduleSession] = useState<ArtistSessionDetail | null>(null);
+  const [isRescheduleDrawerOpen, setIsRescheduleDrawerOpen] = useState(false);
 
   const isAuthorized = Boolean(
     isStaffLoggedIn && (staffRole === 'ARTIST' || (staffRole === 'ADMIN' && staffArtistId))
@@ -187,6 +197,14 @@ export default function ArtistRequestsPage() {
         setFlashReservationsMap(frMap);
       }
       setPendingSubmissions(pSubmissions);
+
+      // 5b. Fetch Reschedule Requests assigned to staffArtistId
+      try {
+        const reschedList = await fetchBookingRescheduleRequests({ artistId: staffArtistId });
+        setArtistRescheduleRequests(reschedList);
+      } catch (rErr) {
+        console.error('Error fetching artist reschedule requests:', rErr);
+      }
 
       // 6. Map Operational Status for Custom & Flash Requests
       const estItems = (allEstData || []).map((est: any) => {
@@ -405,6 +423,26 @@ export default function ArtistRequestsPage() {
   }, [isAuthorized, staffArtistId, fetchArtistRequests]);
 
   // Compute status counts
+  const reschedulePendingCount = useMemo(() => {
+    return artistRescheduleRequests.filter((r) => r.status === 'PENDING').length;
+  }, [artistRescheduleRequests]);
+
+  const handleOpenRescheduleReview = (req: RescheduleRequest) => {
+    const sessionDetail: ArtistSessionDetail = {
+      session_id: req.session_id || req.booking_id,
+      booking_id: req.booking_id,
+      session_number: 1,
+      start_at: `${req.requested_date}T${req.requested_start_time}:00+07:00`,
+      end_at: `${req.requested_date}T${req.requested_end_time || req.requested_start_time}:00+07:00`,
+      session_status: 'SCHEDULED',
+      booking_status: 'CONFIRMED',
+      customer_name: req.customer_name,
+      customer_phone: req.customer_phone,
+    };
+    setSelectedRescheduleSession(sessionDetail);
+    setIsRescheduleDrawerOpen(true);
+  };
+
   const statusCounts = useMemo(() => {
     let newReq = 0;
     let waitingDeposit = 0;
@@ -635,6 +673,7 @@ export default function ArtistRequestsPage() {
             { id: 'NEW', label: `รอตรวจสอบ (${statusCounts.new})` },
             { id: 'WAITING_DEPOSIT', label: `รอมัดจำ (${statusCounts.waitingDeposit})` },
             { id: 'PENDING_SLIP', label: `สลิปรอตรวจ (${statusCounts.pendingSlip})` },
+            { id: 'RESCHEDULE', label: `ขอเลื่อนนัด (${reschedulePendingCount})` },
             { id: 'REJECTED', label: `ปฏิเสธ (${statusCounts.rejected})` },
             { id: 'CANCELLED_CUSTOMER', label: `ยกเลิก (${statusCounts.cancelledCustomer})` },
             { id: 'EXPIRED', label: `หมดอายุ (${statusCounts.expired})` },
@@ -662,6 +701,171 @@ export default function ArtistRequestsPage() {
           <div className="p-8 text-center text-studio-secondary bg-studio-card border border-studio-border rounded-xl animate-pulse">
             กำลังโหลดรายการคำขอ...
           </div>
+        ) : requestFilter === 'RESCHEDULE' ? (
+          artistRescheduleRequests.length === 0 ? (
+            <div className="p-6 sm:p-8 text-center bg-studio-card/40 border border-dashed border-studio-border rounded-xl space-y-1.5 font-prompt">
+              <div className="w-10 h-10 rounded-full bg-studio-sec mx-auto flex items-center justify-center text-studio-muted">
+                <CalendarClock size={18} className="text-amber-400" />
+              </div>
+              <p className="text-sm font-medium text-studio-primary">ไม่มีคำขอเลื่อนนัดหมาย</p>
+              <p className="text-xs text-[#ECE4D3]">
+                เมื่อมีลูกค้าส่งคำขอเลื่อนวันหรือเวลานัดสำหรับคิวงานของคุณ รายการจะแสดงที่นี่เพื่อรอพิจารณา
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-4 font-prompt">
+              <div className="hidden md:block overflow-x-auto rounded-xl border border-studio-border bg-studio-card shadow-md">
+                <table className="w-full text-left text-xs text-studio-primary">
+                  <thead className="bg-studio-sec/80 text-[#ECE4D3] uppercase text-[10px] tracking-wider border-b border-studio-border">
+                    <tr>
+                      <th className="py-3 px-4 font-semibold">รหัส / ลูกค้า</th>
+                      <th className="py-3 px-4 font-semibold">ยื่นคำขอเมื่อ</th>
+                      <th className="py-3 px-4 font-semibold">วัน/เวลาเดิม</th>
+                      <th className="py-3 px-4 font-semibold">วัน/เวลาใหม่ที่ขอ</th>
+                      <th className="py-3 px-4 font-semibold">เหตุผล</th>
+                      <th className="py-3 px-4 font-semibold text-center">สถานะ</th>
+                      <th className="py-3 px-4 font-semibold text-center">การจัดการ</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-studio-border/50">
+                    {artistRescheduleRequests.map((req) => (
+                      <tr key={req.id} className="hover:bg-studio-sec/40 transition-colors">
+                        <td className="py-3 px-4">
+                          <span className="text-[10px] text-[#7A7265] font-mono font-semibold block">
+                            #{req.id.slice(0, 8).toUpperCase()}
+                          </span>
+                          <div className="font-semibold text-studio-primary mt-0.5">{req.customer_name || 'ลูกค้า'}</div>
+                          {req.customer_phone && (
+                            <div className="text-[11px] text-studio-muted font-mono">{req.customer_phone}</div>
+                          )}
+                        </td>
+                        <td className="py-3 px-4 font-mono">
+                          <div className="text-studio-primary">{formatDateBangkok(req.created_at)}</div>
+                          <div className="text-[11px] text-studio-muted">{formatTimeBangkok(req.created_at)} น.</div>
+                        </td>
+                        <td className="py-3 px-4">
+                          <div className="font-medium text-studio-primary">{formatDateBangkok(req.original_date)}</div>
+                          <div className="text-[11px] text-studio-muted font-mono">{req.original_start_time} น.</div>
+                        </td>
+                        <td className="py-3 px-4">
+                          <div className="font-bold text-amber-300">{formatDateBangkok(req.requested_date)}</div>
+                          <div className="text-[11px] text-amber-200/80 font-mono font-semibold">{req.requested_start_time} น.</div>
+                        </td>
+                        <td className="py-3 px-4 max-w-[220px]">
+                          <p className="text-[11px] text-[#ECE4D3] bg-studio-sec/60 px-2 py-1 rounded border border-studio-border/40 truncate" title={req.reason}>
+                            {req.reason}
+                          </p>
+                        </td>
+                        <td className="py-3 px-4 text-center">
+                          {req.status === 'PENDING' ? (
+                            <span className="bg-amber-500/15 text-amber-300 border border-amber-400/40 px-2 py-0.5 rounded text-[10px] font-semibold inline-flex items-center gap-1">
+                              <Clock size={11} className="animate-pulse" />
+                              รอพิจารณา
+                            </span>
+                          ) : req.status === 'APPROVED' ? (
+                            <span className="bg-emerald-500/15 text-emerald-300 border border-emerald-400/40 px-2 py-0.5 rounded text-[10px] font-semibold">
+                              อนุมัติแล้ว
+                            </span>
+                          ) : req.status === 'REJECTED' ? (
+                            <span className="bg-red-500/15 text-red-300 border border-red-400/40 px-2 py-0.5 rounded text-[10px] font-semibold">
+                              ปฏิเสธแล้ว
+                            </span>
+                          ) : (
+                            <span className="bg-zinc-800 text-zinc-400 border border-zinc-700 px-2 py-0.5 rounded text-[10px] font-semibold">
+                              ยกเลิกแล้ว
+                            </span>
+                          )}
+                        </td>
+                        <td className="py-3 px-4 text-center">
+                          <button
+                            type="button"
+                            onClick={() => handleOpenRescheduleReview(req)}
+                            className="px-3 py-1.5 bg-studio-sec hover:bg-studio-border text-studio-primary border border-studio-border text-xs font-semibold rounded-lg transition-colors inline-flex items-center space-x-1 cursor-pointer shadow-xs"
+                          >
+                            <Eye size={13} />
+                            <span>พิจารณา</span>
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="grid grid-cols-1 gap-3.5 md:hidden">
+                {artistRescheduleRequests.map((req) => (
+                  <div
+                    key={req.id}
+                    onClick={() => handleOpenRescheduleReview(req)}
+                    className="bg-studio-card border border-studio-border rounded-xl p-4 space-y-3 cursor-pointer hover:border-amber-500/40 transition-colors shadow-xs"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-[10px] text-[#7A7265] font-mono font-semibold">
+                        #{req.id.slice(0, 8).toUpperCase()}
+                      </span>
+                      {req.status === 'PENDING' ? (
+                        <span className="bg-amber-500/15 text-amber-300 border border-amber-400/40 px-2 py-0.5 rounded text-[10px] font-semibold inline-flex items-center gap-1">
+                          <Clock size={10} className="animate-pulse" />
+                          รอพิจารณา
+                        </span>
+                      ) : req.status === 'APPROVED' ? (
+                        <span className="bg-emerald-500/15 text-emerald-300 border border-emerald-400/40 px-2 py-0.5 rounded text-[10px] font-semibold">
+                          อนุมัติแล้ว
+                        </span>
+                      ) : req.status === 'REJECTED' ? (
+                        <span className="bg-red-500/15 text-red-300 border border-red-400/40 px-2 py-0.5 rounded text-[10px] font-semibold">
+                          ปฏิเสธแล้ว
+                        </span>
+                      ) : (
+                        <span className="bg-zinc-800 text-zinc-400 border border-zinc-700 px-2 py-0.5 rounded text-[10px] font-semibold">
+                          ยกเลิกแล้ว
+                        </span>
+                      )}
+                    </div>
+
+                    <div>
+                      <div className="font-semibold text-sm text-studio-primary">{req.customer_name || 'ลูกค้า'}</div>
+                      {req.customer_phone && (
+                        <div className="text-[11px] text-studio-muted font-mono">{req.customer_phone}</div>
+                      )}
+                    </div>
+
+                    <div className="bg-studio-sec/80 rounded-lg p-3 border border-studio-border/60 space-y-2 text-xs">
+                      <div className="flex justify-between items-center text-[11px]">
+                        <span className="text-[#ECE4D3]">วัน/เวลาเดิม:</span>
+                        <span className="text-[#ECE4D3] font-medium">{formatDateBangkok(req.original_date)} · {req.original_start_time} น.</span>
+                      </div>
+                      <div className="flex justify-between items-center text-[11px]">
+                        <span className="text-amber-400 font-semibold">วัน/เวลาใหม่ที่ขอ:</span>
+                        <span className="text-amber-300 font-bold">{formatDateBangkok(req.requested_date)} · {req.requested_start_time} น.</span>
+                      </div>
+                      <div className="pt-1.5 border-t border-studio-border/50 text-[11px]">
+                        <span className="text-[#ECE4D3] block mb-0.5">เหตุผล:</span>
+                        <p className="text-[#ECE4D3] bg-studio-card/70 p-2 rounded border border-studio-border/40 italic whitespace-pre-wrap">{req.reason}</p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between pt-1">
+                      <span className="text-[10px] text-studio-muted font-mono">
+                        {formatDateBangkok(req.created_at)}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleOpenRescheduleReview(req);
+                        }}
+                        className="px-3.5 py-1.5 bg-studio-sec hover:bg-studio-border text-studio-primary border border-studio-border text-xs font-semibold rounded-lg transition-colors inline-flex items-center space-x-1 cursor-pointer"
+                      >
+                        <Eye size={13} />
+                        <span>พิจารณา</span>
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )
         ) : (
           (() => {
             const showPendingSlips = requestFilter === 'ALL' || requestFilter === 'PENDING_SLIP';
@@ -1193,6 +1397,17 @@ export default function ArtistRequestsPage() {
         isOpen={Boolean(activeLightboxSlipPath)}
         src={activeLightboxSlipPath}
         onClose={() => setActiveLightboxSlipPath(null)}
+      />
+
+      {/* Artist Reschedule Review Drawer */}
+      <ArtistAppointmentDetailDrawer
+        session={selectedRescheduleSession}
+        isOpen={isRescheduleDrawerOpen}
+        onClose={() => {
+          setIsRescheduleDrawerOpen(false);
+          setSelectedRescheduleSession(null);
+        }}
+        onRefresh={() => fetchArtistRequests()}
       />
     </div>
   );

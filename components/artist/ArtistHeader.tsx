@@ -211,9 +211,9 @@ export default function ArtistHeader() {
                       <Icon size={16} className={isActive ? 'text-studio-red-bright' : 'text-[#A89F91]'} />
                       <span>{item.label}</span>
                     </div>
-                    {item.href === '/artist/requests' && totalNotificationCount > 0 ? (
+                    {item.href === '/artist/requests' && (newRequestCount + newRescheduleRequestCount) > 0 ? (
                       <span className="bg-[#C12D2D] text-[#ECE4D3] text-[10px] font-bold px-1.5 py-0.2 rounded-full">
-                        {totalNotificationCount}
+                        {newRequestCount + newRescheduleRequestCount}
                       </span>
                     ) : isActive ? (
                       <span className="w-1.5 h-1.5 rounded-full bg-studio-red-bright shadow-sm" />
